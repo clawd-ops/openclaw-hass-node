@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (P3.2.1 merged; P3.2.2 next)
+**P3 — Filesystem + shell surface** (P3.2.2 merged; P3.2.3 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -18,6 +18,11 @@ v1 REQUEST-CHANGES (7 findings), v2 APPROVE (all 8 items resolved). Fixes:
 parent-dir fsync for crash-durability, datetime-based `at=` comparison,
 ValueError/TypeError catch in `from_json`, cap raised 200→250, docs for
 concurrency model, orphan behavior, and case-sensitive FS assumption.
+P3.2.2 merged on 2026-06-06 (`bd9ab2a`, PR #5) after Codex cross-review:
+v1 REQUEST-CHANGES (2 HIGH + 1 MEDIUM), v2 APPROVE. Fixes: protected-root
+gate is now unconditional (agent_bridge=False cannot bypass), post-resolution
+symlink/traversal check added, _coerce() treats 64-char hex as sha256 before
+int() coercion. 224 tests, 97.29% branch coverage.
 
 ## Last completed
 
@@ -51,8 +56,7 @@ concurrency model, orphan behavior, and case-sensitive FS assumption.
 
 ## Current task
 
-P3.2.2 — dispatcher wiring: `fs.write`, `fs.restore`, `fs.history`, `fs.diff`
-backed by `backup_store.BackupStore`; agent-bridge proposal flow integration.
+P3.2.3 — `fs.move`, `fs.delete` using trash-cli for recoverable deletes.
 
 ## Codex review status
 
