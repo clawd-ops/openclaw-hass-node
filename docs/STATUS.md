@@ -4,9 +4,65 @@
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
 > `STATUS.md` disagree, fix whichever is wrong before continuing.
 
+## Where we are (2026-06-06)
+
+**Install-ready surface:**
+
+- Node command surface complete: `fs.*`, `system.*`, and 13 `ha.*`
+  commands.
+- HACS shim wired: `custom_components/openclaw_gateway/` exposes a
+  `ConversationEntity` that POSTs to the node's `/v1/conversation`.
+- Gateway WS client: Ed25519 handshake, pairing, reconnect loop, event
+  loop, `node.invoke` dispatcher. Connects as `role: node` to any
+  OpenClaw Gateway Protocol endpoint.
+- 424 tests, 97.37% branch coverage, all 6 CI gates green.
+
+**The hole:** `assist_turn` (the `/v1/conversation` handler) is a
+placeholder. It reports pairing/connection state but does not yet
+relay turns into an agent session. That's P5.12.
+
+**Architecture for P5.12 (decided 2026-06-06):** the node calls
+`chat.send` over its existing gateway WS connection to inject the
+Assist turn into an agent session, and subscribes via
+`sessions.messages.subscribe` to receive the reply. The session is
+keyed by HA's `conversation_id` for multi-turn threading. The agent
+(Clawd) uses `ha.*` tools via the existing `node.invoke` path — no
+changes there. Full design + post-mortem of the wrong-direction
+approach in `docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
+
+**Next concrete steps (in order):**
+
+1. **P5.12 — ChatRelay** (~100 LOC node Python). Add `operator.read`
+   to the connect-frame scopes; build `ChatRelay` that owns one
+   `sessions.messages.subscribe` per active conversation_id, calls
+   `chat.send` for each turn, awaits reply with a 30s timeout.
+   Rewrite `assist_turn` to use it. Decide whether to open a fresh
+   session per conversation_id (simpler) or reuse one per HA instance
+   (cheaper). Best done with Rob present.
+2. **P6.2 — MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
+   against OpenClaw logs. Once it ever prints `RETIREMENT_READY`,
+   drop the `homeassistant` + `homeassistant-readonly` MCP server
+   entries from the gateway config in one PR and update agent
+   prompts.
+3. **P7 — publish.** Add-on repo metadata, HACS index entry, release
+   workflow.
+
+**What was wrong, kept here so future-me doesn't repeat it:**
+
+P5.2–P5.10 built a parallel Python WS gateway (`gateway/` workspace)
+with its own `Brain`, Anthropic + OpenAI providers, a fake
+`node.conversation.request` event type, an `InvokeDispatcher`, and an
+Ed25519 server-side handshake. **All of it was wrong** — Clawd is
+OpenClaw, the brain *is* me, and the existing gateway's `chat.*`
+surface already does this work. P5.11 deleted all of it
+(-4001 / +209 lines). See `docs/RESEARCH-OPENCLAW-INTEGRATION.md`
+for the post-mortem. Upstream OpenClaw doc gap that misled me is
+recorded in
+`workspace/runtime-audits/2026-06-06-openclaw-node-conversation-relay-doc-gap.md`.
+
 ## Current phase
 
-**P6 — Retire MCP servers** (inventory complete in `docs/RESEARCH-MIGRATION.md`; P6.1 = validation harness)
+**P5 — Assist agent** (P5.12 ChatRelay = next code work; node + shim install-ready; P6.2 cutover waits on validation harness streak).
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review

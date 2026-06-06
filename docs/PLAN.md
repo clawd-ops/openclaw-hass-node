@@ -182,37 +182,53 @@ or fix.
 
 ### 3. Assist conversation agent
 
-**Decision (P1.1, 2026-06-05): Plan B.** HA's conversation agent
-registration is in-process Python only — `async_set_agent` and
-`ConversationEntity` both require a live `HomeAssistant` + `ConfigEntry`
-in the HA process. No WS, REST, or Supervisor surface exposes
-registration. All precedent (openai_conversation, anthropic, ollama,
-extended_openai_conversation, etc.) ships as `custom_components/`.
-Full research in `docs/RESEARCH-CONVERSATION-AGENT.md`.
+**Architecture (corrected 2026-06-06):** the HA node is a **standard
+OpenClaw node** that relays Assist turns into an OpenClaw agent session
+using the *existing* gateway chat surface. There is no parallel brain,
+no custom event types, no plugin code. Clawd (the agent) is the brain.
 
-- The add-on remains the workhorse: pairing, HA client, fs/system,
-  proposal handling, and a local HTTP/WS endpoint for forwarded turns.
-- Ship a thin `custom_components/openclaw_gateway/` (~150 LOC):
-  - `manifest.json`
-  - Config flow capturing the add-on's local socket (e.g.
-    `http://a0d7b954-openclaw-gateway:8099`)
-  - One `ConversationEntity` subclass whose `async_process` proxies
-    turns over HTTP/WS to the add-on, streams tokens back via
-    `chat_log`.
-- Distribution: HACS-installable via the same repo
-  (`hacs.json` + `custom_components/openclaw_gateway/`), and bundle
-  install instructions referencing the add-on slug for socket
-  discovery. Future: an add-on first-run hook can write a
-  per-instance pairing token the shim reads via `/api/services`.
+End-to-end flow:
 
-**Decision (P5 routing, 2026-06-06):** Assist is brain-with-subagents,
-modelled on OpenClaw. The user-facing turn handler ("brain") runs in the
-**gateway** and uses **Opus or GPT-5.5**. Subagents the brain spawns for
-work are **not pinned** to any model — the brain picks per task and
-prefers the smallest model that works. The node carries no
-model-selection logic and adds no orchestration; it just forwards the
-turn and services `ha.*` invocations the brain makes mid-turn. Full
-context in `docs/RESEARCH-CONVERSATION-AGENT.md` § "Routing model".
+```
+HA Assist → ConversationEntity shim → node /v1/conversation
+         → node calls `chat.send` on its existing gateway WS
+         → OpenClaw routes the message to the configured agent (Clawd)
+         → agent calls ha.* tools via node.invoke (already wired in P4)
+         → agent reply arrives on the session
+         → node receives it via sessions.messages.subscribe
+         → /v1/conversation returns the reply text
+         → shim surfaces it as Assist speech
+```
+
+Three pieces, only one of which is bespoke:
+
+1. **HACS shim** (`custom_components/openclaw_gateway/`, ~150 LOC).
+   `ConversationEntity` subclass whose `async_process` POSTs to the
+   add-on's local HTTP endpoint. Distributed via HACS. Required by HA
+   core because conversation-agent registration is in-process Python
+   only (see `docs/RESEARCH-CONVERSATION-AGENT.md`).
+2. **Node** (this repo). Already paired with the gateway. Adds a
+   `ChatRelay` (P5.12 work) that owns `chat.send` calls plus a
+   subscription via `sessions.messages.subscribe`, keyed by HA's
+   `conversation_id` so multi-turn threads correctly.
+3. **OpenClaw** (no changes). The relay uses primitives the Gateway
+   Protocol already ships: `chat.send`, `sessions.messages.subscribe`,
+   `node.invoke`. Pair the node, approve it, point an agent at the
+   session, done.
+
+**Why this is right (and the earlier "build a brain" path was wrong):**
+the OpenClaw gateway already owns model routing, agent orchestration,
+tool dispatch, and conversation state. A node that originates a turn
+just needs the chat scope on its connect frame and the two RPC calls
+above. Earlier iterations built a parallel Python gateway with its own
+brain, providers, and invented `node.conversation.*` events; all of
+that was deleted in P5.11 (see `docs/RESEARCH-OPENCLAW-INTEGRATION.md`
+for the post-mortem and the P5.12 implementation plan).
+
+**Routing model (2026-06-06):** the agent the node routes turns to is
+on a premium tier (Opus 4.7 or GPT-5.5). Subagents the agent spawns
+for work are unpinned — picked per task by whichever cheaper model
+fits. The node carries no model knowledge.
 
 ## Mutation control (agent-bridge gated)
 
@@ -307,14 +323,27 @@ remove a build chain).
 
 ## Phases
 
-- **P0 — Plan** *(this doc; in progress)*
-- **P1 — Research** — answer the 4 open questions, especially
-  conversation agent registration.
-- **P2 — Skeleton** — `addon/` Dockerfile + `config.yaml`, `node/`
-  entrypoint that pairs with the gateway and answers `ping`.
-- **P3 — Filesystem + shell surface** — read paths first, then
-  proposal-gated writes.
-- **P4 — HA control surface** — port the MCP server commands.
-- **P5 — Assist agent** — Plan A or Plan B based on P1 outcome.
-- **P6 — Retire MCP servers** for this HA after validation window.
-- **P7 — Publish add-on repo** + docs.
+Live state in `STATUS.md`. Checkmarks here are an at-a-glance summary.
+
+- ✅ **P0 — Plan** (this doc).
+- ✅ **P1 — Research** — 4 open questions resolved.
+- ✅ **P2 — Skeleton** — `addon/` Dockerfile + `config.yaml`, node
+  entrypoint that pairs and answers `ping`.
+- ✅ **P3 — Filesystem + shell** — `fs.*` read + proposal-gated writes,
+  `system.run`, `system.which`. Content-addressed backup store.
+- ✅ **P4 — HA control surface** — 13 `ha.*` commands covering MCP
+  parity (P4.1–P4.4) plus `list_automations` + `check_config` (P4.5).
+- ◑ **P5 — Assist agent**.
+  - ✅ P5.1 — HACS shim error handling
+  - ✅ P5.2-P5.8 — built and deleted a parallel brain (see P5.11)
+  - ✅ P5.9 — multi-provider brain (deleted in P5.11)
+  - ✅ P5.10 — research doc only; superseded
+  - ✅ P5.11 — cleanup: delete wrong-direction code, document the
+    node-as-conversation-relay architecture
+  - ⏭ **P5.12 — ChatRelay implementation** (next in-repo work).
+    `chat.send` + `sessions.messages.subscribe` on the existing
+    gateway WS, keyed by HA `conversation_id`. ~100 LOC of node Python.
+- ◑ **P6 — Retire MCP servers** for this HA after the validation
+  window. P6.1 (validation harness) shipped; cron it. P6.2 (cutover
+  PR) fires only when the harness ever prints `RETIREMENT_READY`.
+- ⏭ **P7 — Publish add-on repo** + docs.

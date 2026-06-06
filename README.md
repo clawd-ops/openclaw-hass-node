@@ -1,8 +1,9 @@
 # openclaw-hass-node
 
-Three-piece Home Assistant integration that gives a Claude-powered brain
-direct access to HA: filesystem + shell, HA control surface, and a
-conversation entity that turns Assist questions into agentic answers.
+Home Assistant integration that connects HA to an OpenClaw gateway as a
+node: filesystem + shell on the HA host, the full `ha.*` control
+surface, and an Assist conversation entity that routes Assist turns to
+whichever agent OpenClaw has configured for the session (Clawd).
 
 ```
 HA Assist UI
@@ -11,77 +12,87 @@ HA Assist UI
 custom_components/openclaw_gateway/   ← HACS shim (ConversationEntity)
     │ POST /v1/conversation
     ▼
-node/                                  ← OpenClaw node (add-on)
-    │ node.conversation.request  (WS, Ed25519-authed)
+node/  (OpenClaw add-on)
+    │ chat.send + sessions.messages.subscribe
     ▼
-gateway/                               ← OpenClaw gateway brain
-    │ Claude Opus 4.7 + ha.* tools
-    │ ↕ node.invoke.request / result   (ha.list_states, ha.light_turn_on, …)
+OpenClaw gateway (existing)
+    │ routes the message to the configured agent
     ▼
-response → node.conversation.result → speech
+Agent uses ha.* tools via node.invoke ↔ node command surface
+    ▼
+Reply on the session → node subscription → /v1/conversation → HA Assist speech
 ```
+
+No bespoke gateway server, no parallel brain. The node is a standard
+OpenClaw node speaking the existing Gateway Protocol.
 
 ## Status
 
-Phase **P5 — Assist agent** complete; trial-mode E2E Assist runs end-to-end.
-
-See `docs/STATUS.md` for the live state and `docs/PLAN.md` for the full
-architecture.
+Node + shim install-ready. **P5.12** (the small Python class that
+calls `chat.send` and listens for replies) is the only piece between
+the current placeholder behaviour and full E2E Assist. See
+`docs/STATUS.md`.
 
 ## Repo layout
 
-- **`node/`** — the OpenClaw node. Pairs with the gateway, runs the
-  add-on, exposes the `fs.*`, `system.*`, and `ha.*` command surface.
-  Local HTTP API on port 8099 services Assist turns and health checks.
-- **OpenClaw gateway** is the brain. The node connects to it as a
-  standard OpenClaw node (Gateway Protocol, `role: "node"`) and uses
-  the existing chat surface (`chat.send` + `sessions.messages.subscribe`)
-  to relay HA Assist turns into an agent session. See
-  `docs/RESEARCH-OPENCLAW-INTEGRATION.md` for the architecture and
-  P5.11 implementation plan.
-- **`custom_components/openclaw_gateway/`** — the HACS shim. A
-  ~150 LOC `ConversationEntity` that forwards Assist turns to the
-  node's local HTTP API.
+- **`node/`** — Python add-on. Pairs with the gateway via the
+  Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (13 tools)
+  through `node.invoke`, and runs a local HTTP API on port 8099 for
+  health checks + Assist turn relay.
+- **`custom_components/openclaw_gateway/`** — HACS shim. ~150 LOC
+  `ConversationEntity` that POSTs Assist turns to the node's
+  `/v1/conversation`. Required because HA's conversation-agent
+  registration is in-process Python only.
 - **`addon/`** — Home Assistant add-on packaging (Dockerfile + config).
-- **`docs/`** — durable plan, status, command surface, decisions.
+- **`docs/`** — durable plan, status, command surface, decisions, and
+  the architecture post-mortem in `RESEARCH-OPENCLAW-INTEGRATION.md`.
 
-## Install the shim
+## Install
 
-Once the node add-on is running, install the HACS shim from this repo,
-configure the add-on's local socket URL in the shim's config flow, then
-pick **OpenClaw Gateway** as the conversation agent in HA's voice settings.
+1. Install the **add-on** from this repo's add-on repo URL. Start it.
+2. Approve the node on the gateway: `openclaw devices approve <id>`.
+3. Install the **HACS shim** from this repo, point its config flow at
+   the add-on's local socket URL.
+4. In HA → Settings → Voice → pick **OpenClaw Gateway** as the
+   conversation agent.
 
 ## Architecture decisions
 
-Captured in `docs/PLAN.md` and `docs/RESEARCH-CONVERSATION-AGENT.md`:
+Full detail in `docs/PLAN.md`. Headline rules:
 
-- HA exposes no out-of-process conversation-agent registration hook;
-  Plan B (HACS shim) is the only path. See § RESEARCH-CONVERSATION-AGENT.
-- Brain runs in the gateway on **Opus 4.7 or GPT-5.5**. Subagents the
-  brain spawns are unpinned and pick whichever cheaper model fits per
-  task. The node carries no model knowledge.
-- Every `/config` mutation goes through agent-bridge proposals; reads
-  and shell are direct.
-- One node per HA instance.
+- **Conversation registration**: HA exposes no out-of-process hook, so
+  the HACS shim is required (Plan B in
+  `docs/RESEARCH-CONVERSATION-AGENT.md`).
+- **Node as conversation relay**: the node calls `chat.send` /
+  `sessions.messages.subscribe` over its existing gateway WS connection
+  to relay HA Assist turns. No parallel gateway, no new protocol
+  primitives. See `docs/RESEARCH-OPENCLAW-INTEGRATION.md` (and the
+  post-mortem section for why earlier iterations got this wrong).
+- **`/config` is proposal-gated** through agent-bridge. Reads and shell
+  are direct.
+- **One node per HA instance.**
+- **Brain is the OpenClaw-configured agent** (Opus 4.7 or GPT-5.5);
+  subagents it spawns are unpinned and prefer cheaper models. The node
+  carries zero model knowledge.
 
 ## Source of truth across compactions
 
-The docs in `docs/` are durable. When resuming work after a context
-compaction, **start by reading `docs/PLAN.md` and `docs/STATUS.md`**;
-those two files describe the goal, architecture, what's done, what's
-next, and open questions. Update `STATUS.md` whenever a milestone moves.
+`docs/PLAN.md` and `docs/STATUS.md` are durable. When resuming after a
+context compaction, **read those two first**. They describe the goal,
+architecture, what's done, what's next, and open questions. Update
+`STATUS.md` whenever a milestone moves.
 
 ## Development
 
-`uv sync --all-extras` installs both workspace members.
+`uv sync --all-extras` installs the workspace.
 
-CI gates (all six, see `.github/workflows/ci.yaml`):
+CI gates (six, see `.github/workflows/ci.yaml`):
 
-- `uv run ruff check node/src node/tests gateway/src gateway/tests`
-- `uv run ruff format --check …`
-- `uv run mypy --strict …`
-- `uv run pytest node/tests/ gateway/tests/` (≥ 95% branch coverage)
-- `uv run bandit -ll -r node/src gateway/src`
+- `uv run ruff check node/src node/tests`
+- `uv run ruff format --check node/src node/tests`
+- `uv run mypy --strict node/src node/tests`
+- `uv run pytest node/tests/` (≥ 95% branch coverage)
+- `uv run bandit -ll -r node/src`
 - `uv run pip-audit`
 
 ## Rules
