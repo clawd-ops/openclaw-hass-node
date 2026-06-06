@@ -14,7 +14,8 @@ OpenClaw conventions where they exist.
 | `fs.write`    | `path`, `content`, `mode?`          | **Proposal-gated** under protected roots |
 | `fs.patch`    | `path`, `patch` (unified diff)      | **Proposal-gated** under protected roots |
 | `fs.move`     | `src`, `dst`                        | **Proposal-gated** under protected roots |
-| `fs.delete`   | `path`                              | **Proposal-gated** under protected roots |
+| `fs.delete`   | `path`                              | **Proposal-gated** under protected roots; uses `trash-cli`, never `rm` |
+| `fs.restore`  | `trash_id?` or `path?`              | Restore from trash                     |
 
 Protected roots: `/config`, `/addons`, `/ssl`. Writes there always
 generate an agent-bridge `propose_edit` and wait for `resolve_proposal`.
@@ -42,6 +43,34 @@ generate an agent-bridge `propose_edit` and wait for `resolve_proposal`.
 | `ha.reload_config`       | core.check_config + reload domain      |
 | `ha.logbook`             | entity, start, end                     |
 | `ha.history`             | entity, start, end                     |
+
+## `ha.config.*` — domain config editing
+
+Detects YAML vs UI storage mode per domain and routes to the right
+path. See `HA-CONFIG-EDITING.md` for the per-domain breakdown.
+
+| Command                              | Notes                                           |
+|--------------------------------------|-------------------------------------------------|
+| `ha.config.automations.list`         |                                                 |
+| `ha.config.automations.get`          | id                                              |
+| `ha.config.automations.set`          | id, config — proposal-gated                     |
+| `ha.config.automations.delete`       | id — proposal-gated                             |
+| `ha.config.scripts.*`                | same shape as automations                       |
+| `ha.config.scenes.*`                 | same shape                                      |
+| `ha.config.lovelace.get`             | dashboard?                                      |
+| `ha.config.lovelace.set`             | dashboard?, config — proposal-gated             |
+| `ha.config.blueprints.list`          | by domain                                       |
+| `ha.config.blueprints.get`           | path                                            |
+| `ha.config.blueprints.set`           | path, content — proposal-gated                  |
+| `ha.check_config`                    | call before any reload                          |
+
+## `docs.*` — versioned HA docs lookup
+
+| Command           | Args                              | Notes                                  |
+|-------------------|-----------------------------------|----------------------------------------|
+| `docs.lookup`     | `topic`, `version?`               | Defaults to running core version       |
+| `docs.search`     | `query`, `version?`               | Local-cache backed search              |
+| `docs.versions`   | —                                 | Available cached versions              |
 
 ## `ha.supervisor.*` — Supervisor API (add-on mode only)
 

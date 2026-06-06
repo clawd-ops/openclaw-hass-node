@@ -68,9 +68,26 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`,
   `fs.patch`) are **proposal-gated** — they accept the args but emit an
   agent-bridge `propose_edit` and wait for resolve.
+- `fs.delete` uses `trash-cli`, never `rm`. New `fs.restore` command
+  recovers from trash. No sidecar `.bak` files anywhere.
 - `system.run` requires `operator.admin` scope on pairing approval.
 - Supervisor API exposed via `ha.supervisor.*` commands wrapping
   `http://supervisor/...` with `SUPERVISOR_TOKEN`.
+
+### 1b. Snapshot / undo model
+
+Two layers, no clutter:
+
+- **Per-change (git)**: `/config` is a git repo. Each applied proposal
+  is one commit, message references the agent-bridge proposal id.
+  Per-file undo via `git revert`. HA-managed noisy paths
+  (`.storage/auth*`, `home-assistant_v2.db`, `*.log`) live in
+  `.gitignore`.
+- **Coarse (Supervisor snapshots)**: before any multi-file proposal or
+  any `system.run` that touches `/config`, node calls
+  `ha.supervisor.snapshots.partial({folders: ["homeassistant"]})`
+  tagged `pre-clawd-<timestamp>-<proposal-id>`. Restored via Supervisor
+  UI/API.
 
 ### 2. HA control
 
@@ -84,6 +101,38 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   `HASS_TOKEN` env (standalone).
 - Once stable, the existing `homeassistant` + `homeassistant-readonly`
   MCP servers in this gateway config are removed for this HA.
+
+### 2b. Config editing — automations / scripts / scenes / dashboards / blueprints
+
+Split by storage mode, never touch `.storage/` JSON directly. Each
+domain has a `ha.config.<domain>.*` surface that detects mode and
+routes:
+
+- **YAML mode** (`/config/automations.yaml`, `scripts.yaml`,
+  `scenes.yaml`, `ui-lovelace.yaml`, `/config/blueprints/...`):
+  proposal-gated `fs.patch`, then `ha.check_config`, then
+  `homeassistant.reload_<domain>` to hot-pick-up without restart.
+- **UI mode** (`.storage/automation`, `.storage/script`,
+  `.storage/scene`, `.storage/lovelace*`, `.storage/core.*`): use HA
+  REST/WS config endpoints (`/api/config/<domain>/config/<id>`,
+  `/api/lovelace/...`). Never write to `.storage/` files directly —
+  HA owns them and direct edits risk corruption.
+- Blueprints always live in `/config/blueprints/` regardless of UI
+  vs YAML mode for the automation that consumes them.
+
+See `docs/HA-CONFIG-EDITING.md` for per-domain detail.
+
+### 2c. Always rooted in installed HA version
+
+- Node detects HA core version on connect (Supervisor `/info` or
+  `/api/config`), emits it as pairing metadata so gateway model
+  always knows the live version.
+- New `docs.lookup(topic, version=current)` command that fetches from
+  the `home-assistant/home-assistant.io` repo at the tag matching the
+  running core version, with local cache.
+- Gateway-side rule for the model: must call `docs.lookup` for the
+  relevant domain before suggesting any config change. Lives in the
+  HASS-node-specific system prompt.
 
 ### 3. Assist conversation agent
 
@@ -134,6 +183,17 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   can add the URL in HA → Add-on Store → Repositories.
 
 See `PACKAGING.md` for the full layout.
+
+## Cross-validated code changes (build process)
+
+Every code change to this repo follows:
+
+1. Claude Code subagent generates the change, opens a PR.
+2. A Codex (OpenAI, pi runtime) subagent is spawned with a review-only
+   prompt against the diff; posts inline comments + verdict.
+3. Merge only if Codex returns no blocking issues, or Claude addresses
+   them in a follow-up commit that Codex re-reviews.
+4. Process and prompts live in `docs/PROCESS.md`.
 
 ## Open questions
 
