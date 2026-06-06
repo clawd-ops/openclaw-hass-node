@@ -227,6 +227,8 @@ def open_safe_fd(path: str, roots: tuple[Path, ...], *, dir_fd_only: bool = Fals
         OutOfBoundsError: If *path* escapes roots or uses symlinks.
         OSError: For normal filesystem errors such as missing paths.
     """
+    if "\x00" in path:
+        raise OutOfBoundsError(path)
     root, rel_parts = _relative_to_root(path, roots)
     root_fd = _open_root(root)
     flags = _final_flags(dir_fd_only=dir_fd_only)

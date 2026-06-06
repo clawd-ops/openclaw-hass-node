@@ -21,6 +21,13 @@ def test_open_safe_fd_rejects_relative_path(tmp_path: Path) -> None:
         open_safe_fd("relative", (tmp_path,))
 
 
+def test_open_safe_fd_rejects_embedded_nul(tmp_path: Path) -> None:
+    secret = tmp_path / "secret"
+    secret.write_text("nope", encoding="utf-8")
+    with pytest.raises(OutOfBoundsError):
+        open_safe_fd(f"{secret}\x00/suffix", (tmp_path,))
+
+
 def test_open_safe_fd_reads_regular_file(tmp_path: Path) -> None:
     file_path = tmp_path / "x.txt"
     file_path.write_text("hello", encoding="utf-8")

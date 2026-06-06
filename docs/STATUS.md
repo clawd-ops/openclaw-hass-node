@@ -91,8 +91,11 @@ PR #3 cross-review returned BLOCK with 10 findings. Fix mapping:
 
 ## Next step
 
-Open P3.1 PR (read-only fs commands) once implemented; run Codex
-cross-review per `PROCESS.md` after OAuth re-auth.
+P3.1 PR #3 open and addressing Codex cross-review findings (re-review #2
+pending). Codex cross-review is running via the CLI fallback documented in
+`docs/PROCESS.md` while OpenClaw's openai/* routing is regressed. Once
+re-review returns LGTM, merge P3.1 and move to P3.2 (proposal-gated
+writes + `system.run`).
 
 ## Completed P1 research
 
