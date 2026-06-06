@@ -10,7 +10,14 @@ import logging
 from collections.abc import Callable
 from typing import Any, Final
 
+from openclaw_node.commands.fs import (
+    handle_fs_glob,
+    handle_fs_list,
+    handle_fs_read,
+    handle_fs_stat,
+)
 from openclaw_node.commands.ping import handle_ping
+from openclaw_node.commands.system import handle_system_which
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -20,6 +27,11 @@ CommandHandler = Callable[[dict[str, Any]], dict[str, Any]]
 # Registry of command name → handler.
 _REGISTRY: dict[str, CommandHandler] = {
     "ping": handle_ping,
+    "fs.read": handle_fs_read,
+    "fs.list": handle_fs_list,
+    "fs.stat": handle_fs_stat,
+    "fs.glob": handle_fs_glob,
+    "system.which": handle_system_which,
 }
 
 
