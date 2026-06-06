@@ -1,37 +1,43 @@
 #!/usr/bin/env bash
 #
-# Validation harness for retiring the `homeassistant` / `homeassistant-readonly`
-# MCP servers from the OpenClaw gateway (per PLAN.md §3 / RESEARCH-MIGRATION.md).
+# Validation harness for retiring upstream `homeassistant` /
+# `homeassistant-readonly` MCP servers in favour of the node command surface.
+# See docs/RESEARCH-MIGRATION.md.
 #
-# Reads the gateway pod's logs over a window, counts any remaining
-# `mcp__homeassistant*` tool invocations, and prints a one-line readiness
-# verdict suitable for a cron heartbeat.
+# Source-agnostic: it does not know where logs come from. The caller pipes
+# log lines on stdin and the script reports whether any
+# `mcp__homeassistant{,-readonly}__*` invocations remain in the window.
 #
 # Usage:
-#   scripts/check-mcp-retirement-readiness.sh [--since 24h] [--pod openclaw-0]
-#                                              [--namespace ai] [--state-file PATH]
+#   <log-producer> | scripts/check-mcp-retirement-readiness.sh [--label LABEL] [--state-file PATH]
+#
+# Examples:
+#   # Local file
+#   cat /var/log/openclaw.log                       | scripts/check-mcp-retirement-readiness.sh
+#   # systemd unit
+#   journalctl -u openclaw --since=24h              | scripts/check-mcp-retirement-readiness.sh
+#   # Docker container
+#   docker logs --since 24h openclaw 2>&1           | scripts/check-mcp-retirement-readiness.sh
+#   # Kubernetes pod
+#   kubectl -n ai logs openclaw-0 --since=24h       | scripts/check-mcp-retirement-readiness.sh
 #
 # Exit code:
-#   0  – no calls in the window. If --state-file is given, the file is touched
-#        to mark the day clean; the script also reports the running clean-day
-#        streak. Once that streak hits 7, the verdict line prints "RETIREMENT_READY".
-#   1  – at least one `mcp__homeassistant*` call observed. The clean-day streak
-#        resets and the offending tool names are printed.
-#   2  – kubectl call failed (cluster unreachable, pod not found, etc.).
+#   0  – no calls in the input. If --state-file is given, the run is recorded
+#        and the clean-day streak is incremented. Once the streak hits 7 the
+#        verdict line prints `RETIREMENT_READY`.
+#   1  – at least one matching call observed; streak resets and offending tool
+#        names print on stderr.
+#   2  – invalid arguments.
 
 set -euo pipefail
 
-POD="openclaw-0"
-NAMESPACE="ai"
-SINCE="24h"
+LABEL="default"
 STATE_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --pod)         POD="$2"; shift 2 ;;
-        --namespace)   NAMESPACE="$2"; shift 2 ;;
-        --since)       SINCE="$2"; shift 2 ;;
-        --state-file)  STATE_FILE="$2"; shift 2 ;;
+        --label)      LABEL="$2"; shift 2 ;;
+        --state-file) STATE_FILE="$2"; shift 2 ;;
         -h|--help)
             sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//'
             exit 0 ;;
@@ -41,28 +47,18 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if ! command -v kubectl >/dev/null 2>&1; then
-    echo "MCP_READINESS error=kubectl_missing" >&2
-    exit 2
-fi
+# Read all log input from stdin. Empty input is a valid "no calls" signal.
+input="$(cat)"
 
-if ! logs="$(kubectl -n "$NAMESPACE" logs "$POD" --since="$SINCE" 2>&1)"; then
-    echo "MCP_READINESS error=kubectl_failed pod=$POD ns=$NAMESPACE since=$SINCE" >&2
-    echo "$logs" >&2
-    exit 2
-fi
-
-# Match the canonical MCP tool prefix the gateway logs when it forwards a
-# tool call. Adjust the regex if the gateway log format changes.
-matches="$(printf '%s\n' "$logs" | grep -oE 'mcp__homeassistant(-readonly)?__[a-zA-Z_]+' | sort -u || true)"
+matches="$(printf '%s\n' "$input" | grep -oE 'mcp__homeassistant(-readonly)?__[a-zA-Z_]+' | sort -u || true)"
 
 if [[ -n "$matches" ]]; then
     count="$(printf '%s\n' "$matches" | wc -l | tr -d ' ')"
     if [[ -n "$STATE_FILE" ]]; then
         printf '0' > "$STATE_FILE.streak"
     fi
-    echo "MCP_READINESS_NOT_READY since=$SINCE pod=$POD unique_tools=$count"
-    printf '  %s\n' $matches
+    echo "MCP_READINESS_NOT_READY label=$LABEL unique_tools=$count"
+    printf '  %s\n' $matches >&2
     exit 1
 fi
 
@@ -77,7 +73,7 @@ if [[ -n "$STATE_FILE" ]]; then
 fi
 
 if (( streak >= 7 )); then
-    echo "RETIREMENT_READY clean_streak=${streak}d since=$SINCE pod=$POD"
+    echo "RETIREMENT_READY label=$LABEL clean_streak=${streak}d"
 else
-    echo "MCP_READINESS_OK clean_streak=${streak}d since=$SINCE pod=$POD"
+    echo "MCP_READINESS_OK label=$LABEL clean_streak=${streak}d"
 fi
