@@ -170,7 +170,7 @@ def test_system_run_env_non_dict_rejected(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_system_run_env_non_string_value_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "tok")
-    result = handle_system_run(_params(env={"X": 42}, admin_token="tok"))  # type: ignore[arg-type]
+    result = handle_system_run(_params(env={"X": 42}, admin_token="tok"))
     assert result["error"] == "INVALID_PARAM"
 
 
@@ -244,9 +244,7 @@ def test_system_run_oserror_returns_exec_error(monkeypatch: pytest.MonkeyPatch) 
 
 def test_system_run_success_returns_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "tok")
-    proc = subprocess.CompletedProcess(
-        args=["echo"], returncode=0, stdout=b"hello\n", stderr=b""
-    )
+    proc = subprocess.CompletedProcess(args=["echo"], returncode=0, stdout=b"hello\n", stderr=b"")
     with mock_patch("subprocess.run", return_value=proc):
         result = handle_system_run(_params(cmd=["echo", "hello"], admin_token="tok"))
     assert result["ok"] is True
@@ -258,9 +256,7 @@ def test_system_run_success_returns_ok(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_system_run_nonzero_exit_still_ok(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "tok")
-    proc = subprocess.CompletedProcess(
-        args=["false"], returncode=1, stdout=b"", stderr=b"error\n"
-    )
+    proc = subprocess.CompletedProcess(args=["false"], returncode=1, stdout=b"", stderr=b"error\n")
     with mock_patch("subprocess.run", return_value=proc):
         result = handle_system_run(_params(admin_token="tok"))
     assert result["ok"] is True

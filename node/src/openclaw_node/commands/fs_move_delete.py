@@ -61,6 +61,7 @@ reset_store_for_testing = _reset_store_for_testing
 # Trash helpers
 # ---------------------------------------------------------------------------
 
+
 def _trash_dir() -> Path:
     """Return the fallback OpenClaw trash directory."""
     return Path(os.environ.get("OPENCLAW_TRASH_DIR", "/share/openclaw-trash"))
@@ -104,6 +105,7 @@ def _trash_file(path: Path) -> str:
 # Move helper (isolated so tests can patch without hitting the backup store)
 # ---------------------------------------------------------------------------
 
+
 def _move_file(src: Path, dst: Path) -> None:
     """Rename *src* to *dst* using ``os.replace`` (atomic within one filesystem).
 
@@ -125,6 +127,7 @@ def _move_file(src: Path, dst: Path) -> None:
 # Shared pre-flight for write operations
 # ---------------------------------------------------------------------------
 
+
 def _write_preflight(path: str, agent_bridge: bool) -> dict[str, Any] | None:
     """Apply storage and protected-root policy checks.
 
@@ -143,10 +146,7 @@ def _write_preflight(path: str, agent_bridge: bool) -> dict[str, Any] | None:
     if _is_protected(path) or agent_bridge:
         return _error(
             "PROPOSAL_REQUIRED",
-            (
-                f"Path {path!r} requires a proposal; "
-                "gateway-side proposal bridge ships in P3.3"
-            ),
+            (f"Path {path!r} requires a proposal; gateway-side proposal bridge ships in P3.3"),
         )
     return None
 
@@ -171,6 +171,7 @@ def _post_resolution_check(resolved: Path) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 # Command handlers
 # ---------------------------------------------------------------------------
+
 
 def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     """Move a file atomically within the allowed roots.

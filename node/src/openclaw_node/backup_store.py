@@ -224,9 +224,7 @@ class Version:
                 size=int(data["size"]),
                 op=_validate_op(str(data["op"])),
                 actor=str(data["actor"]),
-                prev_sha256=(
-                    None if data.get("prev_sha256") is None else str(data["prev_sha256"])
-                ),
+                prev_sha256=(None if data.get("prev_sha256") is None else str(data["prev_sha256"])),
                 evicted=bool(data.get("evicted", False)),
             )
         except KeyError as exc:

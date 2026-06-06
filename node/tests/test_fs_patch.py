@@ -42,13 +42,7 @@ def _allowed_file(tmp_path: Path, name: str = "test.yaml", content: str = "") ->
 
 def _simple_patch(path: str, old_line: str, new_line: str) -> str:
     """Build a minimal unified diff replacing one line."""
-    return (
-        f"--- a/{path}\n"
-        f"+++ b/{path}\n"
-        "@@ -1,1 +1,1 @@\n"
-        f"-{old_line}\n"
-        f"+{new_line}\n"
-    )
+    return f"--- a/{path}\n+++ b/{path}\n@@ -1,1 +1,1 @@\n-{old_line}\n+{new_line}\n"
 
 
 # ---------------------------------------------------------------------------
@@ -57,8 +51,7 @@ def _simple_patch(path: str, old_line: str, new_line: str) -> str:
 
 
 _PATCH_ON_PATH = any(
-    (Path(d) / "patch").exists()
-    for d in os.environ.get("PATH", "").split(os.pathsep)
+    (Path(d) / "patch").exists() for d in os.environ.get("PATH", "").split(os.pathsep)
 )
 
 _skip_no_patch = pytest.mark.skipif(not _PATCH_ON_PATH, reason="'patch' binary not on PATH")
@@ -67,13 +60,7 @@ _skip_no_patch = pytest.mark.skipif(not _PATCH_ON_PATH, reason="'patch' binary n
 @_skip_no_patch
 def test_run_patch_applies_simple_diff() -> None:
     original = b"hello world\n"
-    diff = (
-        "--- a/test\n"
-        "+++ b/test\n"
-        "@@ -1 +1 @@\n"
-        "-hello world\n"
-        "+goodbye world\n"
-    )
+    diff = "--- a/test\n+++ b/test\n@@ -1 +1 @@\n-hello world\n+goodbye world\n"
     patched, _hunks = _run_patch(original, diff)
     assert patched == b"goodbye world\n"
 
@@ -81,13 +68,7 @@ def test_run_patch_applies_simple_diff() -> None:
 @_skip_no_patch
 def test_run_patch_dry_run_returns_empty_bytes() -> None:
     original = b"hello\n"
-    diff = (
-        "--- a/test\n"
-        "+++ b/test\n"
-        "@@ -1 +1 @@\n"
-        "-hello\n"
-        "+goodbye\n"
-    )
+    diff = "--- a/test\n+++ b/test\n@@ -1 +1 @@\n-hello\n+goodbye\n"
     patched, _hunks = _run_patch(original, diff, dry_run=True)
     assert patched == b""
 
@@ -101,10 +82,13 @@ def test_run_patch_raises_file_not_found_when_binary_missing() -> None:
 
 
 def test_run_patch_raises_timeout_expired() -> None:
-    with mock_patch(
-        "subprocess.run",
-        side_effect=subprocess.TimeoutExpired(["patch"], 30),
-    ), pytest.raises(subprocess.TimeoutExpired):
+    with (
+        mock_patch(
+            "subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["patch"], 30),
+        ),
+        pytest.raises(subprocess.TimeoutExpired),
+    ):
         _run_patch(b"x\n", "--- a\n+++ b\n")
 
 
@@ -275,22 +259,20 @@ def test_fs_patch_read_error(tmp_path: Path) -> None:
 
 def test_fs_patch_backup_error_aborts(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    diff = (
-        "--- a/a.yaml\n"
-        "+++ b/a.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-hello\n"
-        "+goodbye\n"
-    )
+    diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
     original_content = p.read_text()
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        return_value=(b"goodbye\n", 1),
-    ), mock_patch(
-        "openclaw_node.commands.fs_patch._get_store",
-    ) as mock_store_fn:
+    with (
+        mock_patch(
+            "openclaw_node.commands.fs_patch._run_patch",
+            return_value=(b"goodbye\n", 1),
+        ),
+        mock_patch(
+            "openclaw_node.commands.fs_patch._get_store",
+        ) as mock_store_fn,
+    ):
         mock_store = mock_store_fn.return_value
         from openclaw_node.backup_store import BackupStoreError
+
         mock_store.capture.side_effect = BackupStoreError("disk full")
         result = handle_fs_patch({"path": str(p), "patch": diff})
 
@@ -306,19 +288,16 @@ def test_fs_patch_backup_error_aborts(tmp_path: Path) -> None:
 
 def test_fs_patch_write_error(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    diff = (
-        "--- a/a.yaml\n"
-        "+++ b/a.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-hello\n"
-        "+goodbye\n"
-    )
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        return_value=(b"goodbye\n", 1),
-    ), mock_patch(
-        "openclaw_node.commands.fs_patch._atomic_write",
-        side_effect=OSError("no space left"),
+    diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
+    with (
+        mock_patch(
+            "openclaw_node.commands.fs_patch._run_patch",
+            return_value=(b"goodbye\n", 1),
+        ),
+        mock_patch(
+            "openclaw_node.commands.fs_patch._atomic_write",
+            side_effect=OSError("no space left"),
+        ),
     ):
         result = handle_fs_patch({"path": str(p), "patch": diff})
     assert result["error"] == "WRITE_ERROR"
@@ -332,13 +311,7 @@ def test_fs_patch_write_error(tmp_path: Path) -> None:
 def test_fs_patch_dry_run_returns_applicable_count(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
     original_content = p.read_text()
-    diff = (
-        "--- a/a.yaml\n"
-        "+++ b/a.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-hello\n"
-        "+goodbye\n"
-    )
+    diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
     with mock_patch(
         "openclaw_node.commands.fs_patch._run_patch",
         return_value=(b"", 1),
@@ -357,17 +330,14 @@ def test_fs_patch_dry_run_returns_applicable_count(tmp_path: Path) -> None:
 def test_fs_patch_dry_run_no_backup_captured(tmp_path: Path) -> None:
     """dry_run must not write to the backup store."""
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    diff = (
-        "--- a/a.yaml\n"
-        "+++ b/a.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-hello\n"
-        "+goodbye\n"
-    )
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        return_value=(b"", 1),
-    ), mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn:
+    diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
+    with (
+        mock_patch(
+            "openclaw_node.commands.fs_patch._run_patch",
+            return_value=(b"", 1),
+        ),
+        mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn,
+    ):
         handle_fs_patch({"path": str(p), "patch": diff, "dry_run": True})
     mock_store_fn.assert_not_called()
 
@@ -401,13 +371,7 @@ def test_fs_patch_applies_real_diff(tmp_path: Path) -> None:
 @_skip_no_patch
 def test_fs_patch_sha256_matches_written_bytes(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "config.yaml", "hello world\n")
-    diff = (
-        "--- a/config.yaml\n"
-        "+++ b/config.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-hello world\n"
-        "+goodbye world\n"
-    )
+    diff = "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-hello world\n+goodbye world\n"
     result = handle_fs_patch({"path": str(p), "patch": diff})
     assert result["ok"] is True
     on_disk = p.read_bytes()
@@ -418,13 +382,7 @@ def test_fs_patch_sha256_matches_written_bytes(tmp_path: Path) -> None:
 @_skip_no_patch
 def test_fs_patch_real_dry_run_leaves_file_unchanged(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "config.yaml", "hello\n")
-    diff = (
-        "--- a/config.yaml\n"
-        "+++ b/config.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-hello\n"
-        "+goodbye\n"
-    )
+    diff = "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
     result = handle_fs_patch({"path": str(p), "patch": diff, "dry_run": True})
     assert result["ok"] is True
     assert result["dry_run"] is True
@@ -436,11 +394,7 @@ def test_fs_patch_real_bad_diff_returns_patch_failed(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "config.yaml", "hello\n")
     # This diff targets a line that doesn't exist in the file.
     diff = (
-        "--- a/config.yaml\n"
-        "+++ b/config.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-this line does not exist\n"
-        "+replaced\n"
+        "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-this line does not exist\n+replaced\n"
     )
     result = handle_fs_patch({"path": str(p), "patch": diff})
     assert result["error"] == "PATCH_FAILED"
@@ -453,18 +407,16 @@ def test_fs_patch_real_bad_diff_returns_patch_failed(tmp_path: Path) -> None:
 
 def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "v1\n")
-    diff = (
-        "--- a/a.yaml\n"
-        "+++ b/a.yaml\n"
-        "@@ -1 +1 @@\n"
-        "-v1\n"
-        "+v2\n"
-    )
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        return_value=(b"v2\n", 1),
-    ), mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn, mock_patch(
-        "openclaw_node.commands.fs_patch._atomic_write",
+    diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-v1\n+v2\n"
+    with (
+        mock_patch(
+            "openclaw_node.commands.fs_patch._run_patch",
+            return_value=(b"v2\n", 1),
+        ),
+        mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn,
+        mock_patch(
+            "openclaw_node.commands.fs_patch._atomic_write",
+        ),
     ):
         mock_store = mock_store_fn.return_value
         mock_store.capture.return_value = type("V", (), {"sha256": "abc"})()

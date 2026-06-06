@@ -181,9 +181,7 @@ def test_fs_move_src_not_found(tmp_path: Path) -> None:
 
 
 def test_fs_move_src_eq_dst(tmp_path: Path, src_file: Path) -> None:
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(src_file), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(src_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "INVALID_PARAM"
 
@@ -194,18 +192,14 @@ def test_fs_move_src_eq_dst(tmp_path: Path, src_file: Path) -> None:
 
 
 def test_fs_move_simple(tmp_path: Path, src_file: Path, dst_file: Path) -> None:
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is True
     assert not src_file.exists()
     assert dst_file.read_text(encoding="utf-8") == "src: content\n"
     assert result["size"] == len(b"src: content\n")
 
 
-def test_fs_move_captures_src_to_store(
-    tmp_path: Path, src_file: Path, dst_file: Path
-) -> None:
+def test_fs_move_captures_src_to_store(tmp_path: Path, src_file: Path, dst_file: Path) -> None:
     handle_fs_move(
         {
             "src": str(src_file),
@@ -241,9 +235,7 @@ def test_fs_move_default_agent_bridge_for_protected(tmp_path: Path, src_file: Pa
 
 
 def test_fs_move_dst_out_of_bounds(tmp_path: Path, src_file: Path) -> None:
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": "/var/secret", "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": "/var/secret", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "PATH_NOT_ALLOWED"
 
@@ -289,9 +281,7 @@ def test_fs_move_dst_read_error(
         return original(self)
 
     monkeypatch.setattr(Path, "read_bytes", bad_read)
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
 
@@ -307,9 +297,7 @@ def test_fs_move_src_read_error(
         return original(self)
 
     monkeypatch.setattr(Path, "read_bytes", bad_read)
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
 
@@ -330,9 +318,7 @@ def test_fs_move_backup_dst_error(
         raise BackupStoreError("store full")
 
     monkeypatch.setattr(md_mod._get_store(), "capture", boom_capture)
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "BACKUP_ERROR"
 
@@ -350,9 +336,7 @@ def test_fs_move_backup_src_error(
         raise BackupStoreError("store full")
 
     monkeypatch.setattr(md_mod._get_store(), "capture", boom_capture)
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "BACKUP_ERROR"
 
@@ -364,9 +348,7 @@ def test_fs_move_operation_fails(
         raise OSError("busy")
 
     monkeypatch.setattr("openclaw_node.commands.fs_move_delete._move_file", boom)
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "MOVE_ERROR"
 
@@ -381,9 +363,7 @@ def test_fs_move_cross_device_rejected(
         raise OSError(_errno.EXDEV, "Invalid cross-device link")
 
     monkeypatch.setattr("openclaw_node.commands.fs_move_delete._move_file", exdev)
-    result = handle_fs_move(
-        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
-    )
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "CROSS_DEVICE"
 
@@ -454,9 +434,7 @@ def test_fs_delete_not_found(tmp_path: Path) -> None:
 
 
 def test_fs_delete_trashes_file(tmp_path: Path, src_file: Path) -> None:
-    result = handle_fs_delete(
-        {"path": str(src_file), "agent_bridge": False, "proposal_id": "del1"}
-    )
+    result = handle_fs_delete({"path": str(src_file), "agent_bridge": False, "proposal_id": "del1"})
     assert result["ok"] is True
     assert not src_file.exists()
     assert result["path"] == str(src_file)
@@ -466,9 +444,7 @@ def test_fs_delete_trashes_file(tmp_path: Path, src_file: Path) -> None:
 
 
 def test_fs_delete_captures_to_store(tmp_path: Path, src_file: Path) -> None:
-    handle_fs_delete(
-        {"path": str(src_file), "agent_bridge": False, "proposal_id": "del1"}
-    )
+    handle_fs_delete({"path": str(src_file), "agent_bridge": False, "proposal_id": "del1"})
     store = md_mod._get_store()
     versions = store.history(str(src_file))
     assert len(versions) == 1

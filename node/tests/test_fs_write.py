@@ -70,9 +70,7 @@ def test_fs_write_protected_path_returns_proposal_required() -> None:
 
 
 def test_fs_write_storage_refused() -> None:
-    result = handle_fs_write(
-        {"path": "/config/.storage/core.config_entries", "content": "x"}
-    )
+    result = handle_fs_write({"path": "/config/.storage/core.config_entries", "content": "x"})
     assert result["ok"] is False
     assert result["error"] == "STORAGE_READONLY"
 
@@ -236,9 +234,7 @@ def test_fs_restore_by_version(tmp_path: Path, live_file: Path) -> None:
             "proposal_id": "p1",
         }
     )
-    result = handle_fs_restore(
-        {"path": str(live_file), "version": 1, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is True
     assert live_file.read_bytes() == original
 
@@ -252,9 +248,7 @@ def test_fs_restore_version_not_found(tmp_path: Path, live_file: Path) -> None:
             "proposal_id": "p1",
         }
     )
-    result = handle_fs_restore(
-        {"path": str(live_file), "version": 99, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": str(live_file), "version": 99, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "VERSION_NOT_FOUND"
 
@@ -353,9 +347,7 @@ def test_fs_diff_between_two_stored_versions(tmp_path: Path, live_file: Path) ->
             "proposal_id": "p2",
         }
     )
-    result = handle_fs_diff(
-        {"path": str(live_file), "from_version": 1, "to_version": 2}
-    )
+    result = handle_fs_diff({"path": str(live_file), "from_version": 1, "to_version": 2})
     assert result["ok"] is True
     assert "-key: value" in result["diff"]
     assert "+key: v2" in result["diff"]
@@ -370,9 +362,7 @@ def test_fs_diff_against_live(tmp_path: Path, live_file: Path) -> None:
             "proposal_id": "p1",
         }
     )
-    result = handle_fs_diff(
-        {"path": str(live_file), "from_version": 1, "to_version": None}
-    )
+    result = handle_fs_diff({"path": str(live_file), "from_version": 1, "to_version": None})
     assert result["ok"] is True
     assert "-key: value" in result["diff"]
     assert "+key: v2" in result["diff"]
@@ -387,9 +377,7 @@ def test_fs_diff_version_not_found(tmp_path: Path, live_file: Path) -> None:
             "proposal_id": "p1",
         }
     )
-    result = handle_fs_diff(
-        {"path": str(live_file), "from_version": 99, "to_version": 1}
-    )
+    result = handle_fs_diff({"path": str(live_file), "from_version": 99, "to_version": 1})
     assert result["ok"] is False
     assert result["error"] == "DIFF_ERROR"
 
@@ -416,9 +404,7 @@ def test_fs_diff_sha256_selector(tmp_path: Path, live_file: Path) -> None:
     versions = store.history(str(live_file))
     sha1 = versions[0].sha256
     sha2 = versions[1].sha256
-    result = handle_fs_diff(
-        {"path": str(live_file), "from_version": sha1, "to_version": sha2}
-    )
+    result = handle_fs_diff({"path": str(live_file), "from_version": sha1, "to_version": sha2})
     assert result["ok"] is True
     assert "-key: value" in result["diff"]
     assert "+key: v2" in result["diff"]
@@ -445,9 +431,7 @@ def test_get_store_lazy_init(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 def test_fs_write_no_allowed_roots(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENCLAW_ALLOWED_ROOTS", raising=False)
     monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
-    result = handle_fs_write(
-        {"path": "/tmp/x.yaml", "content": "x", "agent_bridge": False}
-    )
+    result = handle_fs_write({"path": "/tmp/x.yaml", "content": "x", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "NO_ALLOWED_ROOTS"
 
@@ -461,9 +445,7 @@ def test_fs_write_backup_capture_fails(
         raise BackupStoreError("store full")
 
     monkeypatch.setattr(fs_write_mod._get_store(), "capture", boom_capture)
-    result = handle_fs_write(
-        {"path": str(live_file), "content": "x", "agent_bridge": False}
-    )
+    result = handle_fs_write({"path": str(live_file), "content": "x", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "BACKUP_ERROR"
 
@@ -476,16 +458,12 @@ def test_fs_write_atomic_write_fails(
         raise OSError("disk full")
 
     monkeypatch.setattr("openclaw_node.commands.fs_write._atomic_write", boom)
-    result = handle_fs_write(
-        {"path": str(live_file), "content": "x", "agent_bridge": False}
-    )
+    result = handle_fs_write({"path": str(live_file), "content": "x", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "WRITE_ERROR"
 
 
-def test_fs_write_prior_bytes_read_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fs_write_prior_bytes_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     target = tmp_path / "fs" / "x.yaml"
     target.write_bytes(b"existing")
 
@@ -497,9 +475,7 @@ def test_fs_write_prior_bytes_read_error(
         return original_read_bytes(self)
 
     monkeypatch.setattr(Path, "read_bytes", fake_read_bytes)
-    result = handle_fs_write(
-        {"path": str(target), "content": "new", "agent_bridge": False}
-    )
+    result = handle_fs_write({"path": str(target), "content": "new", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
 
@@ -541,9 +517,7 @@ def test_fs_restore_prior_bytes_read_error(
         return original_read_bytes(self)
 
     monkeypatch.setattr(Path, "read_bytes", fake_read_bytes)
-    result = handle_fs_restore(
-        {"path": str(live_file), "version": 1, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
 
@@ -560,9 +534,7 @@ def test_fs_restore_object_missing(
         raise ObjectMissingError("evicted")
 
     monkeypatch.setattr(fs_write_mod._get_store(), "fetch_object", boom_fetch)
-    result = handle_fs_restore(
-        {"path": str(live_file), "version": 1, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "OBJECT_MISSING"
 
@@ -580,9 +552,7 @@ def test_fs_restore_backup_error(
         raise BackupStoreError("index full")
 
     monkeypatch.setattr(store, "capture", boom_capture)
-    result = handle_fs_restore(
-        {"path": str(live_file), "version": 1, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "BACKUP_ERROR"
 
@@ -598,16 +568,12 @@ def test_fs_restore_write_fails(
         raise OSError("disk full")
 
     monkeypatch.setattr("openclaw_node.commands.fs_write._atomic_write", boom)
-    result = handle_fs_restore(
-        {"path": str(live_file), "version": 1, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "WRITE_ERROR"
 
 
-def test_fs_history_store_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fs_history_store_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from openclaw_node.backup_store import BackupStoreError
 
     def boom_history(path: str) -> list[object]:
@@ -686,9 +652,7 @@ def test_fs_write_post_resolution_protected_check(
         "openclaw_node.commands.fs_write.resolve_safe",
         lambda path, roots: Path("/config/sneaky.yaml"),
     )
-    result = handle_fs_write(
-        {"path": "/tmp/link.yaml", "content": "x", "agent_bridge": False}
-    )
+    result = handle_fs_write({"path": "/tmp/link.yaml", "content": "x", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "PROPOSAL_REQUIRED"
 
@@ -701,13 +665,9 @@ def test_fs_restore_post_resolution_protected_check(
         "openclaw_node.commands.fs_write.resolve_safe",
         lambda path, roots: Path("/config/sneaky.yaml"),
     )
-    result = handle_fs_restore(
-        {"path": "/tmp/link.yaml", "version": 1, "agent_bridge": False}
-    )
+    result = handle_fs_restore({"path": "/tmp/link.yaml", "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "PROPOSAL_REQUIRED"
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -715,9 +675,7 @@ def test_fs_restore_post_resolution_protected_check(
 # ---------------------------------------------------------------------------
 
 
-def test_fs_diff_all_digit_sha256_treated_as_hash(
-    tmp_path: Path, live_file: Path
-) -> None:
+def test_fs_diff_all_digit_sha256_treated_as_hash(tmp_path: Path, live_file: Path) -> None:
     """A 64-char all-lowercase-hex from_version is treated as sha256, not int."""
     handle_fs_write(
         {"path": str(live_file), "content": "v2\n", "agent_bridge": False, "proposal_id": "p1"}

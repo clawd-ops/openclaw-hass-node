@@ -52,6 +52,7 @@ _STORAGE_SUFFIX: Final[str] = "/.storage/"
 # Backup store singleton
 # ---------------------------------------------------------------------------
 
+
 def _backup_root() -> Path:
     """Return the backup store root for the current run mode.
 
@@ -102,6 +103,7 @@ def _reset_store_for_testing(root: Path) -> None:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _error(code: str, message: str, **extra: Any) -> dict[str, Any]:
     """Build a structured error payload.
@@ -221,6 +223,7 @@ def _atomic_write(target: Path, data: bytes) -> None:
 # Command handlers
 # ---------------------------------------------------------------------------
 
+
 def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     """Write content to a file, capturing prior bytes to the backup store.
 
@@ -264,10 +267,7 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     if _is_protected(path) or agent_bridge:
         return _error(
             "PROPOSAL_REQUIRED",
-            (
-                f"Path {path!r} requires a proposal; "
-                "gateway-side proposal bridge ships in P3.3"
-            ),
+            (f"Path {path!r} requires a proposal; gateway-side proposal bridge ships in P3.3"),
         )
 
     resolved = _resolve_write_target(path)

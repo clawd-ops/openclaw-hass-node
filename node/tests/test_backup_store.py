@@ -53,9 +53,7 @@ def test_constructor_rejects_corrupt_meta(tmp_path: Path) -> None:
 def test_constructor_rejects_unknown_store_version(tmp_path: Path) -> None:
     root = tmp_path / "store"
     root.mkdir()
-    (root / "meta.json").write_text(
-        json.dumps({"store_version": 999}), encoding="utf-8"
-    )
+    (root / "meta.json").write_text(json.dumps({"store_version": 999}), encoding="utf-8")
     with pytest.raises(BackupStoreError, match="Unsupported store_version"):
         BackupStore(root)
 
@@ -107,9 +105,7 @@ def test_capture_threads_prev_sha(store: BackupStore) -> None:
 
 
 def test_capture_records_custom_actor(store: BackupStore) -> None:
-    v = store.capture(
-        "/config/x.yaml", b"hi", proposal_id="p1", op="write", actor="codex"
-    )
+    v = store.capture("/config/x.yaml", b"hi", proposal_id="p1", op="write", actor="codex")
     assert v.actor == "codex"
 
 
@@ -204,12 +200,8 @@ def test_resolve_version_requires_exactly_one_selector(store: BackupStore) -> No
 
 
 def test_diff_between_two_versions(store: BackupStore) -> None:
-    store.capture(
-        "/config/x.yaml", b"foo\nbar\n", proposal_id="p1", op="write"
-    )
-    store.capture(
-        "/config/x.yaml", b"foo\nbaz\n", proposal_id="p2", op="write"
-    )
+    store.capture("/config/x.yaml", b"foo\nbar\n", proposal_id="p1", op="write")
+    store.capture("/config/x.yaml", b"foo\nbaz\n", proposal_id="p2", op="write")
     out = store.diff("/config/x.yaml", from_version=1, to_version=2)
     assert "-bar" in out
     assert "+baz" in out
@@ -225,20 +217,14 @@ def test_diff_against_current_live_file(store: BackupStore, tmp_path: Path) -> N
 
 
 def test_diff_missing_live_file_raises(store: BackupStore, tmp_path: Path) -> None:
-    store.capture(
-        str(tmp_path / "ghost.yaml"), b"foo", proposal_id="p1", op="write"
-    )
+    store.capture(str(tmp_path / "ghost.yaml"), b"foo", proposal_id="p1", op="write")
     with pytest.raises(BackupStoreError, match="Cannot read live bytes"):
         store.diff(str(tmp_path / "ghost.yaml"), from_version=1, to_version=None)
 
 
 def test_diff_by_sha256_selector(store: BackupStore) -> None:
-    v1 = store.capture(
-        "/config/x.yaml", b"foo\nbar\n", proposal_id="p1", op="write"
-    )
-    v2 = store.capture(
-        "/config/x.yaml", b"foo\nbaz\n", proposal_id="p2", op="write"
-    )
+    v1 = store.capture("/config/x.yaml", b"foo\nbar\n", proposal_id="p1", op="write")
+    v2 = store.capture("/config/x.yaml", b"foo\nbaz\n", proposal_id="p2", op="write")
     out = store.diff("/config/x.yaml", from_version=v1.sha256, to_version=v2.sha256)
     assert "-bar" in out
     assert "+baz" in out
