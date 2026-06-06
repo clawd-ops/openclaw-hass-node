@@ -36,7 +36,9 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 # Tests do not need full docstring coverage or the unused-argument rules.
-"**/tests/**" = ["D", "ARG", "PT011"]
+# TRY003: tests routinely raise stub exceptions (OSError("boom")) to drive
+# error paths; baking those into exception classes is just noise.
+"**/tests/**" = ["D", "ARG", "PT011", "TRY003"]
 # Bootstrap module is excluded from coverage and docstring noise.
 "**/__main__.py" = ["D"]
 

@@ -198,7 +198,7 @@ async def test_handle_invoke_command_exception() -> None:
     from openclaw_node.commands.dispatcher import register_handler
 
     def bad_handler(params: dict[str, Any]) -> dict[str, Any]:
-        raise RuntimeError("something went wrong")  # noqa: TRY003
+        raise RuntimeError("something went wrong")
 
     register_handler("test.bad", bad_handler)
     client = _make_client()
