@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import pytest
+
 from openclaw_node.config import load_config
 
 
-def test_load_config_addon_mode(monkeypatch) -> None:
+def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Add-on mode uses Supervisor token and HA internal URL."""
     monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-token")
     monkeypatch.setenv("GATEWAY_URL", "wss://gateway.example/ws")
@@ -25,7 +27,7 @@ def test_load_config_addon_mode(monkeypatch) -> None:
     assert str(config.key_path).endswith("/data/openclaw/node-key.json")
 
 
-def test_load_config_standalone_mode(monkeypatch) -> None:
+def test_load_config_standalone_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Standalone mode uses explicit HA URL and token."""
     monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
     monkeypatch.setenv("HASS_URL", "http://ha.local:8123")

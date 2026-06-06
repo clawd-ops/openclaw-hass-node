@@ -45,4 +45,5 @@ def test_reconnect_resets_non_error() -> None:
     with pytest.raises(PairingError):
         machine.on_connect_response(ok=False, error="AUTH_FAILED")
     machine.on_reconnect()
-    assert machine.state is PairingState.ERROR
+    # mypy narrows state from prior asserts; state actually mutated by on_reconnect
+    assert machine.state is PairingState.ERROR  # type: ignore[comparison-overlap]

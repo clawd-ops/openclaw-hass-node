@@ -2,7 +2,7 @@ ARG BUILD_FROM=python:3.13-alpine
 FROM ${BUILD_FROM}
 
 COPY node /opt/openclaw-node
-COPY run.sh /run.sh
+COPY addon/run.sh /run.sh
 
 # Runtime dependencies are intentionally minimal for the first installable
 # slice. Build deps are removed after installing Python wheels.

@@ -7,7 +7,8 @@ normalised result dict suitable for the ``node.invoke.result`` request body.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Final
+from collections.abc import Callable
+from typing import Any, Final
 
 from openclaw_node.commands.ping import handle_ping
 

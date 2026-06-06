@@ -123,8 +123,12 @@ class GatewayClient:
         while True:
             try:
                 await self._connect_and_loop()
-            except Exception as exc:  # noqa: BLE001
-                _LOG.error("Gateway connection lost: %s — reconnecting in %.0fs", exc, _RECONNECT_DELAY_S)
+            except Exception as exc:
+                _LOG.error(
+                    "Gateway connection lost: %s - reconnecting in %.0fs",
+                    exc,
+                    _RECONNECT_DELAY_S,
+                )
                 self._pairing.on_reconnect()
                 self._notify_pairing_state()
                 await asyncio.sleep(_RECONNECT_DELAY_S)
@@ -149,7 +153,7 @@ class GatewayClient:
 
             if self._pairing.is_pending:
                 _LOG.info(
-                    "Pairing pending — waiting for gateway approval. "
+                    "Pairing pending - waiting for gateway approval. "
                     "Run `openclaw devices approve` on the gateway."
                 )
                 # Hold connection open so the gateway can push approval
@@ -178,7 +182,7 @@ class GatewayClient:
         raw = await ws.recv()
         msg: dict[str, Any] = json.loads(raw)
         if msg.get("type") != "event" or msg.get("event") != "connect.challenge":
-            raise ValueError(f"Expected connect.challenge, got: {msg.get('event')!r}")
+            raise ValueError(f"Expected connect.challenge, got: {msg.get('event')!r}")  # noqa: TRY003
         payload: dict[str, Any] = msg.get("payload", {})
         nonce: str = str(payload["nonce"])
         ts: int = int(payload["ts"])
@@ -236,7 +240,9 @@ class GatewayClient:
         return str(req["id"])
 
     async def _recv_connect_response(
-        self, ws: websockets.asyncio.client.ClientConnection, req_id: str
+        self,
+        ws: websockets.asyncio.client.ClientConnection,
+        req_id: str,  # noqa: ARG002
     ) -> None:
         """Receive the ``connect`` response and drive the pairing machine.
 
@@ -250,16 +256,14 @@ class GatewayClient:
         raw = await ws.recv()
         msg: dict[str, Any] = json.loads(raw)
         if msg.get("type") != "res":
-            raise ValueError(f"Expected res frame, got type={msg.get('type')!r}")
+            raise ValueError(f"Expected res frame, got type={msg.get('type')!r}")  # noqa: TRY003
         ok: bool = bool(msg.get("ok"))
         payload: dict[str, Any] | None = msg.get("payload") if ok else None
         error: str | None = msg.get("error") if not ok else None
         self._pairing.on_connect_response(ok=ok, payload=payload, error=error)
         self._notify_pairing_state()
 
-    async def _await_approval(
-        self, ws: websockets.asyncio.client.ClientConnection
-    ) -> None:
+    async def _await_approval(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Block and process events until the gateway sends pairing approval.
 
         The gateway may send any number of events while the pairing is pending.
@@ -280,9 +284,7 @@ class GatewayClient:
                 return
             _LOG.debug("Ignoring event while pending: %r", event)
 
-    async def _pull_pending(
-        self, ws: websockets.asyncio.client.ClientConnection
-    ) -> None:
+    async def _pull_pending(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Drain queued invokes by sending ``node.pending.pull``.
 
         Called once after each successful connect so that any invokes that
@@ -316,9 +318,7 @@ class GatewayClient:
         ack = _make_req("node.pending.ack", {"invokeId": invoke_id})
         await ws.send(json.dumps(ack))
 
-    async def _event_loop(
-        self, ws: websockets.asyncio.client.ClientConnection
-    ) -> None:
+    async def _event_loop(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Process incoming gateway events indefinitely.
 
         Handles ``node.invoke.request`` events by dispatching to the command
@@ -365,7 +365,7 @@ class GatewayClient:
                     "error": f"UNKNOWN_COMMAND: {exc.command}",
                 },
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             _LOG.exception("Command %r raised: %s", command, exc)
             resp = _make_req(
                 "node.invoke.result",

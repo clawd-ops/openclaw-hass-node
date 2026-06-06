@@ -13,7 +13,7 @@ import logging
 from dataclasses import asdict
 from typing import Any, Final
 
-from aiohttp import ClientError, ClientSession, web
+from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch
@@ -43,7 +43,7 @@ class NodeRuntime:
             config: Runtime configuration for this process.
         """
         self.config = config
-        self.pairing_state = PairingState.UNKNOWN
+        self.pairing_state: PairingState = PairingState.UNKNOWN
 
     @property
     def is_paired(self) -> bool:
@@ -87,7 +87,8 @@ def _runtime(request: web.Request) -> NodeRuntime:
     Returns:
         The :class:`NodeRuntime` stored on the application.
     """
-    return request.app["runtime"]
+    runtime: NodeRuntime = request.app["runtime"]
+    return runtime
 
 
 def _safe_config(config: NodeConfig) -> dict[str, Any]:
@@ -228,7 +229,9 @@ async def ha_snapshot(request: web.Request) -> web.Response:
                 return web.json_response(
                     {
                         "ok": config_res.ok and states_res.ok,
-                        "ha_version": ha_config.get("version") if isinstance(ha_config, dict) else None,
+                        "ha_version": (
+                            ha_config.get("version") if isinstance(ha_config, dict) else None
+                        ),
                         "entity_count": len(states) if isinstance(states, list) else 0,
                         "sample_entity": sample,
                         "config_status": config_res.status,
@@ -237,7 +240,7 @@ async def ha_snapshot(request: web.Request) -> web.Response:
                     status=status,
                     headers=_JSON_HEADERS,
                 )
-    except (asyncio.TimeoutError, ClientError, OSError) as exc:
+    except (TimeoutError, ClientError, OSError) as exc:
         _LOG.warning("HA snapshot failed: %s", exc)
         return web.json_response(
             {"ok": False, "error": "HA_REST_UNREACHABLE", "detail": str(exc)},
@@ -246,14 +249,12 @@ async def ha_snapshot(request: web.Request) -> web.Response:
         )
 
 
-def aiohttp_timeout() -> "ClientTimeout":
+def aiohttp_timeout() -> ClientTimeout:
     """Return the timeout object for outbound HA calls.
 
     Returns:
         A short :class:`aiohttp.ClientTimeout` suitable for health checks.
     """
-    from aiohttp import ClientTimeout
-
     return ClientTimeout(total=8)
 
 
@@ -296,7 +297,9 @@ async def assist_turn(request: web.Request) -> web.Response:
 
 
 async def run_http_api(  # pragma: no cover
-    runtime: NodeRuntime, host: str = "0.0.0.0", port: int = 8099
+    runtime: NodeRuntime,
+    host: str = "0.0.0.0",  # nosec B104 - intentional: HA add-on binds inside container network
+    port: int = 8099,
 ) -> None:
     """Run the local HTTP API until cancelled.
 

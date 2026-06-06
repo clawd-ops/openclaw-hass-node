@@ -67,7 +67,7 @@ class PairingMachine:
 
     def __init__(self) -> None:
         """Initialise the machine in the UNKNOWN state."""
-        self._state = PairingState.UNKNOWN
+        self._state: PairingState = PairingState.UNKNOWN
         self._pending_request_id: str | None = None
 
     @property
@@ -121,9 +121,7 @@ class PairingMachine:
 
         code = error or "UNKNOWN_ERROR"
         if code == "PAIRING_REQUIRED":
-            _LOG.info(
-                "Gateway returned PAIRING_REQUIRED — awaiting user approval on the gateway."
-            )
+            _LOG.info("Gateway returned PAIRING_REQUIRED - awaiting user approval on the gateway.")
             self._state = PairingState.PENDING
             return
 
@@ -138,5 +136,5 @@ class PairingMachine:
         attempt without carrying stale state.
         """
         if self._state is not PairingState.ERROR:
-            _LOG.debug("WS reconnect — resetting pairing state to UNKNOWN.")
+            _LOG.debug("WS reconnect - resetting pairing state to UNKNOWN.")
             self._state = PairingState.UNKNOWN

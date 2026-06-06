@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import unittest.mock as mock
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,6 +11,7 @@ import aiohttp
 import pytest
 import pytest_asyncio
 from aiohttp.test_utils import TestClient, TestServer
+from aiohttp.web import Application, Request
 
 from openclaw_node.config import NodeConfig
 from openclaw_node.http_api import NodeRuntime, aiohttp_timeout, create_app
@@ -18,7 +19,9 @@ from openclaw_node.pairing import PairingState
 
 
 @pytest_asyncio.fixture
-async def client(tmp_path: Path) -> TestClient:
+async def client(
+    tmp_path: Path,
+) -> AsyncGenerator[TestClient[Request, Application]]:
     """Return a test client for the local API."""
     config = NodeConfig(
         addon_mode=False,
@@ -32,7 +35,7 @@ async def client(tmp_path: Path) -> TestClient:
     )
     app = create_app(NodeRuntime(config))
     server = TestServer(app)
-    client = TestClient(server)
+    client = TestClient[Request, Application](server)
     await client.start_server()
     try:
         yield client
@@ -41,7 +44,7 @@ async def client(tmp_path: Path) -> TestClient:
 
 
 @pytest.mark.asyncio
-async def test_health(client: TestClient) -> None:
+async def test_health(client: TestClient[Request, Application]) -> None:
     """Health endpoint returns safe runtime data."""
     response = await client.get("/health")
     data = await response.json()
@@ -53,7 +56,7 @@ async def test_health(client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_ping_endpoint(client: TestClient) -> None:
+async def test_ping_endpoint(client: TestClient[Request, Application]) -> None:
     """Ping endpoint dispatches to the command registry."""
     response = await client.post("/commands/ping", json={"message": "hi"})
     data = await response.json()
@@ -64,7 +67,7 @@ async def test_ping_endpoint(client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_unknown_command_endpoint(client: TestClient) -> None:
+async def test_unknown_command_endpoint(client: TestClient[Request, Application]) -> None:
     """Unknown local commands return 404 with structured error."""
     response = await client.post("/v1/commands/nope", json={})
     data = await response.json()
@@ -74,7 +77,7 @@ async def test_unknown_command_endpoint(client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_ha_snapshot_missing_token(client: TestClient) -> None:
+async def test_ha_snapshot_missing_token(client: TestClient[Request, Application]) -> None:
     """HA snapshot reports missing credentials clearly."""
     response = await client.get("/ha/snapshot")
     data = await response.json()
@@ -85,7 +88,7 @@ async def test_ha_snapshot_missing_token(client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_assist_turn_unpaired(client: TestClient) -> None:
+async def test_assist_turn_unpaired(client: TestClient[Request, Application]) -> None:
     """Assist placeholder is clear before gateway pairing."""
     response = await client.post("/v1/conversation", json={"text": "hello"})
     data = await response.json()
@@ -112,7 +115,7 @@ async def test_assist_turn_paired(tmp_path: Path) -> None:
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
     server = TestServer(create_app(runtime))
-    tc = TestClient(server)
+    tc = TestClient[Request, Application](server)
     await tc.start_server()
     try:
         response = await tc.post("/v1/conversation", json={"text": "hello"})
@@ -124,10 +127,11 @@ async def test_assist_turn_paired(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_command_dispatch_success(client: TestClient) -> None:
+async def test_command_dispatch_success(client: TestClient[Request, Application]) -> None:
     """Successful unknown command route returns ok with result."""
     # Register a temp handler and dispatch via the generic route
     from openclaw_node.commands.dispatcher import register_handler
+
     register_handler("test.echo", lambda p: {"echoed": p})
     response = await client.post("/v1/commands/test.echo", json={"x": 1})
     data = await response.json()
@@ -137,7 +141,7 @@ async def test_command_dispatch_success(client: TestClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_json_body_non_object_400(client: TestClient) -> None:
+async def test_json_body_non_object_400(client: TestClient[Request, Application]) -> None:
     """A non-object JSON body returns 400."""
     response = await client.post(
         "/commands/ping",
@@ -162,7 +166,7 @@ async def test_ha_snapshot_success(tmp_path: Path) -> None:
     )
     runtime = NodeRuntime(config)
     server = TestServer(create_app(runtime))
-    tc = TestClient(server)
+    tc = TestClient[Request, Application](server)
     await tc.start_server()
 
     try:
@@ -212,6 +216,7 @@ async def test_ha_snapshot_success(tmp_path: Path) -> None:
 def test_aiohttp_timeout_returns_timeout() -> None:
     """aiohttp_timeout returns a ClientTimeout instance."""
     from aiohttp import ClientTimeout
+
     result = aiohttp_timeout()
     assert isinstance(result, ClientTimeout)
     assert result.total == 8
@@ -232,10 +237,11 @@ async def test_ha_snapshot_unreachable(tmp_path: Path) -> None:
     )
     runtime = NodeRuntime(config)
     server = TestServer(create_app(runtime))
-    tc = TestClient(server)
+    tc = TestClient[Request, Application](server)
     await tc.start_server()
 
     try:
+
         class _FailingSessionCM:
             async def __aenter__(self) -> Any:
                 raise aiohttp.ClientError("refused")
@@ -254,7 +260,7 @@ async def test_ha_snapshot_unreachable(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_json_body_none_returns_empty(client: TestClient) -> None:
+async def test_json_body_none_returns_empty(client: TestClient[Request, Application]) -> None:
     """A JSON null body is treated as an empty dict."""
     response = await client.post(
         "/commands/ping",
@@ -270,6 +276,7 @@ async def test_json_body_none_returns_empty(client: TestClient) -> None:
 def test_node_runtime_is_paired_false() -> None:
     """NodeRuntime.is_paired is False when not PAIRED."""
     from pathlib import Path
+
     config = NodeConfig(
         addon_mode=False,
         gateway_url="wss://gw.test/ws",

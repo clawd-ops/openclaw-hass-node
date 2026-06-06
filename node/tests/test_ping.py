@@ -53,8 +53,6 @@ def test_dispatch_unknown_command_raises() -> None:
 
 
 def test_register_handler_overrides_and_invokes() -> None:
-    sentinel: dict[str, object] = {}
-
     def custom_handler(params: dict[str, object]) -> dict[str, object]:
         return {"custom": True, "params": params}
 

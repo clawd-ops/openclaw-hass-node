@@ -111,19 +111,21 @@ class DeviceIdentity:
         """
         signed_at_ms = int(time.time() * 1000)
         scopes_str = ",".join(scopes)
-        payload = "|".join([
-            "v3",
-            self.device_id,
-            _CLIENT_ID,
-            _CLIENT_MODE,
-            role,
-            scopes_str,
-            str(signed_at_ms),
-            token,
-            nonce,
-            _PLATFORM,
-            _DEVICE_FAMILY,
-        ])
+        payload = "|".join(
+            [
+                "v3",
+                self.device_id,
+                _CLIENT_ID,
+                _CLIENT_MODE,
+                role,
+                scopes_str,
+                str(signed_at_ms),
+                token,
+                nonce,
+                _PLATFORM,
+                _DEVICE_FAMILY,
+            ]
+        )
         sig_bytes = self.private_key.sign(payload.encode("utf-8"))
         return _b64url(sig_bytes), signed_at_ms
 

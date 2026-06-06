@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from openclaw_node.identity import generate_identity, load_identity, load_or_generate, save_identity
 
 
@@ -18,7 +20,7 @@ def test_generate_identity_signs_connect_payload() -> None:
     assert signed_at > 0
 
 
-def test_save_load_and_load_or_generate(tmp_path) -> None:
+def test_save_load_and_load_or_generate(tmp_path: Path) -> None:
     """Identity persistence round-trips through JSON."""
     path = tmp_path / "node-key.json"
     identity, created = load_or_generate(path)

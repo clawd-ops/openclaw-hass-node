@@ -7,9 +7,8 @@ single :class:`NodeConfig` dataclass consumed by all subsystems.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-
 
 _DEFAULT_GATEWAY_URL = "wss://oc.landry.me/ws"
 _ADDON_DATA_DIR = Path("/data/openclaw")
