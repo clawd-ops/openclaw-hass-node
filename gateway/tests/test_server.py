@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from openclaw_gateway.brain import BrainError
 from openclaw_gateway.server import GatewayServer
 
@@ -59,11 +60,11 @@ class _FakeWS:
         return [json.loads(s) for s in self.sent]
 
 
-def _server(model_responses: list[Any]) -> GatewayServer:
+def _server(model_responses: list[Any], *, auto_approve: bool = True) -> GatewayServer:
     client = MagicMock()
     client.messages = MagicMock()
     client.messages.create = AsyncMock(side_effect=model_responses)
-    return GatewayServer(client)
+    return GatewayServer(client, auto_approve=auto_approve)
 
 
 def _text_resp(text: str) -> MagicMock:
@@ -76,36 +77,118 @@ def _text_resp(text: str) -> MagicMock:
     return resp
 
 
-async def test_handshake_sends_challenge_and_response() -> None:
-    server = _server([])
-    ws = _FakeWS()
-    ws.queue(
-        {
-            "type": "req",
-            "id": "r1",
-            "method": "connect",
-            "params": {"device": {"id": "node-a"}},
-        }
-    )
-    await server._send_challenge(ws)  # type: ignore[arg-type]
-    await server._handshake(ws)  # type: ignore[arg-type]
+async def test_handshake_with_valid_signature_and_autoapprove_succeeds() -> None:
+    """Valid signature + auto_approve=True → ok=True with token."""
+    from conftest import signed_connect_params as _signed_connect_params
 
-    msgs = ws.sent_messages()
-    assert msgs[0]["event"] == "connect.challenge"
-    assert "nonce" in msgs[0]["payload"]
-    assert msgs[1]["type"] == "res"
-    assert msgs[1]["id"] == "r1"
-    assert msgs[1]["ok"] is True
+    server = _server([], auto_approve=True)
+    ws = _FakeWS()
+    nonce = "test-nonce"
+    params = _signed_connect_params(device_id="node-a", nonce=nonce)
+    ws.queue({"type": "req", "id": "r1", "method": "connect", "params": params})
+    # Send challenge first to match the protocol order.
+    await server._send_challenge(ws)  # type: ignore[arg-type]
+    paired = await server._handshake(ws, nonce)  # type: ignore[arg-type]
+    assert paired is True
+    res = next(m for m in ws.sent_messages() if m.get("type") == "res")
+    assert res["ok"] is True
+    assert res["payload"]["token"]
 
 
 async def test_handshake_rejects_wrong_method() -> None:
-    import pytest
-
     server = _server([])
     ws = _FakeWS()
     ws.queue({"type": "req", "id": "r1", "method": "other", "params": {}})
     with pytest.raises(ValueError, match="connect"):
-        await server._handshake(ws)  # type: ignore[arg-type]
+        await server._handshake(ws, "nonce")  # type: ignore[arg-type]
+
+
+async def test_handshake_rejects_invalid_signature() -> None:
+    """Tampered signature → ok=False with AUTH_BAD_SIGNATURE."""
+    from conftest import b64url as _b64url
+    from conftest import signed_connect_params as _signed_connect_params
+
+    server = _server([], auto_approve=True)
+    ws = _FakeWS()
+    nonce = "n2"
+    params = _signed_connect_params(device_id="bad", nonce=nonce)
+    bad = bytearray(b"\x00" * 64)
+    params["device"]["signature"] = _b64url(bytes(bad))
+    ws.queue({"type": "req", "id": "r1", "method": "connect", "params": params})
+    paired = await server._handshake(ws, nonce)  # type: ignore[arg-type]
+    assert paired is False
+    res = next(m for m in ws.sent_messages() if m.get("type") == "res")
+    assert res["ok"] is False
+    assert res["error"] == "AUTH_BAD_SIGNATURE"
+
+
+async def test_handshake_pairing_required_when_not_autoapprove() -> None:
+    """Valid signature but auto_approve=False → PAIRING_REQUIRED."""
+    from conftest import signed_connect_params as _signed_connect_params
+
+    server = _server([], auto_approve=False)
+    ws = _FakeWS()
+    nonce = "n3"
+    params = _signed_connect_params(device_id="new-node", nonce=nonce)
+    ws.queue({"type": "req", "id": "r1", "method": "connect", "params": params})
+    paired = await server._handshake(ws, nonce)  # type: ignore[arg-type]
+    assert paired is False
+    res = next(m for m in ws.sent_messages() if m.get("type") == "res")
+    assert res["error"] == "PAIRING_REQUIRED"
+
+
+async def test_approve_device_then_handshake_succeeds() -> None:
+    """approve_device promotes a pending device; subsequent connect is ok."""
+    from conftest import signed_connect_params as _signed_connect_params
+
+    server = _server([], auto_approve=False)
+    # First attempt — registers as PENDING.
+    nonce = "n4"
+    params = _signed_connect_params(device_id="node-pending", nonce=nonce)
+    ws1 = _FakeWS()
+    ws1.queue({"type": "req", "id": "r1", "method": "connect", "params": params})
+    paired = await server._handshake(ws1, nonce)  # type: ignore[arg-type]
+    assert paired is False
+
+    # Operator approves.
+    server.approve_device("node-pending")
+
+    # Second connect with same key — must succeed. Use a fresh nonce signed
+    # at "now" to keep the signature valid against the new request.
+    nonce2 = "n5"
+    # Need to use the SAME private key as the first signature, which is
+    # only known to _signed_connect_params helper. Generate one and reuse.
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+    priv = Ed25519PrivateKey.generate()
+    params_a = _signed_connect_params(device_id="reused", nonce=nonce, private=priv)
+    server._devices.register_or_get("reused", params_a["device"]["publicKey"])
+    server.approve_device("reused")
+    params_b = _signed_connect_params(device_id="reused", nonce=nonce2, private=priv)
+    ws2 = _FakeWS()
+    ws2.queue({"type": "req", "id": "r2", "method": "connect", "params": params_b})
+    paired2 = await server._handshake(ws2, nonce2)  # type: ignore[arg-type]
+    assert paired2 is True
+
+
+async def test_handshake_rejects_changed_public_key() -> None:
+    """Re-connecting under same device_id but different key is rejected."""
+    from conftest import signed_connect_params as _signed_connect_params
+
+    server = _server([], auto_approve=False)
+    nonce_a = "na"
+    params_a = _signed_connect_params(device_id="same-id", nonce=nonce_a)
+    server._devices.register_or_get("same-id", params_a["device"]["publicKey"])
+
+    nonce_b = "nb"
+    params_b = _signed_connect_params(device_id="same-id", nonce=nonce_b)
+    # Different priv key inside, so publicKey differs.
+    ws = _FakeWS()
+    ws.queue({"type": "req", "id": "r1", "method": "connect", "params": params_b})
+    paired = await server._handshake(ws, nonce_b)  # type: ignore[arg-type]
+    assert paired is False
+    res = next(m for m in ws.sent_messages() if m.get("type") == "res")
+    assert res["error"] == "AUTH_KEY_CHANGED"
 
 
 async def test_pending_pull_returns_empty_list() -> None:
@@ -129,7 +212,7 @@ async def test_invoke_result_completes_pending_future() -> None:
 
     task = asyncio.create_task(invoker.invoke("ha.x", {}))
     await asyncio.sleep(0.01)
-    invoke_id = next(iter(invoker._pending))  # noqa: SLF001
+    invoke_id = next(iter(invoker._pending))
 
     ws.queue(
         {
@@ -207,8 +290,8 @@ async def test_unknown_request_replies_not_ok() -> None:
 async def test_event_loop_drops_non_json_frames() -> None:
     server = _server([])
     ws = _FakeWS()
-    ws._in.append("not json")  # noqa: SLF001
-    ws._in.append(json.dumps({"type": "req", "id": "r", "method": "node.pending.pull"}))  # noqa: SLF001
+    ws._in.append("not json")
+    ws._in.append(json.dumps({"type": "req", "id": "r", "method": "node.pending.pull"}))
     from openclaw_gateway.invoke_dispatcher import InvokeDispatcher
 
     invoker = InvokeDispatcher(send=AsyncMock())
@@ -232,7 +315,7 @@ async def test_brain_error_attribute_carried_through_to_payload() -> None:
     from openclaw_gateway.invoke_dispatcher import InvokeDispatcher
 
     invoker = InvokeDispatcher(send=AsyncMock())
-    await server._run_conversation(  # noqa: SLF001
+    await server._run_conversation(
         ws,  # type: ignore[arg-type]
         invoker,
         {"conversationId": "c3", "text": "hi"},
