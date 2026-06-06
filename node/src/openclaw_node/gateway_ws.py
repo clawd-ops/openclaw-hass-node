@@ -61,6 +61,9 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "ha.list_devices",
     "ha.list_services",
     "ha.list_entity_registry",
+    "ha.logbook",
+    "ha.history",
+    "ha.reload_config",
 ]
 _EMPTY: Final[str] = "".join(())
 _PENDING_PULL_LIMIT: Final[int] = 10

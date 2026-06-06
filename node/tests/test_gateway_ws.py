@@ -97,6 +97,9 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.list_devices",
         "ha.list_services",
         "ha.list_entity_registry",
+        "ha.logbook",
+        "ha.history",
+        "ha.reload_config",
     ]
 
 
