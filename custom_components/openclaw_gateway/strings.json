@@ -1,0 +1,17 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OpenClaw Gateway",
+        "description": "Connect Home Assistant Assist to the local OpenClaw Node add-on.",
+        "data": {
+          "socket_url": "OpenClaw Node add-on URL"
+        }
+      }
+    },
+    "error": {},
+    "abort": {
+      "already_configured": "This OpenClaw Gateway endpoint is already configured."
+    }
+  }
+}

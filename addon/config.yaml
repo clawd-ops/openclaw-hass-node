@@ -1,0 +1,38 @@
+---
+name: OpenClaw Node
+version: "2026.6.0"
+slug: openclaw_hass_node
+description: >
+  OpenClaw gateway peripheral for Home Assistant. Connects this HA instance
+  to the OpenClaw gateway as a node, exposing filesystem, shell, HA control,
+  and Assist conversation surfaces to the gateway model.
+url: https://github.com/clawd-ops/openclaw-hass-node
+arch:
+  - amd64
+  - aarch64
+  - armv7
+init: false
+hassio_api: true
+hassio_role: admin
+homeassistant_api: true
+auth_api: true
+map:
+  - config:rw
+  - share:rw
+  - ssl:rw
+  - addons:rw
+  - media:rw
+  - backup:rw
+options:
+  gateway_url: "wss://oc.landry.me/ws"
+  pairing_token: ""
+  node_name: ""
+schema:
+  gateway_url: url
+  pairing_token: password
+  node_name: str?
+ports:
+  8099/tcp: 8099
+ingress: false
+panel_icon: mdi:robot-happy
+image: ghcr.io/clawd-ops/openclaw-hass-node/{arch}

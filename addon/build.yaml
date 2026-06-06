@@ -1,0 +1,9 @@
+---
+build_from:
+  amd64: "python:3.13-alpine"
+  aarch64: "python:3.13-alpine"
+  armv7: "python:3.13-alpine"
+labels:
+  io.hass.version: "2026.6.0"
+  io.hass.type: addon
+  io.hass.arch: amd64|aarch64|armv7
