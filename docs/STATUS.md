@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (P3.2.2 merged; P3.2.3 next)
+**P3 — Filesystem + shell surface** (P3.2.3 merged; P3.2.4 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -23,6 +23,13 @@ v1 REQUEST-CHANGES (2 HIGH + 1 MEDIUM), v2 APPROVE. Fixes: protected-root
 gate is now unconditional (agent_bridge=False cannot bypass), post-resolution
 symlink/traversal check added, _coerce() treats 64-char hex as sha256 before
 int() coercion. 224 tests, 97.29% branch coverage.
+P3.2.3 merged on 2026-06-06 (`2309510`, PR #6) after Codex cross-review:
+v1 REQUEST-CHANGES (4 findings: shutil.move non-atomic, EXDEV not mapped,
+send2trash error-propagation gap, post-resolution patch target wrong),
+v2 APPROVE (micro-targeted prompt to avoid OOM). Fixes: _move_file() helper
+using os.replace only (no copy-then-unlink fallback), errno.EXDEV → CROSS_DEVICE,
+send2trash non-ImportError propagation test, post-resolution tests patch
+fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
 
 ## Last completed
 
@@ -56,7 +63,7 @@ int() coercion. 224 tests, 97.29% branch coverage.
 
 ## Current task
 
-P3.2.3 — `fs.move`, `fs.delete` using trash-cli for recoverable deletes.
+P3.2.4 — `system.run` behind `operator.admin` scope, or `fs.patch` for yaml-only mutations. Check PLAN.md for ordering.
 
 ## Codex review status
 
