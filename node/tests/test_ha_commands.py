@@ -9,11 +9,13 @@ import pytest
 
 from openclaw_node.commands.ha import (
     handle_ha_call_service,
+    handle_ha_check_config,
     handle_ha_get_state,
     handle_ha_history,
     handle_ha_light_turn_off,
     handle_ha_light_turn_on,
     handle_ha_list_areas,
+    handle_ha_list_automations,
     handle_ha_list_devices,
     handle_ha_list_entity_registry,
     handle_ha_list_services,
@@ -575,3 +577,130 @@ async def test_light_turn_off_non_list_result() -> None:
         result = await handle_ha_light_turn_off({"entity_id": "light.x"})
     assert result["ok"] is True
     assert result["changed_states"] == []
+
+
+# ---------------------------------------------------------------------------
+# ha.list_automations
+# ---------------------------------------------------------------------------
+
+
+async def test_list_automations_filters_states() -> None:
+    states = [
+        {"entity_id": "automation.morning", "state": "on", "attributes": {"id": "auto1"}},
+        {"entity_id": "light.kitchen", "state": "on"},
+        {"entity_id": "automation.night", "state": "off", "attributes": {"id": "auto2"}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_automations({})
+    assert result["ok"] is True
+    assert result["count"] == 2
+    assert all(a["entity_id"].startswith("automation.") for a in result["automations"])
+
+
+async def test_list_automations_includes_traces_when_requested() -> None:
+    states = [
+        {"entity_id": "automation.morning", "state": "on", "attributes": {"id": "auto1"}},
+    ]
+    traces = [{"run_id": "abc", "timestamp": "2026-06-06T00:00:00"}]
+    with (
+        patch("openclaw_node.commands.ha.ha_get", return_value=states),
+        patch("openclaw_node.commands.ha.ha_ws_call", return_value=traces),
+    ):
+        result = await handle_ha_list_automations({"include_traces": True})
+    assert result["automations"][0]["traces"] == traces
+
+
+async def test_list_automations_handles_trace_failure() -> None:
+    states = [
+        {"entity_id": "automation.x", "state": "on", "attributes": {"id": "auto1"}},
+    ]
+    with (
+        patch("openclaw_node.commands.ha.ha_get", return_value=states),
+        patch(
+            "openclaw_node.commands.ha.ha_ws_call",
+            side_effect=HAClientError("HA_WS_ERROR", "fail"),
+        ),
+    ):
+        result = await handle_ha_list_automations({"include_traces": True})
+    assert result["automations"][0]["traces"] == []
+
+
+async def test_list_automations_no_id_attribute_skips_trace_fetch() -> None:
+    states = [
+        {"entity_id": "automation.x", "state": "on", "attributes": {}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_automations({"include_traces": True})
+    assert result["automations"][0]["traces"] == []
+
+
+async def test_list_automations_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_AUTH", "auth fail"),
+    ):
+        result = await handle_ha_list_automations({})
+    assert result["error"] == "HA_AUTH"
+
+
+async def test_list_automations_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"not": "a list"}):
+        result = await handle_ha_list_automations({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_automations_trace_non_list_response() -> None:
+    states = [
+        {"entity_id": "automation.x", "state": "on", "attributes": {"id": "auto1"}},
+    ]
+    with (
+        patch("openclaw_node.commands.ha.ha_get", return_value=states),
+        patch("openclaw_node.commands.ha.ha_ws_call", return_value={"not": "list"}),
+    ):
+        result = await handle_ha_list_automations({"include_traces": True})
+    assert result["automations"][0]["traces"] == []
+
+
+# ---------------------------------------------------------------------------
+# ha.check_config
+# ---------------------------------------------------------------------------
+
+
+async def test_check_config_valid() -> None:
+    body = {"result": "valid", "errors": None, "warnings": None}
+    with patch("openclaw_node.commands.ha.ha_post", return_value=body):
+        result = await handle_ha_check_config({})
+    assert result["ok"] is True
+    assert result["result"] == "valid"
+    assert result["errors"] is None
+
+
+async def test_check_config_invalid_with_errors() -> None:
+    body = {"result": "invalid", "errors": "yaml line 5: bad", "warnings": "deprecation"}
+    with patch("openclaw_node.commands.ha.ha_post", return_value=body):
+        result = await handle_ha_check_config({})
+    assert result["result"] == "invalid"
+    assert "bad" in str(result["errors"])
+    assert "deprecation" in str(result["warnings"])
+
+
+async def test_check_config_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500"),
+    ):
+        result = await handle_ha_check_config({})
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_check_config_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=["not", "a", "dict"]):
+        result = await handle_ha_check_config({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_check_config_missing_result_field_defaults_unknown() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value={}):
+        result = await handle_ha_check_config({})
+    assert result["ok"] is True
+    assert result["result"] == "unknown"
