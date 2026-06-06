@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P4 — HA control surface** (P4.3 merged; P4.4 next — light controls)
+**P4 — HA control surface** COMPLETE (all 9 MCP tools ported; P5 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -70,6 +70,11 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
 
+P4.4 merged on 2026-06-06 (`d1a4faf`, PR #12) after Codex cross-review:
+v1 APPROVE. Delivered: ha.light_turn_on + ha.light_turn_off with shared
+_build_light_target() validator (entity/area/device, entity_id accepts str or
+list). 410 tests, 97% coverage. All 9 mcp__homeassistant__* tools now ported.
+
 P4.3 merged on 2026-06-06 (`dadcb21`, PR #11) after Codex cross-review:
 v1 APPROVE (3-grep: compare_digest, no subprocess, HA error codes present).
 Delivered: ha.logbook (REST), ha.history (REST, flag params), ha.reload_config
@@ -90,7 +95,8 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P4.4 — HA light controls: `ha.light_turn_on`, `ha.light_turn_off`.
+P5 — HA config editing: proposal-gated `ha.config_set_entity`, `ha.config_flow_*`,
+and `docs.breaking_changes` (HA version-aware breaking change lookup).
 
 ## Codex review status
 
