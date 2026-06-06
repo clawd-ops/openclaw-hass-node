@@ -17,6 +17,7 @@ from openclaw_node.commands.fs import (
     handle_fs_stat,
 )
 from openclaw_node.commands.fs_move_delete import handle_fs_delete, handle_fs_move
+from openclaw_node.commands.fs_patch import handle_fs_patch
 from openclaw_node.commands.fs_write import (
     handle_fs_diff,
     handle_fs_history,
@@ -44,6 +45,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "fs.diff": handle_fs_diff,
     "fs.move": handle_fs_move,
     "fs.delete": handle_fs_delete,
+    "fs.patch": handle_fs_patch,
     "system.which": handle_system_which,
 }
 

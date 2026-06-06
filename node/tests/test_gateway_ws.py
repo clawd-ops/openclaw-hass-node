@@ -87,6 +87,7 @@ def test_connect_commands_advertise_full_surface() -> None:
         "fs.diff",
         "fs.move",
         "fs.delete",
+        "fs.patch",
         "system.which",
     ]
 
