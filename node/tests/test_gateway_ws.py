@@ -74,13 +74,17 @@ def test_gateway_client_with_pairing_callback() -> None:
     assert client.pairing_state is PairingState.UNKNOWN
 
 
-def test_connect_commands_advertise_read_only_surface() -> None:
+def test_connect_commands_advertise_full_surface() -> None:
     assert _CONNECT_COMMANDS == [
         "ping",
         "fs.read",
         "fs.list",
         "fs.stat",
         "fs.glob",
+        "fs.write",
+        "fs.restore",
+        "fs.history",
+        "fs.diff",
         "system.which",
     ]
 
