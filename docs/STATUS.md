@@ -6,7 +6,12 @@
 
 ## Current phase
 
-**P2 — Skeleton** (complete, awaiting Codex review)
+**P3 — Filesystem + shell surface** (read-only commands in progress)
+
+P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override; Codex
+cross-review deferred because the Codex OAuth profile is currently
+non-routing (see Clawd's memory `project_codex_oauth_regression_2026_06_06`).
+Re-run Codex review on P3 PR before merge once auth is restored.
 
 ## Last completed
 
@@ -34,7 +39,9 @@
 
 ## Current task
 
-P2.1-P2.4 complete, awaiting Codex review.
+P3.1 — read-only filesystem commands: `fs.read`, `fs.list`, `fs.stat`,
+`fs.glob`, `system.which`. Write commands and `system.run` come in P3.2
+(proposal-gated).
 
 ## Last P2 completed milestones
 
@@ -57,7 +64,8 @@ P2.1-P2.4 complete, awaiting Codex review.
 
 ## Next step
 
-Codex review pass on the P2 PR per `PROCESS.md`.
+Open P3.1 PR (read-only fs commands) once implemented; run Codex
+cross-review per `PROCESS.md` after OAuth re-auth.
 
 ## Completed P1 research
 
