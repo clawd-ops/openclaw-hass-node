@@ -17,9 +17,9 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: ruff check
-        run: uv run ruff check node/src node/tests gateway/src gateway/tests
+        run: uv run ruff check node/src node/tests
       - name: ruff format check
-        run: uv run ruff format --check node/src node/tests gateway/src gateway/tests
+        run: uv run ruff format --check node/src node/tests
 
   typecheck:
     name: Type Check
@@ -32,7 +32,7 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: mypy --strict
-        run: uv run mypy --strict node/src node/tests gateway/src gateway/tests
+        run: uv run mypy --strict node/src node/tests
 
   test:
     name: Test (node)
@@ -45,7 +45,7 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: pytest with branch coverage
-        run: uv run pytest node/tests/ gateway/tests/
+        run: uv run pytest node/tests/
 
   security:
     name: Security
@@ -58,7 +58,7 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: bandit
-        run: uv run bandit -r node/src gateway/src -ll
+        run: uv run bandit -r node/src -ll
       - name: pip-audit
         run: uv run pip-audit
 

@@ -33,46 +33,17 @@ architecture.
 - **`node/`** — the OpenClaw node. Pairs with the gateway, runs the
   add-on, exposes the `fs.*`, `system.*`, and `ha.*` command surface.
   Local HTTP API on port 8099 services Assist turns and health checks.
-- **`gateway/`** — a **standalone reference brain**. WS server that
-  accepts node connections, runs `Brain.handle_turn` (Claude Opus 4.7
-  *or* GPT-5.5; provider is config-driven) with the `ha.*` catalog as
-  tools, and routes tool calls back to the node.
-
-  This is the **trial / reference** gateway for users who don't run
-  OpenClaw. In the maintainer's deployment, an OpenClaw plugin will
-  eventually handle `node.conversation.request` instead — that
-  integration lives in a follow-up phase (P5.10). Both paths use the
-  same node-side protocol, so the node and shim never change.
+- **OpenClaw gateway** is the brain. The node connects to it as a
+  standard OpenClaw node (Gateway Protocol, `role: "node"`) and uses
+  the existing chat surface (`chat.send` + `sessions.messages.subscribe`)
+  to relay HA Assist turns into an agent session. See
+  `docs/RESEARCH-OPENCLAW-INTEGRATION.md` for the architecture and
+  P5.11 implementation plan.
 - **`custom_components/openclaw_gateway/`** — the HACS shim. A
   ~150 LOC `ConversationEntity` that forwards Assist turns to the
   node's local HTTP API.
 - **`addon/`** — Home Assistant add-on packaging (Dockerfile + config).
 - **`docs/`** — durable plan, status, command surface, decisions.
-
-## Run the gateway
-
-```bash
-export ANTHROPIC_API_KEY=sk-…
-export OPENCLAW_GATEWAY_AUTO_APPROVE=true       # trial mode; default is operator approval
-python -m openclaw_gateway
-```
-
-Env vars (see `gateway/src/openclaw_gateway/config.py`):
-
-| Var                              | Default                                  |
-| -------------------------------- | ---------------------------------------- |
-| `OPENCLAW_GATEWAY_HOST`          | `0.0.0.0`                                |
-| `OPENCLAW_GATEWAY_PORT`          | `8765`                                   |
-| `OPENCLAW_GATEWAY_PROVIDER`      | `anthropic` (or `openai`)                |
-| `OPENCLAW_GATEWAY_MODEL`         | `claude-opus-4-7` / `gpt-5.5`            |
-| `OPENCLAW_GATEWAY_SYSTEM_PROMPT` | (empty)                                  |
-| `OPENCLAW_GATEWAY_AUTO_APPROVE`  | `false`                                  |
-| `OPENCLAW_GATEWAY_DATA_DIR`      | `~/.openclaw/hass-gateway`               |
-| `ANTHROPIC_API_KEY`              | required when provider=anthropic         |
-| `OPENAI_API_KEY`                 | required when provider=openai            |
-
-Device registry persists to `$DATA_DIR/devices.json` so pairings survive
-restarts.
 
 ## Install the shim
 

@@ -1,120 +1,132 @@
-# OpenClaw Integration (P5.10)
+# OpenClaw Integration (P5.10) — node as conversation relay
 
-> **Identity check.** Clawd is OpenClaw. When this doc talks about "the
-> brain" answering HA Assist turns, in Rob's deployment **the brain is
-> Clawd running in OpenClaw** — the same agent that handles Discord,
-> Signal, and the rest. The `gateway/` workspace in this repo is a
-> *standalone reference* for non-OpenClaw users; the integration below
-> is the canonical path for Rob.
+> **Identity check.** Clawd is OpenClaw. The "brain" answering HA Assist
+> turns is Clawd running in OpenClaw — same agent that handles Discord,
+> Signal, etc.
+>
+> **Architecture check.** The HA Assist integration is a **node**, not
+> a plugin. The node connects to OpenClaw with `role: "node"` and the
+> appropriate scopes. It uses the **existing chat surface** to relay HA
+> Assist turns into a session and the **existing `node.invoke` surface**
+> to handle `ha.*` tool calls coming back from the agent.
 
-## Decision
+## What was wrong (this is the durable lesson)
 
-HA Assist integrates with OpenClaw as a **Channel plugin**, modelled on
-the existing Discord / Signal / Telegram channels:
+Earlier iterations of this design got two things wrong:
 
-- Each `node.conversation.request` arrives as an inbound message on a
-  "HA Assist" channel.
-- Clawd (or whichever agent is configured for that channel) handles the
-  message exactly like any other inbound turn.
-- The `ha.*` command surface is exposed as Tool plugins so the agent can
-  call them mid-turn. The plugin proxies tool calls back to the node
-  over the existing node WS protocol.
-- The agent's final response becomes `node.conversation.result`.
+1. **Built a parallel standalone gateway in `gateway/`** with its own
+   `Brain`, providers, and pairing protocol. That work duplicated
+   functionality OpenClaw already provides. It still lives as a
+   reference for third-party users who don't run OpenClaw, but it is
+   **not the path Rob's deployment uses**.
+2. **Invented a `node.conversation.request` event type** on the WS
+   between node and gateway. This was unnecessary — the OpenClaw
+   Gateway Protocol already exposes `chat.send` / `sessions.send` /
+   `sessions.messages.subscribe` for exactly this purpose.
 
-Same node-side protocol whether OpenClaw or the standalone gateway is
-on the other end. Node + HACS shim never change.
+The root cause: I read `/app/docs/nodes/index.md` which says
 
-## Why a Channel plugin (not Provider, not Tool, not new gateway code)
+> Nodes are **peripherals**, not gateways. They don't run the gateway service.
+> Telegram/WhatsApp/etc. messages land on the **gateway**, not on nodes.
 
-| Shape    | Fit                                                                                  |
-| -------- | ------------------------------------------------------------------------------------ |
-| Channel  | ✅ messages-in, replies-out, threaded conversations — exactly HA Assist's shape       |
-| Provider | ✗ providers add models, not transports                                               |
-| Tool     | ✗ tools register agent capabilities, not inbound channels                            |
-| In-core  | ✗ "we wouldn't add this to OpenClaw core" — plugins are the supported extension path |
+and concluded that nodes can't *originate* conversation turns. **That
+is wrong.** A node *receives* commands as a peripheral, but a node with
+chat scopes can also *call* `chat.send` as an outbound RPC to inject a
+conversation turn. The "peripheral" framing only covers half of what a
+node can do.
 
-Confirmed by `/app/docs/plugins/building-plugins.md` in the OpenClaw repo.
+If you're reading this after a context compaction and the upstream
+OpenClaw docs still don't make the relay pattern explicit, see also the
+runtime-audit note at `runtime-audits/openclaw-node-conversation-relay.md`
+in the workspace.
 
-## Plugin shape (proposed)
+## Architecture (the correct one)
 
-Package: `@clawd-ops/openclaw-ha-assist` (or in-repo as
-`extensions/ha-assist/` if bundled).
+```
+HA Assist UI
+    │ user turn (text + conversation_id + language)
+    ▼
+custom_components/openclaw_gateway/  (ConversationEntity)
+    │ POST /v1/conversation
+    ▼
+openclaw-hass-node (Python, this repo)
+    │  • already paired with OpenClaw via Gateway Protocol
+    │  • calls chat.send to inject the turn into a session
+    │  • subscribes via sessions.messages.subscribe for the reply
+    │  • services ha.* via node.invoke when the agent calls them
+    ▼
+OpenClaw Gateway
+    │ routes session messages to the configured agent (Clawd)
+    ▼
+Clawd handles the turn, uses ha.* tools as needed
+    │  • ha.list_states / ha.light_turn_on / etc. via node.invoke
+    │  • final assistant reply lands on the session
+    ▼
+Reply flows back: session message → node subscription → /v1/conversation → shim → HA Assist speech
+```
 
-Two pieces:
+Same wire protocol the node already speaks. Same `ha.*` command surface
+already wired in P4. No new event types. No standalone brain.
 
-### 1. Channel plugin — `ha-assist`
+## What the node needs (P5.11 work)
 
-Owns the WS listener that nodes connect to. Responsibilities:
+This refactor replaces the placeholder behaviour in
+`node/src/openclaw_node/http_api.py::assist_turn` with real chat-surface
+routing. Concretely:
 
-- Accept node WS connections.
-- Run the existing handshake (challenge → connect → Ed25519 verify → token).
-  The verification logic in `gateway/src/openclaw_gateway/auth.py` is the
-  reference; the TypeScript port mirrors it byte-for-byte against the
-  same v3 payload the node-side `DeviceIdentity.sign_connect` produces.
-- Persist device registry (PENDING / PAIRED + token) in OpenClaw's existing
-  state store. No more in-memory or per-process JSON.
-- On `node.conversation.request`, emit an inbound channel message keyed
-  by `conversationId` (channel id) so multi-turn conversations thread
-  correctly. Forward `text` + optional `language` as the message body.
-- On agent reply, emit `node.conversation.result` with the matching
-  `conversationId`.
-- On disconnect, cancel any in-flight invokes (mirror
-  `gateway/src/openclaw_gateway/invoke_dispatcher.py` `cancel_all`).
+1. After the connect handshake, the node already has an open WS to the
+   gateway with `role: "node"`. Add the chat scopes
+   (e.g. `operator.read`) to the `connect.params.scopes` list so the
+   gateway will accept `chat.send` from this connection.
+2. **`/v1/conversation` (POST)** — when an Assist turn arrives:
+   - Pick or open a session keyed by `conversation_id` (HA's
+     conversation id is stable across follow-ups, so per-`conversation_id`
+     sessions thread correctly).
+   - Subscribe to the session via `sessions.messages.subscribe` if not
+     already subscribed.
+   - Send the turn via `chat.send` (or `sessions.send` — TBD which is
+     idiomatic; both are listed in protocol.md §"Chat execution").
+   - Await the next assistant reply event on the subscription with a
+     timeout matching `_FORWARDER_TIMEOUT_S` (30s).
+   - Return the reply text as the HTTP response.
+3. **`ha.*` invokes from the agent** — already work. No changes needed:
+   the gateway sends `node.invoke.request`, the dispatcher routes to the
+   existing handlers, the result goes back as `node.invoke.result`. The
+   handlers don't know or care that the *reason* the gateway is invoking
+   them is an Assist turn.
 
-Pairing approval flows through whatever admin path OpenClaw already uses
-for new devices (CLI subcommand, settings panel, agent-bridge proposal).
+## What goes away
 
-### 2. Tool plugin — `ha-tools`
+The following were workarounds for the wrong architecture and can be
+deleted:
 
-Registers the 13 `ha.*` commands as agent tools (same shapes as
-`gateway/src/openclaw_gateway/tools.py`'s `HA_TOOLS`). Each tool
-implementation:
+- **`gateway/` workspace member** (standalone server, brain, providers,
+  invoke dispatcher, device registry, auth). Kept only briefly as a
+  reference for the README; otherwise deleted.
+- **`node/src/openclaw_node/conversation_dispatcher.py`** — invented to
+  correlate `node.conversation.request` / `result` frames I shouldn't
+  have invented.
+- **`node.conversation.request` / `node.conversation.result`** routing
+  in `node/src/openclaw_node/gateway_ws.py`.
+- **`NodeRuntime.conversation_forwarder`** hook and the related
+  `assist_turn` forwarder logic. The new `assist_turn` uses the chat
+  surface directly via an injected `ChatRelay` (or similar) backed by
+  the gateway WS.
 
-1. Looks up the connected node session by its current
-   `conversationContextId` (or the agent's per-turn binding).
-2. Sends `node.invoke.request` over that session's WS, awaits
-   `node.invoke.result` keyed by `invokeId`. The correlation dispatcher
-   pattern is identical to the standalone gateway's `InvokeDispatcher`.
-3. Returns the wire result dict for the agent to consume.
+The HACS shim, the `ha.*` command surface, the Ed25519 handshake on the
+node side, the device identity / pairing flow, the `/v1/conversation`
+endpoint shape — all **stay**. They were always right.
 
-## Reusable from this repo
+## P5.11 scope
 
-When porting, lift the wire-protocol primitives — they are deliberately
-small and SDK-free:
+1. Delete the wrong-direction code listed above.
+2. Add a `ChatRelay` class on the node that wraps `chat.send` +
+   `sessions.messages.subscribe` over the existing gateway WS.
+3. Rewrite `assist_turn` to use it.
+4. Tests: relay + assist_turn end-to-end with a fake WS.
+5. Update `docs/PLAN.md` to reflect "node as conversation relay" as the
+   architecture, with no more "build a brain" language.
 
-- v3 payload reconstruction and signature verification
-  (`gateway/src/openclaw_gateway/auth.py`)
-- Device registry state machine
-  (`gateway/src/openclaw_gateway/device_registry.py`)
-- Pending-future correlation pattern for invokes and conversations
-  (`gateway/src/openclaw_gateway/invoke_dispatcher.py`,
-  `node/src/openclaw_node/conversation_dispatcher.py`)
-- The 13 tool shapes (`gateway/src/openclaw_gateway/tools.py`)
-
-The brain / provider abstraction (`brain.py`, `providers*.py`) does
-**not** port — OpenClaw already does model routing.
-
-## What this means for the standalone gateway
-
-`gateway/` stays as the reference for third-party users who don't run
-OpenClaw. Tests and CI continue to cover it. Once the OpenClaw plugin
-ships, the README's "run the gateway" section gains a parallel
-"OpenClaw users skip this" callout.
-
-## Open items before P5.10 implementation
-
-- **Plugin language:** TypeScript per `building-plugins.md`. Translate
-  the Python primitives above into TS. The auth payload string format is
-  the binding contract — keep the field order identical or the node
-  rejects the handshake.
-- **Channel identity:** does an HA Assist conversation get its own
-  channel per HA instance, or per agent? Probably per HA instance so the
-  agent-bridge per-device approval flow makes sense.
-- **Tool routing:** OpenClaw tools are stateless by default; routing a
-  tool call back to the *specific* node that initiated the current
-  conversation needs the tool to read the session's
-  `conversationContextId` from the agent runtime. Look at how Discord
-  channel plugins thread message-id ↔ tool-call state.
-- **MCP retirement:** P6 keeps the existing `mcp__homeassistant*` MCPs
-  parallel to the new `ha-tools` plugin until the readiness harness
-  prints `RETIREMENT_READY`. No big-bang.
+This is real code work — best done with you available rather than
+autonomously. The cleanup PR (this one) removes the wrong direction and
+leaves clear hooks for the relay implementation.

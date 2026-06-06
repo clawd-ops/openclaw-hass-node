@@ -6,7 +6,7 @@
 # definitions live in docs/QUALITY.md.
 
 [tool.uv.workspace]
-members = ["node", "gateway"]
+members = ["node"]
 
 [dependency-groups]
 dev = [
@@ -55,13 +55,13 @@ files = ["node/src", "node/tests"]
 # pytest + coverage
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
-testpaths = ["node/tests", "gateway/tests"]
-addopts = "--cov=openclaw_node --cov=openclaw_gateway --cov-report=term-missing --cov-branch"
+testpaths = ["node/tests"]
+addopts = "--cov=openclaw_node --cov-report=term-missing --cov-branch"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-source = ["openclaw_node", "openclaw_gateway"]
+source = ["openclaw_node"]
 omit = ["*/__main__.py"]
 
 [tool.coverage.report]
