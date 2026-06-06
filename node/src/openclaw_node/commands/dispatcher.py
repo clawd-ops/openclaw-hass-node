@@ -27,11 +27,13 @@ from openclaw_node.commands.fs_write import (
 )
 from openclaw_node.commands.ha import (
     handle_ha_call_service,
+    handle_ha_check_config,
     handle_ha_get_state,
     handle_ha_history,
     handle_ha_light_turn_off,
     handle_ha_light_turn_on,
     handle_ha_list_areas,
+    handle_ha_list_automations,
     handle_ha_list_devices,
     handle_ha_list_entity_registry,
     handle_ha_list_services,
@@ -80,6 +82,8 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.reload_config": handle_ha_reload_config,
     "ha.light_turn_on": handle_ha_light_turn_on,
     "ha.light_turn_off": handle_ha_light_turn_off,
+    "ha.list_automations": handle_ha_list_automations,
+    "ha.check_config": handle_ha_check_config,
 }
 
 

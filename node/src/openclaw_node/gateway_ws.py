@@ -66,6 +66,8 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "ha.reload_config",
     "ha.light_turn_on",
     "ha.light_turn_off",
+    "ha.list_automations",
+    "ha.check_config",
 ]
 _EMPTY: Final[str] = "".join(())
 _PENDING_PULL_LIMIT: Final[int] = 10

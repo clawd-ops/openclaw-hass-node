@@ -102,6 +102,8 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.reload_config",
         "ha.light_turn_on",
         "ha.light_turn_off",
+        "ha.list_automations",
+        "ha.check_config",
     ]
 
 

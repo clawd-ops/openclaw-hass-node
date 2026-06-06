@@ -1,4 +1,4 @@
-"""Home Assistant control surface (P4.1 - P4.4 commands).
+"""Home Assistant control surface (P4.1 - P4.5 commands).
 
 Implements the read and call-service primitives that replace the equivalent
 ``mcp__homeassistant__*`` MCP tools.  All handlers are async and talk to HA
@@ -18,6 +18,8 @@ Commands in this module:
 - ``ha.reload_config``        — reload HA core config (operator-admin gated).
 - ``ha.light_turn_on``        — turn on one or more lights (entity/area/device target).
 - ``ha.light_turn_off``       — turn off one or more lights.
+- ``ha.list_automations``     — list automation entities and optionally include traces.
+- ``ha.check_config``         — validate HA configuration.yaml.
 """
 
 from __future__ import annotations
@@ -401,3 +403,73 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
 
     changed: list[dict[str, Any]] = result if isinstance(result, list) else []
     return {"ok": True, "changed_states": changed}
+
+
+async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
+    """List automation entities, optionally including recent traces.
+
+    Params:
+        include_traces (bool, optional): If True, attach the most recent trace
+            list per automation via WS ``trace/list``. Default False.
+
+    Returns:
+        ``{ok: True, count, automations}`` where each automation has
+        ``entity_id``, ``state``, ``attributes`` and optionally ``traces``.
+    """
+    try:
+        raw = await ha_get("/api/states")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from /api/states")
+
+    automations: list[dict[str, Any]] = [
+        s
+        for s in raw
+        if isinstance(s.get("entity_id"), str) and s["entity_id"].startswith("automation.")
+    ]
+
+    if params.get("include_traces"):
+        for auto in automations:
+            entity_id = auto["entity_id"]
+            automation_id = (auto.get("attributes") or {}).get("id")
+            if not automation_id:
+                auto["traces"] = []
+                continue
+            try:
+                traces = await ha_ws_call(
+                    "trace/list",
+                    {"domain": "automation", "item_id": str(automation_id)},
+                )
+            except HAClientError as exc:
+                _LOG.warning("trace/list failed for %s: %s", entity_id, exc.message)
+                auto["traces"] = []
+                continue
+            auto["traces"] = traces if isinstance(traces, list) else []
+
+    return {"ok": True, "count": len(automations), "automations": automations}
+
+
+async def handle_ha_check_config(_params: dict[str, Any]) -> dict[str, Any]:
+    """Validate the Home Assistant ``configuration.yaml``.
+
+    Hits ``POST /api/config/core/check_config``.  Should be called before any
+    reload to surface errors that would otherwise crash HA on restart.
+
+    Returns:
+        ``{ok: True, result, errors, warnings}`` where ``result`` is
+        ``"valid"`` or ``"invalid"`` as reported by HA, or an error dict.
+    """
+    try:
+        raw = await ha_post("/api/config/core/check_config")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from /api/config/core/check_config")
+
+    return {
+        "ok": True,
+        "result": raw.get("result", "unknown"),
+        "errors": raw.get("errors"),
+        "warnings": raw.get("warnings"),
+    }
