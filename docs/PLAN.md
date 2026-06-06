@@ -74,20 +74,34 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 - Supervisor API exposed via `ha.supervisor.*` commands wrapping
   `http://supervisor/...` with `SUPERVISOR_TOKEN`.
 
-### 1b. Snapshot / undo model
+### 1b. Backup / undo model
 
-Two layers, no clutter:
+Purpose-built per-file versioning. No git in `/config`. No Supervisor
+snapshot per file change. No `.bak` sidecars next to live files.
 
-- **Per-change (git)**: `/config` is a git repo. Each applied proposal
-  is one commit, message references the agent-bridge proposal id.
-  Per-file undo via `git revert`. HA-managed noisy paths
-  (`.storage/auth*`, `home-assistant_v2.db`, `*.log`) live in
-  `.gitignore`.
-- **Coarse (Supervisor snapshots)**: before any multi-file proposal or
-  any `system.run` that touches `/config`, node calls
-  `ha.supervisor.snapshots.partial({folders: ["homeassistant"]})`
-  tagged `pre-clawd-<timestamp>-<proposal-id>`. Restored via Supervisor
-  UI/API.
+- **Store**: `/share/openclaw-backups/` (outside `/config`, survives
+  add-on rebuilds, included in normal HA backups).
+- **Layout**: content-addressed object store + per-path index.
+  - Objects: `objects/<sha256[0:2]>/<sha256>` — raw prior bytes,
+    deduplicated across versions and files.
+  - Index: `index/<url-encoded-path>.jsonl` — one line per version:
+    `{ts, proposal_id, sha256, size, op}`.
+- **When written**: every applied proposal that mutates a file under a
+  protected root captures the *prior* bytes before write. Deletes
+  capture the prior bytes and mark `op: "delete"`.
+- **Restore**: `fs.restore path=<p> [--at <ts>|--proposal <id>|--version <n>]`
+  proposal-gates the restore itself (it's a write).
+- **Retention**: default keep-all up to a configurable cap (e.g. 500 MB
+  per node); LRU evict whole versions once cap is hit, never partial.
+  Per-path "pin last N versions" override for hot files.
+- **Diff/list**: `fs.history path=<p>` lists versions; `fs.diff
+  path=<p> from=<v> to=<v>` produces a unified diff.
+- **Supervisor snapshots**: only used when *the user explicitly opts
+  in* per operation, or on user-defined cadence — never automatically
+  per proposal. Coarse, expensive, and not the right grain for normal
+  edits.
+
+See `docs/BACKUPS.md` for the storage format and edge cases.
 
 ### 2. HA control
 
@@ -102,27 +116,36 @@ Two layers, no clutter:
 - Once stable, the existing `homeassistant` + `homeassistant-readonly`
   MCP servers in this gateway config are removed for this HA.
 
-### 2b. Config editing — automations / scripts / scenes / dashboards / blueprints
+### 2b. Config editing — HA-native first, fs is the exception
 
-Split by storage mode, never touch `.storage/` JSON directly. Each
-domain has a `ha.config.<domain>.*` surface that detects mode and
-routes:
+**Hard rule, no exceptions without explicit user override**:
 
-- **YAML mode** (`/config/automations.yaml`, `scripts.yaml`,
-  `scenes.yaml`, `ui-lovelace.yaml`, `/config/blueprints/...`):
-  proposal-gated `fs.patch`, then `ha.check_config`, then
-  `homeassistant.reload_<domain>` to hot-pick-up without restart.
-- **UI mode** (`.storage/automation`, `.storage/script`,
-  `.storage/scene`, `.storage/lovelace*`, `.storage/core.*`): use HA
-  REST/WS config endpoints (`/api/config/<domain>/config/<id>`,
-  `/api/lovelace/...`). Never write to `.storage/` files directly —
-  HA owns them and direct edits risk corruption.
-- Blueprints always live in `/config/blueprints/` regardless of UI
-  vs YAML mode for the automation that consumes them.
+- HA-managed config domains (automations, scripts, scenes, dashboards,
+  helpers, areas/devices/entities, integrations/config entries) are
+  edited **only** through HA's native REST/WS config APIs, regardless
+  of whether they currently live in YAML or `.storage/`. The node
+  exposes a `ha.config.<domain>.*` surface that hits those APIs.
+- `fs.patch` against `/config/` is reserved for files HA has no API
+  for. That includes: `configuration.yaml` top-level (only when the
+  change can't be expressed as a helper/integration via API), YAML-only
+  integrations, packages, `custom_components/`, themes, custom JS
+  modules, blueprint YAML in `/config/blueprints/`, and user-authored
+  yaml the user has placed there.
+- **`.storage/` is read-only to the node.** Reads allowed for
+  diagnostics. Writes are refused at the command layer with a clear
+  error, even if a proposal tries to target it. The only way to write
+  `.storage/` is an explicit `--unsafe-storage` flag on the call *plus*
+  a proposal that the user accepts. This is a HARD rule baked into the
+  command dispatcher, not a guideline.
+- Blueprints always live in `/config/blueprints/`; blueprint edits go
+  through proposal-gated `fs.patch` since there's no REST API for
+  them.
+
+See `docs/HA-CONFIG-EDITING.md` for the per-domain API map.
 
 See `docs/HA-CONFIG-EDITING.md` for per-domain detail.
 
-### 2c. Always rooted in installed HA version
+### 2c. Always rooted in installed HA version + breaking-change verification
 
 - Node detects HA core version on connect (Supervisor `/info` or
   `/api/config`), emits it as pairing metadata so gateway model
@@ -130,9 +153,29 @@ See `docs/HA-CONFIG-EDITING.md` for per-domain detail.
 - New `docs.lookup(topic, version=current)` command that fetches from
   the `home-assistant/home-assistant.io` repo at the tag matching the
   running core version, with local cache.
-- Gateway-side rule for the model: must call `docs.lookup` for the
-  relevant domain before suggesting any config change. Lives in the
-  HASS-node-specific system prompt.
+- New `docs.breaking_changes(version=current, since=<prev>?, domain=?)`
+  command. Pulls the relevant release notes' breaking-changes section
+  from the docs repo. Used by the rule below.
+
+**Mandatory pre-change verification (HARD rule):**
+
+Before any proposal that touches HA config (yaml or API-driven), the
+generator must:
+
+1. Call `docs.lookup` for the target domain at the running version.
+2. Call `docs.breaking_changes` covering the running version (and any
+   versions since the last time the touched domain was edited, if
+   trackable).
+3. If a breaking change affects the edit, the proposal must include
+   the functional fix, not just the original edit. The proposal body
+   must cite the specific breaking-change entry.
+4. `ha.check_config` (for yaml) or domain reload-dry-run (for API
+   edits where supported) before commit.
+
+**Cross-validation of the verification:** the Codex reviewer pass
+(see `PROCESS.md`) re-runs `docs.breaking_changes` against the diff
+and blocks merge if the generator missed a relevant breaking change
+or fix.
 
 ### 3. Assist conversation agent
 

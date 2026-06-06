@@ -1,71 +1,124 @@
 # HA Config Editing — per-domain
 
-> **Rule zero**: never write to files under `/config/.storage/` directly.
-> HA owns those files; direct edits risk corruption and silent state
-> drift. Use the HA REST or WS config endpoints instead.
+> **Rule zero (HARD)**: HA-managed config is edited through HA-native
+> APIs, not the filesystem. `fs.patch` is reserved for files HA has no
+> API for. `.storage/` is read-only to the node — writes are refused
+> at the dispatcher unless the call carries an explicit
+> `--unsafe-storage` flag AND the user accepts the proposal. This is
+> not a guideline; it is enforced in the command layer.
 
-Each `ha.config.<domain>.*` command detects the current storage mode and
-routes appropriately. Mode detection: presence of the YAML file in
-`/config/` (e.g. `automations.yaml`) indicates YAML mode; otherwise UI
-mode in `.storage/`.
+Each `ha.config.<domain>.*` command goes straight to HA's REST/WS
+config endpoint for that domain, regardless of whether the user's
+current setup stores it in YAML or `.storage/`. The node does **not**
+choose between yaml and storage edits — it asks HA.
 
-## Automations
+## Decision: fs.patch vs ha.config.*
 
-- **YAML mode** — `/config/automations.yaml`
-  - Read: `fs.read /config/automations.yaml`
-  - Write: proposal-gated `fs.patch`
-  - Pickup: `ha.call_service automation reload`
-- **UI mode** — `.storage/automation`
-  - Read: `GET /api/config/automation/config/<id>`
-  - Write: `POST /api/config/automation/config/<id>` (proposal-gated wrapper)
-  - List: `GET /api/states` filtered to `automation.*`
+Use `ha.config.<domain>.*` (HA-native) for:
 
-## Scripts
+- Automations, scripts, scenes
+- Lovelace dashboards and views
+- Helpers (input_*, counter, timer, schedule, etc.)
+- Areas, devices, entity registry, labels, floors
+- Integrations / config entries / options flows
 
-- YAML: `/config/scripts.yaml` → reload `script`
-- UI: `/api/config/script/config/<id>`
+Use `fs.patch` (proposal-gated) for:
 
-## Scenes
+- `configuration.yaml` top-level (only when the change has no HA API)
+- YAML-only integrations (no config flow)
+- Packages (`/config/packages/...`)
+- `/config/custom_components/...`
+- Themes (`/config/themes/...`)
+- `/config/blueprints/...` (no REST API exists)
+- Custom JS modules, www assets, user-authored yaml the user dropped
+  in by hand
 
-- YAML: `/config/scenes.yaml` → reload `scene`
-- UI: `/api/config/scene/config/<id>`
+If both paths exist for a domain, **prefer HA-native**. The fs path
+exists only as a fallback for things HA doesn't expose.
 
-## Dashboards (Lovelace)
+## Automations (HA-native)
 
-- YAML: `/config/ui-lovelace.yaml` + `/config/dashboards/*.yaml`
-  - Reload via UI or `homeassistant.reload_core_config`
-- UI (storage mode): `.storage/lovelace`, `.storage/lovelace.<dashboard>`
-  - Read/write via WS commands:
-    - `lovelace/config` (get)
-    - `lovelace/config/save` (set; proposal-gated)
-    - `lovelace_<dashboard>/config` for per-dashboard
+- List: `GET /api/config/automation/config` or WS
+  `config/automation/list`
+- Get: `GET /api/config/automation/config/<id>`
+- Set: `POST /api/config/automation/config/<id>` (proposal-gated)
+- Delete: `DELETE /api/config/automation/config/<id>` (proposal-gated)
+- After mutation: `ha.call_service automation reload`
 
-## Blueprints
+## Scripts (HA-native)
 
-- Always `/config/blueprints/<domain>/<author>/<slug>.yaml`
-- Read/write as files (proposal-gated `fs.patch`).
-- After change: `ha.call_service automation reload` (or
-  `script reload`) so consumers re-evaluate.
+- Same shape as automations under `/api/config/script/config/<id>`.
+- Reload: `script reload`.
 
-## Helpers (input_*, counters, timers, etc.)
+## Scenes (HA-native)
 
-- YAML mode: `/config/configuration.yaml` (or split files)
-- UI mode: `/api/config/helpers/...` (varies per helper type)
+- `/api/config/scene/config/<id>`. Reload: `scene reload`.
 
-## Validation before reload
+## Dashboards / Lovelace (HA-native WS)
 
-For any YAML change in `/config/`:
+- Get: WS `lovelace/config` (default) or
+  `lovelace_<dashboard>/config`.
+- Save: WS `lovelace/config/save` with proposal gating.
+- List dashboards: WS `lovelace/dashboards/list`.
+- Resources: WS `lovelace/resources` + `lovelace/resources/create`.
 
-1. `ha.call_service homeassistant check_config` (or
-   `POST /api/config/core/check_config`).
-2. Only proceed if `errors` is empty.
-3. Then call the targeted `reload_<domain>` service.
+## Helpers (HA-native)
 
-## What we never touch directly
+- Read via state + entity registry.
+- Mutate via WS `config/<helper_type>/create|update|delete`
+  (e.g. `config/input_boolean/create`).
 
-- `.storage/auth*`
-- `.storage/core.*` (config entries, area registry, entity registry,
-  device registry) — manipulate via WS API only
-  (`config/area_registry/...`, etc.).
+## Area / device / entity registry (HA-native WS)
+
+- `config/area_registry/{list,create,update,delete}`
+- `config/device_registry/{list,update}`
+- `config/entity_registry/{list,get,update,remove}`
+
+## Integrations / config entries (HA-native WS)
+
+- `config_entries/get`, `config_entries/options/flow/...`,
+  `config_entries/disable|enable`.
+- Always cite a `docs.lookup` for the integration before mutating.
+
+## Blueprints (fs)
+
+- `/config/blueprints/<domain>/<author>/<slug>.yaml`
+- Proposal-gated `fs.patch`. No HA API for blueprint authoring.
+- After change: `automation reload` (or `script reload`).
+
+## `configuration.yaml` and packages (fs)
+
+- Proposal-gated `fs.patch`.
+- Pre-flight: `ha.check_config`.
+- If valid, call the narrowest reload service that picks up the
+  change; if none applies, surface that to the user — do not silently
+  request a full HA restart.
+
+## Custom components (fs)
+
+- `/config/custom_components/<name>/` — proposal-gated `fs.patch`.
+- After change: HA restart required for code reloads. Surface this in
+  the proposal description; do not auto-restart.
+
+## Validation, every time
+
+Before applying any edit (HA-native or fs):
+
+1. `docs.lookup <domain>` at the running HA core version.
+2. `docs.breaking_changes` for the running version (and any versions
+   since the touched domain was last edited).
+3. For yaml edits: `ha.check_config`. Only proceed if errors empty.
+4. For HA-native edits: use the API's own validation response.
+5. If breaking change affects the edit, the proposal must include the
+   functional fix and cite the breaking-change entry.
+
+## What we never touch directly (HARD rule)
+
+- Anything under `/config/.storage/` — read only.
 - `home-assistant_v2.db`
 - `*.log`, `home-assistant.log.*`
+- Files HA writes during runtime (`.uuid`, ephemeral caches).
+
+The only way to write `.storage/` is calling the command with
+`unsafe_storage=true` AND an accepted proposal whose body says so
+explicitly. Default refusal otherwise.
