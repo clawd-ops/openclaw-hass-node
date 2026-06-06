@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import subprocess
-from typing import Any
+import importlib
+from unittest.mock import patch
 
 import pytest
 
@@ -34,54 +34,28 @@ def test_system_which_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["ok"] is True
 
 
-class _CP:
-    """Stand-in for ``subprocess.CompletedProcess`` in tests."""
-
-    def __init__(self, stdout: str = "", stderr: str = "") -> None:
-        self.stdout = stdout
-        self.stderr = stderr
+def test_system_which_rejects_path_name() -> None:
+    result = handle_system_which({"name": "bin/sh"})
+    assert result["ok"] is False
+    assert result["error"] == "NAME_REQUIRED"
 
 
-def test_system_which_found_with_version(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_system_which_found_without_version(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(f"{_MOD}.shutil.which", lambda _name: "/usr/bin/fake")
-    monkeypatch.setattr(f"{_MOD}.subprocess.run", lambda *a, **k: _CP(stdout="fake 1.2.3\nmore\n"))
     result = handle_system_which({"name": "fake"})
     assert result["found"] is True
     assert result["path"] == "/usr/bin/fake"
-    assert result["version"] == "fake 1.2.3"
+    assert "version" not in result
 
 
-def test_system_which_version_from_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda _name: "/bin/foo")
-    monkeypatch.setattr(f"{_MOD}.subprocess.run", lambda *a, **k: _CP(stderr="foo 9.9\n"))
-    result = handle_system_which({"name": "foo"})
-    assert result["version"] == "foo 9.9"
+def test_system_which_never_executes_resolved_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda _name: "/tmp/payload")
+    with patch("subprocess.run") as run:
+        result = handle_system_which({"name": "payload"})
+    run.assert_not_called()
+    assert result == {"ok": True, "name": "payload", "found": True, "path": "/tmp/payload"}
 
 
-def test_system_which_version_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda _name: "/bin/foo")
-    monkeypatch.setattr(f"{_MOD}.subprocess.run", lambda *a, **k: _CP())
-    result = handle_system_which({"name": "foo"})
-    assert result["version"] is None
-
-
-def test_system_which_version_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda _name: "/bin/foo")
-
-    def _raise(*_args: Any, **_kwargs: Any) -> Any:
-        raise subprocess.TimeoutExpired(cmd="foo", timeout=2.0)
-
-    monkeypatch.setattr(f"{_MOD}.subprocess.run", _raise)
-    result = handle_system_which({"name": "foo"})
-    assert result["version"] is None
-
-
-def test_system_which_version_oserror(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda _name: "/bin/foo")
-
-    def _raise(*_args: Any, **_kwargs: Any) -> Any:
-        raise OSError("boom")
-
-    monkeypatch.setattr(f"{_MOD}.subprocess.run", _raise)
-    result = handle_system_which({"name": "foo"})
-    assert result["version"] is None
+def test_subprocess_not_imported_for_system_which() -> None:
+    module = importlib.import_module(_MOD)
+    assert not hasattr(module, "subprocess")
