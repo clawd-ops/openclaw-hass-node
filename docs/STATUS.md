@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (P3.2.5 merged; P4 next)
+**P4 — HA control surface** (P4.1 merged; P4.2 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -70,9 +70,16 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
 
+P4.1 merged on 2026-06-06 (`60d2d4f`, PR #9) after Codex cross-review:
+v1 OOM (exit 137 on full file read), v2 REJECT (grep targeted ha.py only for
+codes defined in ha_client.py — false negative), v3 APPROVE (corrected grep
+across both files). Delivered: ha_client.py (aiohttp REST wrapper, env-driven,
+HAClientError), ha.py (list_states/get_state/call_service), async-aware
+dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
+
 ## Current task
 
-P4 — HA control surface: port MCP server commands (`ha.*`). First: `ha.list_states`, `ha.get_state`, `ha.call_service`.
+P4.2 — HA read surface: `ha.list_areas`, `ha.list_devices`, `ha.list_services`, `ha.list_entity_registry`.
 
 ## Codex review status
 
