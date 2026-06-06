@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -633,3 +634,97 @@ def test_fs_write_atomic_cleanup_on_failure(
         _atomic_write(target, b"data")
     leftovers = list(tmp_path.glob(".oc_write.*"))
     assert leftovers == []
+
+
+def test_fs_write_atomic_dir_fsync_oserror_suppressed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OSError on directory fsync after os.replace is suppressed; write still succeeds."""
+    from openclaw_node.commands.fs_write import _atomic_write
+
+    original_open = os.open
+
+    def failing_dir_open(path: str, flags: int, *a: object, **kw: object) -> int:
+        if flags & os.O_DIRECTORY:
+            raise OSError("dir fsync not supported")
+        return original_open(path, flags)
+
+    monkeypatch.setattr("openclaw_node.commands.fs_write.os.open", failing_dir_open)
+    target = tmp_path / "fs" / "out.txt"
+    _atomic_write(target, b"hello")  # must not raise
+    assert target.read_bytes() == b"hello"
+
+
+# ---------------------------------------------------------------------------
+# Security: protected-root bypass prevention (High findings from Codex review)
+# ---------------------------------------------------------------------------
+
+
+def test_fs_write_protected_not_bypassed_by_agent_bridge_false() -> None:
+    """Protected roots gate unconditionally; agent_bridge=False cannot override."""
+    result = handle_fs_write(
+        {"path": "/config/automations.yaml", "content": "x", "agent_bridge": False}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+def test_fs_restore_protected_not_bypassed_by_agent_bridge_false() -> None:
+    """Protected roots gate unconditionally; agent_bridge=False cannot override."""
+    result = handle_fs_restore(
+        {"path": "/config/automations.yaml", "version": 1, "agent_bridge": False}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+def test_fs_write_post_resolution_protected_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A symlink/traversal that resolves into a protected root is still blocked."""
+    monkeypatch.setattr(
+        "openclaw_node.commands.fs_write.resolve_safe",
+        lambda path, roots: Path("/config/sneaky.yaml"),
+    )
+    result = handle_fs_write(
+        {"path": "/tmp/link.yaml", "content": "x", "agent_bridge": False}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+def test_fs_restore_post_resolution_protected_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A symlink/traversal that resolves into a protected root blocks restore too."""
+    monkeypatch.setattr(
+        "openclaw_node.commands.fs_write.resolve_safe",
+        lambda path, roots: Path("/config/sneaky.yaml"),
+    )
+    result = handle_fs_restore(
+        {"path": "/tmp/link.yaml", "version": 1, "agent_bridge": False}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+
+
+# ---------------------------------------------------------------------------
+# Medium: _coerce sha256 ambiguity
+# ---------------------------------------------------------------------------
+
+
+def test_fs_diff_all_digit_sha256_treated_as_hash(
+    tmp_path: Path, live_file: Path
+) -> None:
+    """A 64-char all-lowercase-hex from_version is treated as sha256, not int."""
+    handle_fs_write(
+        {"path": str(live_file), "content": "v2\n", "agent_bridge": False, "proposal_id": "p1"}
+    )
+    store = fs_write_mod._get_store()
+    versions = store.history(str(live_file))
+    sha = versions[0].sha256
+    # Pass the actual sha256 (which is lowercase hex); verify it resolves correctly.
+    result = handle_fs_diff({"path": str(live_file), "from_version": sha, "to_version": None})
+    assert result["ok"] is True

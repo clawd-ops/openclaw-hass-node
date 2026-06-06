@@ -250,7 +250,9 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     encoding = str(params.get("encoding", "utf-8"))
     proposal_id = str(params.get("proposal_id", "direct"))
     actor = str(params.get("actor", "clawd"))
-    agent_bridge = bool(params.get("agent_bridge", _is_protected(path)))
+    # agent_bridge may gate additional unprotected paths; protected roots are
+    # unconditionally gated regardless of this flag.
+    agent_bridge = bool(params.get("agent_bridge", False))
 
     if _is_storage(path):
         return _error(
@@ -258,7 +260,8 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
             "Writes to .storage/ are refused; use the HA REST config API instead",
         )
 
-    if agent_bridge:
+    # Protected roots are ALWAYS proposal-gated; caller cannot override with agent_bridge=False.
+    if _is_protected(path) or agent_bridge:
         return _error(
             "PROPOSAL_REQUIRED",
             (
@@ -270,6 +273,14 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     resolved = _resolve_write_target(path)
     if isinstance(resolved, dict):
         return resolved
+
+    # Post-resolution: symlink or traversal may redirect into a protected zone.
+    # (_is_storage paths are a subset of /config, so the protected check covers them.)
+    if _is_protected(str(resolved)):
+        return _error(
+            "PROPOSAL_REQUIRED",
+            f"Resolved path {resolved!r} is under a protected root",
+        )
 
     content_bytes = _decode_content(str(content_raw), encoding)
     if isinstance(content_bytes, dict):
@@ -335,7 +346,7 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     proposal_param = params.get("proposal_id")
     at_param = params.get("at")
     actor = str(params.get("actor", "clawd"))
-    agent_bridge = bool(params.get("agent_bridge", _is_protected(path)))
+    agent_bridge = bool(params.get("agent_bridge", False))
 
     if _is_storage(path):
         return _error(
@@ -343,7 +354,8 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
             "Writes to .storage/ are refused; use the HA REST config API instead",
         )
 
-    if agent_bridge:
+    # Protected roots are ALWAYS proposal-gated; caller cannot override with agent_bridge=False.
+    if _is_protected(path) or agent_bridge:
         return _error(
             "PROPOSAL_REQUIRED",
             (
@@ -355,6 +367,14 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     resolved = _resolve_write_target(path)
     if isinstance(resolved, dict):
         return resolved
+
+    # Post-resolution: symlink or traversal may redirect into a protected zone.
+    # (_is_storage paths are a subset of /config, so the protected check covers them.)
+    if _is_protected(str(resolved)):
+        return _error(
+            "PROPOSAL_REQUIRED",
+            f"Resolved path {resolved!r} is under a protected root",
+        )
 
     store = _get_store()
 
@@ -492,6 +512,9 @@ def handle_fs_diff(params: dict[str, Any]) -> dict[str, Any]:
         if isinstance(v, int):
             return v
         s = str(v)
+        # 64-char hex → sha256 digest; do not coerce to int even if all-digit.
+        if len(s) == 64 and all(c in "0123456789abcdef" for c in s.lower()):
+            return s
         try:
             return int(s)
         except ValueError:
