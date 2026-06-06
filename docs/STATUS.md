@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P4 — HA control surface** COMPLETE (P4.5 merged; P5 next — Assist agent)
+**P5 — Assist agent** (P5.1-P5.4 merged; node side complete; gateway-side `node.conversation.request` handler is the remaining E2E blocker)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -70,6 +70,35 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
 
+P5.4 merged on 2026-06-06 (`d797430`, PR #17) after Codex cross-review:
+v1 APPROVE. Wires ConversationDispatcher into GatewayClient: takes optional
+runtime=NodeRuntime, on connect creates dispatcher (sends node.conversation.request
+frames over the WS) and installs forward as runtime.conversation_forwarder
++ flips gateway_connected=True; _event_loop routes node.conversation.result
+events to handle_result; on disconnect/exit cancel_all() fails in-flight callers
+with DISCONNECTED. 442 tests, 97% coverage. NodeRuntime TYPE_CHECKING-only
+import avoids cycle with http_api.
+
+P5.3 merged on 2026-06-06 (`26ceb46`, PR #16) after Codex cross-review:
+v1 APPROVE. New module `conversation_dispatcher.py` with ConversationDispatcher
+that correlates conversation request/result frames via asyncio Futures. forward()
+generates UUID, sends via injected callback, awaits matching future with timeout;
+handle_result completes by id; cancel_all rejects all pending on disconnect.
+Codes: TIMEOUT, SEND_FAILED, DISCONNECTED. 8 tests in test_conversation_dispatcher.py.
+
+P5.2 merged on 2026-06-06 (`f4dc8a9`, PR #15) after Codex cross-review:
+v1 APPROVE. NodeRuntime gains conversation_forwarder hook and gateway_connected
+flag; assist_turn routes through forwarder with 30s asyncio.timeout, degrades
+exceptions to stable speech (logs detail). New GET /v1/conversation/info returns
+version + pairing + forwarder_registered for shim diagnostics. 5 new tests,
+http_api.py back to 100% coverage.
+
+P5.1 merged on 2026-06-06 (`3edef73`, PR #14) after Codex cross-review:
+v1 APPROVE. Tightened Assist shim error handling in custom_components/
+openclaw_gateway/conversation.py: specific exception types (TimeoutError,
+aiohttp.ClientError, ValueError/TypeError) replace bare `except Exception`,
+no raw exc detail in user-facing speech, aiohttp.ClientTimeout instead of int.
+
 P4.5 merged on 2026-06-06 (`4a72fef`, PR #13) after Codex cross-review:
 v1 APPROVE. Delivered: ha.list_automations (filter on automation. prefix,
 optional include_traces fetches WS trace/list per automation with graceful
@@ -102,11 +131,21 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P5 — Assist agent. Per RESEARCH-CONVERSATION-AGENT.md, Plan B is required:
-ship the `custom_components/openclaw_gateway/` HACS shim that registers a
-`ConversationEntity` and forwards conversation turns to the add-on's local
-HTTP API (`/v1/conversation` already exists from P2). First step:
-flesh out the shim's `conversation.py` + manifest + tests.
+P5 node side complete (P5.1-P5.4). End-to-end Assist requires a matching
+`node.conversation.request` handler on the OpenClaw gateway side: receive
+the frame, route to the configured model, emit `node.conversation.result`
+with the same conversationId. That work lives in the gateway repo.
+
+Until the gateway handler ships, calls to the shim's conversation entity
+trip the 30s timeout in `_FORWARDER_TIMEOUT_S` and surface a stable
+"Gateway did not respond" speech to the user; behavior is correct on
+disconnect/error paths and confirmed by 442 tests at 97% coverage.
+
+Next in-repo work options:
+- P6 prep: write `docs/RESEARCH-MIGRATION.md` MCP inventory (gates retirement).
+- P7 prep: add-on publishing checklist + CI release pipeline.
+- HA config edit surface (`ha.config.automations.*` etc. from COMMAND-SURFACE.md):
+  proposal-gated, depends on agent-bridge brokering decided in P1.2.
 
 ## Codex review status
 
