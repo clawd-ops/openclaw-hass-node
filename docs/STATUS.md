@@ -168,23 +168,37 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Architectural note (2026-06-06)
 
-Rob clarified that the `gateway/` workspace in this repo is a
-**standalone reference gateway**, not the OpenClaw integration. P5.9
-(PR #25) restored that distinction in the README and made the brain
-**provider-agnostic** (Anthropic Claude + OpenAI GPT-5.5, selectable via
-`OPENCLAW_GATEWAY_PROVIDER`). Brain now takes a `Provider` interface;
-SDK choice lives behind two concrete providers
-(`providers_anthropic.py`, `providers_openai.py`).
+Rob clarified that **the brain *is* Clawd in OpenClaw**. The
+`gateway/` workspace in this repo is a standalone reference for
+non-OpenClaw users. For Rob's deployment, HA Assist integrates with
+OpenClaw as a **Channel plugin** that turns each
+`node.conversation.request` into an inbound message Clawd handles like
+any other turn; `ha.*` becomes Tool plugins so the agent can call them
+mid-turn. Same node-side protocol either way.
+
+P5.9 (PR #25) made the brain provider-agnostic (Anthropic + OpenAI) for
+the standalone path. P5.10 plugin design is in
+`docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
 
 ## Current task
 
-**P5.10 — OpenClaw integration** (new): write the OpenClaw-side plugin
-or handler that mirrors the standalone gateway. Same wire protocol
-(`node.conversation.request` / `node.invoke.request`), same Brain code
-(it's provider-agnostic), but bound into OpenClaw's process and model
-router so Rob's deployment talks to the existing brain infrastructure
-instead of a parallel one. Implementation lives in this repo for now;
-splits out if/when OpenClaw absorbs it.
+**P5.10 — OpenClaw plugin pair** (next). Design captured in
+`docs/RESEARCH-OPENCLAW-INTEGRATION.md`. Two TypeScript plugins:
+
+1. **`ha-assist` Channel plugin** — WS listener that nodes connect to,
+   runs the Ed25519 handshake (ports `gateway/.../auth.py`), persists
+   the device registry in OpenClaw's state store, turns
+   `node.conversation.request` into inbound channel messages keyed by
+   `conversationId`, emits `node.conversation.result` on reply.
+2. **`ha-tools` Tool plugin** — registers the 13 `ha.*` commands as
+   agent tools. Each tool sends `node.invoke.request` on the active
+   session's WS, awaits `node.invoke.result`, returns the wire result
+   to the agent.
+
+The brain abstraction (`gateway/brain.py`, `providers_*.py`) does NOT
+port — OpenClaw already routes models. Reusable from this repo: the
+auth payload format, device registry state machine, future-correlation
+pattern, and tool catalog shapes.
 
 After P5.10:
 - P6.1 validation harness already merged (PR #23, portable in #24).
