@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import Any, Final
 
+import aiohttp
 from homeassistant.components import conversation
 from homeassistant.components.conversation import (
     AssistantContent,
@@ -14,11 +16,14 @@ from homeassistant.components.conversation import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import intent
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import intent
 
 from .const import CONF_SOCKET_URL, CONVERSATION_ENDPOINT, DOMAIN
+
+_LOG: Final[logging.Logger] = logging.getLogger(__name__)
+_REQUEST_TIMEOUT_S: Final[float] = 12.0
 
 
 async def async_setup_entry(
@@ -85,6 +90,7 @@ class OpenClawConversationEntity(ConversationEntity):
         socket_url = str(self._entry.data[CONF_SOCKET_URL]).rstrip("/")
         url = f"{socket_url}{CONVERSATION_ENDPOINT}"
         session = async_get_clientsession(self.hass)
+        timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT_S)
         try:
             async with session.post(
                 url,
@@ -93,15 +99,27 @@ class OpenClawConversationEntity(ConversationEntity):
                     "conversation_id": user_input.conversation_id,
                     "language": user_input.language,
                 },
-                timeout=12,
+                timeout=timeout,
             ) as response:
                 data = await response.json(content_type=None)
-                speech = str(data.get("response") or data.get("error") or "OpenClaw Node returned no response.")
-        except Exception as exc:  # noqa: BLE001
+            speech = str(
+                data.get("response") or data.get("error") or "OpenClaw Node returned no response."
+            )
+        except TimeoutError:
+            _LOG.warning("OpenClaw Node timed out at %s after %ss", url, _REQUEST_TIMEOUT_S)
             speech = (
                 "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
-                f"is not reachable at {socket_url}: {exc}"
+                f"did not respond within {int(_REQUEST_TIMEOUT_S)} seconds."
             )
+        except aiohttp.ClientError as exc:
+            _LOG.warning("OpenClaw Node network error at %s: %s", url, exc)
+            speech = (
+                "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
+                f"is not reachable at {socket_url}."
+            )
+        except (ValueError, TypeError) as exc:
+            _LOG.warning("OpenClaw Node returned malformed JSON: %s", exc)
+            speech = "OpenClaw Node returned an unexpected response shape."
 
         chat_log.async_add_assistant_content_without_tools(
             AssistantContent(agent_id=user_input.agent_id, content=speech)
