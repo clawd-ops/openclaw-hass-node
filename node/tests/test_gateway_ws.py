@@ -90,6 +90,9 @@ def test_connect_commands_advertise_full_surface() -> None:
         "fs.patch",
         "system.run",
         "system.which",
+        "ha.list_states",
+        "ha.get_state",
+        "ha.call_service",
     ]
 
 
