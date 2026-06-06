@@ -13,6 +13,7 @@ members = [
 
 [manifest.dependency-groups]
 dev = [
+    { name = "bandit", specifier = ">=1.8" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
