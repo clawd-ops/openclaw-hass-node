@@ -205,6 +205,15 @@ Full research in `docs/RESEARCH-CONVERSATION-AGENT.md`.
   discovery. Future: an add-on first-run hook can write a
   per-instance pairing token the shim reads via `/api/services`.
 
+**Decision (P5 routing, 2026-06-06):** Assist is brain-with-subagents,
+modelled on OpenClaw. The user-facing turn handler ("brain") runs in the
+**gateway** and uses **Opus or GPT-5.5**. Subagents the brain spawns for
+work are **not pinned** to any model — the brain picks per task and
+prefers the smallest model that works. The node carries no
+model-selection logic and adds no orchestration; it just forwards the
+turn and services `ha.*` invocations the brain makes mid-turn. Full
+context in `docs/RESEARCH-CONVERSATION-AGENT.md` § "Routing model".
+
 ## Mutation control (agent-bridge gated)
 
 - Every write-shaped command on the node has two outcomes:

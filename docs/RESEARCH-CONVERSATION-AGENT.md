@@ -55,6 +55,45 @@ Ship a tiny HACS-installable `custom_components/openclaw_gateway/` with:
 
 This is ~150 LOC and is the minimum HA core requires.
 
+## Routing model (decision, 2026-06-06)
+
+Rob: "I want Assist as the brain, just like in OC. The brain should be able
+to use subagents for work, so I'd say shouldn't be pinned to anything. But
+the layer I talk to should be Opus or GPT-5.5. And subagents should always
+be the right models and cheaper."
+
+**Implications:**
+
+- **Brain (user-facing turn)** runs in the **OpenClaw gateway**, not in the
+  node. The brain model is **Opus or GPT-5.5** (premium tier). It owns the
+  multi-turn conversation, the system prompt, and the choice of tools.
+- **Subagents** spawned by the brain are **not pinned**. The brain picks per
+  task and prefers the smallest model that works (Haiku, GPT-5.4-mini, etc.).
+  The gateway is free to evolve which subagent it picks without changing the
+  shim or the node.
+- **Node** (this repo) is the **tool runtime** for the brain: it forwards
+  every turn over `node.conversation.request`, then services any number of
+  `ha.*` invocations the brain issues mid-turn via the existing
+  `node.invoke.request` path (P3/P4 command surface). The dispatcher's
+  pending-future model means a single conversation turn can span many tool
+  rounds before the brain emits `node.conversation.result`.
+
+**What this means for code in this repo:**
+
+- Do **not** add model-pinning logic on the node side. The node carries no
+  knowledge of which model the gateway uses. The conversation forwarder
+  payload deliberately does not name a model.
+- Do **not** add subagent orchestration on the node side. That is the
+  brain's job; the node just answers tool invocations.
+- The 30 s forwarder timeout (`_FORWARDER_TIMEOUT_S` in `http_api.py`) bounds
+  a single Assist turn. If multi-step tool use needs longer, lift this
+  bound — but the model itself must time out the user turn somewhere, so
+  raising this is fine.
+- If we ever need to give the gateway routing hints (e.g. "user prefers
+  fast answers" vs "user is in deep-work mode"), add them as opaque
+  fields on the conversation request payload; do not interpret them on the
+  node.
+
 ## Citations
 
 1. `homeassistant/components/conversation/__init__.py` — `async_set_agent(hass, config_entry, agent)` — https://github.com/home-assistant/core/blob/dev/homeassistant/components/conversation/__init__.py
