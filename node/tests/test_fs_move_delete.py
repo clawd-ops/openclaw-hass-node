@@ -75,6 +75,26 @@ def test_trash_dir_default(monkeypatch: pytest.MonkeyPatch) -> None:
     assert _trash_dir() == Path("/share/openclaw-trash")
 
 
+def test_trash_file_send2trash_non_import_error_propagates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Non-ImportError from send2trash (e.g. TrashPermissionError) propagates."""
+    target = tmp_path / "fs" / "del.txt"
+    target.write_text("bye", encoding="utf-8")
+
+    import types
+
+    fake_mod = types.ModuleType("send2trash")
+
+    def boom(p: str) -> None:
+        raise OSError("permission denied by trash")
+
+    fake_mod.send2trash = boom  # type: ignore[attr-defined]
+    monkeypatch.setitem(__import__("sys").modules, "send2trash", fake_mod)
+    with pytest.raises(OSError, match="permission denied by trash"):
+        _trash_file(target)
+
+
 def test_trash_file_uses_send2trash_when_available(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -340,12 +360,32 @@ def test_fs_move_backup_src_error(
 def test_fs_move_operation_fails(
     tmp_path: Path, src_file: Path, dst_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("shutil.move", lambda *a, **kw: (_ for _ in ()).throw(OSError("busy")))
+    def boom(src: object, dst: object) -> None:
+        raise OSError("busy")
+
+    monkeypatch.setattr("openclaw_node.commands.fs_move_delete._move_file", boom)
     result = handle_fs_move(
         {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
     )
     assert result["ok"] is False
     assert result["error"] == "MOVE_ERROR"
+
+
+def test_fs_move_cross_device_rejected(
+    tmp_path: Path, src_file: Path, dst_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cross-device moves (EXDEV) return CROSS_DEVICE, not MOVE_ERROR."""
+    import errno as _errno
+
+    def exdev(src: object, dst: object) -> None:
+        raise OSError(_errno.EXDEV, "Invalid cross-device link")
+
+    monkeypatch.setattr("openclaw_node.commands.fs_move_delete._move_file", exdev)
+    result = handle_fs_move(
+        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "CROSS_DEVICE"
 
 
 def test_fs_move_post_resolution_check(

@@ -24,6 +24,7 @@ installed, a fallback moves the file to an OpenClaw-managed trash directory
 from __future__ import annotations
 
 import datetime as _dt
+import errno
 import logging
 import os
 import shutil
@@ -97,6 +98,27 @@ def _trash_file(path: Path) -> str:
     dest = trash / f"{path.name}.{ts}"
     shutil.move(str(path), str(dest))
     return str(dest)
+
+
+# ---------------------------------------------------------------------------
+# Move helper (isolated so tests can patch without hitting the backup store)
+# ---------------------------------------------------------------------------
+
+def _move_file(src: Path, dst: Path) -> None:
+    """Rename *src* to *dst* using ``os.replace`` (atomic within one filesystem).
+
+    Raises ``OSError`` (including ``errno.EXDEV``) on failure; never falls back
+    to copy-then-unlink so callers can distinguish "no mutation" from
+    "partial mutation".
+
+    Args:
+        src: Existing source path.
+        dst: Destination path (parent must already exist).
+
+    Raises:
+        OSError: On any rename failure, including cross-device (EXDEV).
+    """
+    os.replace(str(src), str(dst))
 
 
 # ---------------------------------------------------------------------------
@@ -246,12 +268,22 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
         _LOG.error("backup capture of src failed for %r: %s", src_raw, exc)
         return _error("BACKUP_ERROR", "Backup capture of source failed; move aborted")
 
-    # Perform the move. os.replace is atomic on POSIX when same filesystem.
+    # Use os.replace which is atomic within a single filesystem on POSIX.
+    # Cross-device moves (errno.EXDEV) are rejected; callers should use
+    # fs.write + fs.delete for that pattern.  shutil.move's copy-then-unlink
+    # fallback is intentionally NOT used here because a partial copy could
+    # mutate dst while the command returns MOVE_ERROR, leaving the caller
+    # unable to distinguish "no mutation" from "partial mutation".
     dst.parent.mkdir(parents=True, exist_ok=True)
     try:
-        shutil.move(str(src), str(dst))
+        _move_file(src, dst)
     except OSError as exc:
         _LOG.error("move failed %r → %r: %s", src_raw, dst_raw, exc)
+        if exc.errno == errno.EXDEV:
+            return _error(
+                "CROSS_DEVICE",
+                "Cross-device moves are not supported; use fs.write + fs.delete instead",
+            )
         return _error("MOVE_ERROR", f"Move failed: {exc}")
 
     return {
