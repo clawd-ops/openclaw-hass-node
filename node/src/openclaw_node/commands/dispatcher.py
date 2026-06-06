@@ -28,6 +28,10 @@ from openclaw_node.commands.fs_write import (
 from openclaw_node.commands.ha import (
     handle_ha_call_service,
     handle_ha_get_state,
+    handle_ha_list_areas,
+    handle_ha_list_devices,
+    handle_ha_list_entity_registry,
+    handle_ha_list_services,
     handle_ha_list_states,
 )
 from openclaw_node.commands.ping import handle_ping
@@ -62,6 +66,10 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.list_states": handle_ha_list_states,
     "ha.get_state": handle_ha_get_state,
     "ha.call_service": handle_ha_call_service,
+    "ha.list_areas": handle_ha_list_areas,
+    "ha.list_devices": handle_ha_list_devices,
+    "ha.list_services": handle_ha_list_services,
+    "ha.list_entity_registry": handle_ha_list_entity_registry,
 }
 
 

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openclaw_node.ha_client import HAClientError, ha_get, ha_post
+from openclaw_node.ha_client import HAClientError, ha_get, ha_post, ha_ws_call
 
 # ---------------------------------------------------------------------------
 # Helpers — fake aiohttp ClientSession
@@ -181,3 +181,133 @@ async def test_ha_post_network_error_wrapped(monkeypatch: pytest.MonkeyPatch) ->
     with patch("aiohttp.ClientSession", return_value=session), pytest.raises(HAClientError) as ei:
         await ha_post("/api/services/x/y", {})
     assert ei.value.code == "HA_NETWORK"
+
+
+# ---------------------------------------------------------------------------
+# ha_ws_call — WebSocket helper
+# ---------------------------------------------------------------------------
+
+
+def _patch_ws_session(
+    messages: list[dict[str, Any]],
+    *,
+    ws_error: Exception | None = None,
+) -> Any:
+    """Patch aiohttp.ClientSession so ws_connect returns a fake WS."""
+    ws = MagicMock()
+    if ws_error is not None:
+        ws.receive_json = AsyncMock(side_effect=ws_error)
+    else:
+        ws.receive_json = AsyncMock(side_effect=messages)
+    ws.send_json = AsyncMock()
+    ws.__aenter__ = AsyncMock(return_value=ws)
+    ws.__aexit__ = AsyncMock(return_value=False)
+
+    session = MagicMock()
+    session.ws_connect = MagicMock(return_value=ws)
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    return patch("aiohttp.ClientSession", return_value=session)
+
+
+_AUTH_REQUIRED = {"type": "auth_required", "ha_version": "2026.6.0"}
+_AUTH_OK = {"type": "auth_ok"}
+
+
+def _ws_success(result: Any) -> dict[str, Any]:
+    return {"id": 1, "type": "result", "success": True, "result": result}
+
+
+def _ws_error_msg(code: str, message: str) -> dict[str, Any]:
+    return {
+        "id": 1,
+        "type": "result",
+        "success": False,
+        "error": {"code": code, "message": message},
+    }
+
+
+async def test_ws_call_returns_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    areas = [{"area_id": "living_room", "name": "Living Room"}]
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_success(areas)]
+    with _patch_ws_session(messages):
+        result = await ha_ws_call("config/area_registry/list")
+    assert result == areas
+
+
+async def test_ws_call_sends_correct_message_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_success([])]
+    with _patch_ws_session(messages) as fake:
+        await ha_ws_call("config/device_registry/list")
+    ws = fake.return_value.ws_connect.return_value.__aenter__.return_value
+    sent = ws.send_json.call_args_list
+    # Second send_json call is the registry request.
+    assert sent[1][0][0]["type"] == "config/device_registry/list"
+    assert sent[1][0][0]["id"] == 1
+
+
+async def test_ws_call_auth_rejected_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "bad-tok")
+    messages = [_AUTH_REQUIRED, {"type": "auth_invalid", "message": "Invalid password"}]
+    with _patch_ws_session(messages), pytest.raises(HAClientError) as ei:
+        await ha_ws_call("config/area_registry/list")
+    assert ei.value.code == "HA_AUTH"
+
+
+async def test_ws_call_unexpected_first_message_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    messages = [{"type": "unexpected"}]
+    with _patch_ws_session(messages), pytest.raises(HAClientError) as ei:
+        await ha_ws_call("config/area_registry/list")
+    assert ei.value.code == "HA_WS_ERROR"
+
+
+async def test_ws_call_error_response_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_error_msg("not_found", "Area not found")]
+    with _patch_ws_session(messages), pytest.raises(HAClientError) as ei:
+        await ha_ws_call("config/area_registry/list")
+    assert "NOT_FOUND" in ei.value.code
+
+
+async def test_ws_call_network_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    import aiohttp
+
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    session = MagicMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    session.ws_connect = MagicMock(side_effect=aiohttp.ClientError("ws refused"))
+    with patch("aiohttp.ClientSession", return_value=session), pytest.raises(HAClientError) as ei:
+        await ha_ws_call("config/area_registry/list")
+    assert ei.value.code == "HA_NETWORK"
+
+
+async def test_ws_call_uses_ws_url_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "https://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_success([])]
+    with _patch_ws_session(messages) as fake:
+        await ha_ws_call("config/area_registry/list")
+    call_url = str(fake.return_value.ws_connect.call_args[0][0])
+    assert call_url.startswith("wss://")
+
+
+async def test_ws_call_supervisor_mode_uses_supervisor_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    monkeypatch.delenv("HASS_URL", raising=False)
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_success([])]
+    with _patch_ws_session(messages) as fake:
+        await ha_ws_call("config/area_registry/list")
+    call_url = str(fake.return_value.ws_connect.call_args[0][0])
+    assert "supervisor" in call_url

@@ -8,6 +8,10 @@ from unittest.mock import patch
 from openclaw_node.commands.ha import (
     handle_ha_call_service,
     handle_ha_get_state,
+    handle_ha_list_areas,
+    handle_ha_list_devices,
+    handle_ha_list_entity_registry,
+    handle_ha_list_services,
     handle_ha_list_states,
 )
 from openclaw_node.ha_client import HAClientError
@@ -188,3 +192,120 @@ async def test_call_service_non_list_result_handled() -> None:
         result = await handle_ha_call_service({"domain": "light", "service": "turn_on"})
     assert result["ok"] is True
     assert result["changed_states"] == []
+
+
+# ---------------------------------------------------------------------------
+# ha.list_areas
+# ---------------------------------------------------------------------------
+
+
+async def test_list_areas_returns_areas() -> None:
+    areas = [{"area_id": "kitchen", "name": "Kitchen"}]
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=areas):
+        result = await handle_ha_list_areas({})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["areas"] == areas
+
+
+async def test_list_areas_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_ws_call",
+        side_effect=HAClientError("HA_AUTH", "auth fail"),
+    ):
+        result = await handle_ha_list_areas({})
+    assert result["ok"] is False
+    assert result["error"] == "HA_AUTH"
+
+
+async def test_list_areas_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value={"not": "a list"}):
+        result = await handle_ha_list_areas({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# ha.list_devices
+# ---------------------------------------------------------------------------
+
+
+async def test_list_devices_returns_devices() -> None:
+    devices = [{"id": "abc123", "name": "Kitchen Light"}]
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=devices):
+        result = await handle_ha_list_devices({})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["devices"] == devices
+
+
+async def test_list_devices_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_ws_call",
+        side_effect=HAClientError("HA_NETWORK", "conn fail"),
+    ):
+        result = await handle_ha_list_devices({})
+    assert result["error"] == "HA_NETWORK"
+
+
+async def test_list_devices_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=None):
+        result = await handle_ha_list_devices({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# ha.list_services
+# ---------------------------------------------------------------------------
+
+
+async def test_list_services_returns_services() -> None:
+    services = [{"domain": "light", "services": {"turn_on": {}, "turn_off": {}}}]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=services):
+        result = await handle_ha_list_services({})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["services"] == services
+
+
+async def test_list_services_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500"),
+    ):
+        result = await handle_ha_list_services({})
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_list_services_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"not": "a list"}):
+        result = await handle_ha_list_services({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# ha.list_entity_registry
+# ---------------------------------------------------------------------------
+
+
+async def test_list_entity_registry_returns_entities() -> None:
+    entities = [{"entity_id": "light.kitchen", "platform": "hue"}]
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=entities):
+        result = await handle_ha_list_entity_registry({})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["entities"] == entities
+
+
+async def test_list_entity_registry_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_ws_call",
+        side_effect=HAClientError("HA_WS_ERROR", "ws fail"),
+    ):
+        result = await handle_ha_list_entity_registry({})
+    assert result["error"] == "HA_WS_ERROR"
+
+
+async def test_list_entity_registry_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value="not a list"):
+        result = await handle_ha_list_entity_registry({})
+    assert result["error"] == "HA_BAD_RESPONSE"

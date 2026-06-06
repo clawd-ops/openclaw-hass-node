@@ -57,6 +57,10 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "ha.list_states",
     "ha.get_state",
     "ha.call_service",
+    "ha.list_areas",
+    "ha.list_devices",
+    "ha.list_services",
+    "ha.list_entity_registry",
 ]
 _EMPTY: Final[str] = "".join(())
 _PENDING_PULL_LIMIT: Final[int] = 10
