@@ -34,14 +34,20 @@
 
 ## Current task
 
-P1.3 — MCP server retirement criteria for the existing `homeassistant`
-+ `homeassistant-readonly` MCP servers, after node validation.
+P1 closed. **Advancing to P2 — Skeleton.** First skeleton tasks:
+
+- P2.1 — Repo scaffolding: `pyproject.toml` (uv workspace),
+  `addon/Dockerfile` + `config.yaml`, `custom_components/openclaw_gateway/`
+  stub, GitHub Actions workflow.
+- P2.2 — Node entrypoint that detects add-on vs standalone mode and
+  opens the gateway WS connection.
+- P2.3 — Pairing handshake against the gateway, scope request, key
+  persistence under `/data/openclaw/node-key`.
+- P2.4 — `ping` command end-to-end so we can verify the loop.
 
 ## Next step
 
-- P1.3 — MCP server retirement criteria.
-- P1.4 — Versioning scheme for the add-on image (semver vs date).
-- Once P1 closes, advance to P2 — Skeleton.
+Spawn the P2.1 generator subagent per `PROCESS.md`. Brief in flight.
 
 ## Completed P1 research
 
@@ -100,3 +106,13 @@ None.
   (`ruff` D-rules + `pydoclint`), 100 % branch coverage via pytest,
   `ruff` lint/format, `bandit`, `pip-audit`. All gated in GitHub
   Actions. See `QUALITY.md`. (Rob, issue #1 round 3)
+- 2026-06-05 — MCP retirement: node must demonstrably handle every
+  call surface the existing MCP servers serve, across every agent
+  that uses them, before retirement. Trigger: zero unhandled
+  `mcp__homeassistant*` calls for 7 days *and* a written migration
+  inventory. No calendar-based default. Cutover is one PR.
+  (Rob, P1.3)
+- 2026-06-05 — Versioning: date-based `YYYY.M.PATCH` matching the HA
+  release the node is tested against (e.g. `2026.6.0`). Patch
+  increments for fixes within a HA release. (Clawd recommendation,
+  Rob "ok either way", P1.4)

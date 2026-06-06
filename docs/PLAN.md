@@ -273,11 +273,25 @@ remove a build chain).
    protocol; emits `node.propose` requests, gateway translates to
    agent-bridge MCP calls and relays the result. See
    `docs/RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`.
-3. **MCP server retirement** — phase out the existing `homeassistant`
-   MCP servers only after the node has been stable for ~a week. Keep
-   both running in parallel during validation.
-4. **Update channel** — HA add-on store auto-updates from the published
-   image tag. Pick a versioning scheme (semver, date-based?).
+3. ~~**MCP server retirement**~~ **Resolved (P1.3, 2026-06-05):**
+   retire `homeassistant` + `homeassistant-readonly` MCP servers
+   *only after the node has proven it can handle every call surface
+   they currently serve*, across every agent that uses them (main
+   session, ReefMaster, PoolMaster, HomeOps, heartbeats). No
+   calendar-based default. Concrete trigger: zero unhandled
+   `mcp__homeassistant*` tool calls in the gateway logs for 7
+   consecutive days *and* a written inventory in
+   `docs/RESEARCH-MIGRATION.md` confirming coverage. Cutover is a
+   single PR that drops the MCP servers from gateway config and
+   updates any agent prompts that referenced them by name.
+   Migration scope tracked separately under P1.3.
+4. ~~**Update channel**~~ **Resolved (P1.4, 2026-06-05):**
+   date-based versioning, `YYYY.M.PATCH` (e.g. `2026.6.0`). The
+   leading two components track the HA release this node was tested
+   against, so users can read add-on/HA compatibility at a glance.
+   Patch increments for fixes within a HA release. The breaking-change
+   discipline in §2c is the same discipline we want at the version
+   bump — both happen on HA's cadence.
 
 ## Phases
 
