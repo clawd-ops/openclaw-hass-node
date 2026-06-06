@@ -36,12 +36,39 @@ Re-run Codex review on P3 PR before merge once auth is restored.
     and the per-domain API map.
   - New `BACKUPS.md` covers the per-file store format, retention,
     restore flow, and DR.
+- 2026-06-06 — P3.1 read-only fs/system PR opened:
+  clawd-ops/openclaw-hass-node#3.
 
 ## Current task
 
-P3.1 — read-only filesystem commands: `fs.read`, `fs.list`, `fs.stat`,
-`fs.glob`, `system.which`. Write commands and `system.run` come in P3.2
-(proposal-gated).
+P3.1 — read-only fs commands; addressing Codex cross-review findings
+(2026-06-06).
+
+## Codex review status
+
+PR #3 cross-review returned BLOCK with 10 findings. Fix mapping:
+
+- BLOCKER `system.which` executed caller-resolved binaries: fixed by
+  `4bd79f3` (`system.which` is lookup-only, basename-only, no version
+  probe).
+- HIGH safe path TOCTOU in downstream fs ops: fixed by `576226e` and
+  `05f76a2` (fd-rooted `safe_fd.open_safe_fd`, fd-based read/stat/list/glob).
+- HIGH `fs.read` size race: fixed by `576226e` (bounded `os.read` of
+  `max_bytes + 1` from the opened fd).
+- MED `fs.list` unbounded sort: fixed by `05f76a2` (streaming
+  `scandir` with bounded collection before sort).
+- MED `fs.glob` unbounded traversal and bad pattern handling: fixed by
+  `05f76a2` (`BAD_PATTERN`, fd-rooted bounded walker, hidden filter during walk).
+- MED gateway connect advertised wrong commands: fixed by `add3150`
+  (advertises exactly `ping`, `fs.*`, `system.which`).
+- MED gateway generic command error leaked exception text: fixed by
+  `add3150` (generic wire error, full exception only in logs).
+- LOW `OUT_OF_BOUNDS` leaked resolved paths: fixed by `add3150`
+  (generic exception string and fs wire messages).
+- LOW bind mount policy ambiguity: fixed by docs commit for this status
+  update (operator-configured bind mounts under allowed roots are trusted).
+- LOW test gaps: fixed across `4bd79f3`, `576226e`, `05f76a2`, and
+  `add3150`.
 
 ## Last P2 completed milestones
 
