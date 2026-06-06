@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import base64
 import os
+import stat
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 
 import pytest
 
@@ -189,6 +192,56 @@ def test_fs_list_truncated(tmp_path: Path) -> None:
     assert result["truncated"] is True
 
 
+def test_fs_list_stops_after_bounded_scan(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    fake_fd = 456
+    next_calls = 0
+    closes: list[int] = []
+
+    class _Entry:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def is_symlink(self) -> bool:
+            return False
+
+        def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+            return os.stat_result((stat.S_IFREG | 0o644, 0, 0, 1, 1, 1, 1, 0, 0, 0))
+
+    class _Scan:
+        def __init__(self) -> None:
+            self._index = 0
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc: BaseException | None,
+            tb: TracebackType | None,
+        ) -> None:
+            return None
+
+        def __iter__(self) -> Self:
+            return self
+
+        def __next__(self) -> _Entry:
+            nonlocal next_calls
+            next_calls += 1
+            self._index += 1
+            return _Entry(f"f{self._index}")
+
+    monkeypatch.setattr("openclaw_node.commands.fs.open_safe_fd", lambda *_a, **_k: fake_fd)
+    monkeypatch.setattr("openclaw_node.commands.fs.os.scandir", lambda _fd: _Scan())
+    monkeypatch.setattr("openclaw_node.commands.fs.os.close", lambda fd: closes.append(fd))
+
+    result = handle_fs_list({"path": str(tmp_path), "max_entries": 2})
+    assert len(result["entries"]) == 2
+    assert result["truncated"] is True
+    assert next_calls == 3
+    assert closes == [fake_fd]
+
+
 def test_fs_list_max_entries_non_int(tmp_path: Path) -> None:
     (tmp_path / "f").write_text("x")
     result = handle_fs_list({"path": str(tmp_path), "max_entries": "junk"})
@@ -287,6 +340,21 @@ def test_fs_glob_not_a_directory(tmp_path: Path) -> None:
     f = tmp_path / "f"
     f.write_text("x")
     assert handle_fs_glob({"root": str(f), "pattern": "*"})["error"] == "NOT_A_DIRECTORY"
+
+
+def test_fs_glob_rejects_dotdot_pattern(tmp_path: Path) -> None:
+    result = handle_fs_glob({"root": str(tmp_path), "pattern": "../foo"})
+    assert result["error"] == "BAD_PATTERN"
+
+
+def test_fs_glob_rejects_absolute_pattern(tmp_path: Path) -> None:
+    result = handle_fs_glob({"root": str(tmp_path), "pattern": "/abs/foo"})
+    assert result["error"] == "BAD_PATTERN"
+
+
+def test_fs_glob_rejects_null_pattern(tmp_path: Path) -> None:
+    result = handle_fs_glob({"root": str(tmp_path), "pattern": "bad\x00pattern"})
+    assert result["error"] == "BAD_PATTERN"
 
 
 def test_fs_glob_basic(tmp_path: Path) -> None:

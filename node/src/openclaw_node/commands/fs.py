@@ -21,6 +21,7 @@ Note:
 from __future__ import annotations
 
 import base64
+import fnmatch
 import hashlib
 import os
 import stat as stat_mod
@@ -37,6 +38,7 @@ _DEFAULT_LIST_MAX_ENTRIES: Final[int] = 1000
 _HARD_LIST_MAX_ENTRIES: Final[int] = 5000
 _DEFAULT_GLOB_MAX_MATCHES: Final[int] = 1000
 _HARD_GLOB_MAX_MATCHES: Final[int] = 5000
+_DIR_OPEN_FLAGS: Final[int] = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
 
 
 def _clamp(value: int, default: int, hard_cap: int) -> int:
@@ -230,19 +232,19 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _entry(child: Path) -> dict[str, Any]:
+def _entry(child: os.DirEntry[str]) -> dict[str, Any]:
     """Build a single ``fs.list`` entry dict for *child*.
 
     Args:
-        child: A direct child :class:`pathlib.Path` returned by ``iterdir``.
+        child: A direct child returned by ``scandir``.
 
     Returns:
         Dict with ``name``, ``kind``, ``size``, and ``mtime`` keys.  On
         ``OSError`` (broken symlinks, races), size/mtime fall back to 0.
     """
-    is_symlink = child.is_symlink()
     try:
-        st = child.lstat()
+        is_symlink = child.is_symlink()
+        st = child.stat(follow_symlinks=False)
     except OSError:  # pragma: no cover - lstat rarely fails on iterdir entries
         return {"name": child.name, "kind": "other", "size": 0, "mtime": 0.0}
     return {
@@ -281,30 +283,36 @@ def handle_fs_list(params: dict[str, Any]) -> dict[str, Any]:
     max_entries = _clamp(max_entries_raw, _DEFAULT_LIST_MAX_ENTRIES, _HARD_LIST_MAX_ENTRIES)
 
     try:
-        resolved = _resolve(raw_path)
+        fd = _open(raw_path, dir_fd_only=True)
     except NoAllowedRootsError as exc:
         return _error("NO_ALLOWED_ROOTS", str(exc))
-    except OutOfBoundsError as exc:
-        return _error("OUT_OF_BOUNDS", str(exc), path=raw_path)
-
-    if not resolved.exists():
+    except OutOfBoundsError:
+        return _error("OUT_OF_BOUNDS", "Path is outside the allowed roots", path=raw_path)
+    except FileNotFoundError:
         return _error("PATH_NOT_FOUND", f"No such path: {raw_path}", path=raw_path)
-    if not resolved.is_dir():
+    except NotADirectoryError:
         return _error("NOT_A_DIRECTORY", f"Path is not a directory: {raw_path}", path=raw_path)
 
     entries: list[dict[str, Any]] = []
     truncated = False
-    for child in sorted(resolved.iterdir(), key=lambda c: c.name):
-        if not hidden and child.name.startswith("."):
-            continue
-        if len(entries) >= max_entries:
-            truncated = True
-            break
-        entries.append(_entry(child))
+    try:
+        with os.scandir(fd) as children:
+            for child in children:
+                if not hidden and child.name.startswith("."):
+                    continue
+                entries.append(_entry(child))
+                if len(entries) > max_entries:
+                    truncated = True
+                    break
+    finally:
+        os.close(fd)
+    entries.sort(key=lambda item: str(item["name"]))
+    if truncated:
+        entries = entries[:max_entries]
 
     return {
         "ok": True,
-        "path": str(resolved),
+        "path": raw_path,
         "entries": entries,
         "truncated": truncated,
     }
@@ -361,30 +369,85 @@ def handle_fs_stat(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _iter_matches(root: Path, pattern: str, *, hidden: bool) -> list[str]:
-    """Walk *root* and return matches of *pattern* relative to root.
-
-    Uses ``Path.rglob`` for ``**`` patterns and ``Path.glob`` otherwise.
-    Hidden entries (any path component starting with ``.``) are excluded
-    unless *hidden* is ``True``.
+def _valid_glob_pattern(pattern: str) -> bool:
+    """Return whether *pattern* is safe to evaluate under a root.
 
     Args:
-        root: Resolved root directory.
-        pattern: Glob pattern, e.g. ``"**/*.yaml"`` or ``"*.txt"``.
-        hidden: Whether to include hidden files/directories.
+        pattern: Caller-supplied glob pattern.
 
     Returns:
-        Sorted list of match paths relative to *root*.
+        ``True`` when the pattern is relative and contains no parent or null
+        components.
     """
-    candidates = root.rglob(pattern.removeprefix("**/")) if "**" in pattern else root.glob(pattern)
-    out: list[str] = []
-    for match in candidates:
-        rel = match.relative_to(root)
-        if not hidden and any(part.startswith(".") for part in rel.parts):
-            continue
-        out.append(rel.as_posix())
-    out.sort()
-    return out
+    if pattern.startswith("/") or "\x00" in pattern:
+        return False
+    return ".." not in Path(pattern).parts
+
+
+def _glob_matches(rel_path: str, pattern: str) -> bool:
+    """Return whether a relative path matches a glob pattern.
+
+    Args:
+        rel_path: Slash-separated path relative to the glob root.
+        pattern: Caller-supplied glob pattern.
+
+    Returns:
+        ``True`` when the pattern matches the path.
+    """
+    if pattern.startswith("**/") and _glob_matches(rel_path, pattern[3:]):
+        return True
+    if "/" not in pattern:
+        return "/" not in rel_path and fnmatch.fnmatchcase(rel_path, pattern)
+    return fnmatch.fnmatchcase(rel_path, pattern)
+
+
+def _iter_matches(
+    root_fd: int, pattern: str, *, hidden: bool, max_matches: int
+) -> tuple[list[str], bool]:
+    """Walk *root_fd* and return bounded matches of *pattern*.
+
+    Args:
+        root_fd: Directory fd for the glob root.
+        pattern: Glob pattern, e.g. ``"**/*.yaml"`` or ``"*.txt"``.
+        hidden: Whether to include hidden files/directories.
+        max_matches: Maximum matches to return before truncation.
+
+    Returns:
+        Tuple of sorted matches and a truncated flag.
+    """
+    matches: list[str] = []
+    stack: list[tuple[int, str, bool]] = [(os.dup(root_fd), "", True)]
+    try:
+        while stack and len(matches) <= max_matches:
+            dir_fd, prefix, should_close = stack.pop()
+            try:
+                with os.scandir(dir_fd) as children:
+                    for child in children:
+                        if not hidden and child.name.startswith("."):
+                            continue
+                        rel_path = child.name if not prefix else f"{prefix}/{child.name}"
+                        if _glob_matches(rel_path, pattern):
+                            matches.append(rel_path)
+                            if len(matches) > max_matches:
+                                break
+                        if child.is_dir(follow_symlinks=False):
+                            try:
+                                child_fd = os.open(child.name, _DIR_OPEN_FLAGS, dir_fd=dir_fd)
+                            except OSError:
+                                continue
+                            stack.append((child_fd, rel_path, True))
+            finally:
+                if should_close:
+                    os.close(dir_fd)
+    finally:
+        for dir_fd, _prefix, should_close in stack:
+            if should_close:
+                os.close(dir_fd)
+    truncated = len(matches) > max_matches
+    if truncated:
+        matches = matches[:max_matches]
+    matches.sort()
+    return matches, truncated
 
 
 def handle_fs_glob(params: dict[str, Any]) -> dict[str, Any]:
@@ -412,6 +475,8 @@ def handle_fs_glob(params: dict[str, Any]) -> dict[str, Any]:
         return _error("ROOT_REQUIRED", "Missing required 'root' parameter")
     if not isinstance(pattern, str) or not pattern:
         return _error("PATTERN_REQUIRED", "Missing required 'pattern' parameter")
+    if not _valid_glob_pattern(pattern):
+        return _error("BAD_PATTERN", "Glob pattern must be relative and stay beneath root")
     hidden = bool(params.get("hidden", False))
     max_matches_raw = params.get("max_matches", _DEFAULT_GLOB_MAX_MATCHES)
     if not isinstance(max_matches_raw, int):
@@ -419,23 +484,26 @@ def handle_fs_glob(params: dict[str, Any]) -> dict[str, Any]:
     max_matches = _clamp(max_matches_raw, _DEFAULT_GLOB_MAX_MATCHES, _HARD_GLOB_MAX_MATCHES)
 
     try:
-        resolved_root = _resolve(raw_root)
+        fd = _open(raw_root, dir_fd_only=True)
     except NoAllowedRootsError as exc:
         return _error("NO_ALLOWED_ROOTS", str(exc))
-    except OutOfBoundsError as exc:
-        return _error("OUT_OF_BOUNDS", str(exc), root=raw_root)
-
-    if not resolved_root.is_dir():
+    except OutOfBoundsError:
+        return _error("OUT_OF_BOUNDS", "Path is outside the allowed roots", root=raw_root)
+    except FileNotFoundError:
+        return _error("NOT_A_DIRECTORY", f"Root is not a directory: {raw_root}", root=raw_root)
+    except NotADirectoryError:
         return _error("NOT_A_DIRECTORY", f"Root is not a directory: {raw_root}", root=raw_root)
 
-    matches = _iter_matches(resolved_root, pattern, hidden=hidden)
-    truncated = len(matches) > max_matches
-    if truncated:
-        matches = matches[:max_matches]
+    try:
+        matches, truncated = _iter_matches(fd, pattern, hidden=hidden, max_matches=max_matches)
+    except (OSError, ValueError):
+        return _error("INTERNAL", "Internal command error")
+    finally:
+        os.close(fd)
 
     return {
         "ok": True,
-        "root": str(resolved_root),
+        "root": raw_root,
         "pattern": pattern,
         "matches": matches,
         "truncated": truncated,

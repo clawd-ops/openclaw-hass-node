@@ -112,7 +112,7 @@ def _final_flags(*, dir_fd_only: bool) -> int:
         Flags suitable for ``open``/``openat2``.
     """
     if dir_fd_only:
-        return _O_PATH | os.O_DIRECTORY | _O_COMMON
+        return os.O_RDONLY | os.O_DIRECTORY | _O_COMMON
     return os.O_RDONLY | _O_COMMON
 
 
@@ -189,7 +189,7 @@ def _fallback_openat(root_fd: int, rel_parts: tuple[str, ...], path: str, *, fla
         OSError: If opening any component fails.
     """
     if not rel_parts:
-        return os.dup(root_fd)
+        return os.open(".", flags, dir_fd=root_fd)
     current = os.dup(root_fd)
     try:
         for index, part in enumerate(rel_parts):
