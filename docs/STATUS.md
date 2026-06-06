@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P5 — Assist agent** COMPLETE (P5.1-P5.7 merged; auth-hardened E2E Assist; P6 next)
+**P5 — Assist agent** COMPLETE (P5.1-P5.8 merged; auth-hardened E2E Assist; gateway deployable; P6 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -69,6 +69,14 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   via the CLI workaround; landed APPROVE-WITH-NITS. 135 tests, 96.26%
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
+
+P5.8 merged on 2026-06-06 (`948cb57`, PR #22) after Codex cross-review:
+v1 APPROVE. Gateway is now deployable: `python -m openclaw_gateway` boots
+via config.load_config (env-driven), persistent DeviceRegistry, serve_forever.
+DeviceRegistry gains optional persist_path that loads on construction and
+writes atomically via tempfile.replace after every register/approve/revoke.
+Malformed entries skipped with log. 505 tests, 96.92% coverage. README
+rewritten for current state.
 
 P5.7 merged on 2026-06-06 (`db95a95`, PR #21) after Codex cross-review:
 v1 APPROVE. GatewayServer handshake now verifies the Ed25519 signature over
