@@ -100,6 +100,8 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.logbook",
         "ha.history",
         "ha.reload_config",
+        "ha.light_turn_on",
+        "ha.light_turn_off",
     ]
 
 

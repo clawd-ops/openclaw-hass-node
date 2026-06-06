@@ -11,6 +11,8 @@ from openclaw_node.commands.ha import (
     handle_ha_call_service,
     handle_ha_get_state,
     handle_ha_history,
+    handle_ha_light_turn_off,
+    handle_ha_light_turn_on,
     handle_ha_list_areas,
     handle_ha_list_devices,
     handle_ha_list_entity_registry,
@@ -467,3 +469,109 @@ async def test_reload_config_missing_token_param_denied(monkeypatch: pytest.Monk
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     result = await handle_ha_reload_config({})
     assert result["error"] == "PERMISSION_DENIED"
+
+
+# ---------------------------------------------------------------------------
+# ha.light_turn_on
+# ---------------------------------------------------------------------------
+
+
+async def test_light_turn_on_missing_target() -> None:
+    result = await handle_ha_light_turn_on({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_light_turn_on_entity_id() -> None:
+    changed = [{"entity_id": "light.kitchen", "state": "on"}]
+    with patch("openclaw_node.commands.ha.ha_post", return_value=changed) as mock_post:
+        result = await handle_ha_light_turn_on({"entity_id": "light.kitchen"})
+    assert result["ok"] is True
+    assert result["changed_states"] == changed
+    body = mock_post.call_args[0][1]
+    assert body["entity_id"] == "light.kitchen"
+
+
+async def test_light_turn_on_with_brightness() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+        await handle_ha_light_turn_on({"entity_id": "light.x", "brightness": 200})
+    body = mock_post.call_args[0][1]
+    assert body["brightness"] == 200
+
+
+async def test_light_turn_on_with_rgb_color() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+        await handle_ha_light_turn_on({"entity_id": "light.x", "rgb_color": [255, 0, 0]})
+    body = mock_post.call_args[0][1]
+    assert body["rgb_color"] == [255, 0, 0]
+
+
+async def test_light_turn_on_with_area_id() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+        await handle_ha_light_turn_on({"area_id": "living_room"})
+    body = mock_post.call_args[0][1]
+    assert body["area_id"] == "living_room"
+
+
+async def test_light_turn_on_invalid_entity_id_type() -> None:
+    result = await handle_ha_light_turn_on({"entity_id": 123})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_light_turn_on_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_NETWORK", "down"),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": "light.x"})
+    assert result["error"] == "HA_NETWORK"
+
+
+async def test_light_turn_on_no_body_when_no_data() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+        await handle_ha_light_turn_on({"entity_id": "light.x"})
+    body = mock_post.call_args[0][1]
+    assert body is not None
+    assert "entity_id" in body
+
+
+# ---------------------------------------------------------------------------
+# ha.light_turn_off
+# ---------------------------------------------------------------------------
+
+
+async def test_light_turn_off_missing_target() -> None:
+    result = await handle_ha_light_turn_off({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_light_turn_off_entity_id() -> None:
+    changed = [{"entity_id": "light.kitchen", "state": "off"}]
+    with patch("openclaw_node.commands.ha.ha_post", return_value=changed) as mock_post:
+        result = await handle_ha_light_turn_off({"entity_id": "light.kitchen"})
+    assert result["ok"] is True
+    assert result["changed_states"] == changed
+    body = mock_post.call_args[0][1]
+    assert body["entity_id"] == "light.kitchen"
+
+
+async def test_light_turn_off_with_transition() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+        await handle_ha_light_turn_off({"entity_id": "light.x", "transition": 2.0})
+    body = mock_post.call_args[0][1]
+    assert body["transition"] == 2.0
+
+
+async def test_light_turn_off_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_AUTH", "auth fail"),
+    ):
+        result = await handle_ha_light_turn_off({"entity_id": "light.x"})
+    assert result["error"] == "HA_AUTH"
+
+
+async def test_light_turn_off_non_list_result() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value={}):
+        result = await handle_ha_light_turn_off({"entity_id": "light.x"})
+    assert result["ok"] is True
+    assert result["changed_states"] == []

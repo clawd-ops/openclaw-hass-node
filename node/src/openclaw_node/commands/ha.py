@@ -1,4 +1,4 @@
-"""Home Assistant control surface (P4.1 + P4.2 + P4.3 commands).
+"""Home Assistant control surface (P4.1 - P4.4 commands).
 
 Implements the read and call-service primitives that replace the equivalent
 ``mcp__homeassistant__*`` MCP tools.  All handlers are async and talk to HA
@@ -16,6 +16,8 @@ Commands in this module:
 - ``ha.logbook``              — return logbook entries (optional entity + time window).
 - ``ha.history``              — return state history for entities (optional time window).
 - ``ha.reload_config``        — reload HA core config (operator-admin gated).
+- ``ha.light_turn_on``        — turn on one or more lights (entity/area/device target).
+- ``ha.light_turn_off``       — turn off one or more lights.
 """
 
 from __future__ import annotations
@@ -301,3 +303,101 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     except HAClientError as exc:
         return _to_error(exc)
     return {"ok": True}
+
+
+def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    """Extract and validate a light service target from params.
+
+    Returns:
+        ``(target_dict, None)`` on success, or ``(None, error_message)`` on failure.
+    """
+    entity_id = params.get("entity_id")
+    area_id = params.get("area_id")
+    device_id = params.get("device_id")
+    if entity_id is None and area_id is None and device_id is None:
+        return None, "one of entity_id, area_id, or device_id is required"
+    target: dict[str, Any] = {}
+    if entity_id is not None:
+        if not isinstance(entity_id, (str, list)):
+            return None, "entity_id must be a string or list of strings"
+        target["entity_id"] = entity_id
+    if area_id is not None:
+        target["area_id"] = area_id
+    if device_id is not None:
+        target["device_id"] = device_id
+    return target, None
+
+
+async def handle_ha_light_turn_on(params: dict[str, Any]) -> dict[str, Any]:
+    """Turn on one or more lights.
+
+    Params:
+        entity_id (str | list[str], optional): Target entity or entities.
+        area_id (str, optional): Target area.
+        device_id (str, optional): Target device.
+        brightness (int, optional): 0-255.
+        brightness_pct (float, optional): 0-100.
+        color_temp_kelvin (int, optional): Colour temperature in Kelvin.
+        rgb_color (list[int], optional): [R, G, B] 0-255 each.
+        transition (float, optional): Transition time in seconds.
+
+    One of ``entity_id``, ``area_id``, or ``device_id`` is required.
+
+    Returns:
+        ``{ok: True, changed_states}`` or an error dict.
+    """
+    target, err = _build_light_target(params)
+    if err is not None:
+        return _error("MISSING_PARAM", err)
+
+    data: dict[str, Any] = {}
+    for key in ("brightness", "brightness_pct", "color_temp_kelvin", "rgb_color", "transition"):
+        if key in params:
+            data[key] = params[key]
+
+    body: dict[str, Any] = {}
+    if data:
+        body.update(data)
+    if target:
+        body.update(target)
+
+    try:
+        result = await ha_post("/api/services/light/turn_on", body or None)
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    return {"ok": True, "changed_states": changed}
+
+
+async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
+    """Turn off one or more lights.
+
+    Params:
+        entity_id (str | list[str], optional): Target entity or entities.
+        area_id (str, optional): Target area.
+        device_id (str, optional): Target device.
+        transition (float, optional): Transition time in seconds.
+
+    One of ``entity_id``, ``area_id``, or ``device_id`` is required.
+
+    Returns:
+        ``{ok: True, changed_states}`` or an error dict.
+    """
+    target, err = _build_light_target(params)
+    if err is not None:
+        return _error("MISSING_PARAM", err)
+
+    body: dict[str, Any] = {}
+    if "transition" in params:
+        body["transition"] = params["transition"]
+    if target:
+        body.update(target)
+
+    try:
+        result = await ha_post("/api/services/light/turn_off", body or None)
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    return {"ok": True, "changed_states": changed}
