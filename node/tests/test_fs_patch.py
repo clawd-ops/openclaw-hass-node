@@ -6,6 +6,7 @@ import hashlib
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch as mock_patch
 
 import pytest
@@ -135,6 +136,40 @@ def test_run_patch_raises_runtime_on_nonzero_no_stderr() -> None:
         _run_patch(b"x\n", "bad diff")
 
 
+def test_run_patch_subprocess_command_shape() -> None:
+    """Verify subprocess.run is called with list-form args, --output, and input=; no shell."""
+    proc = subprocess.CompletedProcess(
+        args=["patch"],
+        returncode=0,
+        stdout=b"Hunk #1 succeeded",
+        stderr=b"",
+    )
+    captured: list[Any] = []
+
+    def _fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append({"cmd": cmd, "kwargs": kwargs})
+        # Write a fake output file so _run_patch can read it.
+        out_path = next(p for p in cmd if "patched" in p)
+        Path(out_path).write_bytes(b"patched\n")
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake_run):
+        _run_patch(b"original\n", "my unified diff")
+
+    assert captured, "subprocess.run was not called"
+    call = captured[0]
+    cmd = call["cmd"]
+    kwargs = call["kwargs"]
+
+    assert cmd[0] == "patch", "binary must be 'patch'"
+    assert "--unified" in cmd
+    assert "--forward" in cmd
+    assert "--output" in cmd
+    # patch text must go through stdin, not shell-expanded args
+    assert kwargs.get("input") == b"my unified diff"
+    assert not kwargs.get("shell", False), "shell=True would be a command injection risk"
+
+
 # ---------------------------------------------------------------------------
 # handle_fs_patch — validation
 # ---------------------------------------------------------------------------
@@ -217,7 +252,8 @@ def test_fs_patch_failed(tmp_path: Path) -> None:
     ):
         result = handle_fs_patch({"path": str(p), "patch": "--- a\n+++ b\n"})
     assert result["error"] == "PATCH_FAILED"
-    assert "Hunk #1 FAILED" in result["message"]
+    # Error message must NOT leak raw patch stderr (keep it in server logs only).
+    assert "Hunk #1 FAILED" not in result["message"]
 
 
 # ---------------------------------------------------------------------------

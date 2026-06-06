@@ -180,7 +180,8 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     except subprocess.TimeoutExpired:
         return _error("PATCH_TIMEOUT", f"Patch did not complete within {_PATCH_TIMEOUT_S}s")
     except RuntimeError as exc:
-        return _error("PATCH_FAILED", f"Patch failed: {exc}")
+        _LOG.error("patch failed for %r: %s", path, exc)
+        return _error("PATCH_FAILED", "Patch did not apply cleanly; check server logs for details")
 
     if dry_run:
         return {"ok": True, "path": path, "dry_run": True, "hunks_applicable": hunks}
