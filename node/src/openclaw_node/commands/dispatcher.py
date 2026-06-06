@@ -26,6 +26,7 @@ from openclaw_node.commands.fs_write import (
 )
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
+from openclaw_node.commands.system_run import handle_system_run
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "fs.move": handle_fs_move,
     "fs.delete": handle_fs_delete,
     "fs.patch": handle_fs_patch,
+    "system.run": handle_system_run,
     "system.which": handle_system_which,
 }
 
