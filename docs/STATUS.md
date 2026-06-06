@@ -6,13 +6,18 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (P3.1 merged; P3.2 next)
+**P3 — Filesystem + shell surface** (P3.2.1 merged; P3.2.2 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
 returned APPROVE-WITH-NITS on re-review #3 via the CLI workaround (see
 `docs/PROCESS.md` "Codex CLI fallback"). v1 was BLOCK (10 findings),
 v2 REQUEST-CHANGES (NUL-bypass HIGH), v3 APPROVE-WITH-NITS.
+P3.2.1 merged on 2026-06-06 (`13687a5`, PR #4) after Codex cross-review:
+v1 REQUEST-CHANGES (7 findings), v2 APPROVE (all 8 items resolved). Fixes:
+parent-dir fsync for crash-durability, datetime-based `at=` comparison,
+ValueError/TypeError catch in `from_json`, cap raised 200→250, docs for
+concurrency model, orphan behavior, and case-sensitive FS assumption.
 
 ## Last completed
 
@@ -46,7 +51,8 @@ v2 REQUEST-CHANGES (NUL-bypass HIGH), v3 APPROVE-WITH-NITS.
 
 ## Current task
 
-P3.2 — proposal-gated writes + `system.run` (next).
+P3.2.2 — dispatcher wiring: `fs.write`, `fs.restore`, `fs.history`, `fs.diff`
+backed by `backup_store.BackupStore`; agent-bridge proposal flow integration.
 
 ## Codex review status
 
