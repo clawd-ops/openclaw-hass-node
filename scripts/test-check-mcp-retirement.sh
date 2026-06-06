@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
 #
 # Smoke test for scripts/check-mcp-retirement-readiness.sh.
-# Stubs kubectl with a temp file that emits canned log lines and asserts the
-# verdict / exit code for each scenario.
+# Feeds canned log lines on stdin and asserts the verdict + exit code.
 
 set -euo pipefail
 
 SCRIPT="$(cd "$(dirname "$0")" && pwd)/check-mcp-retirement-readiness.sh"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
-
-mkdir "$WORK/bin"
-cat > "$WORK/bin/kubectl" <<'EOF'
-#!/usr/bin/env bash
-# Stub: echoes whatever is in $FAKE_LOG (empty by default).
-cat "${FAKE_LOG:-/dev/null}"
-EOF
-chmod +x "$WORK/bin/kubectl"
-export PATH="$WORK/bin:$PATH"
 
 pass=0
 fail=0
@@ -33,22 +23,18 @@ assert() {
     fi
 }
 
-# --- Scenario 1: clean logs, no state file → OK with 0-day streak ---
-: > "$WORK/empty.log"
-export FAKE_LOG="$WORK/empty.log"
-out="$("$SCRIPT" --since 1h 2>&1)"
+# --- Scenario 1: clean input → OK with 0-day streak ---
+set +e
+out="$(printf '' | "$SCRIPT" 2>&1)"
 ec=$?
+set -e
 assert "clean exit=0" "0" "$ec"
 [[ "$out" == *"MCP_READINESS_OK"* ]] && { pass=$((pass+1)); echo "  ok   clean line"; } \
     || { fail=$((fail+1)); echo "  FAIL clean line: $out"; }
 
-# --- Scenario 2: log contains a homeassistant mcp call → exit 1 ---
-cat > "$WORK/bad.log" <<'LOG'
-2026-06-06T16:00:00 INFO routing tool=mcp__homeassistant__ha_get_state
-LOG
-export FAKE_LOG="$WORK/bad.log"
+# --- Scenario 2: input contains a homeassistant mcp call → exit 1 ---
 set +e
-out="$("$SCRIPT" --since 1h 2>&1)"
+out="$(printf 'INFO routing tool=mcp__homeassistant__ha_get_state\n' | "$SCRIPT" 2>&1)"
 ec=$?
 set -e
 assert "bad exit=1" "1" "$ec"
@@ -58,36 +44,44 @@ assert "bad exit=1" "1" "$ec"
     && { pass=$((pass+1)); echo "  ok   tool name surfaced"; } \
     || { fail=$((fail+1)); echo "  FAIL tool not surfaced: $out"; }
 
-# --- Scenario 3: 7 clean days with state file → RETIREMENT_READY ---
+# --- Scenario 3: readonly variant also matched ---
+set +e
+out="$(printf 'tool=mcp__homeassistant-readonly__ha_list_states\n' | "$SCRIPT" 2>&1)"
+ec=$?
+set -e
+assert "readonly bad exit=1" "1" "$ec"
+[[ "$out" == *"mcp__homeassistant-readonly__ha_list_states"* ]] \
+    && { pass=$((pass+1)); echo "  ok   readonly tool surfaced"; } \
+    || { fail=$((fail+1)); echo "  FAIL readonly tool not surfaced: $out"; }
+
+# --- Scenario 4: 7 clean days with state file → RETIREMENT_READY ---
 STATE="$WORK/state"
-: > "$WORK/empty.log"
-export FAKE_LOG="$WORK/empty.log"
 for i in 1 2 3 4 5 6 7; do
-    out="$("$SCRIPT" --since 1h --state-file "$STATE" 2>&1)"
+    out="$(printf '' | "$SCRIPT" --state-file "$STATE" 2>&1)"
 done
 [[ "$out" == *"RETIREMENT_READY"* ]] \
     && { pass=$((pass+1)); echo "  ok   retirement_ready after 7 days"; } \
     || { fail=$((fail+1)); echo "  FAIL retirement_ready: $out"; }
 
-# --- Scenario 4: bad call mid-streak → streak resets ---
-export FAKE_LOG="$WORK/bad.log"
+# --- Scenario 5: bad call mid-streak → streak resets ---
 set +e
-"$SCRIPT" --since 1h --state-file "$STATE" >/dev/null 2>&1
+printf 'mcp__homeassistant__ha_get_state\n' | "$SCRIPT" --state-file "$STATE" >/dev/null 2>&1
 set -e
 streak=$(<"$STATE.streak")
 assert "streak reset to 0" "0" "$streak"
 
-# --- Scenario 5: kubectl missing → exit 2 ---
-cat > "$WORK/bin/kubectl" <<'EOF'
-#!/usr/bin/env bash
-exit 1
-EOF
-chmod +x "$WORK/bin/kubectl"
+# --- Scenario 6: label is reflected in the verdict line ---
+out="$(printf '' | "$SCRIPT" --label "production-cluster" 2>&1)"
+[[ "$out" == *"label=production-cluster"* ]] \
+    && { pass=$((pass+1)); echo "  ok   label surfaced"; } \
+    || { fail=$((fail+1)); echo "  FAIL label not surfaced: $out"; }
+
+# --- Scenario 7: unknown arg → exit 2 ---
 set +e
-"$SCRIPT" --since 1h >/dev/null 2>&1
+"$SCRIPT" --no-such-flag </dev/null >/dev/null 2>&1
 ec=$?
 set -e
-assert "kubectl failure exit=2" "2" "$ec"
+assert "unknown arg exit=2" "2" "$ec"
 
 echo
 echo "passed=$pass failed=$fail"

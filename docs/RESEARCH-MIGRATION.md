@@ -1,5 +1,16 @@
 # MCP Migration Inventory
 
+> **Scope.** This document is about retiring `mcp__homeassistant*` MCP
+> servers configured in **the maintainer's upstream OpenClaw deployment**
+> (the gateway repo, not this one). Third-party installs of
+> openclaw-hass-node never had those MCP servers in the first place —
+> they get HA control via `ha.*` through this repo's gateway and node
+> from day one and can ignore P6 entirely.
+>
+> Kept in this repo because retiring those upstream MCPs depends on
+> *this* repo's command surface being complete, and the migration
+> bookkeeping logically belongs alongside the surface it's tracking.
+
 Tracks the coverage gap between the existing OpenClaw MCP servers and the
 node command surface that replaces them. **P6 cannot start (i.e. the MCP
 servers cannot be retired) until every row below is either ✅ Covered or
@@ -70,11 +81,30 @@ When the validation window closes (zero unhandled MCP calls × 7 days):
 
 This cutover is a single PR — no migration scripts, no data move.
 
+## Validation harness (P6.1)
+
+`scripts/check-mcp-retirement-readiness.sh` is **source-agnostic** — it
+reads log lines on stdin so the caller picks how to produce them. This
+keeps it usable across any deployment that's running upstream OpenClaw,
+not just the maintainer's Kubernetes pod.
+
+```bash
+# Local file
+cat /var/log/openclaw.log                       | scripts/check-mcp-retirement-readiness.sh
+# systemd unit
+journalctl -u openclaw --since=24h              | scripts/check-mcp-retirement-readiness.sh
+# Docker container
+docker logs --since 24h openclaw 2>&1           | scripts/check-mcp-retirement-readiness.sh
+# Kubernetes pod
+kubectl -n ai logs openclaw-0 --since=24h       | scripts/check-mcp-retirement-readiness.sh
+```
+
+Verdicts: `MCP_READINESS_OK` / `RETIREMENT_READY` / `MCP_READINESS_NOT_READY`.
+With `--state-file` the script tracks a clean-day streak; 7 consecutive
+clean days flip the verdict to `RETIREMENT_READY`.
+
 ## Open items
 
-- **Validation harness**: we don't have a log scraper that asserts "zero
-  unhandled MCP calls for 7 days" yet. Lands in P6.1 as a small script
-  that greps the gateway logs and emits a daily readiness signal.
 - **Decision: include `mcp__homeassistant-readonly__*` in retirement?**
   Yes — it's strictly a subset of `mcp__homeassistant__*` and the node
   read surface covers it. Single-PR cutover handles both.
