@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P4 — HA control surface** COMPLETE (all 9 MCP tools ported; P5 next)
+**P4 — HA control surface** (MCP parity done; P4.5 wraps remaining read surface)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -95,8 +95,10 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P5 — HA config editing: proposal-gated `ha.config_set_entity`, `ha.config_flow_*`,
-and `docs.breaking_changes` (HA version-aware breaking change lookup).
+P4.5 — wrap remaining `ha.*` read surface from COMMAND-SURFACE.md:
+`ha.list_automations` (+ traces) and `ha.check_config`. After P4.5,
+P5 begins (Assist agent — HACS shim + conversation entity registration per
+PLAN.md §P5 and RESEARCH-CONVERSATION-AGENT.md).
 
 ## Codex review status
 
