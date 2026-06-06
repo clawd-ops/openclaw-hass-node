@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P5 — Assist agent** COMPLETE (P5.1-P5.6 merged; trial-mode E2E Assist live; P5.7 is auth hardening)
+**P5 — Assist agent** COMPLETE (P5.1-P5.7 merged; auth-hardened E2E Assist; P6 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -69,6 +69,17 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   via the CLI workaround; landed APPROVE-WITH-NITS. 135 tests, 96.26%
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
+
+P5.7 merged on 2026-06-06 (`db95a95`, PR #21) after Codex cross-review:
+v1 APPROVE. GatewayServer handshake now verifies the Ed25519 signature over
+the v3 payload (constants kept in sync with node identity.py). New auth.py
+codes: AUTH_MISSING_FIELD, AUTH_NONCE_MISMATCH, AUTH_TIME_SKEW (5min),
+AUTH_BAD_SIGNED_AT, AUTH_BAD_SCOPES, AUTH_BAD_ENCODING, AUTH_BAD_SIGNATURE,
+AUTH_BAD_PUBLIC_KEY, AUTH_KEY_CHANGED. DeviceRegistry holds PENDING/PAIRED
+state, issues 32-byte urlsafe tokens via secrets.token_urlsafe, idempotent
+on re-approval so reconnects keep the same token. auto_approve flag drives
+trial-mode (pair on first connect) vs production (PAIRING_REQUIRED until
+operator calls approve_device). 494 tests, 96.86% coverage.
 
 P5.6 merged on 2026-06-06 (`8548d5c`, PR #20) after Codex cross-review:
 v1 APPROVE. GatewayServer (trial mode, no Ed25519 verify yet) + InvokeDispatcher
@@ -149,22 +160,18 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P5.7 — auth hardening on the GatewayServer handshake:
-1. Verify the node's Ed25519 signature over (nonce, role, scopes, token)
-   instead of trusting it. The node-side `_send_connect` already produces
-   the signature; the gateway just needs to verify it.
-2. Maintain a small device registry (id → public_key → token) so re-
-   connects use the same token.
-3. PAIRING_REQUIRED on first connect of an unknown device; admin approval
-   (CLI subcommand or signed approval frame) flips it to PAIRED.
-4. Multi-connection support: one node per gateway today; this opens the
-   door to many. Keep per-connection InvokeDispatcher.
+P5 fully complete (P5.1-P5.7 merged, 8 PRs, all Codex APPROVE on first or
+second pass). E2E Assist works: HA Assist → shim → node forwarder → gateway
+→ Brain (Opus 4.7) → ha.* tools → node → speech back, all over an
+Ed25519-authenticated WS channel.
 
-After P5.7:
+Next options:
 - P6 — MCP retirement inventory (`docs/RESEARCH-MIGRATION.md`).
 - P7 — add-on publishing checklist + CI release pipeline.
 - HACS shim README + hacs.json polish.
 - `ha.config.*` proposal-gated write surface from COMMAND-SURFACE.md.
+- Persistence: device registry + invoke queue currently lose state on
+  gateway restart; lands when the gateway grows real config storage.
 
 ## Codex review status
 
