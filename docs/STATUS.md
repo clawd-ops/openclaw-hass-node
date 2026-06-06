@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P4 — HA control surface** (MCP parity done; P4.5 wraps remaining read surface)
+**P4 — HA control surface** COMPLETE (P4.5 merged; P5 next — Assist agent)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -70,6 +70,13 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
 
+P4.5 merged on 2026-06-06 (`4a72fef`, PR #13) after Codex cross-review:
+v1 APPROVE. Delivered: ha.list_automations (filter on automation. prefix,
+optional include_traces fetches WS trace/list per automation with graceful
+degradation on failure), ha.check_config (POST /api/config/core/check_config,
+pre-reload yaml validation). 422 tests, 97% coverage. ha.* read surface
+from COMMAND-SURFACE.md fully covered.
+
 P4.4 merged on 2026-06-06 (`d1a4faf`, PR #12) after Codex cross-review:
 v1 APPROVE. Delivered: ha.light_turn_on + ha.light_turn_off with shared
 _build_light_target() validator (entity/area/device, entity_id accepts str or
@@ -95,10 +102,11 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P4.5 — wrap remaining `ha.*` read surface from COMMAND-SURFACE.md:
-`ha.list_automations` (+ traces) and `ha.check_config`. After P4.5,
-P5 begins (Assist agent — HACS shim + conversation entity registration per
-PLAN.md §P5 and RESEARCH-CONVERSATION-AGENT.md).
+P5 — Assist agent. Per RESEARCH-CONVERSATION-AGENT.md, Plan B is required:
+ship the `custom_components/openclaw_gateway/` HACS shim that registers a
+`ConversationEntity` and forwards conversation turns to the add-on's local
+HTTP API (`/v1/conversation` already exists from P2). First step:
+flesh out the shim's `conversation.py` + manifest + tests.
 
 ## Codex review status
 
