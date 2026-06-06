@@ -23,7 +23,7 @@ import json
 import logging
 import uuid
 from collections.abc import Callable
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import websockets
 import websockets.asyncio.client
@@ -31,8 +31,12 @@ import websockets.asyncio.client
 from openclaw_node import __version__
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
+from openclaw_node.conversation_dispatcher import ConversationDispatcher
 from openclaw_node.identity import DeviceIdentity
 from openclaw_node.pairing import PairingMachine, PairingState
+
+if TYPE_CHECKING:
+    from openclaw_node.http_api import NodeRuntime
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -116,6 +120,7 @@ class GatewayClient:
         identity: DeviceIdentity,
         device_token: str | None = None,
         pairing_state_callback: Callable[[PairingState], None] | None = None,
+        runtime: NodeRuntime | None = None,
     ) -> None:
         """Initialise the client without opening a connection.
 
@@ -126,12 +131,17 @@ class GatewayClient:
                 string on first-time pairing.
             pairing_state_callback: Optional callback invoked whenever the
                 pairing state may have changed.
+            runtime: Optional shared :class:`NodeRuntime` used to surface
+                gateway-connected state and to register the conversation
+                forwarder for the Assist shim.
         """
         self._config = config
         self._identity = identity
         self._device_token = device_token or _EMPTY
         self._pairing = PairingMachine()
         self._pairing_state_callback = pairing_state_callback
+        self._runtime = runtime
+        self._conversation: ConversationDispatcher | None = None
 
     @property
     def pairing_state(self) -> PairingState:
@@ -161,6 +171,7 @@ class GatewayClient:
                 )
                 self._pairing.on_reconnect()
                 self._notify_pairing_state()
+                self._teardown_runtime_hooks(reason=f"connection lost: {exc}")
                 await asyncio.sleep(_RECONNECT_DELAY_S)
 
     async def _connect_and_loop(self) -> None:
@@ -192,8 +203,14 @@ class GatewayClient:
             # Step 4: drain any pending queued invokes
             await self._pull_pending(ws)
 
-            # Step 5: main event loop
-            await self._event_loop(ws)
+            # Step 5: register the conversation forwarder on the shared runtime
+            self._register_runtime_hooks(ws)
+
+            try:
+                # Step 6: main event loop
+                await self._event_loop(ws)
+            finally:
+                self._teardown_runtime_hooks(reason="event loop exited")
 
     async def _recv_challenge(
         self, ws: websockets.asyncio.client.ClientConnection
@@ -359,8 +376,15 @@ class GatewayClient:
         """
         async for raw in ws:
             msg: dict[str, Any] = json.loads(raw)
-            if msg.get("type") == "event" and msg.get("event") == "node.invoke.request":
+            event = msg.get("event")
+            if msg.get("type") == "event" and event == "node.invoke.request":
                 await self._handle_invoke(ws, msg.get("payload", {}))
+            elif (
+                msg.get("type") == "event"
+                and event == "node.conversation.result"
+                and self._conversation is not None
+            ):
+                self._conversation.handle_result(msg.get("payload", {}))
 
     async def _handle_invoke(
         self,
@@ -413,3 +437,37 @@ class GatewayClient:
         """Notify the optional callback of the current pairing state."""
         if self._pairing_state_callback is not None:
             self._pairing_state_callback(self._pairing.state)
+
+    def _register_runtime_hooks(self, ws: websockets.asyncio.client.ClientConnection) -> None:
+        """Create a conversation dispatcher and register it on the runtime.
+
+        The dispatcher sends ``node.conversation.request`` frames over *ws* and
+        will be completed by ``node.conversation.result`` events handled in
+        :meth:`_event_loop`.
+
+        Args:
+            ws: The open WebSocket connection used to send forwarder requests.
+        """
+        if self._runtime is None:
+            return
+
+        async def _send(payload: dict[str, Any]) -> None:
+            await ws.send(json.dumps(_make_req("node.conversation.request", payload)))
+
+        dispatcher = ConversationDispatcher(send=_send)
+        self._conversation = dispatcher
+        self._runtime.gateway_connected = True
+        self._runtime.conversation_forwarder = dispatcher.forward
+
+    def _teardown_runtime_hooks(self, *, reason: str) -> None:
+        """Unregister the runtime hooks and fail any outstanding forwards.
+
+        Args:
+            reason: Human-readable disconnect reason surfaced to callers.
+        """
+        if self._conversation is not None:
+            self._conversation.cancel_all(reason)
+            self._conversation = None
+        if self._runtime is not None:
+            self._runtime.gateway_connected = False
+            self._runtime.conversation_forwarder = None
