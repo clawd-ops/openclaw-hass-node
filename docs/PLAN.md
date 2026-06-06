@@ -64,6 +64,9 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 
 - Mounted paths (add-on `config.yaml` map): `config:rw`, `share:rw`,
   `addons:rw`, `ssl:rw`, `media:rw`, `backup:rw`.
+- Bind mounts placed under an allowed root are treated as operator-trusted
+  configuration; the read-only command layer does not try to distinguish or
+  defeat them.
 - Commands: `fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `system.run`,
   `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`,
   `fs.patch`) are **proposal-gated** — they accept the args but emit an

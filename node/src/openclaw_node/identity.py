@@ -35,6 +35,14 @@ _PLATFORM: Final[str] = "linux"
 _DEVICE_FAMILY: Final[str] = "hass-node"
 
 
+class InvalidIdentityKeyError(TypeError):
+    """Raised when a persisted identity key has the wrong key type."""
+
+    def __init__(self) -> None:
+        """Initialise with a fixed message."""
+        super().__init__("Persisted identity key is not an Ed25519 private key")
+
+
 def _b64url(data: bytes) -> str:
     """Encode *data* as base64url without padding.
 
@@ -180,12 +188,15 @@ def load_identity(path: Path) -> DeviceIdentity:
     Raises:
         FileNotFoundError: If *path* does not exist.
         KeyError: If the JSON is missing required fields.
+        InvalidIdentityKeyError: If the persisted private key is not an
+            Ed25519 key.
     """
     raw = json.loads(path.read_text(encoding="utf-8"))
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
     priv = load_pem_private_key(raw["private_key_pem"].encode(), password=None)
-    assert isinstance(priv, Ed25519PrivateKey)
+    if not isinstance(priv, Ed25519PrivateKey):
+        raise InvalidIdentityKeyError
     return DeviceIdentity(
         device_id=raw["device_id"],
         public_key_b64url=raw["public_key_b64url"],

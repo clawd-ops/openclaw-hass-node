@@ -39,6 +39,15 @@ to be filled in once Phase 2 starts; expectations:
   `docs/PLAN.md`, `docs/HA-CONFIG-EDITING.md`, and the change's own
   description. Output format must be the verdict structure above.
 
+## Codex CLI fallback
+
+When OpenClaw's `openai/*` routing is regressed, the reviewer pairing
+runs via the bare `codex exec --skip-git-repo-check --cd <repo>` CLI
+instead of `sessions_spawn`. The verdict comment must state
+`via CLI workaround` so future-Clawd does not treat the review as
+non-conforming. The pairing rule still holds: generator and reviewer
+must be two different providers.
+
 ## Quality gates (mandatory)
 
 Cross-review is only one gate. Every PR must also pass the

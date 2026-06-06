@@ -10,9 +10,12 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from openclaw_node.safe_path import allowed_roots
+
 _DEFAULT_GATEWAY_URL = "wss://gateway.example.com/ws"
 _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
+_EMPTY = "".join(())
 
 
 def _is_addon_mode() -> bool:
@@ -82,13 +85,13 @@ def load_config() -> NodeConfig:
 
     if addon:
         hass_url = os.environ.get("HASS_URL", "http://homeassistant")
-        hass_token = ""
+        hass_token = _EMPTY
         supervisor_token = os.environ.get("SUPERVISOR_TOKEN", "")
         data_dir = _ADDON_DATA_DIR
     else:
         hass_url = os.environ.get("HASS_URL", "")
         hass_token = os.environ.get("HASS_TOKEN", "")
-        supervisor_token = ""
+        supervisor_token = _EMPTY
         data_dir = _STANDALONE_DATA_DIR
 
     return NodeConfig(
@@ -101,3 +104,23 @@ def load_config() -> NodeConfig:
         supervisor_token=supervisor_token,
         data_dir=data_dir,
     )
+
+
+def allowed_roots_for_env() -> tuple[Path, ...]:
+    """Return the filesystem roots permitted for read-only commands.
+
+    Detects add-on vs standalone mode from the environment (same logic as
+    :func:`load_config`) and delegates to
+    :func:`openclaw_node.safe_path.allowed_roots`.
+
+    Returns:
+        Tuple of resolved :class:`pathlib.Path` roots. Empty in standalone
+        mode when ``OPENCLAW_ALLOWED_ROOTS`` is unset.
+
+    Example:
+        >>> import os
+        >>> os.environ.pop("OPENCLAW_ALLOWED_ROOTS", None)  # doctest: +SKIP
+        >>> allowed_roots_for_env()  # doctest: +SKIP
+        ()
+    """
+    return allowed_roots(addon_mode=_is_addon_mode())

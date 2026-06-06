@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openclaw_node.config import NodeConfig
-from openclaw_node.gateway_ws import GatewayClient, _make_req
+from openclaw_node.gateway_ws import _CONNECT_COMMANDS, GatewayClient, _make_req
 from openclaw_node.identity import generate_identity
 from openclaw_node.pairing import PairingState
 
@@ -74,6 +74,17 @@ def test_gateway_client_with_pairing_callback() -> None:
     assert client.pairing_state is PairingState.UNKNOWN
 
 
+def test_connect_commands_advertise_read_only_surface() -> None:
+    assert _CONNECT_COMMANDS == [
+        "ping",
+        "fs.read",
+        "fs.list",
+        "fs.stat",
+        "fs.glob",
+        "system.which",
+    ]
+
+
 # ---- _recv_challenge tests ----
 
 
@@ -119,6 +130,7 @@ async def test_send_connect_sends_correct_frame() -> None:
     assert sent["params"]["device"]["nonce"] == "test-nonce"
     assert sent["params"]["auth"]["token"] == "my-token"
     assert sent["params"]["role"] == "node"
+    assert sent["params"]["commands"] == _CONNECT_COMMANDS
 
 
 # ---- _recv_connect_response tests ----
@@ -196,7 +208,9 @@ async def test_handle_invoke_command_exception() -> None:
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
-    assert "COMMAND_ERROR" in sent["params"]["error"]
+    assert sent["params"]["error"] == "COMMAND_ERROR"
+    assert sent["params"]["message"] == "Internal command error"
+    assert "something went wrong" not in json.dumps(sent)
 
 
 # ---- _ack_pending tests ----
