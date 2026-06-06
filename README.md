@@ -33,9 +33,16 @@ architecture.
 - **`node/`** — the OpenClaw node. Pairs with the gateway, runs the
   add-on, exposes the `fs.*`, `system.*`, and `ha.*` command surface.
   Local HTTP API on port 8099 services Assist turns and health checks.
-- **`gateway/`** — the brain. WS server that accepts node connections,
-  runs `Brain.handle_turn` (Claude Opus 4.7 default) with the `ha.*`
-  catalog as tools, and routes tool calls back to the node.
+- **`gateway/`** — a **standalone reference brain**. WS server that
+  accepts node connections, runs `Brain.handle_turn` (Claude Opus 4.7
+  *or* GPT-5.5; provider is config-driven) with the `ha.*` catalog as
+  tools, and routes tool calls back to the node.
+
+  This is the **trial / reference** gateway for users who don't run
+  OpenClaw. In the maintainer's deployment, an OpenClaw plugin will
+  eventually handle `node.conversation.request` instead — that
+  integration lives in a follow-up phase (P5.10). Both paths use the
+  same node-side protocol, so the node and shim never change.
 - **`custom_components/openclaw_gateway/`** — the HACS shim. A
   ~150 LOC `ConversationEntity` that forwards Assist turns to the
   node's local HTTP API.
@@ -52,15 +59,17 @@ python -m openclaw_gateway
 
 Env vars (see `gateway/src/openclaw_gateway/config.py`):
 
-| Var                              | Default                    |
-| -------------------------------- | -------------------------- |
-| `OPENCLAW_GATEWAY_HOST`          | `0.0.0.0`                  |
-| `OPENCLAW_GATEWAY_PORT`          | `8765`                     |
-| `OPENCLAW_GATEWAY_MODEL`         | `claude-opus-4-7`          |
-| `OPENCLAW_GATEWAY_SYSTEM_PROMPT` | (empty)                    |
-| `OPENCLAW_GATEWAY_AUTO_APPROVE`  | `false`                    |
-| `OPENCLAW_GATEWAY_DATA_DIR`      | `~/.openclaw/hass-gateway` |
-| `ANTHROPIC_API_KEY`              | required                   |
+| Var                              | Default                                  |
+| -------------------------------- | ---------------------------------------- |
+| `OPENCLAW_GATEWAY_HOST`          | `0.0.0.0`                                |
+| `OPENCLAW_GATEWAY_PORT`          | `8765`                                   |
+| `OPENCLAW_GATEWAY_PROVIDER`      | `anthropic` (or `openai`)                |
+| `OPENCLAW_GATEWAY_MODEL`         | `claude-opus-4-7` / `gpt-5.5`            |
+| `OPENCLAW_GATEWAY_SYSTEM_PROMPT` | (empty)                                  |
+| `OPENCLAW_GATEWAY_AUTO_APPROVE`  | `false`                                  |
+| `OPENCLAW_GATEWAY_DATA_DIR`      | `~/.openclaw/hass-gateway`               |
+| `ANTHROPIC_API_KEY`              | required when provider=anthropic         |
+| `OPENAI_API_KEY`                 | required when provider=openai            |
 
 Device registry persists to `$DATA_DIR/devices.json` so pairings survive
 restarts.
