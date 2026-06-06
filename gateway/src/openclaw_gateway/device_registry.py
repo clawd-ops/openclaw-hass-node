@@ -13,10 +13,15 @@ lands when the gateway grows real config storage.
 from __future__ import annotations
 
 import enum
+import json
+import logging
 import secrets
 import threading
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Final
+
+_LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 
 class DeviceState(enum.Enum):
@@ -40,12 +45,55 @@ _TOKEN_BYTES: Final[int] = 32
 
 
 class DeviceRegistry:
-    """Thread-safe in-memory device registry."""
+    """Thread-safe device registry with optional JSON persistence."""
 
-    def __init__(self) -> None:
-        """Initialise an empty registry."""
+    def __init__(self, persist_path: Path | None = None) -> None:
+        """Initialise the registry; load existing entries if a path is given.
+
+        Args:
+            persist_path: Optional path to a JSON file. If set, the registry
+                loads entries on construction and writes them after every
+                mutation.
+        """
         self._by_id: dict[str, DeviceRecord] = {}
         self._lock = threading.Lock()
+        self._persist_path = persist_path
+        if self._persist_path is not None:
+            self._load()
+
+    def _load(self) -> None:
+        """Load entries from the persist file if it exists."""
+        if self._persist_path is None or not self._persist_path.exists():
+            return
+        try:
+            raw = json.loads(self._persist_path.read_text())
+        except (OSError, ValueError) as exc:
+            _LOG.warning("Failed to load device registry from %s: %s", self._persist_path, exc)
+            return
+        for entry in raw.get("devices", []):
+            try:
+                rec = DeviceRecord(
+                    device_id=str(entry["device_id"]),
+                    public_key_b64url=str(entry["public_key_b64url"]),
+                    state=DeviceState(str(entry["state"])),
+                    token=str(entry.get("token", "")),
+                )
+            except (KeyError, ValueError) as exc:
+                _LOG.warning("Skipping malformed registry entry: %s", exc)
+                continue
+            self._by_id[rec.device_id] = rec
+
+    def _save_locked(self) -> None:
+        """Write the registry to the persist file. Caller holds _lock."""
+        if self._persist_path is None:
+            return
+        self._persist_path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "devices": [{**asdict(rec), "state": rec.state.value} for rec in self._by_id.values()]
+        }
+        tmp = self._persist_path.with_suffix(self._persist_path.suffix + ".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._persist_path)
 
     def get(self, device_id: str) -> DeviceRecord | None:
         """Return the record for *device_id*, or None if not present."""
@@ -79,6 +127,7 @@ class DeviceRegistry:
                 token="",
             )
             self._by_id[device_id] = record
+            self._save_locked()
             return record
 
     def approve(self, device_id: str) -> DeviceRecord:
@@ -98,12 +147,14 @@ class DeviceRegistry:
             record.state = DeviceState.PAIRED
             if not record.token:
                 record.token = secrets.token_urlsafe(_TOKEN_BYTES)
+            self._save_locked()
             return record
 
     def revoke(self, device_id: str) -> None:
         """Remove a device entirely from the registry."""
         with self._lock:
             self._by_id.pop(device_id, None)
+            self._save_locked()
 
     def all_devices(self) -> list[DeviceRecord]:
         """Return a snapshot list of all known devices."""
