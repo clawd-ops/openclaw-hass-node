@@ -6,7 +6,7 @@
 # definitions live in docs/QUALITY.md.
 
 [tool.uv.workspace]
-members = ["node"]
+members = ["node", "gateway"]
 
 [dependency-groups]
 dev = [
