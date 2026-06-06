@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P4 — HA control surface** (P4.2 merged; P4.3 next)
+**P4 — HA control surface** (P4.3 merged; P4.4 next — light controls)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -70,6 +70,11 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
 
+P4.3 merged on 2026-06-06 (`dadcb21`, PR #11) after Codex cross-review:
+v1 APPROVE (3-grep: compare_digest, no subprocess, HA error codes present).
+Delivered: ha.logbook (REST), ha.history (REST, flag params), ha.reload_config
+(POST, hmac.compare_digest admin gate, fail-closed). 397 tests, 97% coverage.
+
 P4.2 merged on 2026-06-06 (`a4e4811`, PR #10) after Codex cross-review:
 v1 APPROVE (lean 3-grep prompt). Delivered: ha_ws_call() WS helper (auth
 handshake, url scheme conversion, HAClientError mapping), ha.list_areas /
@@ -85,7 +90,7 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P4.3 — HA history/control: `ha.logbook`, `ha.history`, `ha.reload_config`.
+P4.4 — HA light controls: `ha.light_turn_on`, `ha.light_turn_off`.
 
 ## Codex review status
 
