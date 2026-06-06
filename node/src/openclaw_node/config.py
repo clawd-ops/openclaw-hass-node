@@ -15,6 +15,7 @@ from openclaw_node.safe_path import allowed_roots
 _DEFAULT_GATEWAY_URL = "wss://gateway.example.com/ws"
 _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
+_EMPTY = "".join(())
 
 
 def _is_addon_mode() -> bool:
@@ -84,13 +85,13 @@ def load_config() -> NodeConfig:
 
     if addon:
         hass_url = os.environ.get("HASS_URL", "http://homeassistant")
-        hass_token = ""
+        hass_token = _EMPTY
         supervisor_token = os.environ.get("SUPERVISOR_TOKEN", "")
         data_dir = _ADDON_DATA_DIR
     else:
         hass_url = os.environ.get("HASS_URL", "")
         hass_token = os.environ.get("HASS_TOKEN", "")
-        supervisor_token = ""
+        supervisor_token = _EMPTY
         data_dir = _STANDALONE_DATA_DIR
 
     return NodeConfig(

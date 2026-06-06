@@ -47,7 +47,6 @@ async def _main() -> None:  # pragma: no cover
     client = GatewayClient(
         config=config,
         identity=identity,
-        device_token="",
     )
     await client.run()
 

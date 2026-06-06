@@ -47,6 +47,7 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "fs.glob",
     "system.which",
 ]
+_EMPTY: Final[str] = "".join(())
 _PENDING_PULL_LIMIT: Final[int] = 10
 _RECONNECT_DELAY_S: Final[float] = 5.0
 
@@ -83,7 +84,7 @@ class GatewayClient:
 
     Example:
         >>> import asyncio
-        >>> # client = GatewayClient(config, identity, device_token="")
+        >>> # client = GatewayClient(config, identity)
         >>> # asyncio.run(client.run())
     """
 
@@ -91,7 +92,7 @@ class GatewayClient:
         self,
         config: NodeConfig,
         identity: DeviceIdentity,
-        device_token: str = "",
+        device_token: str | None = None,
         pairing_state_callback: Callable[[PairingState], None] | None = None,
     ) -> None:
         """Initialise the client without opening a connection.
@@ -106,7 +107,7 @@ class GatewayClient:
         """
         self._config = config
         self._identity = identity
-        self._device_token = device_token
+        self._device_token = device_token or _EMPTY
         self._pairing = PairingMachine()
         self._pairing_state_callback = pairing_state_callback
 
