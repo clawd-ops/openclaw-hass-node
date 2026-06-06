@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P5 — Assist agent** (P5.1-P5.5 merged; node + gateway brain live in this repo; WS server wiring is the last slice)
+**P5 — Assist agent** COMPLETE (P5.1-P5.6 merged; trial-mode E2E Assist live; P5.7 is auth hardening)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -69,6 +69,15 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   via the CLI workaround; landed APPROVE-WITH-NITS. 135 tests, 96.26%
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
+
+P5.6 merged on 2026-06-06 (`8548d5c`, PR #20) after Codex cross-review:
+v1 APPROVE. GatewayServer (trial mode, no Ed25519 verify yet) + InvokeDispatcher
+(gateway mirror of ConversationDispatcher). E2E flow: HA Assist → shim →
+node /v1/conversation → ConversationDispatcher → node.conversation.request →
+GatewayServer → Brain → tool calls → node.invoke.request → node ha.* handler
+→ node.invoke.result → tool_result → brain text → node.conversation.result
+→ speech. Brain stops re-wrapping its own BrainError. 470 tests, 96.94%
+branch coverage on both packages.
 
 P5.5 merged on 2026-06-06 (`72c3a9b`, PR #19) after Codex cross-review:
 v1 APPROVE. New `gateway/` uv workspace member with Claude-backed Brain
@@ -140,23 +149,21 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P5.6 (last slice of P5) — a small `gateway/server.py` that:
-1. Accepts WS connections on the gateway URL the node points at.
-2. Runs the existing handshake (challenge/connect/auth) — the node-side
-   client already implements this, the gateway just mirrors it.
-3. On `node.conversation.request`, calls `Brain.handle_turn(text, conv_id,
-   language)` and emits `node.conversation.result` with the matching
-   conversationId.
-4. Bridges the brain's tool calls back to the node: each invoke becomes
-   `node.invoke.request` (existing protocol from P3/P4), the response
-   becomes the tool_result the brain feeds back to the model.
+P5.7 — auth hardening on the GatewayServer handshake:
+1. Verify the node's Ed25519 signature over (nonce, role, scopes, token)
+   instead of trusting it. The node-side `_send_connect` already produces
+   the signature; the gateway just needs to verify it.
+2. Maintain a small device registry (id → public_key → token) so re-
+   connects use the same token.
+3. PAIRING_REQUIRED on first connect of an unknown device; admin approval
+   (CLI subcommand or signed approval frame) flips it to PAIRED.
+4. Multi-connection support: one node per gateway today; this opens the
+   door to many. Keep per-connection InvokeDispatcher.
 
-With brain.py and tools.py in place from P5.5, this is mostly socket
-plumbing and protocol mirroring. After P5.6 lands, Assist works E2E.
-
-After P5.6:
+After P5.7:
 - P6 — MCP retirement inventory (`docs/RESEARCH-MIGRATION.md`).
 - P7 — add-on publishing checklist + CI release pipeline.
+- HACS shim README + hacs.json polish.
 - `ha.config.*` proposal-gated write surface from COMMAND-SURFACE.md.
 
 ## Codex review status
