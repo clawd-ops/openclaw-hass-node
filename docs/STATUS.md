@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P5 — Assist agent** COMPLETE (P5.1-P5.8 merged; auth-hardened E2E Assist; gateway deployable; P6 next)
+**P6 — Retire MCP servers** (inventory complete in `docs/RESEARCH-MIGRATION.md`; P6.1 = validation harness)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -168,18 +168,17 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P5 fully complete (P5.1-P5.7 merged, 8 PRs, all Codex APPROVE on first or
-second pass). E2E Assist works: HA Assist → shim → node forwarder → gateway
-→ Brain (Opus 4.7) → ha.* tools → node → speech back, all over an
-Ed25519-authenticated WS channel.
+P6.1 — write a small validation-harness script that scrapes the gateway
+logs and emits a daily "zero unhandled MCP calls" readiness signal.
+Once that's run cleanly for 7 days, drop `homeassistant` +
+`homeassistant-readonly` MCP server entries from the gateway config in
+one PR and update any agent prompts that reference them by name.
 
-Next options:
-- P6 — MCP retirement inventory (`docs/RESEARCH-MIGRATION.md`).
+After P6:
 - P7 — add-on publishing checklist + CI release pipeline.
-- HACS shim README + hacs.json polish.
 - `ha.config.*` proposal-gated write surface from COMMAND-SURFACE.md.
-- Persistence: device registry + invoke queue currently lose state on
-  gateway restart; lands when the gateway grows real config storage.
+- Persistence: invoke queue still loses state on gateway restart; lands
+  when the gateway grows real config storage.
 
 ## Codex review status
 
