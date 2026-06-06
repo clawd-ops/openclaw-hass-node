@@ -7,9 +7,10 @@ Implements the four read-only filesystem commands:
 - ``fs.stat`` - stat a single path.
 - ``fs.glob`` - glob within an allowed root.
 
-All paths flow through :func:`openclaw_node.safe_path.resolve_safe` so the
-node can only read under the configured roots.  Writes are NOT in this
-module; they arrive in P3.2 as proposal-gated commands.
+All read operations open paths through :func:`openclaw_node.safe_fd.open_safe_fd`
+so the node can only read under the configured roots without a
+resolve-then-use race.  Writes are NOT in this module; they arrive in P3.2 as
+proposal-gated commands.
 
 Note:
     ``.storage/`` reads are permitted here for diagnostics.  Writes to
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from openclaw_node.config import allowed_roots_for_env
+from openclaw_node.safe_fd import open_safe_fd
 from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError, resolve_safe
 
 _DEFAULT_READ_MAX_BYTES: Final[int] = 1 * 1024 * 1024
@@ -105,6 +107,47 @@ def _resolve(path: str) -> Path:
     return resolve_safe(path, roots)
 
 
+def _open(path: str, *, dir_fd_only: bool = False) -> int:
+    """Open *path* under the configured roots and return an fd.
+
+    Args:
+        path: Caller-supplied absolute path.
+        dir_fd_only: Require the final object to be a directory.
+
+    Returns:
+        Open file descriptor owned by the caller.
+
+    Raises:
+        OutOfBoundsError: If *path* escapes the allowed roots.
+        NoAllowedRootsError: If no roots are configured.
+        OSError: For filesystem errors such as missing paths.
+    """
+    roots = allowed_roots_for_env()
+    return open_safe_fd(path, roots, dir_fd_only=dir_fd_only)
+
+
+def _read_bounded(fd: int, max_bytes: int) -> bytes:
+    """Read at most ``max_bytes + 1`` bytes from *fd*.
+
+    Args:
+        fd: Readable file descriptor.
+        max_bytes: Caller limit.
+
+    Returns:
+        Bytes read.  A length greater than *max_bytes* means the caller must
+        treat the file as too large.
+    """
+    chunks: list[bytes] = []
+    remaining = max_bytes + 1
+    while remaining > 0:
+        chunk = os.read(fd, remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
 def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
     """Handle ``fs.read`` - return a file's contents.
 
@@ -138,48 +181,49 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
     max_bytes = _clamp(max_bytes_raw, _DEFAULT_READ_MAX_BYTES, _HARD_READ_MAX_BYTES)
 
     try:
-        resolved = _resolve(raw_path)
+        fd = _open(raw_path)
     except NoAllowedRootsError as exc:
         return _error("NO_ALLOWED_ROOTS", str(exc))
-    except OutOfBoundsError as exc:
-        return _error("OUT_OF_BOUNDS", str(exc), path=raw_path)
-
-    if not resolved.exists():
+    except OutOfBoundsError:
+        return _error("OUT_OF_BOUNDS", "Path is outside the allowed roots", path=raw_path)
+    except FileNotFoundError:
         return _error("PATH_NOT_FOUND", f"No such file: {raw_path}", path=raw_path)
-    if resolved.is_dir():
-        return _error("IS_DIRECTORY", f"Path is a directory: {raw_path}", path=raw_path)
+    try:
+        st = os.fstat(fd)
+        if stat_mod.S_ISDIR(st.st_mode):
+            return _error("IS_DIRECTORY", f"Path is a directory: {raw_path}", path=raw_path)
 
-    size = resolved.stat().st_size
-    if size > max_bytes:
-        return _error(
-            "TOO_LARGE",
-            f"File is {size} bytes, exceeds limit of {max_bytes}",
-            path=raw_path,
-            size=size,
-            max_bytes=max_bytes,
-        )
-
-    data = resolved.read_bytes()
-    sha = hashlib.sha256(data).hexdigest()
-    if encoding == "binary":
-        content: str = base64.b64encode(data).decode("ascii")
-        out_encoding = "binary"
-    else:
-        try:
-            content = data.decode(encoding)
-        except (UnicodeDecodeError, LookupError) as exc:
+        data = _read_bounded(fd, max_bytes)
+        if len(data) > max_bytes:
             return _error(
-                "DECODE_ERROR",
-                f"Cannot decode file as {encoding}: {exc}",
+                "TOO_LARGE",
+                f"File exceeds limit of {max_bytes} bytes",
                 path=raw_path,
-                encoding=encoding,
+                size=len(data),
+                max_bytes=max_bytes,
             )
-        out_encoding = encoding
+        sha = hashlib.sha256(data).hexdigest()
+        if encoding == "binary":
+            content: str = base64.b64encode(data).decode("ascii")
+            out_encoding = "binary"
+        else:
+            try:
+                content = data.decode(encoding)
+            except (UnicodeDecodeError, LookupError) as exc:
+                return _error(
+                    "DECODE_ERROR",
+                    f"Cannot decode file as {encoding}: {exc}",
+                    path=raw_path,
+                    encoding=encoding,
+                )
+            out_encoding = encoding
+    finally:
+        os.close(fd)
 
     return {
         "ok": True,
-        "path": str(resolved),
-        "size": size,
+        "path": raw_path,
+        "size": len(data),
         "encoding": out_encoding,
         "content": content,
         "sha256": sha,
@@ -288,25 +332,22 @@ def handle_fs_stat(params: dict[str, Any]) -> dict[str, Any]:
         return _error("PATH_REQUIRED", "Missing required 'path' parameter")
 
     try:
-        resolved = _resolve(raw_path)
+        fd = _open(raw_path)
     except NoAllowedRootsError as exc:
         return _error("NO_ALLOWED_ROOTS", str(exc))
-    except OutOfBoundsError as exc:
-        return _error("OUT_OF_BOUNDS", str(exc), path=raw_path)
-
-    if not resolved.exists():
-        return {"ok": True, "path": str(resolved), "exists": False}
-
-    # ``resolved`` already has symlinks followed by ``Path.resolve``; ``is_symlink``
-    # is therefore always False here and ``link_target`` is always None. Both
-    # fields are preserved for forward compatibility with future stat-without-follow
-    # variants.
-    is_symlink = False
-    link_target: str | None = None
-    st = resolved.lstat()
+    except OutOfBoundsError:
+        return _error("OUT_OF_BOUNDS", "Path is outside the allowed roots", path=raw_path)
+    except FileNotFoundError:
+        return {"ok": True, "path": raw_path, "exists": False}
+    try:
+        is_symlink = False
+        link_target: str | None = None
+        st = os.fstat(fd)
+    finally:
+        os.close(fd)
     return {
         "ok": True,
-        "path": str(resolved),
+        "path": raw_path,
         "exists": True,
         "kind": _kind(st, is_symlink=is_symlink),
         "size": int(st.st_size),

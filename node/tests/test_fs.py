@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import os
 from pathlib import Path
 
 import pytest
@@ -79,7 +80,27 @@ def test_fs_read_too_large(tmp_path: Path) -> None:
     f.write_bytes(b"x" * 100)
     result = handle_fs_read({"path": str(f), "max_bytes": 10})
     assert result["error"] == "TOO_LARGE"
-    assert result["size"] == 100
+    assert result["size"] == 11
+
+
+def test_fs_read_too_large_when_file_grows_midflight(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake_fd = 987
+    small = tmp_path / "small"
+    small.write_text("x")
+    st = os.stat(small)
+    closes: list[int] = []
+
+    monkeypatch.setattr("openclaw_node.commands.fs.open_safe_fd", lambda *_a, **_k: fake_fd)
+    monkeypatch.setattr("openclaw_node.commands.fs.os.fstat", lambda _fd: st)
+    monkeypatch.setattr("openclaw_node.commands.fs.os.read", lambda _fd, _n: b"x" * 11)
+    monkeypatch.setattr("openclaw_node.commands.fs.os.close", lambda fd: closes.append(fd))
+
+    result = handle_fs_read({"path": str(tmp_path / "small"), "max_bytes": 10})
+    assert result["error"] == "TOO_LARGE"
+    assert result["size"] == 11
+    assert closes == [fake_fd]
 
 
 def test_fs_read_max_bytes_clamped_to_default(tmp_path: Path) -> None:
@@ -236,12 +257,8 @@ def test_fs_stat_symlink(tmp_path: Path) -> None:
     target.write_text("x")
     link = tmp_path / "link"
     link.symlink_to(target)
-    # resolve_safe follows symlinks; but stat is called on the resolved path.
-    # Verify by calling stat on the *target* via a symlink whose resolve stays inside roots.
     result = handle_fs_stat({"path": str(link)})
-    assert result["exists"] is True
-    # After resolve_safe, link points at target so is_symlink should be False.
-    assert result["is_symlink"] is False
+    assert result["error"] == "OUT_OF_BOUNDS"
 
 
 # ---------------------------------------------------------------------------
