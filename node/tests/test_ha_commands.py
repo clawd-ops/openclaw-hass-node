@@ -5,14 +5,19 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from openclaw_node.commands.ha import (
     handle_ha_call_service,
     handle_ha_get_state,
+    handle_ha_history,
     handle_ha_list_areas,
     handle_ha_list_devices,
     handle_ha_list_entity_registry,
     handle_ha_list_services,
     handle_ha_list_states,
+    handle_ha_logbook,
+    handle_ha_reload_config,
 )
 from openclaw_node.ha_client import HAClientError
 
@@ -309,3 +314,156 @@ async def test_list_entity_registry_bad_response_shape() -> None:
     with patch("openclaw_node.commands.ha.ha_ws_call", return_value="not a list"):
         result = await handle_ha_list_entity_registry({})
     assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# ha.logbook
+# ---------------------------------------------------------------------------
+
+
+async def test_logbook_returns_entries() -> None:
+    entries = [{"when": "2026-06-06T00:00:00", "name": "Kitchen Light", "message": "turned on"}]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=entries) as mock_get:
+        result = await handle_ha_logbook({})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["entries"] == entries
+    mock_get.assert_called_once_with("/api/logbook")
+
+
+async def test_logbook_with_start_time() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_logbook({"start_time": "2026-06-01T00:00:00"})
+    assert "2026-06-01T00:00:00" in mock_get.call_args[0][0]
+
+
+async def test_logbook_with_entity_and_end_time() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_logbook({"entity_id": "light.kitchen", "end_time": "2026-06-06T12:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "entity=light.kitchen" in url
+    assert "end_time=2026-06-06T12:00:00" in url
+
+
+async def test_logbook_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500"),
+    ):
+        result = await handle_ha_logbook({})
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_logbook_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"not": "a list"}):
+        result = await handle_ha_logbook({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# ha.history
+# ---------------------------------------------------------------------------
+
+
+async def test_history_returns_history() -> None:
+    history = [[{"entity_id": "light.x", "state": "on"}]]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=history) as mock_get:
+        result = await handle_ha_history({})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["history"] == history
+    mock_get.assert_called_once_with("/api/history/period")
+
+
+async def test_history_with_start_time() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"start_time": "2026-06-01T00:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "2026-06-01T00:00:00" in url
+
+
+async def test_history_with_end_time() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"end_time": "2026-06-06T12:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "end_time=2026-06-06T12:00:00" in url
+
+
+async def test_history_with_entity_ids() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"entity_ids": ["light.x", "sensor.y"]})
+    url = mock_get.call_args[0][0]
+    assert "filter_entity_id=light.x,sensor.y" in url
+
+
+async def test_history_invalid_entity_ids_type() -> None:
+    result = await handle_ha_history({"entity_ids": "light.x"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_history_invalid_entity_ids_contents() -> None:
+    result = await handle_ha_history({"entity_ids": [1, 2]})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_history_with_flags() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"minimal_response": True, "no_attributes": True})
+    url = mock_get.call_args[0][0]
+    assert "minimal_response" in url
+    assert "no_attributes" in url
+
+
+async def test_history_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_NETWORK", "conn fail"),
+    ):
+        result = await handle_ha_history({})
+    assert result["error"] == "HA_NETWORK"
+
+
+async def test_history_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value="nope"):
+        result = await handle_ha_history({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# ha.reload_config
+# ---------------------------------------------------------------------------
+
+
+async def test_reload_config_no_env_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = await handle_ha_reload_config({})
+    assert result["error"] == "PERMISSION_DENIED"
+
+
+async def test_reload_config_wrong_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_reload_config({"admin_token": "wrong"})
+    assert result["error"] == "PERMISSION_DENIED"
+
+
+async def test_reload_config_correct_token_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post", return_value=None):
+        result = await handle_ha_reload_config({"admin_token": "secret"})
+    assert result["ok"] is True
+
+
+async def test_reload_config_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500"),
+    ):
+        result = await handle_ha_reload_config({"admin_token": "secret"})
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_reload_config_missing_token_param_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_reload_config({})
+    assert result["error"] == "PERMISSION_DENIED"
