@@ -16,6 +16,12 @@ from openclaw_node.commands.fs import (
     handle_fs_read,
     handle_fs_stat,
 )
+from openclaw_node.commands.fs_write import (
+    handle_fs_diff,
+    handle_fs_history,
+    handle_fs_restore,
+    handle_fs_write,
+)
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
 
@@ -31,6 +37,10 @@ _REGISTRY: dict[str, CommandHandler] = {
     "fs.list": handle_fs_list,
     "fs.stat": handle_fs_stat,
     "fs.glob": handle_fs_glob,
+    "fs.write": handle_fs_write,
+    "fs.restore": handle_fs_restore,
+    "fs.history": handle_fs_history,
+    "fs.diff": handle_fs_diff,
     "system.which": handle_system_which,
 }
 

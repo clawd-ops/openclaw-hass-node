@@ -45,6 +45,10 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "fs.list",
     "fs.stat",
     "fs.glob",
+    "fs.write",
+    "fs.restore",
+    "fs.history",
+    "fs.diff",
     "system.which",
 ]
 _EMPTY: Final[str] = "".join(())
