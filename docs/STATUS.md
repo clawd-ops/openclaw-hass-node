@@ -168,11 +168,11 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P6.1 — write a small validation-harness script that scrapes the gateway
-logs and emits a daily "zero unhandled MCP calls" readiness signal.
-Once that's run cleanly for 7 days, drop `homeassistant` +
-`homeassistant-readonly` MCP server entries from the gateway config in
-one PR and update any agent prompts that reference them by name.
+P6.1 validation harness merged (PR #23, `997ee45`). Cron the script
+against openclaw-0; once it ever prints `RETIREMENT_READY` (7-day clean
+streak), do P6.2: one PR that drops the `homeassistant` +
+`homeassistant-readonly` MCP server entries from the gateway config and
+updates agent prompts.
 
 After P6:
 - P7 — add-on publishing checklist + CI release pipeline.
