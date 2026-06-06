@@ -15,6 +15,23 @@ This module is pure storage: ``capture``, ``history``, ``fetch_object``,
 ``resolve_version``, and ``diff``. Eviction/GC and pinning ship in a
 follow-up PR. Dispatcher wiring (``fs.write``, ``fs.restore``) ships in
 P3.2.2.
+
+Concurrency model
+-----------------
+``BackupStore`` is **single-writer**: at most one call to :meth:`capture` may
+be in flight at a time. The OpenClaw node dispatches commands sequentially in
+its event loop, which enforces this invariant. The index ``O_APPEND`` write is
+atomic at the OS level (a single ``write(2)`` call), but the read-modify-write
+in ``_last_sha`` → ``_atomic_append_line`` is not safe under concurrent
+writers; adding locking is deferred until the concurrency model changes.
+
+Orphan objects
+--------------
+If the object write succeeds but the subsequent index append fails, the object
+body is stored but not referenced by any index line. Such orphan objects are
+harmless (the content is intact) and will be reclaimed by the GC pass
+introduced in the eviction PR. No attempt is made to roll back a partially
+committed capture.
 """
 
 from __future__ import annotations
@@ -34,7 +51,10 @@ from typing import Final, Literal
 
 _STORE_VERSION: Final[int] = 1
 _DEFAULT_CAP_BYTES: Final[int] = 500 * 1024 * 1024
-_INDEX_NAME_MAX: Final[int] = 200
+# 250 encoded chars + ".jsonl" (6) = 256, safely below the 255-byte ext4 limit.
+# Each raw "/" expands to "%2F" (3 chars), so 250 encoded supports ~60-80 raw chars
+# of path depth — adequate for the deepest realistic HA custom_components paths.
+_INDEX_NAME_MAX: Final[int] = 250
 
 Op = Literal["write", "delete", "move-src", "move-dst", "restore"]
 
@@ -211,6 +231,8 @@ class Version:
             )
         except KeyError as exc:
             raise _IndexLineMissingFieldError(exc.args[0]) from exc
+        except (ValueError, TypeError) as exc:
+            raise _CorruptIndexLineError(str(exc)) from exc
 
 
 def _validate_op(value: str) -> Op:
@@ -235,6 +257,21 @@ def _utc_now_iso() -> str:
     return _dt.datetime.now(tz=_dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _parse_iso(ts: str) -> _dt.datetime:
+    """Parse an ISO-8601 timestamp into a timezone-aware datetime.
+
+    Accepts both ``Z``-suffix (canonical store format) and explicit UTC offsets
+    such as ``+00:00``.
+
+    Args:
+        ts: ISO-8601 timestamp string.
+
+    Returns:
+        Timezone-aware :class:`datetime.datetime` in UTC.
+    """
+    return _dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+
 def _encode_path(path: str) -> str:
     """Encode an absolute path into a single safe filename component.
 
@@ -246,6 +283,12 @@ def _encode_path(path: str) -> str:
 
     Raises:
         BackupStoreError: If the encoded form exceeds the file-name length cap.
+
+    Note:
+        Assumes a case-sensitive filesystem (Linux ext4/overlayfs). On
+        case-insensitive mounts (macOS, some SMB shares) two paths that differ
+        only in case would produce the same index file. HASS runs on Linux so
+        this is not a concern in production.
     """
     encoded = urllib.parse.quote(path, safe="")
     if len(encoded) > _INDEX_NAME_MAX:
@@ -253,8 +296,29 @@ def _encode_path(path: str) -> str:
     return encoded
 
 
+def _fsync_dir(path: Path) -> None:
+    """Open *path* as a directory and fsync it to flush directory-entry changes.
+
+    Required after ``os.replace`` to make the rename crash-durable on ext4 and
+    similar journalling filesystems. Suppressed silently on platforms that do
+    not support fsyncing directories (e.g. Windows in tests).
+    """
+    with contextlib.suppress(OSError):
+        dir_fd = os.open(str(path), os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+
+
 def _atomic_write_bytes(target: Path, data: bytes, tmp_dir: Path) -> None:
     """Write *data* to *target* via ``tmp/``-staged fsync-then-rename.
+
+    The sequence is: write → fsync file → rename → fsync parent dir.
+    Fsyncing the parent directory after the rename makes the rename itself
+    crash-durable on ext4 and similar journalling filesystems; without it a
+    crash immediately after ``replace`` may leave the directory entry unwritten
+    while the object data is already on disk.
 
     Args:
         target: Destination path; created or replaced atomically.
@@ -273,6 +337,7 @@ def _atomic_write_bytes(target: Path, data: bytes, tmp_dir: Path) -> None:
         with contextlib.suppress(OSError):
             os.unlink(tmp_name)
         raise
+    _fsync_dir(target.parent)
 
 
 def _atomic_append_line(target: Path, line: str) -> None:
@@ -517,7 +582,8 @@ class BackupStore:
             raise _NoSuchProposalError(proposal_id)
         if at is None:  # pragma: no cover - guarded by selector check above
             raise _SelectorRequiredError
-        candidates = [v for v in versions if v.ts <= at]
+        at_dt = _parse_iso(at)
+        candidates = [v for v in versions if _parse_iso(v.ts) <= at_dt]
         if not candidates:
             raise _NoVersionAtTimeError(at, path)
         return candidates[-1]

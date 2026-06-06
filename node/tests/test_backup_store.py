@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -305,7 +306,8 @@ def test_version_to_json_roundtrip() -> None:
 
 
 def test_encode_path_length_cap_raises(store: BackupStore) -> None:
-    long_path = "/" + "a" * 250
+    # 300 'a' chars encodes to 300 (no special chars) — exceeds the 250-char cap.
+    long_path = "/" + "a" * 300
     with pytest.raises(BackupStoreError, match="too long"):
         store.capture(long_path, b"x", proposal_id="p1", op="write")
 
@@ -335,6 +337,76 @@ def test_atomic_write_swallows_unlink_failure(
     monkeypatch.setattr("openclaw_node.backup_store.os.replace", replace_boom)
     monkeypatch.setattr("openclaw_node.backup_store.os.unlink", unlink_boom)
     with pytest.raises(OSError, match="replace failed"):
+        store.capture("/config/x.yaml", b"data", proposal_id="p1", op="write")
+
+
+def test_encode_path_cap_raised_to_250(store: BackupStore) -> None:
+    # 251 raw chars encodes to >250 (each '/' -> '%2F'); verify the new cap allows
+    # realistic long paths (raw path under ~83 chars fits inside 250 encoded).
+    # 250-char raw path of slashes: each '/' -> 3 chars = 750 encoded - too long.
+    # But a realistic HA path like /config/custom_components/name/subdir/x.yaml is fine.
+    ok_path = "/config/custom_components/" + "a" * 60 + ".yaml"  # ~92 raw chars, ~115 encoded
+    v = store.capture(ok_path, b"x", proposal_id="p1", op="write")
+    assert v.sha256 == _sha256(b"x")
+
+
+def test_from_json_rejects_non_integer_size() -> None:
+    payload = {
+        "ts": "2026-01-01T00:00:00Z",
+        "proposal_id": "p",
+        "sha256": "s",
+        "size": "not-an-int",
+        "op": "write",
+        "actor": "a",
+        "prev_sha256": None,
+    }
+    with pytest.raises(BackupStoreError, match="Corrupt index line"):
+        Version.from_json(json.dumps(payload))
+
+
+def test_resolve_version_by_at_with_offset_string(store: BackupStore) -> None:
+    with patch(
+        "openclaw_node.backup_store._utc_now_iso",
+        return_value="2026-01-01T00:00:00Z",
+    ):
+        v = store.capture("/config/x.yaml", b"a", proposal_id="p1", op="write")
+    # Pass `at` as an explicit UTC offset string instead of Z-suffix.
+    chosen = store.resolve_version("/config/x.yaml", at="2026-01-01T00:01:00+00:00")
+    assert chosen == v
+
+
+def test_atomic_write_fsyncs_parent_dir(
+    store: BackupStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fsynced_dirs: list[str] = []
+    real_open = os.open
+
+    def tracking_open(path: str, flags: int, *args: object, **kwargs: object) -> int:
+        fd = real_open(path, flags, *args, **kwargs)  # type: ignore[arg-type]
+        if flags & os.O_DIRECTORY:
+            fsynced_dirs.append(path)
+        return fd
+
+    monkeypatch.setattr("openclaw_node.backup_store.os.open", tracking_open)
+    store.capture("/config/x.yaml", b"data", proposal_id="p1", op="write")
+    assert any("objects" in d for d in fsynced_dirs)
+
+
+def test_append_line_fsync_failure_propagates(
+    store: BackupStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_fsync = os.fsync
+    call_count = 0
+
+    def selective_fsync(fd: int) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count > 1:  # first call is for the object write; second is the append
+            raise OSError("fsync failed")
+        real_fsync(fd)
+
+    monkeypatch.setattr("openclaw_node.backup_store.os.fsync", selective_fsync)
+    with pytest.raises(OSError, match="fsync failed"):
         store.capture("/config/x.yaml", b"data", proposal_id="p1", op="write")
 
 
