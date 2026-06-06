@@ -166,19 +166,31 @@ across both files). Delivered: ha_client.py (aiohttp REST wrapper, env-driven,
 HAClientError), ha.py (list_states/get_state/call_service), async-aware
 dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
+## Architectural note (2026-06-06)
+
+Rob clarified that the `gateway/` workspace in this repo is a
+**standalone reference gateway**, not the OpenClaw integration. P5.9
+(PR #25) restored that distinction in the README and made the brain
+**provider-agnostic** (Anthropic Claude + OpenAI GPT-5.5, selectable via
+`OPENCLAW_GATEWAY_PROVIDER`). Brain now takes a `Provider` interface;
+SDK choice lives behind two concrete providers
+(`providers_anthropic.py`, `providers_openai.py`).
+
 ## Current task
 
-P6.1 validation harness merged (PR #23, `997ee45`). Cron the script
-against openclaw-0; once it ever prints `RETIREMENT_READY` (7-day clean
-streak), do P6.2: one PR that drops the `homeassistant` +
-`homeassistant-readonly` MCP server entries from the gateway config and
-updates agent prompts.
+**P5.10 — OpenClaw integration** (new): write the OpenClaw-side plugin
+or handler that mirrors the standalone gateway. Same wire protocol
+(`node.conversation.request` / `node.invoke.request`), same Brain code
+(it's provider-agnostic), but bound into OpenClaw's process and model
+router so Rob's deployment talks to the existing brain infrastructure
+instead of a parallel one. Implementation lives in this repo for now;
+splits out if/when OpenClaw absorbs it.
 
-After P6:
+After P5.10:
+- P6.1 validation harness already merged (PR #23, portable in #24).
+  Cron it; once ever prints `RETIREMENT_READY` do P6.2.
 - P7 — add-on publishing checklist + CI release pipeline.
 - `ha.config.*` proposal-gated write surface from COMMAND-SURFACE.md.
-- Persistence: invoke queue still loses state on gateway restart; lands
-  when the gateway grows real config storage.
 
 ## Codex review status
 

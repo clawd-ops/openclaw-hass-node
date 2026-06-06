@@ -27,13 +27,13 @@ import uuid
 from typing import Any, Final
 
 import websockets
-from anthropic import AsyncAnthropic
 from websockets.asyncio.server import ServerConnection, serve
 
 from openclaw_gateway.auth import AuthError, verify_connect_signature
 from openclaw_gateway.brain import Brain
 from openclaw_gateway.device_registry import DeviceRegistry, DeviceState
 from openclaw_gateway.invoke_dispatcher import InvokeDispatcher
+from openclaw_gateway.providers import Provider
 from openclaw_gateway.tools import HA_TOOLS
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -56,20 +56,19 @@ class GatewayServer:
     """Trial-mode WS gateway that connects nodes to the brain.
 
     Args:
-        anthropic_client: Pre-constructed AsyncAnthropic client.
-        host: Bind host. Default ``"127.0.0.1"``.
-        port: Bind port. Default ``8765``.
-        model: Brain model override.
+        provider: Concrete :class:`openclaw_gateway.providers.Provider`
+            (Anthropic / OpenAI / future runtimes).
+        host: Bind host.
+        port: Bind port.
         system_prompt: System prompt prepended to every Assist turn.
     """
 
     def __init__(
         self,
-        anthropic_client: AsyncAnthropic,
+        provider: Provider,
         *,
         host: str = "127.0.0.1",
         port: int = 8765,
-        model: str | None = None,
         system_prompt: str = "",
         device_registry: DeviceRegistry | None = None,
         auto_approve: bool = False,
@@ -77,20 +76,17 @@ class GatewayServer:
         """Initialise the server without binding the socket.
 
         Args:
-            anthropic_client: Pre-constructed AsyncAnthropic client.
+            provider: Configured model provider.
             host: Bind host.
             port: Bind port.
-            model: Brain model override.
             system_prompt: System prompt for every Assist turn.
             device_registry: Optional shared registry; one is created if absent.
             auto_approve: If True (trial mode), unknown devices are paired on
-                first connect without operator approval. Default False (real
-                pairing requires operator approval).
+                first connect without operator approval.
         """
-        self._client = anthropic_client
+        self._provider = provider
         self._host = host
         self._port = port
-        self._model = model
         self._system = system_prompt
         self._bg_tasks: set[asyncio.Task[None]] = set()
         self._devices = device_registry or DeviceRegistry()
@@ -316,10 +312,9 @@ class GatewayServer:
         text = str(params.get("text", ""))
         language = params.get("language")
         brain = Brain(
-            self._client,
+            self._provider,
             invoke_tool=invoker.invoke,
             tools=HA_TOOLS,
-            model=self._model or "claude-opus-4-7",
             system_prompt=self._system,
         )
         try:
@@ -328,6 +323,7 @@ class GatewayServer:
                 "conversationId": conversation_id,
                 "response": result["response"],
                 "model": result["model"],
+                "provider": result["provider"],
                 "rounds": result["rounds"],
             }
         except Exception as exc:

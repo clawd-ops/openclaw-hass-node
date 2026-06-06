@@ -12,7 +12,9 @@ def test_load_config_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
         "OPENCLAW_GATEWAY_HOST",
         "OPENCLAW_GATEWAY_PORT",
+        "OPENCLAW_GATEWAY_PROVIDER",
         "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
         "OPENCLAW_GATEWAY_MODEL",
         "OPENCLAW_GATEWAY_SYSTEM_PROMPT",
         "OPENCLAW_GATEWAY_AUTO_APPROVE",
@@ -22,9 +24,19 @@ def test_load_config_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = load_config()
     assert cfg.host == "0.0.0.0"
     assert cfg.port == 8765
+    assert cfg.provider == "anthropic"
     assert cfg.anthropic_api_key == ""
+    assert cfg.openai_api_key == ""
     assert cfg.model == "claude-opus-4-7"
     assert cfg.auto_approve is False
+
+
+def test_load_config_openai_provider_default_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_GATEWAY_PROVIDER", "openai")
+    monkeypatch.delenv("OPENCLAW_GATEWAY_MODEL", raising=False)
+    cfg = load_config()
+    assert cfg.provider == "openai"
+    assert cfg.model == "gpt-5.5"
 
 
 def test_load_config_reads_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

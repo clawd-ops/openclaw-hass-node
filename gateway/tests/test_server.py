@@ -61,10 +61,14 @@ class _FakeWS:
 
 
 def _server(model_responses: list[Any], *, auto_approve: bool = True) -> GatewayServer:
+    """Build a server with an Anthropic provider backed by a mocked client."""
+    from openclaw_gateway.providers_anthropic import AnthropicProvider
+
     client = MagicMock()
     client.messages = MagicMock()
     client.messages.create = AsyncMock(side_effect=model_responses)
-    return GatewayServer(client, auto_approve=auto_approve)
+    provider = AnthropicProvider(client, model="test-model")
+    return GatewayServer(provider, auto_approve=auto_approve)
 
 
 def _text_resp(text: str) -> MagicMock:
@@ -301,16 +305,25 @@ async def test_event_loop_drops_non_json_frames() -> None:
 
 
 async def test_brain_error_attribute_carried_through_to_payload() -> None:
-    """When brain raises BrainError, the error code is preserved in result."""
+    """When the provider raises BrainError, the error code is preserved."""
+    from openclaw_gateway.providers import Round
 
-    class _RaisingClient:
-        class _Messages:
-            async def create(self, **kwargs: Any) -> Any:
-                raise BrainError("PROTOCOL_ERROR", "bad shape")
+    class _RaisingProvider:
+        name = "raising"
+        model = "x"
 
-        messages = _Messages()
+        def translate_tools(self, tools: list[Any]) -> list[Any]:
+            return tools
 
-    server = GatewayServer(_RaisingClient())  # type: ignore[arg-type]
+        async def run_round(self, *args: Any, **kwargs: Any) -> Round:
+            raise BrainError("PROTOCOL_ERROR", "bad shape")
+
+        def append_tool_results(
+            self, messages: list[Any], block: Any, results: list[Any]
+        ) -> list[Any]:
+            return messages
+
+    server = GatewayServer(_RaisingProvider())
     ws = _FakeWS()
     from openclaw_gateway.invoke_dispatcher import InvokeDispatcher
 
@@ -321,6 +334,5 @@ async def test_brain_error_attribute_carried_through_to_payload() -> None:
         {"conversationId": "c3", "text": "hi"},
     )
     results = ws.sent_events("node.conversation.result")
-    # Brain raised → server emits result with error field set to the exc code.
     assert results
     assert results[0]["error"] == "PROTOCOL_ERROR"
