@@ -34,14 +34,14 @@
 
 ## Current task
 
-P1.2 — agent-bridge connectivity model (node direct vs gateway broker).
+P1.3 — MCP server retirement criteria for the existing `homeassistant`
++ `homeassistant-readonly` MCP servers, after node validation.
 
 ## Next step
 
-- P1.2 — agent-bridge connectivity model (node direct vs gateway
-  broker).
 - P1.3 — MCP server retirement criteria.
 - P1.4 — Versioning scheme for the add-on image (semver vs date).
+- Once P1 closes, advance to P2 — Skeleton.
 
 ## Completed P1 research
 
@@ -54,6 +54,12 @@ P1.2 — agent-bridge connectivity model (node direct vs gateway broker).
   HACS shim alongside the add-on, whose sole job is to register a
   `ConversationEntity` that forwards turns to the add-on's local
   socket. Full citations in `docs/RESEARCH-CONVERSATION-AGENT.md`.
+- **P1.2 (2026-06-05) — agent-bridge connectivity.** Verdict:
+  **Gateway brokers.** Node speaks only the gateway WS protocol; emits
+  `node.propose` over its existing WS connection and the gateway
+  translates to agent-bridge MCP calls. Keeps the node dumb, single
+  auth path, one audit trail. See
+  `docs/RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`.
 
 ## Open blockers
 
@@ -86,3 +92,6 @@ None.
   thin `custom_components/openclaw_gateway/` HACS shim. Plan A
   (add-on alone) confirmed not viable; see
   `RESEARCH-CONVERSATION-AGENT.md`. (Clawd, P1.1)
+- 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
+  gateway WS protocol; does not connect to agent-bridge directly. See
+  `RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd, P1.2)

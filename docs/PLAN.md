@@ -250,10 +250,11 @@ Every code change to this repo follows:
 
 1. **Conversation agent registration from outside `custom_components/`** —
    research needed before committing to add-on-only.
-2. **agent-bridge connectivity from the node** — does the node connect
-   to agent-bridge directly, or does the gateway broker proposals on
-   the node's behalf? Leaning: gateway brokers, so node only speaks the
-   gateway protocol.
+2. ~~**agent-bridge connectivity from the node**~~ **Resolved (P1.2,
+   2026-06-05): gateway brokers.** Node speaks only the gateway WS
+   protocol; emits `node.propose` requests, gateway translates to
+   agent-bridge MCP calls and relays the result. See
+   `docs/RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`.
 3. **MCP server retirement** — phase out the existing `homeassistant`
    MCP servers only after the node has been stable for ~a week. Keep
    both running in parallel during validation.
