@@ -83,7 +83,7 @@ map:
   - media:rw
   - backup:rw
 options:
-  gateway_url: "wss://oc.landry.me/ws"
+  gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
   node_name: ""
 schema:
@@ -100,11 +100,11 @@ panel_icon: mdi:robot-happy
 docker run -d --name openclaw-hass-node \
   -e HASS_URL=http://homeassistant.local:8123 \
   -e HASS_TOKEN=... \
-  -e GATEWAY_URL=wss://oc.landry.me/ws \
+  -e GATEWAY_URL=wss://gateway.example.com/ws \
   -e PAIRING_TOKEN=... \
   -v /opt/hass/config:/config \
   -v /opt/hass/share:/share \
-  ghcr.io/roblandry/openclaw-hass-node:latest
+  ghcr.io/clawd-ops/openclaw-hass-node:latest
 ```
 
 Entrypoint detects mode:

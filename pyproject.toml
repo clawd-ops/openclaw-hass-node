@@ -1,0 +1,72 @@
+# Root workspace for openclaw-hass-node.
+#
+# A "virtual" uv workspace root: it owns no distributable package itself, it
+# just aggregates the member packages and the shared tool configuration
+# (ruff / mypy / pytest) so every package is gated the same way. The gate
+# definitions live in docs/QUALITY.md.
+
+[tool.uv.workspace]
+members = ["node"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+# ---------------------------------------------------------------------------
+# ruff — lint + format (replaces black + isort). See docs/QUALITY.md.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["node/src", "node/tests", "custom_components"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "D", "RUF", "ARG", "PT", "RET", "TRY"]
+# D203/D213 conflict with the Google convention defaults; disable per ruff docs.
+ignore = ["D203", "D213"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests do not need full docstring coverage or the unused-argument rules.
+"**/tests/**" = ["D", "ARG", "PT011"]
+# Bootstrap module is excluded from coverage and docstring noise.
+"**/__main__.py" = ["D"]
+
+# ---------------------------------------------------------------------------
+# mypy — strict typing. See docs/QUALITY.md.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unreachable = true
+files = ["node/src", "node/tests"]
+
+# ---------------------------------------------------------------------------
+# pytest + coverage
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["node/tests"]
+addopts = "--cov=openclaw_node --cov-report=term-missing --cov-branch"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = ["openclaw_node"]
+omit = ["*/__main__.py"]
+
+[tool.coverage.report]
+show_missing = true
+# The shipped slice targets 100% per docs/QUALITY.md; __main__ bootstrap and
+# the socket serve-loop are pragma-excluded as they are not unit-testable.
+fail_under = 95
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

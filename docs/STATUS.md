@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P1 — Research** (active)
+**P2 — Skeleton** (complete, awaiting Codex review)
 
 ## Last completed
 
@@ -34,20 +34,30 @@
 
 ## Current task
 
-P1 closed. **Advancing to P2 — Skeleton.** First skeleton tasks:
+P2.1-P2.4 complete, awaiting Codex review.
+
+## Last P2 completed milestones
 
 - P2.1 — Repo scaffolding: `pyproject.toml` (uv workspace),
   `addon/Dockerfile` + `config.yaml`, `custom_components/openclaw_gateway/`
   stub, GitHub Actions workflow.
 - P2.2 — Node entrypoint that detects add-on vs standalone mode and
   opens the gateway WS connection.
-- P2.3 — Pairing handshake against the gateway, scope request, key
-  persistence under `/data/openclaw/node-key`.
-- P2.4 — `ping` command end-to-end so we can verify the loop.
+- P2.3 — Pairing handshake against the gateway, Ed25519 device identity,
+  key persistence under `/data/openclaw/node-key.json`.
+- P2.4 — `ping` command end-to-end, command dispatcher, gateway
+  invoke/result loop.
+
+## P2 additional scope delivered
+
+- `http_api.py` — local aiohttp HTTP server (port 8099) with `/health`,
+  `/commands/ping`, `/v1/commands/{cmd}`, `/ha/snapshot` (read-only HA
+  REST proxy), and `/v1/conversation` (Assist placeholder).
+- 57 tests, 99.76% branch coverage.
 
 ## Next step
 
-Spawn the P2.1 generator subagent per `PROCESS.md`. Brief in flight.
+Codex review pass on the P2 PR per `PROCESS.md`.
 
 ## Completed P1 research
 

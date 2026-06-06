@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.uv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# uv lockfile is committed; environments are not
+.python-version
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Runtime state (never commit node keys / pairing material)
+/data/
+node-key
+*.key
+options.json
