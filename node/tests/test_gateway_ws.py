@@ -85,6 +85,8 @@ def test_connect_commands_advertise_full_surface() -> None:
         "fs.restore",
         "fs.history",
         "fs.diff",
+        "fs.move",
+        "fs.delete",
         "system.which",
     ]
 
