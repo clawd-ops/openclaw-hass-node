@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (P3.2.3 merged; P3.2.4 next)
+**P3 — Filesystem + shell surface** (P3.2.4 merged; P3.2.5 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -23,6 +23,11 @@ v1 REQUEST-CHANGES (2 HIGH + 1 MEDIUM), v2 APPROVE. Fixes: protected-root
 gate is now unconditional (agent_bridge=False cannot bypass), post-resolution
 symlink/traversal check added, _coerce() treats 64-char hex as sha256 before
 int() coercion. 224 tests, 97.29% branch coverage.
+P3.2.4 merged on 2026-06-06 (`d2c0eb3`, PR #7) after Codex cross-review:
+v1 APPROVE-WITH-NITS (PATCH_FAILED leaked raw stderr to wire; add subprocess
+shape test). Fixed: _LOG.error + generic wire message; test_run_patch_subprocess_
+command_shape verifies --output, input=encode, no shell. v2 APPROVE. 283 tests,
+100% branch coverage on fs_patch.py.
 P3.2.3 merged on 2026-06-06 (`2309510`, PR #6) after Codex cross-review:
 v1 REQUEST-CHANGES (4 findings: shutil.move non-atomic, EXDEV not mapped,
 send2trash error-propagation gap, post-resolution patch target wrong),
@@ -63,7 +68,7 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
 
 ## Current task
 
-P3.2.4 — `system.run` behind `operator.admin` scope, or `fs.patch` for yaml-only mutations. Check PLAN.md for ordering.
+P3.2.5 — `system.run` behind `operator.admin` scope (shell command execution with timeout and env controls).
 
 ## Codex review status
 
