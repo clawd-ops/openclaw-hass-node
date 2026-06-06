@@ -24,7 +24,7 @@ map:
   - media:rw
   - backup:rw
 options:
-  gateway_url: "wss://oc.landry.me/ws"
+  gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
   node_name: ""
 schema:

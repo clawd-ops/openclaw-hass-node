@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-_DEFAULT_GATEWAY_URL = "wss://oc.landry.me/ws"
+_DEFAULT_GATEWAY_URL = "wss://gateway.example.com/ws"
 _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
 

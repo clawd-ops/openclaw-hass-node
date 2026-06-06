@@ -20,7 +20,7 @@ except Exception:
     data = {}
 
 values = {
-    'GATEWAY_URL': data.get('gateway_url') or 'wss://oc.landry.me/ws',
+    'GATEWAY_URL': data.get('gateway_url') or 'wss://gateway.example.com/ws',
     'PAIRING_TOKEN': data.get('pairing_token') or '',
     'NODE_NAME': data.get('node_name') or '',
 }
