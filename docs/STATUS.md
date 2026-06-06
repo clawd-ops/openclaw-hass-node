@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P4 — HA control surface** (P4.1 merged; P4.2 next)
+**P4 — HA control surface** (P4.2 merged; P4.3 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -70,6 +70,12 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
 
+P4.2 merged on 2026-06-06 (`a4e4811`, PR #10) after Codex cross-review:
+v1 APPROVE (lean 3-grep prompt). Delivered: ha_ws_call() WS helper (auth
+handshake, url scheme conversion, HAClientError mapping), ha.list_areas /
+ha.list_devices / ha.list_entity_registry (WS), ha.list_services (REST).
+378 tests, 97% coverage.
+
 P4.1 merged on 2026-06-06 (`60d2d4f`, PR #9) after Codex cross-review:
 v1 OOM (exit 137 on full file read), v2 REJECT (grep targeted ha.py only for
 codes defined in ha_client.py — false negative), v3 APPROVE (corrected grep
@@ -79,7 +85,7 @@ dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
 ## Current task
 
-P4.2 — HA read surface: `ha.list_areas`, `ha.list_devices`, `ha.list_services`, `ha.list_entity_registry`.
+P4.3 — HA history/control: `ha.logbook`, `ha.history`, `ha.reload_config`.
 
 ## Codex review status
 
