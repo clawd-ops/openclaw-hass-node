@@ -179,20 +179,28 @@ or fix.
 
 ### 3. Assist conversation agent
 
-- **Open question:** can a HA conversation agent be registered from
-  outside `custom_components/`? The conversation agent interface
-  (`conversation.AbstractConversationAgent`) is a Python class that has
-  to be registered against the HA conversation integration. There is no
-  documented external-process registration path as of this writing.
-- **Plan A (preferred):** add-on exposes a small Supervisor service or
-  uses the HA WS API to inject conversation turns. If a way exists to
-  forward Assist → external WS, we use it. Investigate first.
-- **Plan B (fallback):** ship a tiny HACS-or-manual companion
-  integration whose **only** job is to register a conversation agent
-  class that forwards turns to the add-on's local socket (e.g.
-  `http://homeassistant.local:<port>/assist`). The add-on remains the
-  workhorse; the HACS shim is a thin adapter.
-- We commit to Plan B only after confirming Plan A is impossible.
+**Decision (P1.1, 2026-06-05): Plan B.** HA's conversation agent
+registration is in-process Python only — `async_set_agent` and
+`ConversationEntity` both require a live `HomeAssistant` + `ConfigEntry`
+in the HA process. No WS, REST, or Supervisor surface exposes
+registration. All precedent (openai_conversation, anthropic, ollama,
+extended_openai_conversation, etc.) ships as `custom_components/`.
+Full research in `docs/RESEARCH-CONVERSATION-AGENT.md`.
+
+- The add-on remains the workhorse: pairing, HA client, fs/system,
+  proposal handling, and a local HTTP/WS endpoint for forwarded turns.
+- Ship a thin `custom_components/openclaw_gateway/` (~150 LOC):
+  - `manifest.json`
+  - Config flow capturing the add-on's local socket (e.g.
+    `http://a0d7b954-openclaw-gateway:8099`)
+  - One `ConversationEntity` subclass whose `async_process` proxies
+    turns over HTTP/WS to the add-on, streams tokens back via
+    `chat_log`.
+- Distribution: HACS-installable via the same repo
+  (`hacs.json` + `custom_components/openclaw_gateway/`), and bundle
+  install instructions referencing the add-on slug for socket
+  discovery. Future: an add-on first-run hook can write a
+  per-instance pairing token the shim reads via `/api/services`.
 
 ## Mutation control (agent-bridge gated)
 

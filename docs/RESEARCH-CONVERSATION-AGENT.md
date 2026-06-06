@@ -1,0 +1,68 @@
+# Research: Registering an HA Assist Conversation Agent from an Add-on
+
+**Question.** Can a Home Assistant Assist "conversation agent" be registered from an HA add-on (or via Supervisor / WS / REST API) WITHOUT shipping a companion `custom_components/` Python integration?
+
+**Verdict: Plan A (add-on alone) is NOT viable as of HA core ~2026.6. Plan B (thin `custom_components/` shim that forwards to the add-on socket) is the only realistic option.**
+
+## Why
+
+### 1. The `conversation` integration registers agents via in-process Python only
+
+The modern path is `ConversationEntity` (subclass of `RestoreEntity`) plus the legacy `AbstractConversationAgent`. Registration is a Python callback inside the HA process:
+
+```python
+@callback
+def async_set_agent(
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
+    agent: AbstractConversationAgent,
+) -> None: ...
+```
+
+This requires (a) a live `HomeAssistant` object, (b) a `ConfigEntry` produced by an HA config flow, and (c) an `AbstractConversationAgent` subclass — all of which only exist inside the HA Python process. There is no equivalent of `async_set_agent` exposed over the wire. [1][2][6]
+
+`ConversationEntity` is the preferred modern form; the entity is added through a normal `async_add_entities` call from an integration's `__init__.py` / `conversation.py`. Same in-process requirement. [2]
+
+### 2. The WS and REST APIs are input-only, not registration
+
+The `conversation` integration exposes `conversation/process` (WS) and `POST /api/conversation/process` (REST) for *sending* a turn to an already-registered agent. There is no `conversation/register`, `conversation/agent/create`, or equivalent command. The WS surface is documented as: process a sentence, list agents, list sentences/intents — none let an external process declare itself as a new agent. [3][7]
+
+The `agent_id` parameter on `conversation/process` selects an *existing* agent (by entity_id or legacy engine id); it cannot conjure one. [3]
+
+### 3. Supervisor gives add-ons no privileged registration path
+
+`homeassistant_api: true` in `config.yaml` just hands the add-on a `SUPERVISOR_TOKEN` that proxies to the normal Core REST/WS API at `http://supervisor/core/api/`. That is the *same* surface as a user — no special "register a conversation agent" route is exposed. The Supervisor API itself has no conversation endpoints. [4]
+
+### 4. `assist_pipeline` selects agents by entity_id; it cannot mint new engines
+
+Pipelines reference a `conversation_engine` that must already resolve to a registered `ConversationEntity` (or legacy agent keyed by config_entry.entry_id). The pipeline integration does not provide a registration hook. The list comes from `agent_manager` populated by `async_set_agent` / entity platform. [1][2]
+
+### 5. 100 % of precedent ships as `custom_components/`
+
+Every conversation-agent project surveyed — `openai_conversation` and `anthropic` (core), `ollama` (core), `extended_openai_conversation`, `hasscc/ai-conversation`, `grok_conversation`, `home-llm`, `home-generative-agent`, `custom-conversation`, `hass_llm_assist` — installs as a Python integration into `custom_components/`. No project ships as add-on-only. The "external conversation agent" community thread explicitly resolves to a custom_component shim. [5][8][9]
+
+### 6. The 2025–2026 `llm` helper / `AssistAPI` does not change this
+
+`homeassistant.helpers.llm` (the `AssistAPI` / tool-calling helper) is consumed by in-process agents to expose HA control to an LLM. It does not provide an inbound external-registration hook; it is a Python API. [6]
+
+## Plan B (recommended)
+
+Ship a tiny HACS-installable `custom_components/openclaw_gateway/` with:
+
+- `manifest.json` (single dependency on `conversation`),
+- a config flow capturing the add-on's local socket (e.g. `http://a0d7b954-openclaw-gateway:8099`),
+- one `ConversationEntity` subclass whose `async_process` proxies the turn over HTTP/WS to the add-on, streaming tokens back via `chat_log`.
+
+This is ~150 LOC and is the minimum HA core requires.
+
+## Citations
+
+1. `homeassistant/components/conversation/__init__.py` — `async_set_agent(hass, config_entry, agent)` — https://github.com/home-assistant/core/blob/dev/homeassistant/components/conversation/__init__.py
+2. `homeassistant/components/conversation/entity.py` — `ConversationEntity(RestoreEntity)` — https://github.com/home-assistant/core/blob/dev/homeassistant/components/conversation/entity.py
+3. Conversation API (dev docs) — `conversation/process` WS + REST — https://developers.home-assistant.io/docs/intent_conversation_api/
+4. Add-on communication / `homeassistant_api: true` / `SUPERVISOR_TOKEN` — https://developers.home-assistant.io/docs/api/supervisor/endpoints and https://developers.home-assistant.io/docs/add-ons/communication
+5. `extended_openai_conversation` (custom_component precedent) — https://github.com/jekalmin/extended_openai_conversation
+6. "Future proofing the Conversation integration" (dev blog, `async_set_agent` breaking change) — https://developers.home-assistant.io/blog/2023/01/24/conversation-updates/
+7. HA WebSocket API integration page — https://www.home-assistant.io/integrations/websocket_api/
+8. Community thread: "Custom component to enable an external conversation agent" — https://community.home-assistant.io/t/custom-component-to-enable-an-external-conversation-agent/873116
+9. `hasscc/ai-conversation`, `braytonstafford/grok_conversation`, `acon96/home-llm`, `michelle-avery/custom-conversation` — all `custom_components/` — https://github.com/hasscc/ai-conversation , https://github.com/braytonstafford/grok_conversation , https://github.com/acon96/home-llm , https://github.com/michelle-avery/custom-conversation

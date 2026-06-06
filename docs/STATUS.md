@@ -34,21 +34,26 @@
 
 ## Current task
 
-P1.1: **Conversation agent registration from outside `custom_components/`.**
-Goal: determine whether a HA Assist conversation agent can be
-registered by an add-on (or via the Supervisor / WS API) without a
-companion `custom_components/` Python integration. Output: a written
-decision in `docs/RESEARCH-CONVERSATION-AGENT.md` with cited HA source
-references, and a Plan A vs Plan B recommendation.
+P1.2 — agent-bridge connectivity model (node direct vs gateway broker).
 
 ## Next step
-
-After P1.1 lands, the next P1 items are:
 
 - P1.2 — agent-bridge connectivity model (node direct vs gateway
   broker).
 - P1.3 — MCP server retirement criteria.
 - P1.4 — Versioning scheme for the add-on image (semver vs date).
+
+## Completed P1 research
+
+- **P1.1 (2026-06-05) — Conversation agent registration.** Verdict:
+  **Plan A not viable, Plan B required.** HA's conversation registration
+  (`async_set_agent` / `ConversationEntity`) is in-process Python only;
+  there is no WS/REST/Supervisor path that lets an external process
+  register an agent. All precedent ships as `custom_components/`.
+  Decision: ship a thin ~150 LOC `custom_components/openclaw_gateway/`
+  HACS shim alongside the add-on, whose sole job is to register a
+  `ConversationEntity` that forwards turns to the add-on's local
+  socket. Full citations in `docs/RESEARCH-CONVERSATION-AGENT.md`.
 
 ## Open blockers
 
@@ -77,3 +82,7 @@ None.
   running version's breaking changes and include a functional fix
   when impacted. Cross-validated by Codex reviewer. (Rob, issue #1
   round 2)
+- 2026-06-05 — Assist conversation agent: ship as add-on **plus**
+  thin `custom_components/openclaw_gateway/` HACS shim. Plan A
+  (add-on alone) confirmed not viable; see
+  `RESEARCH-CONVERSATION-AGENT.md`. (Clawd, P1.1)
