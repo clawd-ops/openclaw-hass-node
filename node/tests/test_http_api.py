@@ -127,6 +127,159 @@ async def test_assist_turn_paired(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_assist_turn_with_forwarder_returns_response(tmp_path: Path) -> None:
+    """Paired + forwarder registered → assist_turn returns the forwarder text."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.gateway_connected = True
+
+    async def _fake_forwarder(text: str, conv_id: str | None, lang: str | None) -> dict[str, Any]:
+        return {"response": f"echo: {text}", "model": "test-model"}
+
+    runtime.conversation_forwarder = _fake_forwarder
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post("/v1/conversation", json={"text": "hello"})
+        data = await response.json()
+        assert data["ok"] is True
+        assert data["response"] == "echo: hello"
+        assert data["model"] == "test-model"
+        assert data["gateway_connected"] is True
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_forwarder_timeout(tmp_path: Path) -> None:
+    """Forwarder that exceeds the timeout returns a stable error response."""
+    import asyncio as _asyncio
+
+    from openclaw_node import http_api as _http_api
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+
+    async def _slow_forwarder(text: str, conv_id: str | None, lang: str | None) -> dict[str, Any]:
+        await _asyncio.sleep(5)
+        return {"response": "never"}
+
+    runtime.conversation_forwarder = _slow_forwarder
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    original = _http_api._FORWARDER_TIMEOUT_S
+    _http_api._FORWARDER_TIMEOUT_S = 0.05
+    try:
+        response = await tc.post("/v1/conversation", json={"text": "hi"})
+        data = await response.json()
+        assert data["ok"] is False
+        assert "did not respond" in data["response"]
+    finally:
+        _http_api._FORWARDER_TIMEOUT_S = original
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_forwarder_raises(tmp_path: Path) -> None:
+    """Forwarder exceptions degrade to a stable error response."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+
+    async def _bad_forwarder(text: str, conv_id: str | None, lang: str | None) -> dict[str, Any]:
+        raise RuntimeError("boom")
+
+    runtime.conversation_forwarder = _bad_forwarder
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post("/v1/conversation", json={"text": "hi"})
+        data = await response.json()
+        assert data["ok"] is False
+        assert "Gateway forwarder returned an error" in data["response"]
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_forwarder_empty_response(tmp_path: Path) -> None:
+    """Forwarder that returns no usable speech text is reported as empty."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+
+    async def _empty_forwarder(text: str, conv_id: str | None, lang: str | None) -> dict[str, Any]:
+        return {"response": ""}
+
+    runtime.conversation_forwarder = _empty_forwarder
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post("/v1/conversation", json={"text": "hi"})
+        data = await response.json()
+        assert data["ok"] is False
+        assert "empty response" in data["response"]
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_conversation_info_endpoint(client: TestClient[Request, Application]) -> None:
+    """/v1/conversation/info returns runtime metadata."""
+    response = await client.get("/v1/conversation/info")
+    data = await response.json()
+    assert response.status == 200
+    assert data["ok"] is True
+    assert data["paired"] is False
+    assert data["forwarder_registered"] is False
+    assert data["gateway_connected"] is False
+    assert "version" in data
+    assert data["pairing_state"] == "UNKNOWN"
+
+
+@pytest.mark.asyncio
 async def test_command_dispatch_success(client: TestClient[Request, Application]) -> None:
     """Successful unknown command route returns ok with result."""
     # Register a temp handler and dispatch via the generic route

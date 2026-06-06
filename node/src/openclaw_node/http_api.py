@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from typing import Any, Final
 
@@ -19,6 +20,9 @@ from openclaw_node import __version__
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch
 from openclaw_node.config import NodeConfig
 from openclaw_node.pairing import PairingState
+
+# Callable[(text, conversation_id, language)] -> {"response": str, ...} or None.
+ConversationForwarder = Callable[[str, str | None, str | None], Awaitable[dict[str, Any]]]
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _JSON_HEADERS: Final[dict[str, str]] = {"Cache-Control": "no-store"}
@@ -44,6 +48,8 @@ class NodeRuntime:
         """
         self.config = config
         self.pairing_state: PairingState = PairingState.UNKNOWN
+        self.gateway_connected: bool = False
+        self.conversation_forwarder: ConversationForwarder | None = None
 
     @property
     def is_paired(self) -> bool:
@@ -75,6 +81,7 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_get("/v1/ha/snapshot", ha_snapshot)
     app.router.add_post("/assist/turn", assist_turn)
     app.router.add_post("/v1/conversation", assist_turn)
+    app.router.add_get("/v1/conversation/info", conversation_info)
     return app
 
 
@@ -258,38 +265,124 @@ def aiohttp_timeout() -> ClientTimeout:
     return ClientTimeout(total=8)
 
 
+# Mutable for tests to shorten in-flight; not user-tunable.
+_FORWARDER_TIMEOUT_S: float = 30.0
+
+
 async def assist_turn(request: web.Request) -> web.Response:
     """Handle an Assist turn forwarded by the HA companion integration.
 
-    P2 intentionally returns a clear placeholder until gateway pairing and
-    model routing are finished. This lets Rob verify the HA conversation entity
-    wiring without implying full Assist control is complete.
+    Routing rules:
+
+    1. Not paired → return a "pair the node" placeholder.
+    2. Paired but no forwarder registered → return a "gateway forwarding not
+       wired" placeholder.
+    3. Paired + forwarder → call the forwarder with a bounded timeout; surface
+       its ``response`` text. Forwarder exceptions degrade to a stable error
+       message (logged at WARNING with detail).
 
     Args:
         request: Incoming aiohttp request.
 
     Returns:
-        JSON response with ``response`` text and ``paired`` state.
+        JSON response with ``response`` text and runtime metadata.
     """
     runtime = _runtime(request)
     body = await _json_body(request)
     text = str(body.get("text", "")).strip()
+    conv_id = body.get("conversation_id")
+    language = body.get("language")
+
     if not runtime.is_paired:
         message = (
             "OpenClaw Node is installed and reachable, but it is not paired "
             "to the OpenClaw gateway yet. Pair the node, then retry Assist."
         )
-    else:
+        return _assist_response(runtime, text, message, ok=False)
+
+    forwarder = runtime.conversation_forwarder
+    if forwarder is None:
         message = (
             "OpenClaw Node received the Assist turn, but gateway model "
             "forwarding is not enabled in this skeleton yet."
         )
+        return _assist_response(runtime, text, message, ok=True)
+
+    try:
+        async with asyncio.timeout(_FORWARDER_TIMEOUT_S):
+            result = await forwarder(
+                text,
+                str(conv_id) if conv_id is not None else None,
+                str(language) if language is not None else None,
+            )
+    except TimeoutError:
+        _LOG.warning("Conversation forwarder timed out after %ss", _FORWARDER_TIMEOUT_S)
+        return _assist_response(
+            runtime,
+            text,
+            f"Gateway did not respond within {int(_FORWARDER_TIMEOUT_S)} seconds.",
+            ok=False,
+        )
+    except Exception as exc:
+        _LOG.warning("Conversation forwarder raised: %s", exc)
+        return _assist_response(
+            runtime,
+            text,
+            "Gateway forwarder returned an error.",
+            ok=False,
+        )
+
+    speech = str(result.get("response") or result.get("error") or "")
+    if not speech:
+        speech = "Gateway returned an empty response."
+        return _assist_response(runtime, text, speech, ok=False)
+    return _assist_response(runtime, text, speech, ok=True, extra=result)
+
+
+def _assist_response(
+    runtime: NodeRuntime,
+    text: str,
+    speech: str,
+    *,
+    ok: bool,
+    extra: dict[str, Any] | None = None,
+) -> web.Response:
+    """Build the canonical Assist-turn JSON response."""
+    body: dict[str, Any] = {
+        "ok": ok,
+        "paired": runtime.is_paired,
+        "gateway_connected": runtime.gateway_connected,
+        "response": speech,
+        "echo": text,
+    }
+    if extra:
+        for key, value in extra.items():
+            if key not in body:
+                body[key] = value
+    return web.json_response(body, status=200, headers=_JSON_HEADERS)
+
+
+async def conversation_info(request: web.Request) -> web.Response:
+    """Return Assist-shim diagnostic metadata.
+
+    Used by the HACS shim's options flow / config flow to show pairing and
+    gateway status without sending a full conversation turn.
+
+    Args:
+        request: Incoming aiohttp request.
+
+    Returns:
+        JSON response with node version, pairing state, and forwarder status.
+    """
+    runtime = _runtime(request)
     return web.json_response(
         {
-            "ok": runtime.is_paired,
+            "ok": True,
+            "version": __version__,
             "paired": runtime.is_paired,
-            "response": message,
-            "echo": text,
+            "pairing_state": runtime.pairing_state.name,
+            "gateway_connected": runtime.gateway_connected,
+            "forwarder_registered": runtime.conversation_forwarder is not None,
         },
         status=200,
         headers=_JSON_HEADERS,
