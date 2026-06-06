@@ -93,6 +93,10 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.list_states",
         "ha.get_state",
         "ha.call_service",
+        "ha.list_areas",
+        "ha.list_devices",
+        "ha.list_services",
+        "ha.list_entity_registry",
     ]
 
 

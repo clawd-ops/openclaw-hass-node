@@ -1,4 +1,4 @@
-"""Home Assistant control surface (P4.1 commands).
+"""Home Assistant control surface (P4.1 + P4.2 commands).
 
 Implements the read and call-service primitives that replace the equivalent
 ``mcp__homeassistant__*`` MCP tools.  All handlers are async and talk to HA
@@ -6,9 +6,13 @@ via :mod:`openclaw_node.ha_client`.
 
 Commands in this module:
 
-- ``ha.list_states``  — return state of all entities.
-- ``ha.get_state``    — return state of one entity.
-- ``ha.call_service`` — call a service (domain, service, target, data).
+- ``ha.list_states``          — return state of all entities.
+- ``ha.get_state``            — return state of one entity.
+- ``ha.call_service``         — call a service (domain, service, target, data).
+- ``ha.list_areas``           — return all area-registry entries.
+- ``ha.list_devices``         — return all device-registry entries.
+- ``ha.list_services``        — return all service descriptions by domain.
+- ``ha.list_entity_registry`` — return all entity-registry entries.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.ha_client import HAClientError, ha_get, ha_post
+from openclaw_node.ha_client import HAClientError, ha_get, ha_post, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -125,3 +129,67 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
 
     changed: list[dict[str, Any]] = result if isinstance(result, list) else []
     return {"ok": True, "changed_states": changed}
+
+
+async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return all area-registry entries from Home Assistant.
+
+    Returns:
+        ``{ok: True, count, areas}`` where each area is a dict with at least
+        ``area_id`` and ``name``, or an error dict.
+    """
+    try:
+        result = await ha_ws_call("config/area_registry/list")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(result, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from area_registry/list")
+    return {"ok": True, "count": len(result), "areas": result}
+
+
+async def handle_ha_list_devices(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return all device-registry entries from Home Assistant.
+
+    Returns:
+        ``{ok: True, count, devices}`` or an error dict.
+    """
+    try:
+        result = await ha_ws_call("config/device_registry/list")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(result, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from device_registry/list")
+    return {"ok": True, "count": len(result), "devices": result}
+
+
+async def handle_ha_list_services(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return all service descriptions from Home Assistant.
+
+    Uses the REST ``/api/services`` endpoint which returns a list of domain
+    objects, each containing the services available in that domain.
+
+    Returns:
+        ``{ok: True, count, services}`` or an error dict.
+    """
+    try:
+        raw = await ha_get("/api/services")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from /api/services")
+    return {"ok": True, "count": len(raw), "services": raw}
+
+
+async def handle_ha_list_entity_registry(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return all entity-registry entries from Home Assistant.
+
+    Returns:
+        ``{ok: True, count, entities}`` or an error dict.
+    """
+    try:
+        result = await ha_ws_call("config/entity_registry/list")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(result, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from entity_registry/list")
+    return {"ok": True, "count": len(result), "entities": result}

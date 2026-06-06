@@ -29,3 +29,8 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/openclaw_node"]
+
+[dependency-groups]
+dev = [
+    "pip-audit>=2.10.0",
+]

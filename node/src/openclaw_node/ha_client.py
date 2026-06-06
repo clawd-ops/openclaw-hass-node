@@ -135,6 +135,63 @@ async def ha_post(
         raise HAClientError("HA_NETWORK", f"Network error contacting HA: {exc}") from exc
 
 
+async def ha_ws_call(
+    msg_type: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+) -> Any:
+    """Make a single authenticated WebSocket call to the HA WS API.
+
+    Connects, completes the auth handshake, sends one request (id=1), awaits
+    the result, then closes.  Suitable for one-shot registry list calls.
+
+    Args:
+        msg_type: The WS message type, e.g. ``"config/area_registry/list"``.
+        payload: Optional extra fields merged into the request (after id/type).
+        timeout_s: Per-call total timeout.
+
+    Returns:
+        The ``result`` field from the WS success response.
+
+    Raises:
+        HAClientError: On network error, auth rejection, or WS-level error.
+    """
+    base = _ha_url().rstrip("/")
+    ws_url = base.replace("https://", "wss://").replace("http://", "ws://") + "/api/websocket"
+    token = _ha_token()
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.ws_connect(ws_url) as ws,
+        ):
+            first = await ws.receive_json()
+            if first.get("type") != "auth_required":
+                raise HAClientError(
+                    "HA_WS_ERROR",
+                    f"Expected auth_required, got {first.get('type')!r}",
+                )
+            await ws.send_json({"type": "auth", "access_token": token})
+            auth_resp = await ws.receive_json()
+            if auth_resp.get("type") != "auth_ok":
+                raise HAClientError("HA_AUTH", "WS authentication rejected")
+            request: dict[str, Any] = {"id": 1, "type": msg_type}
+            if payload:
+                request.update(payload)
+            await ws.send_json(request)
+            resp = await ws.receive_json()
+            if not resp.get("success", False):
+                err = resp.get("error", {})
+                code = str(err.get("code", "WS_ERROR")).upper()
+                detail = str(err.get("message", "WS call failed"))
+                raise HAClientError(f"HA_{code}", detail)
+            return resp.get("result")
+    except aiohttp.ClientError as exc:
+        _LOG.error("ha_ws_call network error %s: %s", msg_type, exc)
+        raise HAClientError("HA_NETWORK", f"WS network error: {exc}") from exc
+
+
 async def _decode(resp: aiohttp.ClientResponse) -> Any:
     if resp.status == 401:
         raise HAClientError("HA_AUTH", "HA rejected the bearer token (401)")
