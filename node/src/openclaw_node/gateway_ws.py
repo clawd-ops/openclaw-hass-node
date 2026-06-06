@@ -29,7 +29,7 @@ import websockets
 import websockets.asyncio.client
 
 from openclaw_node import __version__
-from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch
+from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.identity import DeviceIdentity
 from openclaw_node.pairing import PairingMachine, PairingState
@@ -54,6 +54,9 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "fs.patch",
     "system.run",
     "system.which",
+    "ha.list_states",
+    "ha.get_state",
+    "ha.call_service",
 ]
 _EMPTY: Final[str] = "".join(())
 _PENDING_PULL_LIMIT: Final[int] = 10
@@ -366,7 +369,7 @@ class GatewayClient:
         _LOG.debug("Invoke invokeId=%s command=%r", invoke_id, command)
 
         try:
-            result = dispatch(command, params)
+            result = await dispatch_async(command, params)
             resp = _make_req(
                 "node.invoke.result",
                 {"invokeId": invoke_id, "ok": True, "result": result},
