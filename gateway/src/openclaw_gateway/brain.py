@@ -127,6 +127,8 @@ class Brain:
                     tools=cast("list[ToolParam]", self._tools),
                     messages=cast("list[MessageParam]", messages),
                 )
+            except BrainError:
+                raise
             except Exception as exc:
                 _LOG.exception("Brain model call failed on round %d", rounds)
                 raise BrainError("MODEL_CALL_FAILED", str(exc)) from exc

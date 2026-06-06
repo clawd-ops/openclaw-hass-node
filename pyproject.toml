@@ -55,13 +55,13 @@ files = ["node/src", "node/tests"]
 # pytest + coverage
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
-testpaths = ["node/tests"]
-addopts = "--cov=openclaw_node --cov-report=term-missing --cov-branch"
+testpaths = ["node/tests", "gateway/tests"]
+addopts = "--cov=openclaw_node --cov=openclaw_gateway --cov-report=term-missing --cov-branch"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-source = ["openclaw_node"]
+source = ["openclaw_node", "openclaw_gateway"]
 omit = ["*/__main__.py"]
 
 [tool.coverage.report]
