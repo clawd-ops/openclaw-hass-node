@@ -6,7 +6,7 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (P3.2.4 merged; P3.2.5 next)
+**P3 — Filesystem + shell surface** (P3.2.5 merged; P4 next)
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -23,6 +23,10 @@ v1 REQUEST-CHANGES (2 HIGH + 1 MEDIUM), v2 APPROVE. Fixes: protected-root
 gate is now unconditional (agent_bridge=False cannot bypass), post-resolution
 symlink/traversal check added, _coerce() treats 64-char hex as sha256 before
 int() coercion. 224 tests, 97.29% branch coverage.
+P3.2.5 merged on 2026-06-06 (`9c4371f`, PR #8) after Codex cross-review:
+v1 APPROVE (micro-prompt: no shell=True, compare_digest for token, MAX_OUTPUT
+bounds output, fail-closed admin gate). Pre-emptively fixed timing attack
+(hmac.compare_digest) before review. 322 tests total, 40 in test_system_run.py.
 P3.2.4 merged on 2026-06-06 (`d2c0eb3`, PR #7) after Codex cross-review:
 v1 APPROVE-WITH-NITS (PATCH_FAILED leaked raw stderr to wire; add subprocess
 shape test). Fixed: _LOG.error + generic wire message; test_run_patch_subprocess_
@@ -68,7 +72,7 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
 
 ## Current task
 
-P3.2.5 — `system.run` behind `operator.admin` scope (shell command execution with timeout and env controls).
+P4 — HA control surface: port MCP server commands (`ha.*`). First: `ha.list_states`, `ha.get_state`, `ha.call_service`.
 
 ## Codex review status
 
