@@ -6,12 +6,13 @@
 
 ## Current phase
 
-**P3 — Filesystem + shell surface** (read-only commands in progress)
+**P3 — Filesystem + shell surface** (P3.1 merged; P3.2 next)
 
-P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override; Codex
-cross-review deferred because the Codex OAuth profile is currently
-non-routing (see Clawd's memory `project_codex_oauth_regression_2026_06_06`).
-Re-run Codex review on P3 PR before merge once auth is restored.
+P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
+P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
+returned APPROVE-WITH-NITS on re-review #3 via the CLI workaround (see
+`docs/PROCESS.md` "Codex CLI fallback"). v1 was BLOCK (10 findings),
+v2 REQUEST-CHANGES (NUL-bypass HIGH), v3 APPROVE-WITH-NITS.
 
 ## Last completed
 
@@ -38,11 +39,14 @@ Re-run Codex review on P3 PR before merge once auth is restored.
     restore flow, and DR.
 - 2026-06-06 — P3.1 read-only fs/system PR opened:
   clawd-ops/openclaw-hass-node#3.
+- 2026-06-06 — P3.1 MERGED (`3542bdd`). Codex cross-review iterated v1→v3
+  via the CLI workaround; landed APPROVE-WITH-NITS. 135 tests, 96.26%
+  branch coverage. One non-blocking nit: trailing-slash on regular file
+  opens it (not an access bypass; tighten when convenient).
 
 ## Current task
 
-P3.1 — read-only fs commands; addressing Codex cross-review findings
-(2026-06-06).
+P3.2 — proposal-gated writes + `system.run` (next).
 
 ## Codex review status
 
@@ -91,11 +95,11 @@ PR #3 cross-review returned BLOCK with 10 findings. Fix mapping:
 
 ## Next step
 
-P3.1 PR #3 open and addressing Codex cross-review findings (re-review #2
-pending). Codex cross-review is running via the CLI fallback documented in
-`docs/PROCESS.md` while OpenClaw's openai/* routing is regressed. Once
-re-review returns LGTM, merge P3.1 and move to P3.2 (proposal-gated
-writes + `system.run`).
+Begin P3.2 — proposal-gated writes (`fs.write`, `fs.patch`, `fs.append`)
+backed by per-file content-addressed backup store, plus `system.run`
+behind the `operator.admin` scope. Cross-review continues to run via the
+Codex CLI fallback until OpenClaw's openai/* routing regression is
+resolved (see [memory: project_codex_oauth_regression_2026_06_06]).
 
 ## Completed P1 research
 
