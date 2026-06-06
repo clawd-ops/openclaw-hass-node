@@ -1,44 +1,62 @@
 # Packaging
 
+> **Language:** Python 3.13+ for both packages. See `docs/QUALITY.md`
+> for the strict-typing / Google docstrings / 100 % pytest gates.
+
 ## Repo layout (target)
 
 ```
 openclaw-hass-node/
 ├── README.md
-├── repository.yaml              # HA add-on store descriptor
+├── repository.yaml                  # HA add-on store descriptor
+├── hacs.json                        # HACS descriptor for the shim
+├── pyproject.toml                   # Root workspace (uv)
+├── .github/workflows/ci.yaml        # Lint, type, test, coverage, build
+├── .pre-commit-config.yaml
 ├── docs/
 │   ├── PLAN.md
 │   ├── STATUS.md
 │   ├── COMMAND-SURFACE.md
-│   └── PACKAGING.md
+│   ├── PACKAGING.md
+│   ├── HA-CONFIG-EDITING.md
+│   ├── BACKUPS.md
+│   ├── PROCESS.md
+│   ├── QUALITY.md
+│   ├── RESEARCH-CONVERSATION-AGENT.md
+│   └── RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md
 ├── addon/
-│   ├── config.yaml              # HA add-on manifest
-│   ├── Dockerfile               # Built for amd64/aarch64/armv7
-│   ├── build.yaml               # HA build args per arch
-│   ├── rootfs/                  # s6-overlay scripts
-│   │   └── etc/s6-overlay/...
+│   ├── config.yaml                  # HA add-on manifest
+│   ├── Dockerfile                   # python:3.13-alpine base
+│   ├── build.yaml                   # HA build args per arch
+│   ├── rootfs/etc/s6-overlay/...    # s6 service definitions
 │   └── icon.png / logo.png
-├── node/                        # OpenClaw node implementation
-│   ├── package.json or pyproject.toml
-│   ├── src/
-│   │   ├── entrypoint.*         # Detects add-on vs standalone
-│   │   ├── gateway-ws.*         # Gateway WS client (role: node)
-│   │   ├── pairing.*
+├── node/                            # OpenClaw node (Python package)
+│   ├── pyproject.toml
+│   ├── src/openclaw_node/
+│   │   ├── __init__.py
+│   │   ├── __main__.py              # Detects add-on vs standalone
+│   │   ├── gateway_ws.py            # Gateway WS client (role: node)
+│   │   ├── pairing.py
 │   │   ├── commands/
-│   │   │   ├── fs.*
-│   │   │   ├── system.*
-│   │   │   ├── ha.*
-│   │   │   └── assist.*
-│   │   ├── ha-client.*          # HA REST + WS client
-│   │   └── agent-bridge.*       # Proposal emit + wait
+│   │   │   ├── fs.py
+│   │   │   ├── system.py
+│   │   │   ├── ha.py
+│   │   │   ├── ha_config.py
+│   │   │   ├── docs_lookup.py
+│   │   │   └── assist.py
+│   │   ├── ha_client.py             # HA REST + WS client
+│   │   ├── backups.py               # /share/openclaw-backups/ store
+│   │   └── propose.py               # node.propose → gateway broker
 │   └── tests/
-└── hacs-shim/                   # Only if Plan B required
-    ├── custom_components/openclaw_assist/
-    │   ├── __init__.py
-    │   ├── manifest.json
-    │   ├── conversation.py      # AbstractConversationAgent → POST to add-on
-    │   └── config_flow.py
-    └── hacs.json
+│       └── ... (mirrors src/, 100 % branch coverage)
+└── custom_components/
+    └── openclaw_gateway/            # HACS shim (Plan B)
+        ├── __init__.py
+        ├── manifest.json
+        ├── config_flow.py
+        ├── conversation.py          # ConversationEntity → POST to add-on
+        ├── const.py
+        └── strings.json
 ```
 
 ## Add-on `config.yaml` sketch

@@ -95,3 +95,8 @@ None.
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
   gateway WS protocol; does not connect to agent-bridge directly. See
   `RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd, P1.2)
+- 2026-06-05 — Language: Python 3.13+ for node and shim. Quality
+  gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
+  (`ruff` D-rules + `pydoclint`), 100 % branch coverage via pytest,
+  `ruff` lint/format, `bandit`, `pip-audit`. All gated in GitHub
+  Actions. See `QUALITY.md`. (Rob, issue #1 round 3)

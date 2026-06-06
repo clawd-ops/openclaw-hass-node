@@ -246,6 +246,24 @@ Every code change to this repo follows:
    them in a follow-up commit that Codex re-reviews.
 4. Process and prompts live in `docs/PROCESS.md`.
 
+## Code quality gates
+
+In addition to cross-review, every PR must pass a mechanical quality
+bar enforced in GitHub Actions:
+
+- Strict type checking: `mypy --strict` + `pyright --strict`.
+- Google-style docstrings on every public symbol (`ruff` D-rules +
+  `pydoclint`).
+- 100 % branch coverage on shipped code (`pytest` + `coverage.py`).
+- Lint/format: `ruff check` and `ruff format --check`.
+- Security: `bandit`, `pip-audit`.
+- Add-on smoke build for `amd64`/`aarch64`/`armv7`.
+
+Full details in `docs/QUALITY.md`. Language is Python 3.13+ for both
+the node and the `custom_components/openclaw_gateway/` shim (the
+shim is required to be Python by HA core, so the node aligns to
+remove a build chain).
+
 ## Open questions
 
 1. **Conversation agent registration from outside `custom_components/`** —
