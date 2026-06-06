@@ -39,7 +39,14 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _CONNECT_ROLE: Final[str] = "node"
 _CONNECT_SCOPES: Final[list[str]] = []
 _CONNECT_CAPS: Final[list[str]] = ["system"]
-_CONNECT_COMMANDS: Final[list[str]] = ["ping", "system.run", "system.which"]
+_CONNECT_COMMANDS: Final[list[str]] = [
+    "ping",
+    "fs.read",
+    "fs.list",
+    "fs.stat",
+    "fs.glob",
+    "system.which",
+]
 _PENDING_PULL_LIMIT: Final[int] = 10
 _RECONNECT_DELAY_S: Final[float] = 5.0
 
@@ -372,7 +379,8 @@ class GatewayClient:
                 {
                     "invokeId": invoke_id,
                     "ok": False,
-                    "error": f"COMMAND_ERROR: {exc}",
+                    "error": "COMMAND_ERROR",
+                    "message": "Internal command error",
                 },
             )
 

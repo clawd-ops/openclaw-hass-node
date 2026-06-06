@@ -47,8 +47,7 @@ class OutOfBoundsError(Exception):
                 succeeded.  ``None`` if the path was rejected before
                 resolution (e.g. because it was relative).
         """
-        detail = f" (resolved={resolved!r})" if resolved else ""
-        super().__init__(f"Path {path!r} is outside the allowed roots{detail}")
+        super().__init__("Path is outside the allowed roots")
         self.path = path
         self.resolved = resolved
 

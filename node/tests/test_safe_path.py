@@ -95,7 +95,8 @@ def test_out_of_bounds_error_attrs() -> None:
     err = OutOfBoundsError("/x", "/y")
     assert err.path == "/x"
     assert err.resolved == "/y"
-    assert "/x" in str(err)
+    assert str(err) == "Path is outside the allowed roots"
+    assert "/y" not in str(err)
 
 
 def test_no_allowed_roots_error_message() -> None:

@@ -51,6 +51,9 @@ def test_fs_read_is_directory(tmp_path: Path) -> None:
 def test_fs_read_out_of_bounds() -> None:
     result = handle_fs_read({"path": "/etc/passwd"})
     assert result["error"] == "OUT_OF_BOUNDS"
+    assert result["message"] == "Path is outside the allowed roots"
+    assert result["path"] == "/etc/passwd"
+    assert "pytest" not in result["message"]
 
 
 def test_fs_read_no_allowed_roots(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
