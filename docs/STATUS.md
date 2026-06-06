@@ -166,23 +166,34 @@ across both files). Delivered: ha_client.py (aiohttp REST wrapper, env-driven,
 HAClientError), ha.py (list_states/get_state/call_service), async-aware
 dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
 
-## Architectural note (2026-06-06)
+## Architectural note (2026-06-06, post-correction)
 
-Rob clarified that **the brain *is* Clawd in OpenClaw**. The
-`gateway/` workspace in this repo is a standalone reference for
-non-OpenClaw users. For Rob's deployment, HA Assist integrates with
-OpenClaw as a **Channel plugin** that turns each
-`node.conversation.request` into an inbound message Clawd handles like
-any other turn; `ha.*` becomes Tool plugins so the agent can call them
-mid-turn. Same node-side protocol either way.
+The brain *is* Clawd in OpenClaw. The HA node is a **standard OpenClaw
+node** (Gateway Protocol, `role: "node"`) and relays HA Assist turns
+into an agent session using the **existing chat surface** —
+`chat.send` + `sessions.messages.subscribe`. There is no parallel
+gateway, no invented `node.conversation.*` event types, no TypeScript
+plugin work needed.
 
-P5.9 (PR #25) made the brain provider-agnostic (Anthropic + OpenAI) for
-the standalone path. P5.10 plugin design is in
-`docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
+P5.11 (this PR) deletes the wrong-direction code: the `gateway/`
+workspace, the `ConversationDispatcher` invention, the
+`conversation_forwarder` hook, and all the runtime-hook wiring on the
+gateway WS client. What stays: node command surface (ha.*, fs.*,
+system.*), HACS shim, Ed25519 handshake, pairing flow, /v1/conversation
+endpoint shape — all were correct.
+
+Real implementation of the chat-surface relay is documented in
+`docs/RESEARCH-OPENCLAW-INTEGRATION.md` and queued as P5.12.
 
 ## Current task
 
-**P5.10 — OpenClaw plugin pair** (next). Design captured in
+**P5.12 — Chat-surface relay** (next). Implement what
+`docs/RESEARCH-OPENCLAW-INTEGRATION.md` describes: ChatRelay class on
+the node that calls `chat.send` and subscribes via
+`sessions.messages.subscribe` over the existing gateway WS; rewrite
+`assist_turn` to use it. Best done with you available.
+
+~~P5.10 — OpenClaw plugin pair~~ — superseded. Original design at
 `docs/RESEARCH-OPENCLAW-INTEGRATION.md`. Two TypeScript plugins:
 
 1. **`ha-assist` Channel plugin** — WS listener that nodes connect to,
