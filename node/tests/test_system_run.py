@@ -96,6 +96,24 @@ def test_system_run_wrong_token_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["error"] == "ADMIN_REQUIRED"
 
 
+def test_system_run_token_comparison_uses_compare_digest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Token gate must use constant-time comparison to prevent timing attacks."""
+    import hmac as _hmac
+
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "tok")
+    calls: list[tuple[str, str]] = []
+    real_compare = _hmac.compare_digest
+
+    def _spy(a: str, b: str) -> bool:
+        calls.append((a, b))
+        return real_compare(a, b)
+
+    with mock_patch("openclaw_node.commands.system_run.hmac.compare_digest", side_effect=_spy):
+        handle_system_run(_params(admin_token="tok"))
+
+    assert calls, "hmac.compare_digest was not called"
+
+
 def test_system_run_empty_caller_token_blocks(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "correct")
     result = handle_system_run(_params(admin_token=""))

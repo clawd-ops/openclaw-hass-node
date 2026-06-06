@@ -31,6 +31,7 @@ the Home Assistant ``/config`` hierarchy (relaxed for maintenance tasks).
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import subprocess
@@ -131,7 +132,7 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "ADMIN_REQUIRED",
             "system.run is disabled: OPENCLAW_ADMIN_TOKEN is not configured",
         )
-    if caller_token != required_token:
+    if not hmac.compare_digest(caller_token, required_token):
         return _error("ADMIN_REQUIRED", "Invalid or missing admin_token")
 
     cwd = params.get("cwd") or None
