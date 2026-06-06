@@ -11,15 +11,7 @@
 # Usage:
 #   <log-producer> | scripts/check-mcp-retirement-readiness.sh [--label LABEL] [--state-file PATH]
 #
-# Examples:
-#   # Local file
-#   cat /var/log/openclaw.log                       | scripts/check-mcp-retirement-readiness.sh
-#   # systemd unit
-#   journalctl -u openclaw --since=24h              | scripts/check-mcp-retirement-readiness.sh
-#   # Docker container
-#   docker logs --since 24h openclaw 2>&1           | scripts/check-mcp-retirement-readiness.sh
-#   # Kubernetes pod
-#   kubectl -n ai logs openclaw-0 --since=24h       | scripts/check-mcp-retirement-readiness.sh
+# Examples and deployment notes live in docs/RESEARCH-MIGRATION.md.
 #
 # Exit code:
 #   0  – no calls in the input. If --state-file is given, the run is recorded
