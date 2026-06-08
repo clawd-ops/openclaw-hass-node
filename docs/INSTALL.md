@@ -1,10 +1,9 @@
 # Install
 
-> ⚠️ **Alpha.** Pair + connect + tool invokes work, but the HA
-> Assist conversation relay (P5.12) is not wired yet. If you set
-> the integration as your Assist agent today, turns return a clear
-> placeholder string. Install only if you want to test the tool
-> surface or help shape the project.
+> ⚠️ **Alpha.** Pair + connect + tool invokes + conversation relay
+> all work end-to-end. The integration appears as a conversation
+> agent in HA's Voice assistants picker. Install if you want to
+> route Assist turns through OpenClaw or help shape the project.
 
 End-to-end setup to get Home Assistant talking to your OpenClaw gateway.
 Three pieces install in order: **gateway-side config**, then the **HA add-on (app)**,
@@ -134,8 +133,15 @@ first successful pairing** — it's consumed.
 2. Install **OpenClaw Gateway** from HACS.
 3. Restart HA.
 4. Settings → Devices & Services → **Add Integration** → OpenClaw
-   Gateway. Point its config flow at the add-on (app)'s local socket (the
-   default `http://<addon-slug>:8099` works inside Supervisor).
+   Gateway. The config flow asks for:
+   - **Socket URL**: the add-on's local endpoint. The default
+     `http://<addon-slug>:8099` works inside Supervisor. If the
+     auto-detected hostname uses underscores, the integration
+     rewrites them to dashes automatically (Supervisor DNS uses
+     dashes).
+   - **API token** *(optional)*: paste the same `local_api_token`
+     you set in the add-on config (step 2). The field renders as a
+     password. Leave blank if you didn't set one on the node.
 5. Settings → **Voice assistants** → set OpenClaw Gateway as the
    conversation agent for whichever assistant you want.
 
@@ -169,10 +175,10 @@ log at ERROR (`COMMAND_ERROR`) with a traceback. If you ran an invoke
 and see nothing in the log, the node didn't receive it — check the
 gateway's pending queue and the WSS connection.
 
-Then ask HA Assist anything. Until P5.12 lands the ChatRelay, the node's
-`/v1/conversation` returns a placeholder ("chat-surface relay not wired
-yet — see P5.12"). Tool calls work standalone; conversation flow lands
-when the relay does.
+Then ask HA Assist anything. The conversation relay (P5.12) forwards
+Assist turns through the node into an OpenClaw agent session and
+returns the response. If you see a timeout, check the node log for
+connection/auth errors and verify the gateway is reachable.
 
 ## Troubleshooting
 
