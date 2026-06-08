@@ -268,6 +268,12 @@ class GatewayClient:
                     "version": __version__,
                     "platform": "linux",
                     "mode": "node",
+                    # platform + deviceFamily are pulled from connectParams.client
+                    # when the gateway reconstructs the v3 signature payload
+                    # (see /app/dist/message-handler-Du1uvc4A.js). They must
+                    # match identity._PLATFORM / _DEVICE_FAMILY exactly or the
+                    # signature verify fails.
+                    "deviceFamily": "hass-node",
                 },
                 "role": _CONNECT_ROLE,
                 "scopes": _CONNECT_SCOPES,
