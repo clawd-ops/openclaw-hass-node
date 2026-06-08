@@ -13,13 +13,15 @@ arch:
   - aarch64
   - armv7
 init: false
-# hassio_api: kept so the add-on can call Supervisor REST endpoints from
-# `ha_client`/`commands/ha` (HA Core API proxying via SUPERVISOR_TOKEN).
-# hassio_role: defaulted (no elevated role) — shipped code only proxies
-# HA Core API calls; no add-on/host/backup lifecycle calls justify
-# `manager` or higher. Elevate to `manager`/`admin` only when a shipped
-# Supervisor lifecycle feature explicitly needs it.
-hassio_api: true
+# homeassistant_api: enables HA Core API access at
+# http://supervisor/core/api with SUPERVISOR_TOKEN. Used by `ha_client`
+# and `commands/ha` to proxy HA Core/WS calls.
+#
+# hassio_api intentionally omitted: shipped code does not call the
+# Supervisor API at http://supervisor/ (no add-on/host/backup lifecycle
+# usage). Re-enable only when a shipped Supervisor lifecycle feature
+# needs it; pair with `hassio_role: manager`/`admin` only as that
+# feature actually requires.
 homeassistant_api: true
 # auth_api intentionally omitted: the local HTTP API authenticates with a
 # shared bearer (`local_api_token`) via `hmac.compare_digest`, not via the
