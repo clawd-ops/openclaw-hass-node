@@ -29,7 +29,8 @@ Pair the device as dual-role using the `PAIRING_SETUP_BOOTSTRAP_PROFILE`
 the QR flow uses for phones. No back-compat migration (alpha rule);
 existing single-role devices remove + re-add.
 
-Currently on **2026.6.8a6** (alpha). Version is enforced by
+Currently on **2026.6.8a7** (alpha; P5.13 dual-WS landed in PR #86).
+Version is enforced by
 `test_version_sync.py` across `pyproject.toml`, `addon/config.yaml`,
 `addon/build.yaml`, `manifest.json`, and the source-literal fallback in
 `__init__.py`.
@@ -48,10 +49,13 @@ Currently on **2026.6.8a6** (alpha). Version is enforced by
   per the canonical SDK schema at
   `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts`
   (canonical-only — no legacy-shape fallbacks per alpha policy).
-- Local HTTP API gated by bearer-token middleware when
-  `local_api_token` is set; host port mapping removed from the add-on
-  config so the API is only reachable inside the Supervisor add-on
-  network by default.
+- Local HTTP API is fail-closed: when `local_api_token` is unset every
+  non-public path returns `401 NO_TOKEN_CONFIGURED`; when set, every
+  non-public path requires `Authorization: Bearer <token>` (compared
+  with `hmac.compare_digest`). Public paths are `/health`, `/v1/health`,
+  `/v1/conversation/info` (HA add-on probes + shim config-flow
+  discovery). Host port mapping removed from the add-on config so the
+  API is only reachable inside the Supervisor add-on network by default.
 - Secret files (`node-key.json`, `device-token`) written at mode
   `0o600` with `O_NOFOLLOW` so a planted symlink can't redirect the
   write. Path-validated unlink before token reset.

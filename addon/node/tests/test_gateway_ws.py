@@ -215,19 +215,24 @@ def test_set_runtime_connected_writes_per_role_flag() -> None:
         pair_fallback_enabled=False,
     )
 
+    # mypy can't see through the mutation that _set_runtime_connected
+    # performs (it just writes to bool attributes on the runtime), so
+    # the second half of this scenario reads as "unreachable" to it
+    # without the type: ignore on the first assertion that proves the
+    # state did flip. The runtime check still runs and asserts correctly.
     assert runtime.gateway_connected is False
     node._set_runtime_connected(True)
     assert runtime.node_connected is True
     assert runtime.operator_connected is False
     assert runtime.gateway_connected is True  # derived: either flag true
 
-    op._set_runtime_connected(True)
+    op._set_runtime_connected(True)  # type: ignore[unreachable]
     assert runtime.operator_connected is True
 
     node._set_runtime_connected(False)
     assert runtime.node_connected is False
-    assert runtime.operator_connected is True  # operator still up
-    assert runtime.gateway_connected is True  # derived: operator is up
+    assert runtime.operator_connected is True
+    assert runtime.gateway_connected is True
 
     op._set_runtime_connected(False)
     assert runtime.gateway_connected is False

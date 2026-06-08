@@ -162,3 +162,40 @@ def test_unlink_safe_missing_returns_false(tmp_path: Path) -> None:
     """unlink_safe returns False for a nonexistent file."""
     result = unlink_safe(str(tmp_path / "nope.txt"), (tmp_path,))
     assert result is False
+
+
+# ---- openat2 / fallback branch coverage ----
+
+
+def test_open_safe_fd_falls_back_when_openat2_unavailable(tmp_path: Path) -> None:
+    """When openat2 returns ENOSYS, open_safe_fd retries via _fallback_openat."""
+    file_path = tmp_path / "x.txt"
+    file_path.write_text("hi", encoding="utf-8")
+    with patch("openclaw_node.safe_fd._sys_openat2", return_value=None):
+        fd = open_safe_fd(str(file_path), (tmp_path,))
+        try:
+            assert os.read(fd, 16) == b"hi"
+        finally:
+            os.close(fd)
+
+
+def test_open_safe_fd_intermediate_symlink_rejected(tmp_path: Path) -> None:
+    """A symlink in a non-final path component must raise OutOfBoundsError."""
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(sub)
+    target = link / "x.txt"
+    (sub / "x.txt").write_text("hi", encoding="utf-8")
+    with pytest.raises(OutOfBoundsError):
+        open_safe_fd(str(target), (tmp_path,))
+
+
+def test_open_safe_fd_traversal_component_rejected(tmp_path: Path) -> None:
+    """A ``..`` mid-path component must escape detection and raise."""
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    nested = sub / "nested"
+    nested.mkdir()
+    with pytest.raises(OutOfBoundsError):
+        open_safe_fd(f"{nested}/../../sub", (tmp_path,))
