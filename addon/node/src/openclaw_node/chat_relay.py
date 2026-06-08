@@ -102,18 +102,27 @@ class ChatRelay:
             return await self._relay_turn_locked(session_key, conversation_id, text)
 
     async def _relay_turn_locked(self, session_key: str, conversation_id: str, text: str) -> str:
-        """Inner relay turn, called under the per-session lock."""
+        """Inner relay turn, called under the per-session lock.
+
+        Uses a single monotonic deadline for the entire turn (RPC + deferred
+        wait) so the total wall time stays within ``_TURN_TIMEOUT_S``.
+        """
+        deadline = asyncio.get_event_loop().time() + _TURN_TIMEOUT_S
+
         if session_key not in self._subscribed:
             await self._ensure_session(session_key, conversation_id)
 
         self._last_assistant_text.pop(session_key, None)
-        # Clear stale runId so pre-ack events with a new runId are not
-        # rejected against the previous turn's runId.
         self._active_run_id.pop(session_key, None)
+
         reply_event = asyncio.Event()
         self._reply_events[session_key] = reply_event
 
         idempotency_key = str(uuid.uuid4())
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining <= 0:
+            self._reply_events.pop(session_key, None)
+            raise ChatRelayError("TIMEOUT", "Turn deadline expired before chat.send")
         try:
             ack = await self._rpc(
                 "chat.send",
@@ -122,7 +131,7 @@ class ChatRelay:
                     "message": text,
                     "idempotencyKey": idempotency_key,
                 },
-                timeout=_TURN_TIMEOUT_S,
+                timeout=remaining,
             )
         except ChatRelayError:
             self._reply_events.pop(session_key, None)
@@ -142,13 +151,14 @@ class ChatRelay:
             self._reply_events.pop(session_key, None)
             return reply
 
-        try:
-            async with asyncio.timeout(_TURN_TIMEOUT_S):
-                await reply_event.wait()
-        except TimeoutError:
-            pass
-        finally:
-            self._reply_events.pop(session_key, None)
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining > 0:
+            try:
+                async with asyncio.timeout(remaining):
+                    await reply_event.wait()
+            except TimeoutError:
+                pass
+        self._reply_events.pop(session_key, None)
 
         reply = self._last_assistant_text.get(session_key, "")
         if not reply:
@@ -356,6 +366,12 @@ class ChatRelay:
                 text = self._extract_text(msg_field or payload.get("text", ""))
 
         if not (role == "assistant" and session_key and text):
+            return
+
+        # Only capture events when a turn is actively waiting for a reply.
+        # This prevents stale events from a prior turn (which may lack a
+        # runId) from being captured for the next turn.
+        if session_key not in self._reply_events:
             return
 
         active_run = self._active_run_id.get(session_key)

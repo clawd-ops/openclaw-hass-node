@@ -223,6 +223,7 @@ async def test_handle_event_cumulative_snapshot() -> None:
     relay = ChatRelay(FakeSender().send)
     key = "ha-assist:multi"
 
+    relay._reply_events[key] = asyncio.Event()
     relay.handle_event(_session_message_event(key, "assistant", "partial"))
     relay.handle_event(_session_message_event(key, "assistant", "partial response here"))
 
@@ -285,6 +286,7 @@ async def test_handle_response_legacy_string_error() -> None:
 async def test_handle_event_chat_family() -> None:
     """Chat events (not just session.message) are captured."""
     relay = ChatRelay(FakeSender().send)
+    relay._reply_events["ha-assist:chat-ev"] = asyncio.Event()
     relay.handle_event(
         {
             "type": "event",
@@ -303,6 +305,7 @@ async def test_handle_event_chat_family() -> None:
 async def test_handle_event_nested_message_object() -> None:
     """Nested message object in session.message is handled."""
     relay = ChatRelay(FakeSender().send)
+    relay._reply_events["ha-assist:nested"] = asyncio.Event()
     relay.handle_event(
         {
             "type": "event",
@@ -321,6 +324,7 @@ async def test_handle_event_nested_message_object() -> None:
 async def test_handle_event_chat_nested_message() -> None:
     """Chat event with nested message object is handled."""
     relay = ChatRelay(FakeSender().send)
+    relay._reply_events["ha-assist:chat-nested"] = asyncio.Event()
     relay.handle_event(
         {
             "type": "event",
@@ -401,6 +405,7 @@ async def test_create_session_non_benign_error_raises() -> None:
 async def test_content_block_array() -> None:
     """Content as array of text blocks is extracted correctly."""
     relay = ChatRelay(FakeSender().send)
+    relay._reply_events["ha-assist:blocks"] = asyncio.Event()
     relay.handle_event(
         {
             "type": "event",
@@ -427,6 +432,7 @@ async def test_stale_run_id_ignored() -> None:
     relay = ChatRelay(FakeSender().send)
     key = "ha-assist:stale"
 
+    relay._reply_events[key] = asyncio.Event()
     relay._active_run_id[key] = "run-current"
 
     relay.handle_event(
@@ -595,3 +601,13 @@ async def test_rpc_send_failure_cleans_pending() -> None:
         await relay._rpc("test.method", {})
 
     assert len(relay._pending) == 0
+
+
+@pytest.mark.asyncio
+async def test_event_ignored_when_no_turn_active() -> None:
+    """Assistant events are ignored when no turn is waiting for a reply."""
+    relay = ChatRelay(FakeSender().send)
+    key = "ha-assist:no-turn"
+
+    relay.handle_event(_session_message_event(key, "assistant", "Stale!"))
+    assert key not in relay._last_assistant_text

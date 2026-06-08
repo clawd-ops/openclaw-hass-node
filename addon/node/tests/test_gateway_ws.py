@@ -587,6 +587,7 @@ async def test_event_loop_routes_session_message_to_relay() -> None:
     ws = AsyncMock()
     ws.send = AsyncMock()
     relay = ChatRelay(AsyncMock())
+    relay._reply_events["ha-assist:conv-1"] = asyncio.Event()
 
     messages = [
         json.dumps({
