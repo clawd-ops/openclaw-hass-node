@@ -76,6 +76,7 @@ in INSTALL.md.
 Live state and roadmap: [`docs/STATUS.md`](docs/STATUS.md).
 Architecture and decisions: [`docs/PLAN.md`](docs/PLAN.md).
 Install/troubleshooting: [`docs/INSTALL.md`](docs/INSTALL.md).
+Release + versioning policy: [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## License
 
