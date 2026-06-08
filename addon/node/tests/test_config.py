@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from openclaw_node.config import load_config
+from openclaw_node.config import allowed_roots_for_env, load_config
 
 
 def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -39,3 +39,21 @@ def test_load_config_standalone_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.hass_url == "http://ha.local:8123"
     assert config.hass_token == "ha-token"
     assert config.supervisor_token == ""
+
+
+def test_allowed_roots_for_env_addon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Add-on mode returns the standard HA add-on roots."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "tok")
+    monkeypatch.delenv("OPENCLAW_ALLOWED_ROOTS", raising=False)
+    roots = allowed_roots_for_env()
+    assert len(roots) > 0
+
+
+def test_allowed_roots_for_env_standalone_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Standalone mode with no OPENCLAW_ALLOWED_ROOTS returns empty."""
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    monkeypatch.delenv("OPENCLAW_ALLOWED_ROOTS", raising=False)
+    roots = allowed_roots_for_env()
+    assert roots == ()

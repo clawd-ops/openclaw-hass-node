@@ -8,12 +8,19 @@ the user's HA instance directly.
 The module is environment-driven (reads HASS_URL/HASS_TOKEN/SUPERVISOR_TOKEN
 on each call) rather than carrying NodeConfig so that command handlers stay
 config-free.  Tests can override the env via :func:`pytest.MonkeyPatch.setenv`.
+
+Add-on mode detection mirrors :func:`openclaw_node.config._is_addon_mode`:
+``SUPERVISOR_TOKEN`` is the primary signal, but a writable ``/data`` directory
+is an accepted fallback (Supervisor may not inject the token despite config
+flags).  When addon mode is detected without ``SUPERVISOR_TOKEN``, the HA URL
+defaults to ``http://homeassistant`` and a ``HASS_TOKEN`` must be set.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Final
 
 import aiohttp
@@ -37,6 +44,14 @@ class HAClientError(Exception):
         self.message = message
 
 
+def _is_addon_mode() -> bool:
+    """Return True when running inside a Home Assistant add-on."""
+    if os.environ.get("SUPERVISOR_TOKEN"):
+        return True
+    data = Path("/data")
+    return data.is_dir() and os.access(data, os.W_OK)
+
+
 def _ha_url() -> str:
     """Return the Home Assistant base URL.
 
@@ -48,6 +63,8 @@ def _ha_url() -> str:
     """
     if os.environ.get("SUPERVISOR_TOKEN"):
         return os.environ.get("HASS_URL", "http://supervisor/core")
+    if _is_addon_mode():
+        return os.environ.get("HASS_URL", "http://homeassistant")
     url = os.environ.get("HASS_URL", "")
     if not url:
         raise HAClientError("HA_NOT_CONFIGURED", "HASS_URL is not set")
@@ -57,11 +74,22 @@ def _ha_url() -> str:
 def _ha_token() -> str:
     """Return the bearer token for the HA REST API.
 
+    In add-on mode with SUPERVISOR_TOKEN, uses that token. In add-on mode
+    without SUPERVISOR_TOKEN (``/data`` fallback), or standalone mode,
+    requires HASS_TOKEN.
+
     Raises:
         HAClientError: If no token is configured.
     """
     token = os.environ.get("SUPERVISOR_TOKEN") or os.environ.get("HASS_TOKEN", "")
     if not token:
+        if _is_addon_mode():
+            raise HAClientError(
+                "HA_NOT_CONFIGURED",
+                "Running in add-on mode but SUPERVISOR_TOKEN is missing and "
+                "HASS_TOKEN is not set. Set HASS_TOKEN or check add-on config "
+                "flags (hassio_api/homeassistant_api/auth_api).",
+            )
         raise HAClientError("HA_NOT_CONFIGURED", "No HA token configured")
     return token
 

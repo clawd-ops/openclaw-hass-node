@@ -88,6 +88,37 @@ async def test_ha_get_uses_supervisor_in_addon_mode(monkeypatch: pytest.MonkeyPa
     assert "supervisor" in call_args[0][0]
 
 
+async def test_ha_url_addon_fallback_without_supervisor_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Addon mode via /data fallback uses http://homeassistant."""
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    monkeypatch.delenv("HASS_URL", raising=False)
+    monkeypatch.setenv("HASS_TOKEN", "ha-tok")
+    with patch("openclaw_node.ha_client._is_addon_mode", return_value=True):
+        resp = _FakeResp(body=[])
+        with _patch_session(resp) as fake:
+            await ha_get("/api/states")
+        call_args = fake.return_value.get.call_args
+        assert "homeassistant" in call_args[0][0]
+
+
+async def test_ha_token_addon_fallback_no_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Addon mode without any token gives a descriptive error."""
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    monkeypatch.delenv("HASS_TOKEN", raising=False)
+    monkeypatch.setenv("HASS_URL", "http://homeassistant")
+    with (
+        patch("openclaw_node.ha_client._is_addon_mode", return_value=True),
+        pytest.raises(HAClientError) as ei,
+    ):
+        await ha_get("/api/states")
+    assert ei.value.code == "HA_NOT_CONFIGURED"
+    assert "SUPERVISOR_TOKEN" in ei.value.message
+
+
 # ---------------------------------------------------------------------------
 # ha_get — HTTP status handling
 # ---------------------------------------------------------------------------
