@@ -1,4 +1,11 @@
-# Install openclaw-hass-node
+# Install
+
+> ⚠️ **Alpha.** Pair + connect + tool invokes work, but the HA
+> Assist conversation relay (P5.12) is not wired yet. If you set
+> the integration as your Assist agent today, turns return a clear
+> placeholder string. Install only if you want to test the tool
+> surface or help shape the project.
+ openclaw-hass-node
 
 End-to-end setup to get Home Assistant talking to your OpenClaw gateway.
 Three pieces install in order: **gateway-side config**, then the **HA add-on**,

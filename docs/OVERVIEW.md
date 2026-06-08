@@ -1,5 +1,13 @@
 # What is openclaw-hass-node?
 
+> ⚠️ **Alpha as of 2026-06-08.** The node command surface is
+> working end-to-end (pair, connect, invoke), but the HA Assist
+> conversation relay (P5.12) is not yet wired, publishing
+> infrastructure is incomplete, and breaking changes between
+> versions are expected. Install today only if you want to help
+> shape it. Track [`STATUS.md`](STATUS.md) for the first beta tag.
+
+
 This project connects [Home Assistant](https://www.home-assistant.io)
 to an [OpenClaw](https://github.com/clawd-ops/openclaw) gateway as a
 first-class **node**. Once installed, the AI agent running inside your

@@ -1,5 +1,14 @@
 # openclaw-hass-node
 
+> ⚠️ **Alpha — not ready for general use.** As of 2026-06-08 the
+> node command surface works end-to-end (pair, connect, invoke
+> round-trips cleanly), but the HA Assist conversation relay is
+> not yet wired (P5.12), publishing infrastructure isn't in place,
+> and breaking changes between versions are expected. If you
+> install today, the add-on will pair and run tool commands, but
+> Assist turns will return a placeholder. Watch
+> [`docs/STATUS.md`](docs/STATUS.md) for the first beta tag.
+
 Home Assistant add-on + HACS shim that connects HA to an [OpenClaw][]
 gateway as a node. Lets your OpenClaw agent (Clawd or whichever agent
 you've routed to) answer HA Assist turns and run the full `ha.*`
