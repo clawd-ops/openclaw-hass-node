@@ -44,9 +44,14 @@ async def _main() -> None:  # pragma: no cover
     else:
         _LOG.info("Loaded existing device identity: %s", identity.device_id)
 
+    # On first run there is no device_token yet — the pairing_token from the
+    # add-on options bootstraps the connect. Once the gateway approves the
+    # pairing it issues a long-lived device_token; persisting + reusing that
+    # is queued as a follow-up.
     client = GatewayClient(
         config=config,
         identity=identity,
+        device_token=config.pairing_token or None,
     )
     await client.run()
 
