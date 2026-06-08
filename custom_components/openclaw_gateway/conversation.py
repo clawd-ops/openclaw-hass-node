@@ -20,7 +20,7 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_SOCKET_URL, CONVERSATION_ENDPOINT, DOMAIN
+from .const import CONF_API_TOKEN, CONF_SOCKET_URL, CONVERSATION_ENDPOINT, DOMAIN
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _REQUEST_TIMEOUT_S: Final[float] = 35.0
@@ -101,6 +101,10 @@ class OpenClawConversationEntity(ConversationEntity):
         url = f"{socket_url}{CONVERSATION_ENDPOINT}"
         session = async_get_clientsession(self.hass)
         timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT_S)
+        headers: dict[str, str] = {}
+        api_token = str(self._entry.data.get(CONF_API_TOKEN, "") or "")
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
         try:
             async with session.post(
                 url,
@@ -109,6 +113,7 @@ class OpenClawConversationEntity(ConversationEntity):
                     "conversation_id": user_input.conversation_id,
                     "language": user_input.language,
                 },
+                headers=headers,
                 timeout=timeout,
             ) as response:
                 # `response.ok` is `< 400` in aiohttp, which lets 3xx redirects
