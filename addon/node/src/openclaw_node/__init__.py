@@ -5,4 +5,4 @@ Assistant add-on (or standalone Docker container) and exposes filesystem,
 shell, HA control, and Assist conversation surfaces to the OpenClaw gateway.
 """
 
-__version__ = "2026.6.7"
+__version__ = "2026.6.8"

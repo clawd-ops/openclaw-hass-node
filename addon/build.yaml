@@ -8,6 +8,6 @@ build_from:
   aarch64: ghcr.io/home-assistant/aarch64-base-python:3.13-alpine3.20
   armv7: ghcr.io/home-assistant/armv7-base-python:3.13-alpine3.20
 labels:
-  io.hass.version: "2026.6.7"
+  io.hass.version: "2026.6.8"
   io.hass.type: addon
   io.hass.arch: amd64|aarch64|armv7

@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
@@ -476,17 +477,24 @@ class GatewayClient:
         node_id: str = str(payload.get("nodeId", ""))
         command: str = str(payload.get("command", ""))
         params: dict[str, Any] = dict(payload.get("params") or {})
-        _LOG.debug("Invoke id=%s nodeId=%s command=%r", invoke_id, node_id, command)
+        _LOG.info("invoke ▶ %s id=%s", command, invoke_id[:8])
+        start_ms = time.monotonic()
 
         base = {"id": invoke_id, "nodeId": node_id}
         try:
             result = await dispatch_async(command, params)
+            elapsed_ms = int((time.monotonic() - start_ms) * 1000)
+            _LOG.info("invoke ◀ %s ok id=%s %dms", command, invoke_id[:8], elapsed_ms)
             resp = _make_req(
                 "node.invoke.result",
                 {**base, "ok": True, "payload": result},
             )
         except UnknownCommandError as exc:
-            _LOG.warning("Unknown command: %r", command)
+            elapsed_ms = int((time.monotonic() - start_ms) * 1000)
+            _LOG.warning(
+                "invoke ◀ %s UNKNOWN_COMMAND id=%s %dms",
+                command, invoke_id[:8], elapsed_ms,
+            )
             resp = _make_req(
                 "node.invoke.result",
                 {
@@ -496,7 +504,11 @@ class GatewayClient:
                 },
             )
         except Exception as exc:
-            _LOG.exception("Command %r raised: %s", command, exc)
+            elapsed_ms = int((time.monotonic() - start_ms) * 1000)
+            _LOG.exception(
+                "invoke ◀ %s COMMAND_ERROR id=%s %dms: %s",
+                command, invoke_id[:8], elapsed_ms, exc,
+            )
             resp = _make_req(
                 "node.invoke.result",
                 {
