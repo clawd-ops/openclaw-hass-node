@@ -219,6 +219,7 @@ class GatewayClient:
         chat_relay_enabled: bool = True,
         invoke_dispatch_enabled: bool = True,
         token_persist_path: Path | None = None,
+        pair_fallback_enabled: bool = True,
     ) -> None:
         """Initialise the client without opening a connection.
 
@@ -248,8 +249,18 @@ class GatewayClient:
                 operator-role connection.
             token_persist_path: Override the path where the gateway-issued
                 device token is persisted. Defaults to
-                ``config.device_token_path``. The operator-role connection
-                uses a sibling file so node and operator tokens don't clash.
+                ``config.device_token_path``. Both role connections may
+                share the same path safely — the gateway issues one
+                device token per device record (the dual-role pairing
+                profile grants both roles on a single token), so writes
+                are idempotent.
+            pair_fallback_enabled: When True, an INVALID_REQUEST /
+                NOT_PAIRED rejection clears the persisted device token
+                and falls back to the one-shot pairing_token. Disable on
+                the operator-role connection — it must NOT clear the
+                shared token file when its connect is rejected (which
+                would happen if the device is only single-role paired),
+                because that would break the node-role connection too.
         """
         self._config = config
         self._identity = identity
@@ -264,6 +275,7 @@ class GatewayClient:
         self._chat_relay_enabled = chat_relay_enabled
         self._invoke_dispatch_enabled = invoke_dispatch_enabled
         self._token_persist_path = token_persist_path or config.device_token_path
+        self._pair_fallback_enabled = pair_fallback_enabled
 
     @property
     def pairing_state(self) -> PairingState:
@@ -311,6 +323,8 @@ class GatewayClient:
         token, getting the same rejection, until the user manually clears
         /data/openclaw/device-token.
         """
+        if not self._pair_fallback_enabled:
+            return
         haystack = repr(exc)
         triggers = ("NOT_PAIRED", "PAIRING_REQUIRED", "AUTH_TOKEN_MISMATCH", "token_mismatch")
         if not any(t in haystack for t in triggers):

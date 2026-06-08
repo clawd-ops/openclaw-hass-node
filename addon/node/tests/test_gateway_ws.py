@@ -165,6 +165,59 @@ async def test_send_connect_sends_correct_frame() -> None:
     assert sent["params"]["commands"] == _NODE_COMMANDS
 
 
+async def test_send_connect_operator_role_advertises_operator_scopes() -> None:
+    """Operator-role clients send role=operator, the four operator scopes,
+    and NO caps/commands (chat surface only)."""
+    from openclaw_node.gateway_ws import _OPERATOR_SCOPES
+
+    config = _make_config()
+    identity = generate_identity()
+    client = GatewayClient(
+        config=config,
+        identity=identity,
+        device_token="shared-tok",
+        role="operator",
+        scopes=_OPERATOR_SCOPES,
+        caps=[],
+        commands=[],
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        pair_fallback_enabled=False,
+    )
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+
+    await client._send_connect(ws, "op-nonce")
+    sent = json.loads(ws.send.call_args[0][0])
+    assert sent["params"]["role"] == "operator"
+    assert sent["params"]["scopes"] == _OPERATOR_SCOPES
+    assert sent["params"]["caps"] == []
+    assert sent["params"]["commands"] == []
+    assert sent["params"]["auth"]["token"] == "shared-tok"
+
+
+def test_operator_client_skips_pair_fallback_on_invalid_request() -> None:
+    """When pair_fallback_enabled=False, a NOT_PAIRED error must NOT
+    unlink the persisted token — the node client shares that file."""
+    config = _make_config()
+    identity = generate_identity()
+    config.device_token_path.parent.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("node-issued-token\n")
+    client = GatewayClient(
+        config=config,
+        identity=identity,
+        device_token="node-issued-token",
+        role="operator",
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        pair_fallback_enabled=False,
+    )
+    client._maybe_drop_invalid_device_token(RuntimeError("NOT_PAIRED rejection"))
+    # Token file must still exist + still contain the node-issued token.
+    assert config.device_token_path.read_text().strip() == "node-issued-token"
+    assert client._device_token == "node-issued-token"
+
+
 # ---- _recv_connect_response tests ----
 
 
