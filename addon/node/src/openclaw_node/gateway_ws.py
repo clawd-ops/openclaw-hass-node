@@ -176,13 +176,19 @@ class GatewayClient:
     def _maybe_drop_invalid_device_token(self, exc: BaseException) -> None:
         """If the persisted device_token was rejected, fall back to pairing_token.
 
-        Gateway rejects an unknown / evicted device_token with codes
-        NOT_PAIRED or PAIRING_REQUIRED. Without this fallback the addon
-        would loop forever — sending the same bad token, getting the same
-        rejection — until the user manually clears /data/openclaw/device-token.
+        Gateway rejects an unknown / evicted device_token with one of:
+        - NOT_PAIRED / PAIRING_REQUIRED (device record gone entirely)
+        - AUTH_TOKEN_MISMATCH / token_mismatch (device exists but the token
+          doesn't match — e.g. after gateway removed + re-paired with a
+          different token)
+
+        Without this fallback the addon loops forever sending the same bad
+        token, getting the same rejection, until the user manually clears
+        /data/openclaw/device-token.
         """
         haystack = repr(exc)
-        if "NOT_PAIRED" not in haystack and "PAIRING_REQUIRED" not in haystack:
+        triggers = ("NOT_PAIRED", "PAIRING_REQUIRED", "AUTH_TOKEN_MISMATCH", "token_mismatch")
+        if not any(t in haystack for t in triggers):
             return
         if not self._device_token:
             return
