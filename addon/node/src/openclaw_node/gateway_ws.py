@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _CONNECT_ROLE: Final[str] = "node"
-_CONNECT_SCOPES: Final[list[str]] = ["operator.read", "operator.write"]
+_CONNECT_SCOPES: Final[list[str]] = []
 _CONNECT_CAPS: Final[list[str]] = ["system"]
 _CONNECT_COMMANDS: Final[list[str]] = [
     "ping",
@@ -101,6 +101,25 @@ def _decode_error_code(raw: Any) -> str | None:
         return None
     code = raw.get("code")
     return code if isinstance(code, str) else None
+
+
+def _decode_error_message(raw: Any) -> str:
+    """Return ``error.message`` (and details) from a ResponseFrame.error.
+
+    Always returns a string; empty string when no useful detail is present.
+    Includes ``details`` when present so the gateway-side rejection reason
+    surfaces in node logs.
+    """
+    if not isinstance(raw, dict):
+        return str(raw) if raw else ""
+    parts: list[str] = []
+    message = raw.get("message")
+    if isinstance(message, str) and message:
+        parts.append(message)
+    details = raw.get("details")
+    if details:
+        parts.append(f"details={details!r}")
+    return " | ".join(parts)
 
 
 class InvalidInvokeParamsError(ValueError):
@@ -456,8 +475,12 @@ class GatewayClient:
             )
         ok: bool = bool(msg.get("ok"))
         payload: dict[str, Any] | None = msg.get("payload") if ok else None
-        error: str | None = None if ok else _decode_error_code(msg.get("error"))
-        self._pairing.on_connect_response(ok=ok, payload=payload, error=error)
+        error_raw = msg.get("error")
+        error: str | None = None if ok else _decode_error_code(error_raw)
+        error_message: str = "" if ok else _decode_error_message(error_raw)
+        self._pairing.on_connect_response(
+            ok=ok, payload=payload, error=error, error_message=error_message
+        )
         self._notify_pairing_state()
         # On successful connect the gateway may issue a long-lived device_token
         # in hello-ok.auth.deviceToken. Persist it and use it for subsequent

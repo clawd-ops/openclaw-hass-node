@@ -102,6 +102,7 @@ class PairingMachine:
         ok: bool,
         payload: dict[str, object] | None = None,
         error: str | None = None,
+        error_message: str = "",
     ) -> None:
         """Transition state based on a gateway ``connect`` response.
 
@@ -109,6 +110,9 @@ class PairingMachine:
             ok: True if the gateway accepted the connection.
             payload: Response payload dict when *ok* is True.
             error: Error code string when *ok* is False.
+            error_message: Human-readable message (and details) from the
+                gateway's ``error.message`` field, surfaced to logs so the
+                operator can see *why* the connect was rejected.
 
         Raises:
             PairingError: If *ok* is False and the error is not
@@ -125,9 +129,13 @@ class PairingMachine:
             self._state = PairingState.PENDING
             return
 
-        _LOG.error("Gateway rejected connection with code=%s", code)
+        _LOG.error(
+            "Gateway rejected connection with code=%s message=%s",
+            code,
+            error_message or "(no detail)",
+        )
         self._state = PairingState.ERROR
-        raise PairingError(code=code, message=str(payload or ""))
+        raise PairingError(code=code, message=error_message or str(payload or ""))
 
     def on_reconnect(self) -> None:
         """Reset state to UNKNOWN when the WS connection drops.
