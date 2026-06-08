@@ -79,6 +79,14 @@ stored approved-commands stays empty and you'll have to
      (`openclaw devices` shows pending requests / lets you issue
      bootstrap tokens).
    - `node_name`: friendly name shown in the gateway UI (e.g. `hass`).
+   - `local_api_token` *(recommended)*: any opaque string. When set,
+     every local HTTP endpoint except `/health` and
+     `/v1/conversation/info` requires `Authorization: Bearer <token>`.
+     Leave empty for back-compat; the node logs a startup WARNING in
+     that case because the local API is then open to anything that can
+     reach it inside the Supervisor add-on network. Paste the same
+     value into the HACS shim config flow so the integration can call
+     the API.
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.
@@ -175,3 +183,41 @@ when the relay does.
 Each release re-runs the local Supervisor build. After updating the
 add-on (app) repo, **Update** the add-on (app) (or **Stop → Rebuild → Start**). The
 device token persists across restarts; you do not need to re-pair.
+
+## Standalone Docker (without Home Assistant Supervisor)
+
+The same image used by the HA add-on can run as a plain Docker
+container. The `addon/config.yaml` file is HA-Supervisor metadata; it
+is not consulted outside Supervisor, so the standalone path is wired
+entirely through env vars and a published port.
+
+```bash
+# Build once
+docker build -t openclaw-hass-node:dev addon/
+
+# Run
+docker run --rm \
+  -e GATEWAY_URL="wss://oc.your-domain/ws" \
+  -e PAIRING_TOKEN="<one-time pairing token>" \
+  -e NODE_NAME="hass" \
+  -e OPENCLAW_LOCAL_API_TOKEN="$(openssl rand -hex 32)" \
+  -v openclaw-hass-node-data:/data \
+  -p 8099:8099 \
+  openclaw-hass-node:dev
+```
+
+Notes:
+- The container always binds `0.0.0.0:8099` inside; the `-p 8099:8099`
+  is what exposes it to the host. Use `-p 127.0.0.1:8099:8099` to bind
+  only to loopback.
+- `OPENCLAW_LOCAL_API_TOKEN` is strongly recommended for standalone
+  Docker — without it the API is open to anything that can reach the
+  published port.
+- `-v openclaw-hass-node-data:/data` persists the device identity and
+  device token across restarts. Without it the node re-pairs on every
+  start.
+- The HA REST snapshot endpoint (`/v1/ha/snapshot`) needs `HASS_URL`
+  and `HASS_TOKEN` env vars in standalone mode (Supervisor injects the
+  equivalents automatically inside HA).
+- The HACS shim is HA-specific and not used in this mode; gateway-side
+  tool invocations still work as soon as the node is paired/approved.

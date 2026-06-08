@@ -55,6 +55,11 @@ gateway side. Short version:
    flow at the add-on (app) socket.
 5. Pick it as your HA Assist conversation agent.
 
+The same image also runs as a plain Docker container without Home
+Assistant Supervisor — see
+**[Standalone Docker](docs/INSTALL.md#standalone-docker-without-home-assistant-supervisor)**
+in INSTALL.md.
+
 ## Status
 
 - **Node command surface**: complete (28 commands: `ha.*` × 13, `fs.*`
