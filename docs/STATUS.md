@@ -1,5 +1,10 @@
 # Status
 
+> **Alpha.** The node is working end-to-end (pair, connect, invoke) but
+> the HA Assist conversation relay (P5.12) is not yet wired, publishing
+> infrastructure is incomplete, and breaking changes between versions
+> are expected.
+
 > **Update this file at every meaningful state change.** It is the
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
 > `STATUS.md` disagree, fix whichever is wrong before continuing.
@@ -180,7 +185,7 @@ a stub.
 
 ## Current phase
 
-**Install-stabilisation push complete (2026.6.7).** Node command surface is round-trippable end-to-end through the gateway (`openclaw nodes invoke …` returns real results). Next code work is **P-INSTALL** (HA credentials) then **P5.12** (ChatRelay). P6.2 cutover waits on the validation-harness streak.
+**Install-stabilisation push complete (2026.6.8a1).** Node command surface is round-trippable end-to-end through the gateway (`openclaw nodes invoke ...` returns real results). Next code work is **P-INSTALL** (HA credentials) then **P5.12** (ChatRelay). P6.2 cutover waits on the validation-harness streak.
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -243,6 +248,11 @@ fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
   via the CLI workaround; landed APPROVE-WITH-NITS. 135 tests, 96.26%
   branch coverage. One non-blocking nit: trailing-slash on regular file
   opens it (not an access bypass; tighten when convenient).
+
+> **Historical (deleted).** P5.2-P5.8 below describe a `gateway/`
+> workspace and `ConversationDispatcher` that were deleted in P5.11.
+> The correct architecture uses the existing OpenClaw gateway's
+> `chat.send` surface. These entries are kept for audit trail only.
 
 P5.8 merged on 2026-06-06 (`948cb57`, PR #22) after Codex cross-review:
 v1 APPROVE. Gateway is now deployable: `python -m openclaw_gateway` boots

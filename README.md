@@ -3,7 +3,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/clawd-ops/openclaw-hass-node?style=social)](https://github.com/clawd-ops/openclaw-hass-node/stargazers)
 [![BuyMeCoffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-donate-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/roblandry)
 
-> ⚠️ **Alpha — not ready for general use.** As of 2026-06-08 the
+> ⚠️ **Alpha — not ready for general use.** The
 > node command surface works end-to-end (pair, connect, invoke
 > round-trips cleanly), but the HA Assist conversation relay is
 > not yet wired (P5.12), publishing infrastructure isn't in place,

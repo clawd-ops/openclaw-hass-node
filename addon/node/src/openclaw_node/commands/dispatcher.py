@@ -180,15 +180,11 @@ async def dispatch_async(command: str, params: dict[str, Any]) -> dict[str, Any]
 
 
 def register_handler(command: str, handler: CommandHandler) -> None:
-    """Register a new command handler, replacing any existing one.
-
-    This is intended for use in tests or future phases to extend the command
-    surface without modifying this module.
+    """Register or replace a command handler. Test-only.
 
     Args:
         command: The command name string.
         handler: A callable accepting a ``params`` dict and returning a result
             dict.
     """
-    _LOG.debug("Registering handler for command=%r", command)
     _REGISTRY[command] = handler
