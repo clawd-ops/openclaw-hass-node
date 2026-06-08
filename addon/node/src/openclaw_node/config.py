@@ -6,13 +6,58 @@ single :class:`NodeConfig` dataclass consumed by all subsystems.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from openclaw_node.safe_path import allowed_roots
 
+_LOG = logging.getLogger(__name__)
+
 _DEFAULT_GATEWAY_URL = "wss://gateway.example.com/ws"
+
+
+def normalize_pairing_token(raw: str) -> str:
+    """Accept either a raw bootstrap token or an ``openclaw qr`` setup code.
+
+    The mobile/QR pairing flow emits a base64url-encoded JSON envelope:
+
+        {"url": "wss://gw/", "bootstrapToken": "<token>"}
+
+    Users on a headless gateway can paste the output of ``openclaw qr
+    --setup-code-only --no-ascii`` directly into the ``pairing_token``
+    field — this helper detects that shape and extracts the inner
+    ``bootstrapToken``. Anything that does not parse as a base64-encoded
+    JSON object with the expected key is treated as a raw token and
+    returned unchanged.
+    """
+    value = raw.strip()
+    if not value:
+        return value
+    try:
+        # base64url alphabet — pad to a multiple of 4 because the CLI
+        # output drops trailing padding.
+        padded = value + "=" * (-len(value) % 4)
+        decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
+    except (binascii.Error, UnicodeEncodeError, ValueError):
+        return value
+    try:
+        envelope = json.loads(decoded)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return value
+    if not isinstance(envelope, dict):
+        return value
+    token = envelope.get("bootstrapToken")
+    if isinstance(token, str) and token:
+        _LOG.info("pairing_token detected as setup-code envelope; extracted bootstrapToken")
+        return token
+    return value
+
+
 _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
 _EMPTY = "".join(())
@@ -118,7 +163,7 @@ def load_config() -> NodeConfig:
     return NodeConfig(
         addon_mode=addon,
         gateway_url=os.environ.get("GATEWAY_URL", _DEFAULT_GATEWAY_URL),
-        pairing_token=os.environ.get("PAIRING_TOKEN", ""),
+        pairing_token=normalize_pairing_token(os.environ.get("PAIRING_TOKEN", "")),
         node_name=os.environ.get("NODE_NAME", ""),
         hass_url=hass_url,
         hass_token=hass_token,
