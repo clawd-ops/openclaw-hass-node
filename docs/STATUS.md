@@ -21,6 +21,18 @@
 placeholder. It reports pairing/connection state but does not yet
 relay turns into an agent session. That's P5.12.
 
+**Install lessons (2026-06-07).** First end-to-end install completed
+tonight: node pairs, connects, `openclaw nodes describe` shows it as
+paired+connected. Every speed bump captured in
+[`docs/LESSONS.md`](LESSONS.md); user walkthrough in
+[`docs/INSTALL.md`](INSTALL.md) which surfaces the **required**
+`gateway.nodes.allowCommands` patch on the OpenClaw side.
+PRs shipped: #29 drop GHCR image:, #30 move node into addon/ for
+Supervisor's local build context, #31 use HA python-on-Alpine base,
+#32 client.id=node-host (enum), #33 deviceFamily in connect frame for
+signature verify, #34 thread pairing_token through, #35 persist gateway-
+issued device_token, #36 displayName from node_name.
+
 **Architecture for P5.12 (decided 2026-06-06):** the node calls
 `chat.send` over its existing gateway WS connection to inject the
 Assist turn into an agent session, and subscribes via
