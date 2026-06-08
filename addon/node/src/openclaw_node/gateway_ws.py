@@ -274,6 +274,11 @@ class GatewayClient:
                     # match identity._PLATFORM / _DEVICE_FAMILY exactly or the
                     # signature verify fails.
                     "deviceFamily": "hass-node",
+                    # displayName is the friendly name shown in the gateway UI
+                    # and `openclaw nodes describe` output. Falls back to the
+                    # device-id fingerprint when absent.
+                    "displayName": self._config.node_name
+                    or f"openclaw-hass-node@{self._identity.device_id[:12]}",
                 },
                 "role": _CONNECT_ROLE,
                 "scopes": _CONNECT_SCOPES,
