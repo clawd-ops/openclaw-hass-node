@@ -36,18 +36,13 @@ map:
   # (/share/openclaw-backups) and the delete trash fallback
   # (/share/openclaw-trash). Real shipped writes.
   - share:rw
-  # ssl:ro — exposed through generic read roots; no dedicated TLS cert
-  # reader is shipped yet, kept reserved for future HA API hardening.
-  - ssl:ro
-  # addons:ro — exposed through generic read roots; no dedicated add-on
-  # enumeration/status reader shipped yet, kept reserved.
-  - addons:ro
   # media:rw — `/media` is an allowed root and not protected, so
   # `fs.write` can resolve and atomically write here.
   - media:rw
-  # backup:ro — exposed through generic read roots; no dedicated backup
-  # listing/download reader shipped yet, kept reserved.
-  - backup:ro
+# Removed maps (re-add when a shipped feature needs them):
+#   ssl:ro      — would expose TLS certs via generic fs.read/list/glob
+#   addons:ro   — no shipped add-on enumeration reader
+#   backup:ro   — exposing /backup leaks full-backup material via generic reads
 options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
