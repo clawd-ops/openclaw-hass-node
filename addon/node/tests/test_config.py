@@ -46,7 +46,9 @@ def test_allowed_roots_for_env_addon(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUPERVISOR_TOKEN", "tok")
     monkeypatch.delenv("OPENCLAW_ALLOWED_ROOTS", raising=False)
     roots = allowed_roots_for_env()
-    assert len(roots) > 0
+    root_strs = {str(r) for r in roots}
+    assert "/config" in root_strs
+    assert "/share" in root_strs
 
 
 def test_allowed_roots_for_env_standalone_default(
