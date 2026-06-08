@@ -3,8 +3,13 @@
 > Walk through this in order. Each step has exact actions and the
 > result you should see. If anything diverges, paste the diff into
 > the channel and Clawd will dig in.
+>
+> **State as of the current alpha (`2026.6.8a1`):** install, pair,
+> connect, and gateway-side tool invokes all work end-to-end. The
+> Assist conversation relay (P5.12) and the proposal/write flow are
+> still planned.
 
-## Phase A — Install (today's deliverable)
+## Phase A — Install
 
 ### A1. Add the add-on (app) repository
 
@@ -18,25 +23,38 @@
 
 1. Click **OpenClaw Node** → **Install** (multi-arch image; will pick
    `amd64` / `aarch64` / `armv7` for your host).
-2. After install, **Start**.
-3. Open **Logs**.
-4. **Expect:** within ~5 s, lines like:
+2. **Configuration** tab — fill in `gateway_url`, `pairing_token`,
+   `node_name`, and (recommended) `local_api_token`.
+3. **Start**.
+4. Open **Logs**.
+5. **Expect:** within ~5 s, lines like:
 
    ```
-   openclaw-node ready (version=2026.6.0)
-   ha core version=2026.X.Y
-   ha entities visible=NNN
-   sample entity=light.<one_of_yours> state=on/off
+   Starting openclaw-hass-node 2026.6.8a1 in add-on mode
+   Gateway URL: wss://...
+   Data dir: /data/openclaw
+   Loaded existing device identity: <device-id>   (or "Generated new")
+   Connecting to gateway: wss://...
    ```
 
-5. **Failure modes to watch:**
+   On the first connect with a pairing token you will additionally see
+   `PAIRING_REQUIRED` and `Waiting for pairing approval from the
+   gateway…`. After the gateway-side approval, the line becomes
+   `Pairing approved by gateway.`
+
+6. **Expected version line:** the version printed in the first log
+   line MUST equal what is in `addon/config.yaml`. CI gates on
+   `test_version_sync.py` keep this from drifting.
+
+7. **Failure modes to watch:**
    - "SUPERVISOR_TOKEN missing" → if running as an HA add-on (app), this
      is an add-on (app) permissions issue (check `hassio_api: true` and
-     `homeassistant_api: true` in `addon/config.yaml`, and that the
-     add-on (app) was started normally rather than e.g. via a manual
-     `docker run`). If running standalone Docker, this is expected;
-     the add-on (app) falls back to a `/data` writability check via
-     `config._is_addon_mode` (PR #40).
+     `homeassistant_api: true` in `addon/config.yaml`). If running
+     standalone Docker, this is expected; the node falls back to a
+     `/data` writability check.
+   - "local_api_token is unset" warning → expected if you skipped the
+     option; set it before exposing the API outside the Supervisor
+     network.
    - "HA REST unreachable" → networking issue, not the node.
    - Python tracebacks → file a comment with the full log.
 
@@ -48,43 +66,80 @@
 3. Search for **OpenClaw Gateway** → Install → Restart HA.
 4. After restart: **Settings → Devices & Services → Add Integration
    → OpenClaw Gateway**.
-5. Config flow asks for the add-on (app) socket; default
-   (`http://a0d7b954-openclaw-gateway:8099`) should auto-fill.
+5. Config flow asks for the add-on (app) socket; default points at
+   the add-on hostname (`http://<addon-slug>:8099`). If you set
+   `local_api_token`, paste the same value here so the shim can
+   call the local API.
 6. **Expect:** integration sets up clean; one conversation entity
    `conversation.openclaw_gateway` shows up under Settings → Voice
    Assistants → Conversation agents.
-7. **Not yet wired:** picking it as your Assist agent will return a
-   "gateway not paired" reply. That's correct for today's
-   deliverable; pairing is Phase B.
 
-## Phase B — Pairing to OpenClaw gateway *(planned next, NOT today)*
+## Phase B — Pairing to OpenClaw gateway *(working)*
 
-This phase is scaffolded but not running. Steps will be added once
-P2.3 (gateway WS pairing) lands.
+### B1. Approve the pairing on the gateway
 
-## Phase C — Read-only HA via the node *(planned)*
+A node connecting with `role: node` files two pair requests — one in
+the `devices` registry and one in the `nodes` registry. **Approve
+both** or the node pairs but with zero commands captured.
 
-Once pairing is up, this is what proves the MCP-replacement story:
+```bash
+openclaw nodes pending
+openclaw nodes approve <request-id>
 
-### C1. Ask "what's the status of `light.X`?" in a Clawd channel.
+openclaw devices list
+openclaw devices approve <request-id>
+```
 
-- Clawd should answer using `node.invoke ha.get_state` instead of
-  the existing MCP server. Verifiable via gateway logs showing the
-  node call.
+**Expect:** within ~5 s the add-on log switches to `Pairing approved
+by gateway.` The gateway issues a long-lived `device_token` on that
+connect response; the node persists it to
+`/data/openclaw/device-token` (mode `0o600`) and reuses it on every
+restart — no need to re-paste `pairing_token` after the first
+successful pairing.
 
-### C2. "List my lights / sensors / climate."
+### B2. Confirm the gateway sees the node
 
-- `node.invoke ha.list_states` with a domain filter.
+```bash
+openclaw nodes describe --node <your-node-id>
+# Expect: Status: paired · connected
+#         Caps:   …
+#         Commands: list of 28 (ha.*, fs.*, system.*, ping)
+```
 
-### C3. "What scripts are available?"
+## Phase C — Tool invokes through the gateway *(working)*
 
-- `node.invoke ha.list_services` filtered to `script`.
+### C1. ping
 
-### C4. "Show entity registry for `binary_sensor.front_door`."
+```bash
+openclaw nodes invoke --node <your-node-id> --command ping
+# → {"pong": true, "message": "", "ts": <ms>}
+```
 
-- `node.invoke ha.list_entity_registry` + filter.
+The add-on log shows:
+
+```
+invoke ▶ ping id=abc12345
+invoke ◀ ping ok id=abc12345 4ms
+```
+
+### C2. Read entity state
+
+Ask in a Clawd channel: "what is the state of `light.X`?" The agent
+should answer via `node.invoke ha.get_state` against this node, not
+the legacy MCP server.
+
+### C3. Filesystem reads
+
+`fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `fs.history`, `fs.diff`
+all hit the node. The gateway-side allowlist
+(`gateway.nodes.allowCommands` in `openclaw.json`) controls which
+commands are surfaced — see `INSTALL.md` step 1.
 
 ## Phase D — Writes via proposals *(planned)*
+
+The write side of `fs.*` (`fs.write`, `fs.restore`, `fs.move`,
+`fs.delete`, `fs.patch`) is implemented in the node but is *not* yet
+behind the proposal/agent-bridge flow.
 
 ### D1. Toggle a light.
 
@@ -118,7 +173,12 @@ Once pairing is up, this is what proves the MCP-replacement story:
   breaking change. Expect the proposal body to cite the
   breaking-change entry and include a functional fix.
 
-## Phase E — Assist conversation agent *(planned)*
+## Phase E — Assist conversation agent *(planned — P5.12)*
+
+Until P5.12 lands the ChatRelay (`chat.send` +
+`sessions.messages.subscribe`), picking the OpenClaw Gateway shim as
+your Assist conversation agent yields a clear placeholder string —
+not a tool call back through the gateway.
 
 ### E1. Set Clawd as your Assist conversation agent in
    **Settings → Voice Assistants**.
@@ -140,5 +200,5 @@ Once pairing is up, this is what proves the MCP-replacement story:
   Codex review verdict comment. Spot-check by opening any merged PR
   on `clawd-ops/openclaw-hass-node` — there should be a Codex
   reviewer comment with `LGTM` or `LGTM with notes`.
-- Every PR has all 9 CI gates green (lint, typecheck, two test
-  suites, coverage 100 %, security, docs, addon-build, cross-review).
+- Every PR has all CI gates green (ruff check + format, mypy strict,
+  pytest with branch coverage gated at 95%, security, addon-build).
