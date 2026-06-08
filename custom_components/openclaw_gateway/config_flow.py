@@ -46,17 +46,76 @@ async def _probe_one(session: aiohttp.ClientSession, url: str) -> bool:
         return False
 
 
-async def _probe_default_socket_url(session: aiohttp.ClientSession) -> str:
-    """Probe candidate hostnames for a reachable OpenClaw Node API.
+async def _supervisor_addon_url(hass: Any) -> str | None:
+    """Ask HA Supervisor for our addon's hostname (most reliable path).
 
-    Probes are run **concurrently** — worst-case stall is bounded by a single
-    ``PROBE_TIMEOUT_S`` window (~1s) rather than ``len(candidates) * timeout``
-    (Codex review feedback). Returns the first URL that answers
-    ``GET /v1/conversation/info`` with 200 in the candidate-defined order,
-    or :data:`DEFAULT_SOCKET_URL` if none respond. This lets users install
-    the integration without knowing their Supervisor install-specific
-    add-on hash (#88/1).
+    When running under HA Supervisor, the `hassio` HA integration knows
+    every installed addon's real hostname (the install-specific
+    ``<repo-uuid>-<slug>`` form). Returns ``http://<hostname>:8099`` if
+    the openclaw_hass_node addon is installed and Supervisor reports a
+    hostname, otherwise None.
+
+    Falls back gracefully on every error path — the caller already has
+    HTTP probes + the hard-coded default to try after this.
     """
+    try:
+        from homeassistant.components.hassio import (  # type: ignore[import-not-found]
+            get_addons_info,
+        )
+        from homeassistant.helpers.hassio import (  # type: ignore[import-not-found]
+            is_hassio,
+        )
+    except ImportError:
+        return None
+    try:
+        if not is_hassio(hass):
+            return None
+        addons = get_addons_info(hass) or {}
+    except Exception as exc:
+        _LOG.debug("supervisor addon enumeration failed: %s", exc)
+        return None
+    for slug, info in addons.items():
+        # Supervisor slugs look like '<repo-uuid>_openclaw_hass_node'.
+        # Exact or suffix match only — substring matching would catch
+        # unrelated addons like '<x>_openclaw_hass_node_proxy'.
+        if not isinstance(slug, str):
+            continue
+        if slug != "openclaw_hass_node" and not slug.endswith("_openclaw_hass_node"):
+            continue
+        if not isinstance(info, dict):
+            continue
+        hostname = info.get("hostname")
+        if isinstance(hostname, str) and hostname:
+            url = f"http://{hostname}:{NODE_LOCAL_PORT}"
+            _LOG.info("openclaw node hostname from Supervisor: %s", url)
+            return url
+    return None
+
+
+async def _probe_default_socket_url(
+    session: aiohttp.ClientSession,
+    hass: Any = None,
+) -> str:
+    """Discover the OpenClaw Node API URL.
+
+    Two-stage discovery:
+
+    1. **Supervisor API** — if we're running under HA Supervisor, ask
+       it directly for the addon's hostname. This is install-specific
+       (varies by repo-uuid hash) but Supervisor knows it. Most
+       reliable path when available.
+    2. **HTTP probes** — fall back to concurrent ``GET
+       /v1/conversation/info`` probes against a list of candidate
+       hostnames. Worst-case stall is bounded by a single
+       ``PROBE_TIMEOUT_S`` window (~1s).
+
+    Returns the first reachable URL, or :data:`DEFAULT_SOCKET_URL` if
+    neither path succeeds (#88/1).
+    """
+    if hass is not None:
+        supervisor_url = await _supervisor_addon_url(hass)
+        if supervisor_url is not None and await _probe_one(session, supervisor_url):
+            return supervisor_url
     urls = [f"http://{host}:{NODE_LOCAL_PORT}" for host in PROBE_CANDIDATE_HOSTS]
     results = await asyncio.gather(
         *(_probe_one(session, url) for url in urls), return_exceptions=False
@@ -159,7 +218,7 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         session = aiohttp_client.async_get_clientsession(self.hass)
-        suggested_url = await _probe_default_socket_url(session)
+        suggested_url = await _probe_default_socket_url(session, self.hass)
         _pw = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
         schema = vol.Schema(
             {
