@@ -4,12 +4,15 @@
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
 > `STATUS.md` disagree, fix whichever is wrong before continuing.
 
-## Where we are (2026-06-08, ~01:30 EDT)
+## Where we are (2026-06-08)
 
 **EYES AND HANDS WORK.** `openclaw nodes invoke --node hass --command ping`
 round-trips cleanly. Addon installed, paired, connected, all 28 commands
 surface in `openclaw nodes describe`, `node.invoke.request` →
-`node.invoke.result` works end-to-end. Currently on **2026.6.7**.
+`node.invoke.result` works end-to-end. Currently on **2026.6.8a1** (alpha).
+The exact version string is enforced by `test_version_sync.py` across
+`pyproject.toml`, `addon/config.yaml`, `addon/build.yaml`,
+`manifest.json`, and the source-literal fallback in `__init__.py`.
 
 **Install-ready surface:**
 
@@ -21,10 +24,18 @@ surface in `openclaw nodes describe`, `node.invoke.request` →
   `ConversationEntity` that POSTs to the node's `/v1/conversation`.
 - Gateway WS client: Ed25519 handshake, pairing, reconnect loop,
   `node.invoke` dispatcher, device_token persistence with NOT_PAIRED /
-  PAIRING_REQUIRED / AUTH_TOKEN_MISMATCH self-heal. All frames now
-  shaped per the canonical SDK schema at
-  `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts`.
-- 424 tests, 96.21% branch coverage, all 6 CI gates green.
+  PAIRING_REQUIRED / AUTH_TOKEN_MISMATCH self-heal. All frames shaped
+  per the canonical SDK schema at
+  `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts`
+  (canonical-only — no legacy-shape fallbacks per alpha policy).
+- Local HTTP API gated by bearer-token middleware when
+  `local_api_token` is set; host port mapping removed from the add-on
+  config so the API is only reachable inside the Supervisor add-on
+  network by default.
+- Secret files (`node-key.json`, `device-token`) written at mode
+  `0o600` with `O_NOFOLLOW` so a planted symlink can't redirect the
+  write. Path-validated unlink before token reset.
+- Tests pass with branch coverage gated at 95%, all CI gates green.
 
 **Two holes still open:**
 

@@ -27,13 +27,17 @@ HACS shim (ConversationEntity)
     │ POST /v1/conversation
     ▼
 OpenClaw HA node (this add-on (app))
-    │ chat.send + sessions.messages.subscribe (existing OC chat surface)
+    │ chat.send + sessions.messages.subscribe   ◄── PLANNED (P5.12), not wired
     ▼
 OpenClaw gateway → configured agent
-    │ ha.* tool calls back via node.invoke
+    │ ha.* tool calls back via node.invoke      ◄── WORKING today
     ▼
-Speech reply
+Speech reply                                    ◄── PLANNED, returns placeholder today
 ```
+
+Today the bottom half (gateway-side tool invokes) works end to end; the
+top half (Assist conversation relay) returns a placeholder string until
+P5.12 lands the ChatRelay.
 
 **New here?** Read **[`docs/OVERVIEW.md`](docs/OVERVIEW.md)** for
 what this is, what each part (add-on (app), HACS integration, gateway)
