@@ -35,4 +35,6 @@ ports:
   8099/tcp: 8099
 ingress: false
 panel_icon: mdi:robot-happy
-image: ghcr.io/clawd-ops/openclaw-hass-node/{arch}
+# No `image:` key — Supervisor builds locally from addon/Dockerfile.
+# Once P7 ships a release workflow that publishes per-arch images to
+# GHCR, re-add: image: ghcr.io/clawd-ops/openclaw-hass-node/{arch}
