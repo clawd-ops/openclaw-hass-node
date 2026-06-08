@@ -420,7 +420,7 @@ class GatewayClient:
         _LOG.debug("Pulled %d pending items", len(items))
         for item in items:
             await self._handle_invoke(ws, item)
-            await self._ack_pending(ws, str(item["invokeId"]))
+            await self._ack_pending(ws, str(item.get("id") or item.get("invokeId") or ""))
 
     async def _ack_pending(
         self, ws: websockets.asyncio.client.ClientConnection, invoke_id: str
@@ -431,7 +431,7 @@ class GatewayClient:
             ws: The open WebSocket connection.
             invoke_id: The invoke ID to acknowledge.
         """
-        ack = _make_req("node.pending.ack", {"invokeId": invoke_id})
+        ack = _make_req("node.pending.ack", {"id": invoke_id})
         await ws.send(json.dumps(ack))
 
     async def _event_loop(self, ws: websockets.asyncio.client.ClientConnection) -> None:
@@ -460,7 +460,7 @@ class GatewayClient:
             payload: The ``node.invoke.request`` event payload containing
                 ``invokeId``, ``command``, and ``params``.
         """
-        invoke_id: str = str(payload.get("invokeId", ""))
+        invoke_id: str = str(payload.get("id", payload.get("invokeId", "")))
         command: str = str(payload.get("command", ""))
         params: dict[str, Any] = dict(payload.get("params") or {})
         _LOG.debug("Invoke invokeId=%s command=%r", invoke_id, command)
@@ -469,14 +469,14 @@ class GatewayClient:
             result = await dispatch_async(command, params)
             resp = _make_req(
                 "node.invoke.result",
-                {"invokeId": invoke_id, "ok": True, "result": result},
+                {"id": invoke_id, "ok": True, "result": result},
             )
         except UnknownCommandError as exc:
             _LOG.warning("Unknown command: %r", command)
             resp = _make_req(
                 "node.invoke.result",
                 {
-                    "invokeId": invoke_id,
+                    "id": invoke_id,
                     "ok": False,
                     "error": f"UNKNOWN_COMMAND: {exc.command}",
                 },
@@ -486,7 +486,7 @@ class GatewayClient:
             resp = _make_req(
                 "node.invoke.result",
                 {
-                    "invokeId": invoke_id,
+                    "id": invoke_id,
                     "ok": False,
                     "error": "COMMAND_ERROR",
                     "message": "Internal command error",
