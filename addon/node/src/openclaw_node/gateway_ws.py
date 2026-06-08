@@ -493,7 +493,9 @@ class GatewayClient:
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
             _LOG.warning(
                 "invoke ◀ %s UNKNOWN_COMMAND id=%s %dms",
-                command, invoke_id[:8], elapsed_ms,
+                command,
+                invoke_id[:8],
+                elapsed_ms,
             )
             resp = _make_req(
                 "node.invoke.result",
@@ -507,7 +509,10 @@ class GatewayClient:
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
             _LOG.exception(
                 "invoke ◀ %s COMMAND_ERROR id=%s %dms: %s",
-                command, invoke_id[:8], elapsed_ms, exc,
+                command,
+                invoke_id[:8],
+                elapsed_ms,
+                exc,
             )
             resp = _make_req(
                 "node.invoke.result",
