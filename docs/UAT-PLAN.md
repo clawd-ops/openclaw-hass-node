@@ -27,20 +27,20 @@
    `node_name`, and (recommended) `local_api_token`.
 3. **Start**.
 4. Open **Logs**.
-5. **Expect:** within ~5 s, lines like:
+5. **Expect:** within a few seconds, log lines like:
 
    ```
-   Starting openclaw-hass-node 2026.6.8a1 in add-on mode
+   Starting openclaw-hass-node <version> in add-on mode
    Gateway URL: wss://...
    Data dir: /data/openclaw
-   Loaded existing device identity: <device-id>   (or "Generated new")
-   Connecting to gateway: wss://...
+   Loaded existing device identity: <device-id>
    ```
 
-   On the first connect with a pairing token you will additionally see
-   `PAIRING_REQUIRED` and `Waiting for pairing approval from the
-   gateway…`. After the gateway-side approval, the line becomes
-   `Pairing approved by gateway.`
+   (Or `Generated new device identity: <device-id>` on first run.)
+
+   On the first connect with a pairing token you will see
+   `PAIRING_REQUIRED` and a waiting message. After the gateway-side
+   approval the node logs the approval event.
 
 6. **Expected version line:** the version printed in the first log
    line MUST equal what is in `addon/config.yaml`. CI gates on

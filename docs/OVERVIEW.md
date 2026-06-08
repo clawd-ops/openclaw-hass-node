@@ -1,6 +1,6 @@
 # What is openclaw-hass-node?
 
-> ⚠️ **Alpha as of 2026-06-08.** The node command surface is
+> ⚠️ **Alpha.** The node command surface is
 > working end-to-end (pair, connect, invoke), but the HA Assist
 > conversation relay (P5.12) is not yet wired, publishing
 > infrastructure is incomplete, and breaking changes between

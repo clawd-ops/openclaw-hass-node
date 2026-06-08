@@ -1,95 +1,79 @@
 # Command Surface
 
-Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist.
+> **Alpha.** This file documents the **live** command registry in
+> `commands/dispatcher.py`. Commands listed here are registered and
+> working. Planned commands that are not yet implemented are listed
+> separately at the end.
 
-## `fs.*` — filesystem
+Commands the node exposes via `node.invoke`. Group prefixes match
+OpenClaw conventions where they exist. 28 commands are registered.
+
+## `ping` — liveness
+
+| Command | Args        | Notes  |
+|---------|-------------|--------|
+| `ping`  | `message?`  | Always available |
+
+## `fs.*` — filesystem (11 commands)
 
 | Command       | Args                                | Notes                     |
 |---------------|-------------------------------------|---------------------------|
-| `fs.read`     | `path`, `offset?`, `limit?`         | Direct                    |
-| `fs.list`     | `path`, `recursive?`, `glob?`       | Direct                    |
-| `fs.stat`     | `path`                              | Direct                    |
-| `fs.glob`     | `pattern`, `cwd?`                   | Direct                    |
-| `fs.write`    | `path`, `content`, `mode?`          | **Proposal-gated** under protected roots |
-| `fs.patch`    | `path`, `patch` (unified diff)      | **Proposal-gated** under protected roots |
-| `fs.move`     | `src`, `dst`                        | **Proposal-gated** under protected roots |
-| `fs.delete`   | `path`                              | **Proposal-gated** under protected roots; uses `trash-cli`, never `rm` |
-| `fs.restore`  | `trash_id?` or `path?`              | Restore from trash                     |
+| `fs.read`     | `path`, `offset?`, `limit?`         |                           |
+| `fs.list`     | `path`, `recursive?`, `glob?`       |                           |
+| `fs.stat`     | `path`                              |                           |
+| `fs.glob`     | `pattern`, `cwd?`                   |                           |
+| `fs.write`    | `path`, `content`, `mode?`          |                           |
+| `fs.patch`    | `path`, `patch` (unified diff)      |                           |
+| `fs.move`     | `src`, `dst`                        |                           |
+| `fs.delete`   | `path`                              | Uses `send2trash` (FreeDesktop.org spec) with an OpenClaw-managed trash directory fallback |
+| `fs.restore`  | `trash_id?` or `path?`              | Restore from trash        |
+| `fs.history`  | `path`                              | Content-addressed backup history |
+| `fs.diff`     | `path`, `version?`                  | Diff against backup version |
 
-Protected roots: `/config`, `/addons`, `/ssl`. Writes there always
-generate an agent-bridge `propose_edit` and wait for `resolve_proposal`.
+All filesystem commands are scoped to the add-on's allowed roots
+(`/config`, `/share`, `/ssl`, `/addons`, `/media`, `/backup` in
+add-on mode; configurable via `OPENCLAW_ALLOWED_ROOTS` in standalone
+mode). Path traversal and symlink escape are blocked by `safe_fd.py`.
 
-## `system.*` — shell
+## `system.*` — shell (2 commands)
 
-| Command            | Args                          | Notes                  |
-|--------------------|-------------------------------|------------------------|
-| `system.run`       | `cmd`, `cwd?`, `env?`, `timeout?` | Requires `operator.admin` |
-| `system.which`     | `binary`                      |                        |
-| `system.env`       | —                             | Sanitized              |
+| Command        | Args                               | Notes                  |
+|----------------|-------------------------------------|------------------------|
+| `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
+| `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control
+## `ha.*` — Home Assistant control (15 commands)
 
-| Command                  | Notes                                  |
-|--------------------------|----------------------------------------|
-| `ha.list_states`         | All entities and current state         |
-| `ha.get_state`           | One entity                             |
-| `ha.list_services`       | Service catalog                        |
-| `ha.call_service`        | domain, service, target, data          |
-| `ha.list_areas`          |                                        |
-| `ha.list_devices`        |                                        |
-| `ha.list_entity_registry`|                                        |
-| `ha.list_automations`    | + traces                               |
-| `ha.reload_config`       | core.check_config + reload domain      |
-| `ha.logbook`             | entity, start, end                     |
-| `ha.history`             | entity, start, end                     |
+| Command                   | Args / Notes                           |
+|---------------------------|----------------------------------------|
+| `ha.list_states`          | All entities and current state         |
+| `ha.get_state`            | `entity_id`                            |
+| `ha.list_services`        | Service catalog (REST)                 |
+| `ha.call_service`         | `domain`, `service`, `target?`, `data?` |
+| `ha.list_areas`           | Via WS API                             |
+| `ha.list_devices`         | Via WS API                             |
+| `ha.list_entity_registry` | Via WS API                             |
+| `ha.logbook`              | `entity_id?`, `start?`, `end?` (REST) |
+| `ha.history`              | `entity_id?`, `start?`, `end?` (REST) |
+| `ha.reload_config`        | `domain`, `admin_token`; gated by `OPENCLAW_ADMIN_TOKEN` |
+| `ha.light_turn_on`        | `entity_id` or `area_id` or `device_id` |
+| `ha.light_turn_off`       | `entity_id` or `area_id` or `device_id` |
+| `ha.list_automations`     | `include_traces?`; filters to `automation.` prefix |
+| `ha.check_config`         | Validates HA core config before reload |
 
-## `ha.config.*` — domain config editing
+## Planned (not yet registered)
 
-Detects YAML vs UI storage mode per domain and routes to the right
-path. See `HA-CONFIG-EDITING.md` for the per-domain breakdown.
+The following command groups are designed but not yet implemented.
+They will be registered in the dispatcher as each phase ships.
 
-| Command                              | Notes                                           |
-|--------------------------------------|-------------------------------------------------|
-| `ha.config.automations.list`         |                                                 |
-| `ha.config.automations.get`          | id                                              |
-| `ha.config.automations.set`          | id, config — proposal-gated                     |
-| `ha.config.automations.delete`       | id — proposal-gated                             |
-| `ha.config.scripts.*`                | same shape as automations                       |
-| `ha.config.scenes.*`                 | same shape                                      |
-| `ha.config.lovelace.get`             | dashboard?                                      |
-| `ha.config.lovelace.set`             | dashboard?, config — proposal-gated             |
-| `ha.config.blueprints.list`          | by domain                                       |
-| `ha.config.blueprints.get`           | path                                            |
-| `ha.config.blueprints.set`           | path, content — proposal-gated                  |
-| `ha.check_config`                    | call before any reload                          |
-
-## `docs.*` — versioned HA docs lookup
-
-| Command           | Args                              | Notes                                  |
-|-------------------|-----------------------------------|----------------------------------------|
-| `docs.lookup`     | `topic`, `version?`               | Defaults to running core version       |
-| `docs.search`     | `query`, `version?`               | Local-cache backed search              |
-| `docs.versions`   | —                                 | Available cached versions              |
-
-## `ha.supervisor.*` — Supervisor API (add-on (app) mode only)
-
-| Command                       | Notes                          |
-|-------------------------------|--------------------------------|
-| `ha.supervisor.info`          |                                |
-| `ha.supervisor.addons.list`   |                                |
-| `ha.supervisor.addons.info`   |                                |
-| `ha.supervisor.addons.restart`| Proposal-gated                 |
-| `ha.supervisor.snapshots.*`   | Proposal-gated                 |
-
-## `assist.*` — conversation agent
-
-Shape TBD pending P1 research. Likely:
-
-| Command              | Notes                                                |
-|----------------------|------------------------------------------------------|
-| `assist.turn`        | Inbound conversation turn from HA → gateway          |
-| `assist.reply`       | Outbound reply from gateway → HA                     |
-
-If Plan B (HACS shim) is required, the shim posts to
-`http://<node>/assist/turn` and the node forwards via gateway WS.
+- **`ha.config.*`** — domain config editing (automations, scripts,
+  scenes, lovelace, blueprints). Detects YAML vs UI storage mode.
+  See `HA-CONFIG-EDITING.md`.
+- **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
+  `docs.search`, `docs.versions`).
+- **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,
+  snapshots).
+- **`assist.*`** — conversation relay commands. Superseded by the
+  P5.12 ChatRelay design which uses `chat.send` +
+  `sessions.messages.subscribe` over the existing gateway WS
+  instead of custom command types.

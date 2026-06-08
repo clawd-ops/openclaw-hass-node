@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "OpenClaw Gateway",
-        "description": "Connect Home Assistant Assist to the local OpenClaw Node add-on.",
+        "description": "Connect Home Assistant Assist to the local OpenClaw Node add-on. Alpha: the Assist conversation relay currently returns a placeholder response.",
         "data": {
           "socket_url": "OpenClaw Node add-on URL"
         }

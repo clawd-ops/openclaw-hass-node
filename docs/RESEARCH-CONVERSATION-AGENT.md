@@ -1,5 +1,11 @@
 # Research: Registering an HA Assist Conversation Agent from an Add-on (App)
 
+> **Correction (2026-06-06).** The `node.conversation.request/result`
+> event types proposed in this document were deleted in P5.11. The
+> correct relay architecture uses `chat.send` +
+> `sessions.messages.subscribe` over the existing gateway WS. See
+> `RESEARCH-OPENCLAW-INTEGRATION.md` for the current design.
+
 **Question.** Can a Home Assistant Assist "conversation agent" be registered from an HA add-on (app) (or via Supervisor / WS / REST API) WITHOUT shipping a companion `custom_components/` Python integration?
 
 **Verdict: Plan A (add-on (app) alone) is NOT viable as of HA core ~2026.6. Plan B (thin `custom_components/` shim that forwards to the add-on (app) socket) is the only realistic option.**
