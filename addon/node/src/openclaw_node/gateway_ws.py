@@ -409,7 +409,8 @@ class GatewayClient:
         Args:
             ws: The open WebSocket connection.
         """
-        req = _make_req("node.pending.pull", {"limit": _PENDING_PULL_LIMIT})
+        # Gateway rejects 'limit' param; current schema takes empty params.
+        req = _make_req("node.pending.pull", {})
         await ws.send(json.dumps(req))
         raw = await ws.recv()
         msg: dict[str, Any] = json.loads(raw)
@@ -455,42 +456,38 @@ class GatewayClient:
     ) -> None:
         """Execute a single command invoke and send the result back.
 
+        Canonical node.invoke.result shape per /app/dist/node-cli-D-_DNWjG.js
+        buildNodeInvokeResultParams: {id, nodeId, ok, payload?, error?}.
+
         Args:
             ws: The open WebSocket connection.
             payload: The ``node.invoke.request`` event payload containing
-                ``invokeId``, ``command``, and ``params``.
+                ``id``, ``nodeId``, ``command``, and ``params``.
         """
         invoke_id: str = str(payload.get("id", payload.get("invokeId", "")))
+        node_id: str = str(payload.get("nodeId", ""))
         command: str = str(payload.get("command", ""))
         params: dict[str, Any] = dict(payload.get("params") or {})
-        _LOG.debug("Invoke invokeId=%s command=%r", invoke_id, command)
+        _LOG.debug("Invoke id=%s nodeId=%s command=%r", invoke_id, node_id, command)
 
+        base = {"id": invoke_id, "nodeId": node_id}
         try:
             result = await dispatch_async(command, params)
             resp = _make_req(
                 "node.invoke.result",
-                {"id": invoke_id, "ok": True, "result": result},
+                {**base, "ok": True, "payload": result},
             )
         except UnknownCommandError as exc:
             _LOG.warning("Unknown command: %r", command)
             resp = _make_req(
                 "node.invoke.result",
-                {
-                    "id": invoke_id,
-                    "ok": False,
-                    "error": f"UNKNOWN_COMMAND: {exc.command}",
-                },
+                {**base, "ok": False, "error": f"UNKNOWN_COMMAND: {exc.command}"},
             )
         except Exception as exc:
             _LOG.exception("Command %r raised: %s", command, exc)
             resp = _make_req(
                 "node.invoke.result",
-                {
-                    "id": invoke_id,
-                    "ok": False,
-                    "error": "COMMAND_ERROR",
-                    "message": "Internal command error",
-                },
+                {**base, "ok": False, "error": "COMMAND_ERROR"},
             )
 
         await ws.send(json.dumps(resp))
