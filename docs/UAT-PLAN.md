@@ -30,7 +30,13 @@
    ```
 
 5. **Failure modes to watch:**
-   - "SUPERVISOR_TOKEN missing" → add-on permissions issue.
+   - "SUPERVISOR_TOKEN missing" inside an HA add-on install → real
+     Supervisor injection failure (rare; HA bug or non-Supervisor
+     HA install). Standalone Docker installs **expect** no
+     SUPERVISOR_TOKEN; the add-on falls back to a `/data`
+     writability check to decide addon-mode (PR #40,
+     `config._is_addon_mode`). Don't file this as a bug unless
+     you're running as a Supervisor add-on.
    - "HA REST unreachable" → networking issue, not the node.
    - Python tracebacks → file a comment with the full log.
 
