@@ -990,7 +990,7 @@ def test_persist_device_token_closes_fd_when_fdopen_fails(tmp_path: Path) -> Non
     client = _make_client_in(tmp_path)
     # Use a real fd from the OS so os.close on it actually works (and would
     # surface as an OSError on double-close if we got the bookkeeping wrong).
-    real_fd, real_path = _os.pipe()
+    read_fd, write_fd = _os.pipe()
     try:
         closed_fds: list[int] = []
         real_close = _os.close
@@ -1000,18 +1000,18 @@ def test_persist_device_token_closes_fd_when_fdopen_fails(tmp_path: Path) -> Non
             real_close(fd)
 
         with (
-            patch("os.open", return_value=real_fd),
+            patch("os.open", return_value=read_fd),
             patch("os.fchmod"),
             patch("os.fdopen", side_effect=OSError("fdopen failed")),
             patch("os.close", side_effect=_tracking_close),
             pytest.raises(OSError, match="fdopen failed"),
         ):
             client._persist_device_token("tok")
-        assert real_fd in closed_fds, "fd from os.open must be closed when fdopen fails"
+        assert read_fd in closed_fds, "fd from os.open must be closed when fdopen fails"
     finally:
-        # Clean up the read end of the pipe (write end was closed by the test).
+        # Clean up the write end of the pipe (read end was closed by the test).
         with contextlib.suppress(OSError):
-            _os.close(real_path)
+            _os.close(write_fd)
 
 
 def test_persist_device_token_replace_failure_cleans_tmp(tmp_path: Path) -> None:
