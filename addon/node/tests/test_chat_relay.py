@@ -500,3 +500,98 @@ async def test_concurrent_turns_serialized() -> None:
     assert r1 == "Reply 1"
     assert r2 == "Reply 2"
     assert order == ["turn1_done", "turn2_done"]
+
+
+@pytest.mark.asyncio
+async def test_pre_ack_event_with_new_run_id() -> None:
+    """Pre-ack event with a new runId on turn 2 is not rejected as stale."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-preack"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    # Turn 1: sets _active_run_id to "run-old"
+    async def _first() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_event(_session_message_event(session_key, "assistant", "T1"))
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-old"}))
+
+    task = asyncio.create_task(_first())
+    await relay.relay_turn(conv_id, "Turn 1")
+    await task
+
+    assert relay._active_run_id.get(session_key) == "run-old"
+
+    # Turn 2: event with run-new arrives BEFORE chat.send ack
+    async def _second() -> None:
+        await asyncio.sleep(0.01)
+        # Pre-ack event with new runId (active_run_id cleared at turn start)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": session_key,
+                    "role": "assistant",
+                    "message": "T2 reply",
+                    "runId": "run-new",
+                },
+            }
+        )
+        send_frame = sender.frames[3]
+        relay.handle_response(_ok_response(send_frame["id"], {"runId": "run-new"}))
+
+    task = asyncio.create_task(_second())
+    reply = await relay.relay_turn(conv_id, "Turn 2")
+    await task
+
+    assert reply == "T2 reply"
+
+
+@pytest.mark.asyncio
+async def test_no_reply_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing reply raises ChatRelayError instead of returning empty string."""
+    import openclaw_node.chat_relay as _mod
+
+    monkeypatch.setattr(_mod, "_TURN_TIMEOUT_S", 0.1)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-noreply"
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        # chat.send ack but no assistant event ever arrives
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+
+    task = asyncio.create_task(_respond())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn(conv_id, "Hello")
+    await task
+
+    assert exc_info.value.code == "NO_REPLY"
+
+
+@pytest.mark.asyncio
+async def test_rpc_send_failure_cleans_pending() -> None:
+    """If the send callback raises, pending future is cleaned up."""
+
+    async def _broken_send(frame: dict[str, Any]) -> None:
+        raise ConnectionError("WS closed")
+
+    relay = ChatRelay(_broken_send)
+
+    with pytest.raises(ConnectionError):
+        await relay._rpc("test.method", {})
+
+    assert len(relay._pending) == 0

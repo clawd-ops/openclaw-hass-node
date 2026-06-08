@@ -107,6 +107,9 @@ class ChatRelay:
             await self._ensure_session(session_key, conversation_id)
 
         self._last_assistant_text.pop(session_key, None)
+        # Clear stale runId so pre-ack events with a new runId are not
+        # rejected against the previous turn's runId.
+        self._active_run_id.pop(session_key, None)
         reply_event = asyncio.Event()
         self._reply_events[session_key] = reply_event
 
@@ -149,10 +152,9 @@ class ChatRelay:
 
         reply = self._last_assistant_text.get(session_key, "")
         if not reply:
-            _LOG.warning(
-                "No assistant reply captured for session %s (runId=%s); returning empty string",
-                session_key,
-                run_id,
+            raise ChatRelayError(
+                "NO_REPLY",
+                f"No assistant reply captured for session {session_key} (runId={run_id})",
             )
         return reply
 
@@ -227,7 +229,11 @@ class ChatRelay:
             "method": method,
             "params": params,
         }
-        await self._send(frame)
+        try:
+            await self._send(frame)
+        except Exception:
+            self._pending.pop(req_id, None)
+            raise
 
         try:
             async with asyncio.timeout(timeout):
