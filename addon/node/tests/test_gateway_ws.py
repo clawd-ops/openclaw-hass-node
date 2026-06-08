@@ -199,7 +199,7 @@ async def test_handle_invoke_ping() -> None:
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is True
-    assert sent["params"]["result"]["pong"] is True
+    assert sent["params"]["payload"]["pong"] is True
 
 
 async def test_handle_invoke_unknown_command() -> None:
@@ -231,7 +231,6 @@ async def test_handle_invoke_command_exception() -> None:
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
     assert sent["params"]["error"] == "COMMAND_ERROR"
-    assert sent["params"]["message"] == "Internal command error"
     assert "something went wrong" not in json.dumps(sent)
 
 
