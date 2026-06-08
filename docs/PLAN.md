@@ -20,8 +20,14 @@ gives the gateway three capability surfaces in one process:
    conversation agent so Assist turns go to Clawd. Replaces the Anthropic
    conversation integration.
 
-The node speaks the standard OpenClaw gateway WS protocol (role: `node`)
-and pairs once via `openclaw devices approve`.
+The node speaks the standard OpenClaw gateway WS protocol over **two
+parallel connections**: `role: node` (for the node-invoke surface) and
+`role: operator` (for ChatRelay's `chat.send` / `sessions.messages.*`).
+The device is paired as dual-role `[node, operator]` via the QR /
+bootstrap-token flow (same `PAIRING_SETUP_BOOTSTRAP_PROFILE` mobile
+clients use). The single-role `role: node` approach was attempted in
+P5.12 and disproved by the gateway's binary role policy — see #82.
+Refactor tracked under **P5.13** / #84.
 
 ## Non-goals
 
@@ -32,10 +38,10 @@ and pairs once via `openclaw devices approve`.
 ## Architecture
 
 ```
-+------------------+        WS (gateway protocol)        +-----------------+
++------------------+   WS #1 role: node (invoke surface)  +-----------------+
 |  OpenClaw GW     | <----------------------------------> |  HASS Node      |
-|  (Clawd model)   |        role: node, scopes:           |  (this repo)    |
-|                  |        operator.write, operator.admin|                 |
+|  (Clawd model)   |   WS #2 role: operator (ChatRelay)   |  (this repo)    |
+|                  | <----------------------------------> |                 |
 +------------------+                                      +--------+--------+
                                                                    |
                                                   +----------------+----------------+
@@ -185,20 +191,25 @@ or fix.
 
 ### 3. Assist conversation agent
 
-**Architecture (corrected 2026-06-06):** the HA node is a **standard
-OpenClaw node** that relays Assist turns into an OpenClaw agent session
-using the *existing* gateway chat surface. There is no parallel brain,
-no custom event types, no plugin code. Clawd (the agent) is the brain.
+**Architecture (corrected 2026-06-08 — P5.13):** the HA node is a
+**standard OpenClaw node** that relays Assist turns into an OpenClaw
+agent session using the *existing* gateway chat surface. There is no
+parallel brain, no custom event types, no plugin code. Clawd (the
+agent) is the brain. The node maintains **two** parallel WS
+connections to the gateway — one as `role: node` for tool invokes,
+one as `role: operator` for ChatRelay's chat RPCs — because the
+gateway's role policy is binary per-method and `chat.send` is an
+operator-scope method (see P5.12 post-mortem below).
 
 End-to-end flow:
 
 ```
 HA Assist → ConversationEntity shim → node /v1/conversation
-         → node calls `chat.send` on its existing gateway WS
+         → node ChatRelay calls `chat.send` on its OPERATOR WS
          → OpenClaw routes the message to the configured agent (Clawd)
-         → agent calls ha.* tools via node.invoke (already wired in P4)
+         → agent calls ha.* tools via node.invoke on the NODE WS (P4)
          → agent reply arrives on the session
-         → node receives it via sessions.messages.subscribe
+         → node receives it via sessions.messages.subscribe (operator WS)
          → /v1/conversation returns the reply text
          → shim surfaces it as Assist speech
 ```
@@ -210,14 +221,29 @@ Three pieces, only one of which is bespoke:
    add-on (app)'s local HTTP endpoint. Distributed via HACS. Required by HA
    core because conversation-agent registration is in-process Python
    only (see `docs/RESEARCH-CONVERSATION-AGENT.md`).
-2. **Node** (this repo). Already paired with the gateway. Adds a
-   `ChatRelay` (P5.12 work) that owns `chat.send` calls plus a
-   subscription via `sessions.messages.subscribe`, keyed by HA's
-   `conversation_id` so multi-turn threads correctly.
+2. **Node** (this repo). Pairs with the gateway as dual-role `[node,
+   operator]` via the QR / bootstrap-token flow (same
+   `PAIRING_SETUP_BOOTSTRAP_PROFILE` mobile clients use). Opens two
+   gateway WS connections with independent reconnect loops. The
+   `ChatRelay` owns `chat.send` and `sessions.messages.subscribe` on
+   the operator socket; the existing node-invoke dispatcher stays on
+   the node socket. Keyed by HA's `conversation_id` so multi-turn
+   threads correctly.
 3. **OpenClaw** (no changes). The relay uses primitives the Gateway
    Protocol already ships: `chat.send`, `sessions.messages.subscribe`,
-   `node.invoke`. Pair the node, approve it, point an agent at the
-   session, done.
+   `node.invoke`. Pair the node as dual-role, approve it, point an
+   agent at the session, done.
+
+**P5.12 post-mortem (2026-06-08, #82):** P5.12 was built calling
+`chat.send` from the single `role: node` connection. The gateway's
+role check is `isCoreNodeGatewayMethod(method) ? role === 'node' :
+role === 'operator'`, and `chat.send` is scope `operator.write`. A
+node-role connection can never call it. The phone client appeared to
+"just work" — in reality it pairs dual-role and connects as operator
+for chat. The fix is the dual-WS refactor under P5.13 / #84; the
+existing ChatRelay code (concurrency, content-block extraction, runId
+filter, deadline) is sound and gets reused, only the transport
+changes.
 
 **Why this is right (and the earlier "build a brain" path was wrong):**
 the OpenClaw gateway already owns model routing, agent orchestration,
@@ -345,9 +371,18 @@ Live state in `STATUS.md`. Checkmarks here are an at-a-glance summary.
   - ✅ P5.10 — research doc only; superseded
   - ✅ P5.11 — cleanup: delete wrong-direction code, document the
     node-as-conversation-relay architecture
-  - ⏭ **P5.12 — ChatRelay implementation** (next in-repo work).
-    `chat.send` + `sessions.messages.subscribe` on the existing
-    gateway WS, keyed by HA `conversation_id`. ~100 LOC of node Python.
+  - ◑ **P5.12 — ChatRelay implementation (shipped, broken).** Built
+    `chat.send` + `sessions.messages.subscribe` on the existing `role:
+    node` gateway WS — disproved by first real Assist turn (#82). Code
+    landed (PR #72); auth/transport needs the P5.13 refactor.
+  - ⏭ **P5.13 — Dual WS connection** (#84). Node maintains two
+    parallel gateway WS connections: existing `role: node` for
+    invokes, new `role: operator` for ChatRelay's `chat.send` and
+    `sessions.messages.subscribe`. Device paired as dual-role via
+    `PAIRING_SETUP_BOOTSTRAP_PROFILE` (QR / bootstrap-token flow).
+    Independent reconnect loops; one connection failing doesn't take
+    the other down. No back-compat migration — existing single-role
+    devices remove + re-add (alpha rule).
 - ◑ **P6 — Retire MCP servers** for this HA after the validation
   window. P6.1 (validation harness) shipped; cron it. P6.2 (cutover
   PR) fires only when the harness ever prints `RETIREMENT_READY`.

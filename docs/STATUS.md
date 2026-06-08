@@ -1,22 +1,38 @@
 # Status
 
-> **Alpha.** The node is working end-to-end (pair, connect, invoke,
-> **Assist relay**). Publishing infrastructure is incomplete and breaking
-> changes between versions are expected.
+> **Alpha.** Pair / connect / tool invokes work. **Assist relay is broken**
+> — the P5.12 ChatRelay was built on a faulty premise (see #82). Tracking
+> the dual-connection refactor under **P5.13** (#84). Publishing
+> infrastructure is incomplete and breaking changes between versions are
+> expected.
 
 > **Update this file at every meaningful state change.** It is the
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
 > `STATUS.md` disagree, fix whichever is wrong before continuing.
 
-## Where we are (2026-06-08)
+## Where we are (2026-06-08 PM)
 
-**EYES AND HANDS WORK.** `openclaw nodes invoke --node hass --command ping`
-round-trips cleanly. Addon installed, paired, connected, all 28 commands
-surface in `openclaw nodes describe`, `node.invoke.request` →
-`node.invoke.result` works end-to-end. Currently on **2026.6.8a1** (alpha).
-The exact version string is enforced by `test_version_sync.py` across
-`pyproject.toml`, `addon/config.yaml`, `addon/build.yaml`,
-`manifest.json`, and the source-literal fallback in `__init__.py`.
+**EYES AND HANDS WORK. MOUTH DOES NOT.** `openclaw nodes invoke --node hass
+--command ping` round-trips cleanly. Tool invokes (28 commands across
+`fs.*`, `system.*`, `ha.*`, `ping`) work end-to-end. **But Assist
+conversation does NOT work** — first real Assist turn returned HTTP 502
+with `INVALID_REQUEST unauthorized role: node` (#82). The P5.12 ChatRelay
+was designed to call `chat.send` from a `role: node` connection, which the
+gateway hard-rejects (chat.send is `operator.write` scope; binary role
+check). The phone works because it pairs dual-role via QR / bootstrap
+token and connects as `operator` for chat.
+
+**Path forward — P5.13 (#84):** dual WS connection in the node. Existing
+`role: node` socket keeps serving node-side invokes; a new `role: operator`
+socket carries ChatRelay's `chat.send` + `sessions.messages.subscribe`.
+Pair the device as dual-role using the `PAIRING_SETUP_BOOTSTRAP_PROFILE`
+the QR flow uses for phones. No back-compat migration (alpha rule);
+existing single-role devices remove + re-add.
+
+Currently on **2026.6.8a6** (alpha). Version is enforced by
+`test_version_sync.py` across `pyproject.toml`, `addon/config.yaml`,
+`addon/build.yaml`, `manifest.json`, and the source-literal fallback in
+`__init__.py`.
 
 **Install-ready surface:**
 
@@ -41,18 +57,23 @@ The exact version string is enforced by `test_version_sync.py` across
   write. Path-validated unlink before token reset.
 - Tests pass with branch coverage gated at 95%, all CI gates green.
 
-**Zero holes open — full pipeline wired.**
+**One hole open: ChatRelay broken — tracked under P5.13 (#84).**
 
 **Recently closed:**
 
-- **P5.12 — ChatRelay (2026-06-08).** Full Assist turn relay: HA shim
-  POSTs to `/v1/conversation` → node `ChatRelay` calls `chat.send` +
-  `sessions.messages.subscribe` over gateway WS → agent session → reply.
-  Features: per-session concurrency lock, single monotonic deadline,
-  dual event family handling (session.message + chat*), content-block
-  array extraction, runId-based event filtering, events rejected when
-  no turn is active. Codex reviewed v1→v6 (6 rounds, all findings
-  addressed). PR #72, 7 files, 1351 insertions.
+- **P5.12 — ChatRelay (2026-06-08).** ⚠️ **Shipped but architecturally
+  wrong.** Built on the assumption that a `role: node` connection could
+  call `chat.send`; the gateway hard-rejects this (chat.send is
+  `operator.write` scope, role check is binary). Verified by the first
+  real Assist turn returning `INVALID_REQUEST unauthorized role: node`
+  (#82). The relay's session/event/concurrency machinery is sound and
+  will be reused under P5.13; the auth/connection layer needs a dual-WS
+  refactor. PR #72 stays in tree as the relay implementation; P5.13
+  swaps the transport underneath it.
+
+- **2026.6.8a6 (#83).** Surface node-side error code + body in the HA
+  shim's Assist speech instead of bare HTTP status. Without this fix
+  the 502 above would have been opaque.
 
 - **P-INSTALL — HA credentials option fallback (2026-06-08).** Added
   optional `hass_url` + `hass_token` add-on options. `run.sh` exports
@@ -90,14 +111,31 @@ install walkthrough in [`docs/INSTALL.md`](INSTALL.md) including the
 **required** `gateway.nodes.allowCommands` patch on the OpenClaw side
 and the dual-queue approval flow.
 
-**Architecture for P5.12 (decided 2026-06-06):** the node calls
-`chat.send` over its existing gateway WS connection to inject the
-Assist turn into an agent session, and subscribes via
-`sessions.messages.subscribe` to receive the reply. The session is
+**Architecture, current — P5.13 (decided 2026-06-08):** the node
+maintains **two** gateway WS connections:
+
+1. **`role: node`** — serves `node.invoke.*`, `node.event`, etc. as
+   today. Survives ChatRelay outages.
+2. **`role: operator`** — dedicated to ChatRelay. Calls `chat.send` to
+   inject the Assist turn into an agent session and
+   `sessions.messages.subscribe` to receive the reply.
+
+The device is paired as dual-role `[node, operator]` using the
+`PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow), which grants
+operator scopes `approvals, read, talk.secrets, write`. The session is
 keyed by HA's `conversation_id` for multi-turn threading. The agent
-(Clawd) uses `ha.*` tools via the existing `node.invoke` path — no
-changes there. Full design + post-mortem of the wrong-direction
-approach in `docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
+(Clawd) uses `ha.*` tools via the existing `node.invoke` path on the
+node connection — no changes there.
+
+**Why the original P5.12 design failed:** gateway role policy is binary
+per-method (`isCoreNodeGatewayMethod` ? `role === 'node'` : `role ===
+'operator'`). A node-role connection literally cannot call any
+operator-scope method, regardless of scopes advertised. The phone
+client appeared to work as "a single connection that does both" — in
+fact it pairs dual-role and opens an operator connection for chat.
+Full root-cause investigation in #82; refactor design + acceptance in
+#84. Original P5.12 wrong-direction post-mortem still in
+`docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
 
 **Next concrete steps (in order):**
 
