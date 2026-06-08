@@ -21,11 +21,21 @@ _EMPTY = "".join(())
 def _is_addon_mode() -> bool:
     """Return True when running inside a Home Assistant add-on.
 
-    Returns:
-        True if the ``SUPERVISOR_TOKEN`` environment variable is set,
-        indicating the process is running as an HA add-on.
+    Primary signal is the ``SUPERVISOR_TOKEN`` env var, which Supervisor
+    injects when ``hassio_api: true`` is set in ``addon/config.yaml``.
+
+    Fallback: HA add-on containers always get a writable ``/data`` mount
+    (regardless of whether hassio_api is enabled), so an existing
+    writable ``/data`` directory is a reliable secondary signal. This
+    matters when Supervisor doesn't inject SUPERVISOR_TOKEN despite
+    config flags asking for it (observed 2026-06-08 install) — without
+    this fallback the addon writes to ``/root/.openclaw/hass-node``
+    which doesn't persist across container restarts.
     """
-    return bool(os.environ.get("SUPERVISOR_TOKEN"))
+    if os.environ.get("SUPERVISOR_TOKEN"):
+        return True
+    data = Path("/data")
+    return data.is_dir() and os.access(data, os.W_OK)
 
 
 @dataclass(frozen=True)
