@@ -3,13 +3,11 @@
 [![GitHub stars](https://img.shields.io/github/stars/clawd-ops/openclaw-hass-node?style=social)](https://github.com/clawd-ops/openclaw-hass-node/stargazers)
 [![BuyMeCoffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-donate-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/roblandry)
 
-> ⚠️ **Alpha — not ready for general use.** The
-> node command surface works end-to-end (pair, connect, invoke
-> round-trips cleanly), but the HA Assist conversation relay is
-> not yet wired (P5.12), publishing infrastructure isn't in place,
-> and breaking changes between versions are expected. If you
-> install today, the add-on (app) will pair and run tool commands, but
-> Assist turns will return a placeholder. Watch
+> ⚠️ **Alpha — not ready for general use.** The node command surface
+> and the HA Assist conversation relay (P5.13 dual-WS) both work
+> end-to-end: pair, connect, invoke round-trips, and ChatRelay all
+> stream cleanly. Publishing infrastructure isn't in place yet, and
+> breaking changes between versions are expected. Watch
 > [`docs/STATUS.md`](docs/STATUS.md) for the first beta tag.
 
 Home Assistant add-on (app) + HACS shim that connects HA to an [OpenClaw][]
@@ -26,18 +24,19 @@ HA Assist UI
 HACS shim (ConversationEntity)
     │ POST /v1/conversation
     ▼
-OpenClaw HA node (this add-on (app))
-    │ chat.send + sessions.messages.subscribe   ◄── PLANNED (P5.12), not wired
+OpenClaw HA node (this add-on)
+    │ chat.send + sessions.messages.subscribe   ◄── WORKING (P5.13 dual-WS, operator role)
     ▼
 OpenClaw gateway → configured agent
-    │ ha.* tool calls back via node.invoke      ◄── WORKING today
+    │ ha.* tool calls back via node.invoke      ◄── WORKING (node role)
     ▼
-Speech reply                                    ◄── PLANNED, returns placeholder today
+Speech reply
 ```
 
-Today the bottom half (gateway-side tool invokes) works end to end; the
-top half (Assist conversation relay) returns a placeholder string until
-P5.12 lands the ChatRelay.
+Both halves work end-to-end as of P5.13 (PR #86 + #87 + #89). The node
+opens two parallel gateway connections — node-role for invokes,
+operator-role for ChatRelay — sharing a single device identity. Pair
+the device with a dual-role profile via `openclaw qr`.
 
 **New here?** Read **[`docs/OVERVIEW.md`](docs/OVERVIEW.md)** for
 what this is, what each part (add-on (app), HACS integration, gateway)
@@ -70,8 +69,13 @@ in INSTALL.md.
   × 11, `system.*` × 2, `ping`).
 - **Pairing + connect**: works end-to-end with device-token persistence.
 - **Conversation relay (`/v1/conversation` → OpenClaw chat surface)**:
-  P5.12, not yet wired. Until it lands, the endpoint returns a clear
-  placeholder. Tool invocations from the gateway work today.
+  P5.13 dual-WS, working today. The node's operator-role WebSocket
+  owns the ChatRelay; pair with a dual-role profile to enable it.
+- **Local HTTP API**: fail-closed bearer auth (`local_api_token` is
+  required; non-public paths return `401 NO_TOKEN_CONFIGURED`
+  otherwise). The HTTP command surface is allowlisted to `ping` and
+  `system.which`; the full surface is gateway-authorized and delivered
+  over the node-role gateway WS.
 
 Live state and roadmap: [`docs/STATUS.md`](docs/STATUS.md).
 Architecture and decisions: [`docs/PLAN.md`](docs/PLAN.md).

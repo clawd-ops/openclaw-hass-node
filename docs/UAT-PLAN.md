@@ -4,10 +4,11 @@
 > result you should see. If anything diverges, paste the diff into
 > the channel and Clawd will dig in.
 >
-> **State as of the current alpha (`2026.6.8a1`):** install, pair,
-> connect, and gateway-side tool invokes all work end-to-end. The
-> Assist conversation relay (P5.12) and the proposal/write flow are
-> still planned.
+> **State as of the current alpha (`2026.6.8a7`):** install, pair,
+> connect, gateway-side tool invokes, and Assist conversation relay
+> (P5.13 dual-WS) all work end-to-end. Local HTTP API is fail-closed
+> (a token is required); HACS shim probes for the local API at
+> config-flow time. The proposal/write flow is still planned.
 
 ## Phase A — Install
 
@@ -173,12 +174,15 @@ behind the proposal/agent-bridge flow.
   breaking change. Expect the proposal body to cite the
   breaking-change entry and include a functional fix.
 
-## Phase E — Assist conversation agent *(planned — P5.12)*
+## Phase E — Assist conversation agent *(live — P5.13)*
 
-Until P5.12 lands the ChatRelay (`chat.send` +
-`sessions.messages.subscribe`), picking the OpenClaw Gateway shim as
-your Assist conversation agent yields a clear placeholder string —
-not a tool call back through the gateway.
+P5.13 dual-WS shipped over PRs #86 + #87 + #89: the node now opens
+parallel node-role and operator-role gateway connections, the
+operator-role connection owns the ChatRelay (`chat.send` +
+`sessions.messages.subscribe`), and selecting the OpenClaw Gateway
+shim as your Assist conversation agent streams real responses back
+through the gateway. Pair the device with a dual-role profile via
+`openclaw qr`.
 
 ### E1. Set Clawd as your Assist conversation agent in
    **Settings → Voice Assistants**.

@@ -74,6 +74,6 @@ They will be registered in the dispatcher as each phase ships.
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,
   snapshots).
 - **`assist.*`** — conversation relay commands. Superseded by the
-  P5.12 ChatRelay design which uses `chat.send` +
-  `sessions.messages.subscribe` over the existing gateway WS
-  instead of custom command types.
+  P5.13 dual-WS ChatRelay (shipped 2026-06-08), which uses
+  `chat.send` + `sessions.messages.subscribe` over the operator-role
+  gateway connection instead of custom command types.
