@@ -13,34 +13,38 @@ arch:
   - aarch64
   - armv7
 init: false
-# hassio_api: required to call Supervisor REST endpoints (addon status,
-# snapshot triggers, host info). hassio_role:manager is the minimum role
-# that allows add-on and HA lifecycle management; the alpha feature set
-# does not require supervisor-level admin (ingress, OS updates, hardware).
-# Elevate to "admin" only when a shipped feature explicitly requires it.
+# hassio_api: kept so the add-on can call Supervisor REST endpoints from
+# `ha_client`/`commands/ha` (HA Core API proxying via SUPERVISOR_TOKEN).
+# hassio_role: defaulted (no elevated role) — shipped code only proxies
+# HA Core API calls; no add-on/host/backup lifecycle calls justify
+# `manager` or higher. Elevate to `manager`/`admin` only when a shipped
+# Supervisor lifecycle feature explicitly needs it.
 hassio_api: true
-hassio_role: manager
 homeassistant_api: true
-# auth_api: needed to validate bearer tokens for the local HTTP API.
-auth_api: true
+# auth_api intentionally omitted: the local HTTP API authenticates with a
+# shared bearer (`local_api_token`) via `hmac.compare_digest`, not via the
+# HA Auth API. Re-enable only if a shipped surface validates HA-issued
+# tokens with the Supervisor auth endpoint.
 map:
-  # config:rw — core feature: read/write HA configuration files on behalf
-  # of the gateway (e.g. automations, scripts, lovelace).
-  - config:rw
-  # share:rw — core feature: read/write the /share volume for cross-addon
-  # data exchange and gateway-requested file operations.
+  # config:ro — `/config` is exposed as an allowed read root. Writes are
+  # gated and currently return `PROPOSAL_REQUIRED` (proposal bridge not
+  # shipped); upgrade to `:rw` only when the proposal flow lands.
+  - config:ro
+  # share:rw — backs the per-file content-addressed backup store
+  # (/share/openclaw-backups) and the delete trash fallback
+  # (/share/openclaw-trash). Real shipped writes.
   - share:rw
-  # ssl:ro — read-only: the node reads TLS certificates for HA API calls
-  # but never writes to the ssl volume in the current feature set.
+  # ssl:ro — exposed through generic read roots; no dedicated TLS cert
+  # reader is shipped yet, kept reserved for future HA API hardening.
   - ssl:ro
-  # addons:ro — read-only: addon enumeration and status reads only.
-  # No add-on installation or write operations are implemented yet.
+  # addons:ro — exposed through generic read roots; no dedicated add-on
+  # enumeration/status reader shipped yet, kept reserved.
   - addons:ro
-  # media:rw — read/write: media file operations exposed to the gateway.
+  # media:rw — `/media` is an allowed root and not protected, so
+  # `fs.write` can resolve and atomically write here.
   - media:rw
-  # backup:ro — read-only for now: backup listing and download. Snapshot
-  # creation via Supervisor API does not require rw on the backup volume
-  # directly; elevate to rw only when a backup-write feature lands.
+  # backup:ro — exposed through generic read roots; no dedicated backup
+  # listing/download reader shipped yet, kept reserved.
   - backup:ro
 options:
   gateway_url: "wss://gateway.example.com/ws"
