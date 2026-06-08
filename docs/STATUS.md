@@ -120,13 +120,14 @@ recorded in
 
 ## Discoverability / sponsorship — pre-beta TODOs
 
-- **Buy Me a Coffee link.** Live in README + `.github/FUNDING.yml`
-  pointing at `buymeacoffee.com/roblandry` (pulled from Rob's
-  apex-fusion-home-assistant repo). To add GitHub Sponsors too:
-  enable Sponsors on Rob's personal GH account, then extend
-  `.github/FUNDING.yml` with a `github: [roblandry]` line. Org
-  Sponsors on `clawd-ops` is also possible but more setup; ask
-  first.
+- **Funding links.** `.github/FUNDING.yml` and README both live.
+  BMC (`buymeacoffee.com/roblandry`) is active now. GitHub Sponsors
+  for `roblandry` is staged in FUNDING.yml but waiting on GH staff
+  approval (profile shown as Pending 2026-06-08). Cross-account is
+  fine: FUNDING.yml names who gets sponsored, not who owns the
+  repo, so a `clawd-ops/*` repo can fund a personal account
+  directly. The Sponsor button on the repo page will start working
+  the moment GitHub approves the profile.
 - **Stars badge.** Added (social-style shields.io badge pointing at
   `/stargazers`). Surfaces popularity as the project takes off.
 - **Other badges to consider once published:** HACS default badge
