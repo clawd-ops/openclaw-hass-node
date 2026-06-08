@@ -107,6 +107,27 @@
     gateway evicts the device (operator-initiated remove, gateway data
     wipe, etc.), the addon would loop NOT_PAIRED forever sending the
     same invalid token. `_maybe_drop_invalid_device_token` deletes the
-    persisted token on NOT_PAIRED/PAIRING_REQUIRED and falls back to
-    `config.pairing_token` so the addon self-heals on the next
-    reconnect.
+    persisted token on NOT_PAIRED/PAIRING_REQUIRED/AUTH_TOKEN_MISMATCH/
+    token_mismatch and falls back to `config.pairing_token` so the
+    addon self-heals on the next reconnect.
+21. **OpenClaw has two parallel pair registries.** A node connecting
+    with `role: node` files **two** pair requests in parallel:
+    - One in the **devices** registry (auth/token only, no commands).
+    - One in the **nodes** registry (commands + caps + node metadata).
+
+    Approving only via `openclaw devices approve <id>` pairs the
+    device but leaves the nodes-registry request hanging and the
+    stored `commands` / `caps` / `declaredCommands` are all null —
+    invoke fails with `node did not declare any supported commands`.
+    The correct flow is **also** `openclaw nodes approve <id>` (find
+    the request id under `openclaw nodes pending` or read
+    `~/.openclaw/nodes/pending.json`). 28-command surface appeared
+    immediately after the nodes-side approval landed.
+22. **`gateway.nodes.allowCommands` has `reloadKind: restart`** (verify
+    via `mcp__openclaw__gateway action=config.schema.lookup
+    path=gateway.nodes.allowCommands`). After editing the patch into
+    `openclaw.json`, restart the gateway (via
+    `mcp__openclaw__gateway action=restart` or pod-delete) **before**
+    the next pair approval — the allowlist is captured into the
+    device's stored record at approval-time. Approval before restart
+    stores an empty set; pairing then has to be removed and re-done.
