@@ -491,7 +491,17 @@ class GatewayClient:
                 os.close(fd)
             raise
         try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh = os.fdopen(fd, "w", encoding="utf-8")
+        except BaseException:
+            # fdopen failed before it took ownership of fd; close it ourselves
+            # so we don't leak a raw fd into the long-running addon process.
+            with contextlib.suppress(OSError):
+                os.close(fd)
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
+        try:
+            with fh:
                 fh.write(token)
                 fh.flush()
                 os.fsync(fh.fileno())
