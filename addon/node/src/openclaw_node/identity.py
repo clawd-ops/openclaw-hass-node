@@ -11,8 +11,10 @@ Signatures use the v3 pipe-separated payload format.
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -157,17 +159,63 @@ def generate_identity() -> DeviceIdentity:
     )
 
 
+_IDENTITY_FILE_MODE = 0o600
+
+
+class _UnsafePathError(OSError):
+    """Raised when a private-file path would follow a symlink off the data dir."""
+
+
+def _open_private_fd(path: Path) -> int:
+    """Open *path* O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW and force mode 0o600.
+
+    ``O_NOFOLLOW`` rejects an existing symlink at *path* so the private file
+    cannot be redirected outside its directory. ``os.open`` only applies the
+    mode argument when creating a new file, so we ``os.fchmod`` immediately
+    after open to also tighten any pre-existing loose-mode file.
+    """
+    if path.is_symlink():
+        raise _UnsafePathError(f"refusing to write to symlink at {path}")  # noqa: TRY003
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    flags |= getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(str(path), flags, _IDENTITY_FILE_MODE)
+    try:
+        os.fchmod(fd, _IDENTITY_FILE_MODE)
+    except OSError:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+        raise
+    return fd
+
+
+def _write_private_file(path: Path, content: str) -> None:
+    """Write *content* to *path* with mode 0o600, bypassing process umask.
+
+    Refuses to follow an existing symlink at *path*. Forces mode 0o600
+    even if the file already existed at a looser mode.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = _open_private_fd(path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+        raise
+
+
 def save_identity(identity: DeviceIdentity, path: Path) -> None:
     """Persist *identity* to *path* as JSON.
 
-    The private key is serialised as PKCS8 PEM (no encryption).  Creates
-    parent directories if they do not exist.
+    The private key is serialised as PKCS8 PEM (no encryption). Creates
+    parent directories if they do not exist. The file is written with
+    mode ``0o600`` to keep the Ed25519 private key off other local users.
 
     Args:
         identity: The :class:`DeviceIdentity` to persist.
         path: Destination file path (typically ``data_dir/node-key.json``).
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
     priv_pem = identity.private_key.private_bytes(
         Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()
     ).decode()
@@ -176,7 +224,7 @@ def save_identity(identity: DeviceIdentity, path: Path) -> None:
         "public_key_b64url": identity.public_key_b64url,
         "private_key_pem": priv_pem,
     }
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    _write_private_file(path, json.dumps(data, indent=2))
 
 
 def load_identity(path: Path) -> DeviceIdentity:
@@ -195,6 +243,13 @@ def load_identity(path: Path) -> DeviceIdentity:
             Ed25519 key.
     """
     raw = json.loads(path.read_text(encoding="utf-8"))
+    # Older add-on versions wrote the key with the process umask (typically
+    # 0o644). Tighten on load so an upgraded install converges to 0o600 —
+    # but never chmod through a symlink, which would silently retarget the
+    # tightening to a file outside the data dir.
+    if not path.is_symlink():
+        with contextlib.suppress(OSError):
+            path.chmod(_IDENTITY_FILE_MODE)
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
     priv = load_pem_private_key(raw["private_key_pem"].encode(), password=None)

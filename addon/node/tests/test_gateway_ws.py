@@ -644,3 +644,160 @@ def test_runtime_gateway_connected_starts_false() -> None:
 
     runtime = NodeRuntime(_make_config())
     assert runtime.gateway_connected is False
+
+
+# ---- device-token persistence permissions ----
+
+
+def _make_client_in(data_dir: Path) -> GatewayClient:
+    """Build a GatewayClient whose config.data_dir is *data_dir*."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="t",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=data_dir,
+    )
+    identity = generate_identity()
+    return GatewayClient(config=config, identity=identity)
+
+
+def test_persist_device_token_writes_with_mode_0600(tmp_path: Path) -> None:
+    """The device token must land at mode 0o600."""
+    import stat as _stat
+
+    client = _make_client_in(tmp_path)
+    client._persist_device_token("issued-token")
+    path = tmp_path / "device-token"
+    assert path.read_text() == "issued-token"
+    assert _stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_persist_device_token_tightens_existing_loose_file(tmp_path: Path) -> None:
+    """An existing 0o644 token file must be tightened on the next persist."""
+    import stat as _stat
+
+    client = _make_client_in(tmp_path)
+    path = tmp_path / "device-token"
+    path.write_text("old")
+    path.chmod(0o644)
+    client._persist_device_token("new-token")
+    assert _stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_persist_device_token_replaces_existing_loose_tmp(tmp_path: Path) -> None:
+    """A pre-existing 0o644 device-token.tmp must end up 0o600 after persist."""
+    import stat as _stat
+
+    client = _make_client_in(tmp_path)
+    tmp = tmp_path / "device-token.tmp"
+    tmp.write_text("stale-tmp")
+    tmp.chmod(0o644)
+    client._persist_device_token("real-token")
+    final = tmp_path / "device-token"
+    assert final.read_text() == "real-token"
+    assert _stat.S_IMODE(final.stat().st_mode) == 0o600
+    assert not tmp.exists()
+
+
+def test_persist_device_token_rejects_symlinked_tmp(tmp_path: Path) -> None:
+    """A symlink planted at device-token.tmp is unlinked before write."""
+    client = _make_client_in(tmp_path)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.write_text("untouched")
+    tmp = tmp_path / "device-token.tmp"
+    tmp.symlink_to(elsewhere)
+    client._persist_device_token("real-token")
+    # The decoy outside file must not have been overwritten via the symlink.
+    assert elsewhere.read_text() == "untouched"
+    final = tmp_path / "device-token"
+    assert final.read_text() == "real-token"
+
+
+def test_persist_device_token_no_chmod_through_symlink_final(tmp_path: Path) -> None:
+    """If the final path is a symlink, the token still lands at the correct spot.
+
+    Because `replace()` renames the temp file into place, the symlink at the
+    final path is replaced atomically. The defensive `chmod` after replace
+    must not follow whatever target the *new* final path resolves to (it is
+    no longer a symlink at that point), but if a race re-created a symlink
+    we must not chmod its target.
+    """
+    import stat as _stat
+
+    client = _make_client_in(tmp_path)
+    final = tmp_path / "device-token"
+    decoy = tmp_path / "decoy"
+    decoy.write_text("x")
+    decoy.chmod(0o644)
+    final.symlink_to(decoy)
+    client._persist_device_token("real-token")
+    # The replace turned `final` from a symlink into a regular file at 0o600.
+    assert final.read_text() == "real-token"
+    assert _stat.S_IMODE(final.lstat().st_mode) == 0o600
+    # The decoy that the symlink USED to point at must still be 0o644 — proof
+    # we never chmod'd through the symlink anywhere in the path.
+    assert _stat.S_IMODE(decoy.stat().st_mode) == 0o644
+
+
+def test_token_path_safe_to_unlink_accepts_path_inside_data_dir(tmp_path: Path) -> None:
+    """Token path under data_dir is safe to unlink."""
+    client = _make_client_in(tmp_path)
+    token_path = tmp_path / "device-token"
+    token_path.write_text("x")
+    assert client._token_path_safe_to_unlink(token_path) is True
+
+
+def test_token_path_safe_to_unlink_rejects_path_outside_data_dir(tmp_path: Path) -> None:
+    """A path that resolves outside data_dir must be refused."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    client = _make_client_in(data_dir)
+    outside = tmp_path / "elsewhere" / "device-token"
+    outside.parent.mkdir()
+    outside.write_text("x")
+    assert client._token_path_safe_to_unlink(outside) is False
+    assert outside.exists()
+
+
+def test_token_path_safe_to_unlink_refuses_symlink(tmp_path: Path) -> None:
+    """A symlink at the token path is refused even if the target is inside data_dir."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    real = data_dir / "real"
+    real.write_text("x")
+    link = data_dir / "device-token"
+    link.symlink_to(real)
+    client = _make_client_in(data_dir)
+    assert client._token_path_safe_to_unlink(link) is False
+    assert link.exists()
+    assert real.exists()
+
+
+def test_maybe_drop_invalid_device_token_unlinks_when_safe(tmp_path: Path) -> None:
+    """A NOT_PAIRED trigger with a safe path actually removes the file."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    client = _make_client_in(data_dir)
+    client._device_token = "stale"
+    path = client._config.device_token_path
+    path.write_text("stale")
+    client._maybe_drop_invalid_device_token(RuntimeError("NOT_PAIRED from gateway"))
+    assert not path.exists()
+    assert client._device_token == ""
+
+
+def test_maybe_drop_invalid_device_token_no_op_on_unrelated_exc(tmp_path: Path) -> None:
+    """An unrelated exception must not touch the persisted token."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    client = _make_client_in(data_dir)
+    client._device_token = "stale"
+    path = client._config.device_token_path
+    path.write_text("stale")
+    client._maybe_drop_invalid_device_token(RuntimeError("WS_CLOSED"))
+    assert path.exists()
+    assert client._device_token == "stale"
