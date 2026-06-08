@@ -71,11 +71,14 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`,
   `fs.patch`) are **proposal-gated** — they accept the args but emit an
   agent-bridge `propose_edit` and wait for resolve.
-- `fs.delete` uses `trash-cli`, never `rm`. New `fs.restore` command
+- `fs.delete` uses `send2trash` (FreeDesktop.org spec) with an
+  OpenClaw-managed trash directory fallback, never `rm`. `fs.restore`
   recovers from trash. No sidecar `.bak` files anywhere.
-- `system.run` requires `operator.admin` scope on pairing approval.
-- Supervisor API exposed via `ha.supervisor.*` commands wrapping
-  `http://supervisor/...` with `SUPERVISOR_TOKEN`.
+- `system.run` gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must
+  pass matching `admin_token` param.
+- Supervisor API via `ha.supervisor.*` commands wrapping
+  `http://supervisor/...` with `SUPERVISOR_TOKEN` (planned, not yet
+  registered).
 
 ### 1b. Backup / undo model
 
@@ -282,7 +285,7 @@ bar enforced in GitHub Actions:
 - Strict type checking: `mypy --strict` + `pyright --strict`.
 - Google-style docstrings on every public symbol (`ruff` D-rules +
   `pydoclint`).
-- 100 % branch coverage on shipped code (`pytest` + `coverage.py`).
+- 95 % branch coverage gate on shipped code (`pytest` + `coverage.py`).
 - Lint/format: `ruff check` and `ruff format --check`.
 - Security: `bandit`, `pip-audit`.
 - Add-on (App) smoke build for `amd64`/`aarch64`/`armv7`.
@@ -294,8 +297,10 @@ remove a build chain).
 
 ## Open questions
 
-1. **Conversation agent registration from outside `custom_components/`** —
-   research needed before committing to add-on (app)-only.
+1. ~~**Conversation agent registration from outside `custom_components/`**~~
+   **Resolved (P1.1, 2026-06-05): not viable.** Plan B (thin HACS shim)
+   is the only realistic option. See
+   `docs/RESEARCH-CONVERSATION-AGENT.md`.
 2. ~~**agent-bridge connectivity from the node**~~ **Resolved (P1.2,
    2026-06-05): gateway brokers.** Node speaks only the gateway WS
    protocol; emits `node.propose` requests, gateway translates to
