@@ -77,11 +77,24 @@ stored approved-commands stays empty and you'll have to
    - `pairing_token`: a one-time token from your gateway's pairing
      flow. **For Assist to work, this MUST be a dual-role bootstrap
      token** (grants both `node` and `operator` roles on a single
-     device record). Get it via `openclaw qr` and copy the token from
-     the displayed bootstrap profile. The plain `openclaw devices add`
-     flow issues a node-role-only token; the operator-role connection
-     ChatRelay needs will then be rejected by the gateway with
+     device record). The plain `openclaw devices add` flow issues a
+     node-role-only token; the operator-role connection ChatRelay
+     needs will then be rejected by the gateway with
      `INVALID_REQUEST: unauthorized role: operator`.
+
+     On a headless gateway, extract the raw token like this:
+
+     ```bash
+     openclaw qr --json --no-ascii | \
+       jq -r .setupCode | base64 -d | jq -r .bootstrapToken
+     # → e.g. KsQ3euJaFrppxKsdqV4QUAJXhbtGg5pgg368BGUbwOk
+     ```
+
+     `openclaw qr` is named for the mobile pairing flow, but on a
+     headless install you don't need the actual QR — the JSON output
+     contains the same dual-role bootstrap profile the mobile app
+     would scan. Paste the printed `bootstrapToken` value into this
+     field.
    - `node_name`: friendly name shown in the gateway UI (e.g. `hass`).
    - `local_api_token` **(required)**: any opaque random string
      (e.g. `openssl rand -hex 32`). The local HTTP API is fail-closed:
