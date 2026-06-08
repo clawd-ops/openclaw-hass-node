@@ -194,7 +194,7 @@ async def test_handle_invoke_ping() -> None:
     ws = AsyncMock()
     ws.send = AsyncMock()
     await client._handle_invoke(
-        ws, {"invokeId": "inv-1", "command": "ping", "params": {"message": "hi"}}
+        ws, {"id": "inv-1", "command": "ping", "params": {"message": "hi"}}
     )
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
@@ -207,7 +207,7 @@ async def test_handle_invoke_unknown_command() -> None:
     ws = AsyncMock()
     ws.send = AsyncMock()
     await client._handle_invoke(
-        ws, {"invokeId": "inv-2", "command": "does.not.exist", "params": {}}
+        ws, {"id": "inv-2", "command": "does.not.exist", "params": {}}
     )
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
@@ -226,7 +226,7 @@ async def test_handle_invoke_command_exception() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    await client._handle_invoke(ws, {"invokeId": "inv-3", "command": "test.bad", "params": {}})
+    await client._handle_invoke(ws, {"id": "inv-3", "command": "test.bad", "params": {}})
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
@@ -246,7 +246,7 @@ async def test_ack_pending_sends_correct_request() -> None:
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["method"] == "node.pending.ack"
-    assert sent["params"]["invokeId"] == "inv-99"
+    assert sent["params"]["id"] == "inv-99"
 
 
 # ---- _pull_pending tests ----
@@ -265,7 +265,7 @@ async def test_pull_pending_with_items() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    items = [{"invokeId": "i1", "command": "ping", "params": {}}]
+    items = [{"id": "i1", "command": "ping", "params": {}}]
     ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
     await client._pull_pending(ws)
     # One send for pull request, one for invoke result, one for ack
@@ -315,7 +315,7 @@ async def test_event_loop_dispatches_invoke() -> None:
             {
                 "type": "event",
                 "event": "node.invoke.request",
-                "payload": {"invokeId": "e1", "command": "ping", "params": {}},
+                "payload": {"id": "e1", "command": "ping", "params": {}},
             }
         ),
     ]
