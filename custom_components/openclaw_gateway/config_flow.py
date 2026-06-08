@@ -125,8 +125,13 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             socket_url = _normalise_socket_url(str(user_input[CONF_SOCKET_URL]))
             submitted_token = str(user_input.get(CONF_API_TOKEN, "") or "")
-            existing_token = str(entry.data.get(CONF_API_TOKEN, "") or "")
-            api_token = submitted_token or existing_token
+            url_changed = socket_url != _normalise_socket_url(current_url)
+            if submitted_token:
+                api_token = submitted_token
+            elif url_changed:
+                api_token = ""
+            else:
+                api_token = str(entry.data.get(CONF_API_TOKEN, "") or "")
             # If URL is unchanged, skip unique_id update. If changed, the
             # new URL must not collide with another entry's unique_id.
             # _abort_if_unique_id_mismatch can't be used because the URL
