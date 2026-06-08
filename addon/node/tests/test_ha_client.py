@@ -88,6 +88,20 @@ async def test_ha_get_uses_supervisor_in_addon_mode(monkeypatch: pytest.MonkeyPa
     assert "supervisor" in call_args[0][0]
 
 
+async def test_ha_url_ignores_hass_url_when_supervisor_token_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HASS_URL must not override the Supervisor URL when SUPERVISOR_TOKEN is set."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-tok")
+    monkeypatch.setenv("HASS_URL", "http://evil.example.com")
+    resp = _FakeResp(body=[{"entity_id": "x"}])
+    with _patch_session(resp) as fake:
+        await ha_get("/api/states")
+    call_url = fake.return_value.get.call_args[0][0]
+    assert "supervisor" in call_url
+    assert "evil" not in call_url
+
+
 def test_is_addon_mode_with_supervisor_token(monkeypatch: pytest.MonkeyPatch) -> None:
     """SUPERVISOR_TOKEN makes _is_addon_mode return True."""
     from openclaw_node.ha_client import _is_addon_mode

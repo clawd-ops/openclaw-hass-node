@@ -62,7 +62,10 @@ def _ha_url() -> str:
         HAClientError: If no URL is configured.
     """
     if os.environ.get("SUPERVISOR_TOKEN"):
-        return os.environ.get("HASS_URL", "http://supervisor/core")
+        # Always use the Supervisor internal URL when the Supervisor token is
+        # present. Never combine a Supervisor-issued token with a user-supplied
+        # URL -- that would send a privileged token to an arbitrary endpoint.
+        return "http://supervisor/core"
     if _is_addon_mode():
         return os.environ.get("HASS_URL", "http://homeassistant")
     url = os.environ.get("HASS_URL", "")
