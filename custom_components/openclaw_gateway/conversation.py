@@ -101,7 +101,46 @@ class OpenClawConversationEntity(ConversationEntity):
                 },
                 timeout=timeout,
             ) as response:
-                data = await response.json(content_type=None)
+                # `response.ok` is `< 400` in aiohttp, which lets 3xx redirects
+                # fall through to `.json()` and produce a confusing parse
+                # error. Require a strict 2xx so any other status surfaces
+                # cleanly to the user.
+                if not 200 <= response.status < 300:
+                    _LOG.warning("OpenClaw Node returned HTTP %s for %s", response.status, url)
+                    speech = (
+                        "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
+                        f"returned HTTP {response.status}."
+                    )
+                    chat_log.async_add_assistant_content_without_tools(
+                        AssistantContent(agent_id=user_input.agent_id, content=speech)
+                    )
+                    intent_response = intent.IntentResponse(language=user_input.language)
+                    intent_response.async_set_speech(speech)
+                    return conversation.ConversationResult(
+                        conversation_id=user_input.conversation_id,
+                        response=intent_response,
+                        continue_conversation=False,
+                    )
+                try:
+                    data = await response.json()
+                except aiohttp.ContentTypeError as exc:
+                    _LOG.warning(
+                        "OpenClaw Node responded with non-JSON content-type %r at %s: %s",
+                        response.headers.get("Content-Type"),
+                        url,
+                        exc,
+                    )
+                    speech = "OpenClaw Node returned a non-JSON response."
+                    chat_log.async_add_assistant_content_without_tools(
+                        AssistantContent(agent_id=user_input.agent_id, content=speech)
+                    )
+                    intent_response = intent.IntentResponse(language=user_input.language)
+                    intent_response.async_set_speech(speech)
+                    return conversation.ConversationResult(
+                        conversation_id=user_input.conversation_id,
+                        response=intent_response,
+                        continue_conversation=False,
+                    )
             speech = str(
                 data.get("response") or data.get("error") or "OpenClaw Node returned no response."
             )

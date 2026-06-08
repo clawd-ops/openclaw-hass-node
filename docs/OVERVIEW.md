@@ -58,7 +58,8 @@ commands.
     stat, glob, etc. Scoped to the maps the add-on (app) is granted
     (`config:rw`, `share:rw`, `ssl:rw`, `addons:rw`, `media:rw`,
     `backup:rw`).
-  - `system.*` (2 commands): host info, uptime.
+  - `system.*` (2 commands): `system.run` (admin-token-gated shell
+    invocation) and `system.which` (locate executables on PATH).
   - `ping`: liveness check.
 - Logs every invoke at INFO with a compact entry/exit pair and
   elapsed milliseconds, so you can see what the agent is doing
@@ -211,8 +212,8 @@ not Assist), the top half of that flow is skipped: the gateway sends
 
 ## Where to go next
 
-- New user: [`docs/INSTALL.md`](INSTALL.md)
-- Live project state and roadmap: [`docs/STATUS.md`](STATUS.md)
+- New user: [`INSTALL.md`](INSTALL.md)
+- Live project state and roadmap: [`STATUS.md`](STATUS.md)
 - Gotchas and postmortems from the build:
   [`docs/LESSONS.md`](LESSONS.md)
 - Cross-provider review and version-bump rules:
