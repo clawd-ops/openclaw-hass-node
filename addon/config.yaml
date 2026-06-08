@@ -61,11 +61,22 @@ options:
   pairing_token: ""
   node_name: ""
   local_api_token: ""
+  # HA credentials fallback. Leave blank to use the Supervisor-injected
+  # SUPERVISOR_TOKEN against http://supervisor/core. Set when running on
+  # a Supervisor that doesn't inject the token (or for standalone Docker)
+  # — hass_url is the HA base URL (e.g. http://homeassistant:8123 from
+  # inside the add-on network, or your full HTTPS URL externally), and
+  # hass_token is a long-lived access token from a HA user with the
+  # scopes your ha.* calls need.
+  hass_url: ""
+  hass_token: ""
 schema:
   gateway_url: url
   pairing_token: password
   node_name: str?
   local_api_token: password?
+  hass_url: str?
+  hass_token: password?
 # No `ports:` host-mapping. The local API is only reachable inside the
 # Supervisor add-on network (the HACS shim uses the add-on hostname). A
 # host-mapped port would expose the API to anything on the host network,

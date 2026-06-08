@@ -85,6 +85,17 @@ stored approved-commands stays empty and you'll have to
      reach it inside the Supervisor add-on network. Paste the same
      value into the HACS shim config flow so the integration can call
      the API.
+   - `hass_url` *(optional)*: HA base URL fallback. Leave blank in
+     normal Supervisor installs — the node hits `http://supervisor/core`
+     with the Supervisor-injected token. Set when (a) your Supervisor
+     does not inject `SUPERVISOR_TOKEN` despite the add-on's API flags,
+     or (b) you run the same image standalone outside of Supervisor.
+     Example values: `http://homeassistant:8123` from inside the add-on
+     network, or your full external HTTPS URL.
+   - `hass_token` *(optional)*: Long-lived access token from a HA user
+     with the scopes your `ha.*` calls need. Required together with
+     `hass_url` whenever you fill that in. Generate at HA → Profile →
+     Long-Lived Access Tokens. Treated as a password (masked).
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.
