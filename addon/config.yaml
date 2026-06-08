@@ -30,13 +30,20 @@ homeassistant_api: true
 map:
   # config:rw — `/config` write capability is granted at the OS layer
   # so the proposal-approved write path can land without re-touching
-  # this manifest. The actual write-protection boundary is the software
-  # gate: `_is_protected("/config")` returns True and write/patch/move/
-  # delete commands return `PROPOSAL_REQUIRED` before any disk write
-  # is attempted (see addon/node/src/openclaw_node/commands/fs_write.py
-  # and commands/fs_patch.py / commands/fs_move_delete.py). Mount-level
-  # rw is intentional: HA-side permissions are not the security
-  # boundary here, the dispatcher's PROPOSAL_REQUIRED gate is.
+  # this manifest.
+  #
+  # For the fs.* mutation commands (fs.write, fs.patch, fs.restore,
+  # fs.move, fs.delete), the actual write-protection boundary is the
+  # software gate: `_is_protected("/config")` returns True and each
+  # handler returns `PROPOSAL_REQUIRED` before any disk write/unlink/
+  # rename is attempted (see addon/node/src/openclaw_node/commands/
+  # fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
+  #
+  # NOT gated: `system.run` (commands/system_run.py) is admin-token
+  # gated (OPENCLAW_ADMIN_TOKEN) and can write anywhere the mount
+  # allows, including /config. The admin token is the protection
+  # boundary there, NOT _is_protected. Don't broaden system.run's
+  # capabilities without re-evaluating this trade-off.
   - config:rw
   # share:rw — backs the per-file content-addressed backup store
   # (/share/openclaw-backups) and the delete trash fallback
