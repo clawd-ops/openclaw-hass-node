@@ -196,6 +196,43 @@ async def test_send_connect_operator_role_advertises_operator_scopes() -> None:
     assert sent["params"]["auth"]["token"] == "shared-tok"
 
 
+def test_set_runtime_connected_writes_per_role_flag() -> None:
+    """Node and operator clients must write distinct runtime flags so the
+    two reconnect loops can't race a shared boolean (#82 follow-up)."""
+    from openclaw_node.http_api import NodeRuntime
+
+    config = _make_config()
+    identity = generate_identity()
+    runtime = NodeRuntime(config)
+    node = GatewayClient(config=config, identity=identity, runtime=runtime)
+    op = GatewayClient(
+        config=config,
+        identity=identity,
+        runtime=runtime,
+        role="operator",
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        pair_fallback_enabled=False,
+    )
+
+    assert runtime.gateway_connected is False
+    node._set_runtime_connected(True)
+    assert runtime.node_connected is True
+    assert runtime.operator_connected is False
+    assert runtime.gateway_connected is True  # derived: either flag true
+
+    op._set_runtime_connected(True)
+    assert runtime.operator_connected is True
+
+    node._set_runtime_connected(False)
+    assert runtime.node_connected is False
+    assert runtime.operator_connected is True  # operator still up
+    assert runtime.gateway_connected is True  # derived: operator is up
+
+    op._set_runtime_connected(False)
+    assert runtime.gateway_connected is False
+
+
 def test_operator_client_skips_pair_fallback_on_invalid_request() -> None:
     """When pair_fallback_enabled=False, a NOT_PAIRED error must NOT
     unlink the persisted token — the node client shares that file."""

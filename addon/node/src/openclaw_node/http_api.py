@@ -60,8 +60,22 @@ class NodeRuntime:
         """
         self.config = config
         self.pairing_state: PairingState = PairingState.UNKNOWN
-        self.gateway_connected: bool = False
+        # Per-role liveness — the node runs two parallel gateway WS
+        # connections (P5.13 #84) and either can be up while the other
+        # is reconnecting. A single shared boolean would be racy
+        # (last-writer-wins).
+        self.node_connected: bool = False
+        self.operator_connected: bool = False
         self.chat_relay: ChatRelay | None = None
+
+    @property
+    def gateway_connected(self) -> bool:
+        """Back-compat: True when EITHER role connection is up.
+
+        Used by the /health response. Specific surfaces (Assist) gate
+        on the more precise flag they actually need.
+        """
+        return self.node_connected or self.operator_connected
 
     @property
     def is_paired(self) -> bool:
@@ -344,10 +358,11 @@ async def assist_turn(request: web.Request) -> web.Response:
             text,
         )
 
-    if not runtime.gateway_connected:
+    if not runtime.operator_connected:
         return _assist_error(
             runtime,
-            "OpenClaw Node is paired but not currently connected to the gateway.",
+            "OpenClaw Node is paired but the operator gateway connection "
+            "(required for ChatRelay) is not currently up.",
             text,
         )
 

@@ -307,7 +307,7 @@ class GatewayClient:
                 self._pairing.on_reconnect()
                 self._notify_pairing_state()
                 if self._runtime is not None:
-                    self._runtime.gateway_connected = False
+                    self._set_runtime_connected(False)
                 await asyncio.sleep(_RECONNECT_DELAY_S)
 
     def _maybe_drop_invalid_device_token(self, exc: BaseException) -> None:
@@ -408,11 +408,12 @@ class GatewayClient:
 
             relay: ChatRelay | None = ChatRelay(_ws_send) if self._chat_relay_enabled else None
 
-            # Step 6: mark connected on the runtime so the local API can report.
-            # Both connections set gateway_connected; ChatRelay only published
-            # when the operator connection is up.
+            # Step 6: mark per-role connected on the runtime so the local
+            # API can report. Each connection sets its own role-specific
+            # flag — node_connected vs operator_connected — to avoid the
+            # last-writer-wins race a single shared boolean would create.
             if self._runtime is not None:
-                self._runtime.gateway_connected = True
+                self._set_runtime_connected(True)
                 if relay is not None:
                     self._runtime.chat_relay = relay
 
@@ -423,7 +424,7 @@ class GatewayClient:
                 if relay is not None:
                     relay.reset()
                 if self._runtime is not None:
-                    self._runtime.gateway_connected = False
+                    self._set_runtime_connected(False)
                     if relay is not None:
                         self._runtime.chat_relay = None
 
@@ -889,3 +890,18 @@ class GatewayClient:
         """Notify the optional callback of the current pairing state."""
         if self._pairing_state_callback is not None:
             self._pairing_state_callback(self._pairing.state)
+
+    def _set_runtime_connected(self, value: bool) -> None:
+        """Write this client's role-specific connected flag on the runtime.
+
+        Each role connection owns its own flag so the two reconnect loops
+        cannot race a shared boolean. The runtime's ``gateway_connected``
+        property derives from ``node_connected or operator_connected`` for
+        the /health back-compat surface.
+        """
+        if self._runtime is None:
+            return
+        if self._role == "operator":
+            self._runtime.operator_connected = value
+        else:
+            self._runtime.node_connected = value
