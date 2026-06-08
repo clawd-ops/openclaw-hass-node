@@ -26,20 +26,24 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         old_url = str(entry.data.get(CONF_SOCKET_URL, ""))
         new_url = _normalise_socket_url(old_url)
         if old_url != new_url:
+            collision = False
             for other in hass.config_entries.async_entries(DOMAIN):
                 if other.entry_id != entry.entry_id and (
                     other.unique_id == new_url
                     or _normalise_socket_url(other.unique_id or "") == new_url
                 ):
-                    _LOG.warning(
-                        "Duplicate entry %s already exists for %s; "
-                        "removing stale underscore entry %s",
-                        other.entry_id,
-                        new_url,
-                        entry.entry_id,
-                    )
-                    await hass.config_entries.async_remove(entry.entry_id)
-                    return False
+                    collision = True
+                    break
+            if collision:
+                _LOG.warning(
+                    "Cannot migrate %s -> %s: another entry already "
+                    "uses that URL. Remove the duplicate entry via "
+                    "Settings > Devices & Services",
+                    old_url,
+                    new_url,
+                )
+                hass.config_entries.async_update_entry(entry, version=2)
+                return True
             _LOG.info("Migrating underscore hostname: %s -> %s", old_url, new_url)
             hass.config_entries.async_update_entry(
                 entry,
