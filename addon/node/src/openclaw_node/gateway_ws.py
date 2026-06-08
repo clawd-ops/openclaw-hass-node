@@ -26,11 +26,14 @@ This module is intentionally free of add-on-specific logic; it depends only on
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import time
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
 import websockets
@@ -261,12 +264,36 @@ class GatewayClient:
             "falling back to pairing_token. The gateway will create a new "
             "pairing request on the next connect.",
         )
-        try:
-            if path.exists():
-                path.unlink()
-        except OSError as os_exc:
-            _LOG.warning("Could not remove %s: %s", path, os_exc)
+        if self._token_path_safe_to_unlink(path):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError as os_exc:
+                _LOG.warning("Could not remove %s: %s", path, os_exc)
         self._device_token = self._config.pairing_token or _EMPTY
+
+    def _token_path_safe_to_unlink(self, path: Path) -> bool:
+        """Return True only if *path* resolves inside the configured data dir.
+
+        Refuses to follow symlinks outside ``config.data_dir`` and skips the
+        unlink when ``data_dir`` itself is missing. The token file is on the
+        node's own private data mount; anything resolving elsewhere means
+        someone has tampered with it and we should leave it alone.
+        """
+        try:
+            data_dir = self._config.data_dir.resolve(strict=False)
+            resolved = path.resolve(strict=False)
+        except OSError as exc:
+            _LOG.warning("Refusing to unlink %s: cannot resolve (%s)", path, exc)
+            return False
+        try:
+            resolved.relative_to(data_dir)
+        except ValueError:
+            _LOG.warning("Refusing to unlink %s: resolved outside data_dir %s", resolved, data_dir)
+            return False
+        if path.is_symlink():
+            _LOG.warning("Refusing to unlink %s: path is a symlink", path)
+            return False
+        return True
 
     async def _connect_and_loop(self) -> None:
         """Open a single WS connection, run the handshake, then the event loop.
@@ -442,12 +469,55 @@ class GatewayClient:
                 self._persist_device_token(issued)
 
     def _persist_device_token(self, token: str) -> None:
-        """Atomically write the issued device token to ``config.device_token_path``."""
+        """Atomically write the issued device token with mode 0o600.
+
+        The bearer token gates every gateway invoke; a 0o644 file under
+        ``/data`` is readable by any other process sharing the namespace,
+        and a symlink at the token (or temp) path could redirect the write
+        outside the data dir. Hardening:
+
+        - O_NOFOLLOW on the temp open so an attacker-planted symlink at
+          ``device-token.tmp`` is rejected rather than written through.
+        - ``os.fchmod`` immediately after open to force 0o600 even if the
+          temp file already existed at a looser mode.
+        - ``fsync`` data, ``replace`` atomically, then clean up the temp
+          file on a failed replace.
+        - Refuse to ``chmod`` the final path if it is a symlink.
+        """
         path = self._config.device_token_path
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(token)
-        tmp.replace(path)
+        if tmp.is_symlink():
+            tmp.unlink()
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+        fd = os.open(str(tmp), flags, 0o600)
+        try:
+            os.fchmod(fd, 0o600)
+        except OSError:
+            with contextlib.suppress(OSError):
+                os.close(fd)
+            raise
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(token)
+                fh.flush()
+                os.fsync(fh.fileno())
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
+        try:
+            tmp.replace(path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+            raise
+        # Replace preserves the temp file's mode, but be defensive in case
+        # an earlier 0o644 file already existed at `path`. Never chmod
+        # through a symlink.
+        if not path.is_symlink():
+            with contextlib.suppress(OSError):
+                path.chmod(0o600)
 
     async def _await_approval(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Block and process events until the gateway sends pairing approval.
