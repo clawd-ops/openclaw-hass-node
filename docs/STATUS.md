@@ -56,6 +56,21 @@ Version is enforced by
   `/v1/conversation/info` (HA add-on probes + shim config-flow
   discovery). Host port mapping removed from the add-on config so the
   API is only reachable inside the Supervisor add-on network by default.
+- `/v1/commands/{command}` is allowlisted (defense-in-depth — token
+  gates *access*, allowlist gates *blast radius*). Only `ping` and
+  `system.which` are callable over HTTP; anything else returns
+  `404 UNKNOWN_COMMAND`. The full surface remains available over the
+  gateway WS path under operator authorization.
+- HACS shim probes the local API at config-flow time
+  (`openclaw-hass-node`, `a0d7b954-openclaw-hass-node`,
+  `openclaw_hass_node`, `localhost`, `homeassistant.local`) and
+  pre-fills the form with the first one that answers
+  `/v1/conversation/info`; falls back to the original hard-coded
+  default.
+- Gateway `node.pending.pull` drains the canonical `hasMore` flag in a
+  bounded loop (max 20 iterations × 50 items = 1000 items per connect)
+  so a large invoke backlog is fully drained before the event loop
+  starts.
 - Secret files (`node-key.json`, `device-token`) written at mode
   `0o600` with `O_NOFOLLOW` so a planted symlink can't redirect the
   write. Path-validated unlink before token reset.
