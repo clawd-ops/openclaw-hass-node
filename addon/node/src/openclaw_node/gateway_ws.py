@@ -81,8 +81,61 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "ha.check_config",
 ]
 _EMPTY: Final[str] = "".join(())
-_PENDING_PULL_LIMIT: Final[int] = 10
 _RECONNECT_DELAY_S: Final[float] = 5.0
+
+
+def _decode_error_code(raw: Any) -> str | None:
+    """Return the canonical ``error.code`` string for a response frame.
+
+    The canonical ``ResponseFrame.error`` shape is ``{"code", "message"}``,
+    but earlier gateway builds (and some fixtures) put a bare string code at
+    ``error``. Accept both so the pairing machine sees the same code in
+    either case.
+    """
+    if isinstance(raw, dict):
+        code = raw.get("code")
+        return code if isinstance(code, str) else None
+    if isinstance(raw, str):
+        return raw
+    return None
+
+
+class InvalidInvokeParamsError(ValueError):
+    """Raised when a node.invoke.request carries malformed canonical params.
+
+    Surfaces a schema violation to the invoker rather than silently running
+    the command with ``{}``. Missing ``paramsJSON`` is *not* an error; the
+    legacy ``params`` field is used and may itself be empty.
+    """
+
+
+def _decode_invoke_params(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return invoke params from a canonical or legacy ``node.invoke.request`` payload.
+
+    Canonical: ``paramsJSON`` is a stringified JSON object. Legacy: ``params``
+    is the dict inline. We prefer the canonical shape and fall back to the
+    legacy field for back-compat with existing test fixtures.
+
+    Raises:
+        InvalidInvokeParamsError: When ``paramsJSON`` is present but is not a
+            string of a JSON object (malformed JSON, JSON array, JSON
+            primitive, etc.).
+    """
+    raw_json = payload.get("paramsJSON")
+    if raw_json is not None:
+        if not isinstance(raw_json, str) or not raw_json:
+            raise InvalidInvokeParamsError("paramsJSON must be a non-empty string")  # noqa: TRY003
+        try:
+            decoded = json.loads(raw_json)
+        except json.JSONDecodeError as exc:
+            raise InvalidInvokeParamsError(f"paramsJSON is not valid JSON: {exc}") from exc  # noqa: TRY003
+        if not isinstance(decoded, dict):
+            raise InvalidInvokeParamsError(  # noqa: TRY003
+                f"paramsJSON must decode to a JSON object, got {type(decoded).__name__}"
+            )
+        return dict(decoded)
+    legacy = payload.get("params")
+    return dict(legacy) if isinstance(legacy, dict) else {}
 
 
 def _make_req(method: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -347,9 +400,14 @@ class GatewayClient:
     async def _recv_connect_response(
         self,
         ws: websockets.asyncio.client.ClientConnection,
-        req_id: str,  # noqa: ARG002
+        req_id: str,
     ) -> None:
         """Receive the ``connect`` response and drive the pairing machine.
+
+        Accepts canonical ``ResponseFrame.error = {"code", "message"}`` as
+        well as the legacy ``error = "<code>"`` string. Validates that the
+        response id matches the request id so an interleaved frame cannot
+        be mis-correlated.
 
         Args:
             ws: The open WebSocket connection.
@@ -362,9 +420,13 @@ class GatewayClient:
         msg: dict[str, Any] = json.loads(raw)
         if msg.get("type") != "res":
             raise ValueError(f"Expected res frame, got type={msg.get('type')!r}")  # noqa: TRY003
+        if msg.get("id") != req_id:
+            raise ValueError(  # noqa: TRY003
+                f"Connect response id mismatch: expected {req_id!r}, got {msg.get('id')!r}"
+            )
         ok: bool = bool(msg.get("ok"))
         payload: dict[str, Any] | None = msg.get("payload") if ok else None
-        error: str | None = msg.get("error") if not ok else None
+        error: str | None = None if ok else _decode_error_code(msg.get("error"))
         self._pairing.on_connect_response(ok=ok, payload=payload, error=error)
         self._notify_pairing_state()
         # On successful connect the gateway may issue a long-lived device_token
@@ -428,8 +490,24 @@ class GatewayClient:
         items: list[dict[str, Any]] = msg.get("payload", {}).get("items", [])
         _LOG.debug("Pulled %d pending items", len(items))
         for item in items:
-            await self._handle_invoke(ws, item)
-            await self._ack_pending(ws, str(item.get("id") or item.get("invokeId") or ""))
+            # Canonical NodePendingDrainResult.items[] is an envelope:
+            #   {id, payload: {invoke}, ...}
+            # Legacy test fixtures pass the invoke payload directly with no
+            # outer `payload` key. A non-dict `payload` is a malformed item;
+            # skip it (and skip the ack, so the gateway can retry/expire it).
+            if "payload" not in item:
+                invoke_payload: dict[str, Any] = item
+            elif isinstance(item["payload"], dict):
+                invoke_payload = item["payload"]
+            else:
+                _LOG.warning(
+                    "skipping malformed pending item id=%r: payload is %s",
+                    item.get("id"),
+                    type(item["payload"]).__name__,
+                )
+                continue
+            await self._handle_invoke(ws, invoke_payload)
+            await self._ack_pending(ws, str(item.get("id") or ""))
 
     async def _ack_pending(
         self, ws: websockets.asyncio.client.ClientConnection, invoke_id: str
@@ -476,11 +554,24 @@ class GatewayClient:
         invoke_id: str = str(payload.get("id", payload.get("invokeId", "")))
         node_id: str = str(payload.get("nodeId", ""))
         command: str = str(payload.get("command", ""))
-        params: dict[str, Any] = dict(payload.get("params") or {})
         _LOG.info("invoke ▶ %s id=%s", command, invoke_id[:8])
         start_ms = time.monotonic()
 
         base = {"id": invoke_id, "nodeId": node_id}
+        try:
+            params: dict[str, Any] = _decode_invoke_params(payload)
+        except InvalidInvokeParamsError as exc:
+            _LOG.warning("invoke ◀ %s INVALID_PARAMS id=%s: %s", command, invoke_id[:8], exc)
+            resp = _make_req(
+                "node.invoke.result",
+                {
+                    **base,
+                    "ok": False,
+                    "error": {"code": "INVALID_PARAMS", "message": "Malformed invoke params"},
+                },
+            )
+            await ws.send(json.dumps(resp))
+            return
         try:
             result = await dispatch_async(command, params)
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
