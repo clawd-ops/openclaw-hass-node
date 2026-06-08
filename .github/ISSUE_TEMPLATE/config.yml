@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Install / pair walkthrough
+    url: https://github.com/clawd-ops/openclaw-hass-node/blob/main/docs/INSTALL.md
+    about: User-facing install + pair instructions.
+  - name: LESSONS — known gotchas
+    url: https://github.com/clawd-ops/openclaw-hass-node/blob/main/docs/LESSONS.md
+    about: Common failure modes and their root causes.

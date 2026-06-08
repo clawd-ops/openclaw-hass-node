@@ -65,3 +65,35 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema({vol.Required(CONF_SOCKET_URL, default=DEFAULT_SOCKET_URL): str})
         return self.async_show_form(step_id="user", data_schema=schema, errors={})
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Handle reconfiguration of an existing entry.
+
+        Lets the user change the add-on socket URL without removing and
+        re-adding the integration.
+        """
+        entry = self._get_reconfigure_entry()
+        current = str(entry.data.get(CONF_SOCKET_URL, DEFAULT_SOCKET_URL))
+
+        if user_input is not None:
+            socket_url = str(user_input[CONF_SOCKET_URL]).rstrip("/")
+            # If unchanged, just update + reload without touching unique_id.
+            # If changed, the new URL must not collide with another entry's
+            # unique_id. We can't use _abort_if_unique_id_mismatch here
+            # because that's for entries whose unique_id must NOT change;
+            # the socket URL is user-editable by design.
+            if socket_url != entry.unique_id:
+                for other in self._async_current_entries(include_ignore=False):
+                    if other.entry_id != entry.entry_id and other.unique_id == socket_url:
+                        return self.async_abort(reason="already_configured")
+                self.hass.config_entries.async_update_entry(entry, unique_id=socket_url)
+            return self.async_update_reload_and_abort(
+                entry,
+                title=_entry_title(socket_url),
+                data={CONF_SOCKET_URL: socket_url},
+            )
+
+        schema = vol.Schema({vol.Required(CONF_SOCKET_URL, default=current): str})
+        return self.async_show_form(step_id="reconfigure", data_schema=schema, errors={})

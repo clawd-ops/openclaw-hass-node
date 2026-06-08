@@ -46,7 +46,17 @@ class OpenClawConversationEntity(ConversationEntity):
 
     _attr_name = "OpenClaw Gateway"
     _attr_supported_features = ConversationEntityFeature.CONTROL
-    _attr_supported_languages = "*"
+
+    @property
+    def supported_languages(self) -> list[str] | str:
+        """Return the languages the conversation agent supports.
+
+        ``"*"`` is HA's MATCH_ALL sentinel — the agent accepts any
+        language the user configures. ``ConversationEntity.supported_languages``
+        is an abstract method, so it must be implemented as a property;
+        ``_attr_supported_languages`` is NOT honoured by the abstract.
+        """
+        return "*"
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialise the conversation entity.

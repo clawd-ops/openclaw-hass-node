@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a new capability or enhancement.
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What can't you do today (or have to work around)?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work? Concrete UX if you have it.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about, and why this one wins.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Add-on / packaging
+        - Node command surface (fs.* / system.* / ha.*)
+        - Assist conversation relay
+        - HACS shim
+        - Docs
+        - Other
