@@ -1,9 +1,8 @@
 # Status
 
-> **Alpha.** The node is working end-to-end (pair, connect, invoke) but
-> the HA Assist conversation relay (P5.12) is not yet wired, publishing
-> infrastructure is incomplete, and breaking changes between versions
-> are expected.
+> **Alpha.** The node is working end-to-end (pair, connect, invoke,
+> **Assist relay**). Publishing infrastructure is incomplete and breaking
+> changes between versions are expected.
 
 > **Update this file at every meaningful state change.** It is the
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
@@ -42,12 +41,18 @@ The exact version string is enforced by `test_version_sync.py` across
   write. Path-validated unlink before token reset.
 - Tests pass with branch coverage gated at 95%, all CI gates green.
 
-**One hole still open:**
-
-1. **`assist_turn` (the `/v1/conversation` handler) is a placeholder.**
-   Reports pairing/connection state but doesn't relay turns. P5.12.
+**Zero holes open — full pipeline wired.**
 
 **Recently closed:**
+
+- **P5.12 — ChatRelay (2026-06-08).** Full Assist turn relay: HA shim
+  POSTs to `/v1/conversation` → node `ChatRelay` calls `chat.send` +
+  `sessions.messages.subscribe` over gateway WS → agent session → reply.
+  Features: per-session concurrency lock, single monotonic deadline,
+  dual event family handling (session.message + chat*), content-block
+  array extraction, runId-based event filtering, events rejected when
+  no turn is active. Codex reviewed v1→v6 (6 rounds, all findings
+  addressed). PR #72, 7 files, 1351 insertions.
 
 - **P-INSTALL — HA credentials option fallback (2026-06-08).** Added
   optional `hass_url` + `hass_token` add-on options. `run.sh` exports
@@ -96,32 +101,20 @@ approach in `docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
 
 **Next concrete steps (in order):**
 
-1. **P-INSTALL — wire HA credentials.** `ha.*` invokes round-trip
-   protocol-wise but error in-payload with `HA_NOT_CONFIGURED: HASS_URL
-   is not set`. Either (a) diagnose why Rob's HA Supervisor isn't
-   injecting `SUPERVISOR_TOKEN` despite the addon's API flags, OR (b)
-   add `hass_url` + `hass_token` as add-on (app) options surfaced through
-   `run.sh` env. (b) is the more portable fix and is probably what
-   ships. Small change, ~30 LOC + INSTALL doc update.
-2. **P5.12 — ChatRelay** (~100 LOC node Python). Add `operator.read`
-   to connect-frame scopes; build `ChatRelay` that owns one
-   `sessions.messages.subscribe` per active conversation_id, calls
-   `chat.send` for each turn, awaits reply with a 30s timeout.
-   Rewrite `assist_turn` to use it. Open design questions: fresh
-   session per HA conversation_id vs one persistent session per HA
-   instance; fixed agent vs configurable in the shim's config flow.
-   Best done with Rob present.
-3. **Polish / hardening** — visible misses worth fixing before any
+1. **E2E validation** — Rob tests the full Assist pipeline on his HA
+   instance: HA voice/text → shim → node → gateway → Clawd → ha.* tools
+   → reply. Any runtime issues surface here.
+2. **Polish / hardening** — visible misses worth fixing before any
    real users land:
    - `node.pending.pull` warning on every connect is cosmetic noise
      (gateway returns `ok: false` with null error); silence or drop.
    - HACS brands PR so the integration list shows the OC icon.
    - The `_PENDING_PULL_LIMIT` constant is dead after #44; remove.
-4. **P6.2 — MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
+3. **P6.2 — MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
    against OpenClaw logs. When it prints `RETIREMENT_READY`, drop the
    `homeassistant` + `homeassistant-readonly` MCP server entries from
    gateway config in one PR.
-5. **P7 — publish.** Add-on (App) repo metadata, HACS index entry, release
+4. **P7 — publish.** Add-on (App) repo metadata, HACS index entry, release
    workflow for GHCR-published per-arch images (lets us put the
    `image:` key back in config.yaml and skip the on-device build).
 
@@ -189,7 +182,7 @@ a stub.
 
 ## Current phase
 
-**Install-stabilisation push complete (2026.6.8a1).** Node command surface is round-trippable end-to-end through the gateway (`openclaw nodes invoke ...` returns real results). Next code work is **P-INSTALL** (HA credentials) then **P5.12** (ChatRelay). P6.2 cutover waits on the validation-harness streak.
+**P5.12 complete (2026.6.8a1).** Full pipeline wired: node command surface + Assist conversation relay. Next: E2E validation, polish, then P6.2 MCP cutover.
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
@@ -375,35 +368,10 @@ Real implementation of the chat-surface relay is documented in
 
 ## Current task
 
-**P5.12 — Chat-surface relay** (next). Implement what
-`docs/RESEARCH-OPENCLAW-INTEGRATION.md` describes: ChatRelay class on
-the node that calls `chat.send` and subscribes via
-`sessions.messages.subscribe` over the existing gateway WS; rewrite
-`assist_turn` to use it. Best done with you available.
-
-~~P5.10 — OpenClaw plugin pair~~ — superseded. Original design at
-`docs/RESEARCH-OPENCLAW-INTEGRATION.md`. Two TypeScript plugins:
-
-1. **`ha-assist` Channel plugin** — WS listener that nodes connect to,
-   runs the Ed25519 handshake (ports `gateway/.../auth.py`), persists
-   the device registry in OpenClaw's state store, turns
-   `node.conversation.request` into inbound channel messages keyed by
-   `conversationId`, emits `node.conversation.result` on reply.
-2. **`ha-tools` Tool plugin** — registers the 13 `ha.*` commands as
-   agent tools. Each tool sends `node.invoke.request` on the active
-   session's WS, awaits `node.invoke.result`, returns the wire result
-   to the agent.
-
-The brain abstraction (`gateway/brain.py`, `providers_*.py`) does NOT
-port — OpenClaw already routes models. Reusable from this repo: the
-auth payload format, device registry state machine, future-correlation
-pattern, and tool catalog shapes.
-
-After P5.10:
-- P6.1 validation harness already merged (PR #23, portable in #24).
-  Cron it; once ever prints `RETIREMENT_READY` do P6.2.
-- P7 — add-on (app) publishing checklist + CI release pipeline.
-- `ha.config.*` proposal-gated write surface from COMMAND-SURFACE.md.
+**E2E validation.** P5.12 ChatRelay is merged. The full pipeline is
+wired: HA Assist → shim → node → gateway → agent → ha.* tools → reply.
+Next step is Rob's live E2E test on his HA instance, then polish and
+P6.2 MCP cutover.
 
 ## Codex review status
 
@@ -478,7 +446,7 @@ resolved (see [memory: project_codex_oauth_regression_2026_06_06]).
 
 ## Open blockers
 
-None.
+None. Awaiting Rob's E2E validation on live HA instance.
 
 ## Decision log
 

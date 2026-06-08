@@ -36,10 +36,35 @@ OpenClaw node speaking the existing Gateway Protocol.
 
 ## Status
 
-Node + shim install-ready. **P5.12** (the small Python class that
-calls `chat.send` and listens for replies) is the only piece between
-the current placeholder behaviour and full E2E Assist. See
-`docs/STATUS.md`.
+**Full pipeline wired (2026-06-08).** P5.12 ChatRelay merged (PR #72,
+Codex v1→v6). HA Assist turns relay through the node into OpenClaw
+agent sessions via `chat.send` + `sessions.messages.subscribe`. HACS
+shim timeout aligned to 35s (30s relay + 5s slack). Next: Rob's E2E
+validation, then polish and P6.2 MCP cutover. See `docs/STATUS.md`.
+
+### P5.12 design decisions (documented in `chat_relay.py` docstring)
+
+1. Fresh session per `conversation_id`
+2. Default agent (gateway-routed)
+3. `chat.send` for full agent pipeline
+4. 30s single monotonic deadline per turn
+5. Dual event family handling (`session.message` + `chat*`)
+6. Content-block array extraction (`[{"type":"text","text":"..."}]`)
+7. Per-session `asyncio.Lock` for concurrency
+8. `runId`-based event filtering (stale events rejected)
+9. Events only captured when a turn is actively waiting
+
+### Security fix in PR #71
+
+`ha_client._ha_url()` now hard-pins to `http://supervisor/core` when
+`SUPERVISOR_TOKEN` is present. Previously, a user-supplied `HASS_URL`
+would receive the privileged Supervisor token.
+
+### Scopes
+
+Node requests `["operator.read", "operator.write"]` on connect for
+session/chat RPCs. Whether the gateway grants `operator.write` to a
+node-role connection needs E2E validation.
 
 ## Repo layout
 
