@@ -27,12 +27,16 @@ options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
   node_name: ""
+  local_api_token: ""
 schema:
   gateway_url: url
   pairing_token: password
   node_name: str?
-ports:
-  8099/tcp: 8099
+  local_api_token: password?
+# No `ports:` host-mapping. The local API is only reachable inside the
+# Supervisor add-on network (the HACS shim uses the add-on hostname). A
+# host-mapped port would expose the API to anything on the host network,
+# and the API is bearer-auth-gated only when local_api_token is set.
 ingress: false
 panel_icon: mdi:robot-happy
 # No `image:` key — Supervisor builds locally from addon/Dockerfile.
