@@ -77,8 +77,16 @@ stored approved-commands stays empty and you'll have to
 
 ## 3. Approve the pairing on the gateway
 
+A node connecting with `role: node` files two pair requests — one in the
+`devices` registry and one in the `nodes` registry. **Approve both** or
+the node pairs but with zero commands captured (so no `ha.*` invoke
+will work):
+
 ```bash
-openclaw devices list      # find your HA node under Pending
+openclaw nodes pending           # find the request id (this is the one that captures commands)
+openclaw nodes approve <request-id>
+
+openclaw devices list            # also pair on the devices side for token auth
 openclaw devices approve <request-id>
 ```
 
