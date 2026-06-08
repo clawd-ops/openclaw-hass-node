@@ -121,11 +121,32 @@ class OpenClawConversationEntity(ConversationEntity):
                 # error. Require a strict 2xx so any other status surfaces
                 # cleanly to the user.
                 if not 200 <= response.status < 300:
-                    _LOG.warning("OpenClaw Node returned HTTP %s for %s", response.status, url)
-                    speech = (
-                        "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
-                        f"returned HTTP {response.status}."
+                    error_code = ""
+                    error_response = ""
+                    try:
+                        body = await response.json()
+                    except (aiohttp.ContentTypeError, ValueError):
+                        body = None
+                    if isinstance(body, dict):
+                        error_code = str(body.get("error", "") or "")
+                        error_response = str(body.get("response", "") or "")
+                    _LOG.warning(
+                        "OpenClaw Node returned HTTP %s for %s: code=%s response=%s",
+                        response.status,
+                        url,
+                        error_code or "-",
+                        error_response or "-",
                     )
+                    if error_code or error_response:
+                        speech = (
+                            f"OpenClaw Node returned HTTP {response.status} "
+                            f"({error_code or 'unknown'}): {error_response or 'no detail'}"
+                        )
+                    else:
+                        speech = (
+                            "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
+                            f"returned HTTP {response.status}."
+                        )
                     chat_log.async_add_assistant_content_without_tools(
                         AssistantContent(agent_id=user_input.agent_id, content=speech)
                     )
