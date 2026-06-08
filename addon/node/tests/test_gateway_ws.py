@@ -17,6 +17,15 @@ from openclaw_node.identity import generate_identity
 from openclaw_node.pairing import PairingState
 
 
+def _find_sent_method(send_mock: AsyncMock, method: str) -> dict[str, Any]:
+    """Return the last frame sent through ``send_mock`` whose method matches."""
+    for call in reversed(send_mock.call_args_list):
+        frame: dict[str, Any] = json.loads(call[0][0])
+        if frame.get("method") == method:
+            return frame
+    raise AssertionError(f"No sent frame with method={method!r}")
+
+
 def _make_config() -> NodeConfig:
     return NodeConfig(
         addon_mode=False,
@@ -162,20 +171,54 @@ async def test_recv_connect_response_ok() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.recv = AsyncMock(
-        return_value=json.dumps({"type": "res", "ok": True, "payload": {"sessionId": "s1"}})
+        return_value=json.dumps(
+            {"type": "res", "id": "req-1", "ok": True, "payload": {"sessionId": "s1"}}
+        )
     )
     await client._recv_connect_response(ws, "req-1")
     assert client.pairing_state is PairingState.PAIRED
 
 
-async def test_recv_connect_response_pairing_required() -> None:
+async def test_recv_connect_response_pairing_required_legacy_string() -> None:
+    """Legacy gateway shape: bare string `error: "<code>"`."""
     client = _make_client()
     ws = AsyncMock()
     ws.recv = AsyncMock(
-        return_value=json.dumps({"type": "res", "ok": False, "error": "PAIRING_REQUIRED"})
+        return_value=json.dumps(
+            {"type": "res", "id": "req-1", "ok": False, "error": "PAIRING_REQUIRED"}
+        )
     )
     await client._recv_connect_response(ws, "req-1")
     assert client.pairing_state is PairingState.PENDING
+
+
+async def test_recv_connect_response_pairing_required_canonical_object() -> None:
+    """Canonical ResponseFrame.error shape: `{code, message}` object."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.recv = AsyncMock(
+        return_value=json.dumps(
+            {
+                "type": "res",
+                "id": "req-1",
+                "ok": False,
+                "error": {"code": "PAIRING_REQUIRED", "message": "device awaiting approval"},
+            }
+        )
+    )
+    await client._recv_connect_response(ws, "req-1")
+    assert client.pairing_state is PairingState.PENDING
+
+
+async def test_recv_connect_response_id_mismatch_raises() -> None:
+    """An interleaved response with a different id must not be accepted."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.recv = AsyncMock(
+        return_value=json.dumps({"type": "res", "id": "other", "ok": True, "payload": {}})
+    )
+    with pytest.raises(ValueError, match="id mismatch"):
+        await client._recv_connect_response(ws, "req-1")
 
 
 async def test_recv_connect_response_wrong_type() -> None:
@@ -257,6 +300,7 @@ async def test_pull_pending_empty_items() -> None:
 
 
 async def test_pull_pending_with_items() -> None:
+    """Legacy shape: pending item IS the invoke payload (no envelope)."""
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
@@ -265,6 +309,92 @@ async def test_pull_pending_with_items() -> None:
     await client._pull_pending(ws)
     # One send for pull request, one for invoke result, one for ack
     assert ws.send.call_count == 3
+
+
+async def test_pull_pending_canonical_envelope() -> None:
+    """Canonical shape: each item is `{id, payload: <invoke-payload>}`."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    items = [
+        {
+            "id": "queue-item-1",
+            "payload": {"id": "inv-A", "command": "ping", "params": {}},
+        }
+    ]
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    await client._pull_pending(ws)
+    # pull req, invoke result, ack
+    assert ws.send.call_count == 3
+    ack_frame = json.loads(ws.send.call_args_list[2][0][0])
+    assert ack_frame["method"] == "node.pending.ack"
+    # Must ack the queue-item id from the envelope, not the inner invoke id.
+    assert ack_frame["params"]["ids"] == ["queue-item-1"]
+
+
+async def test_handle_invoke_paramsjson_canonical() -> None:
+    """Canonical shape: `paramsJSON` is a JSON-encoded string of params."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    await client._handle_invoke(
+        ws,
+        {"id": "inv-pj", "command": "ping", "paramsJSON": json.dumps({"message": "hello"})},
+    )
+    ws.send.assert_called_once()
+    sent = json.loads(ws.send.call_args[0][0])
+    assert sent["params"]["ok"] is True
+    # ping echoes the message through; this proves paramsJSON was decoded.
+    assert sent["params"]["payload"]["message"] == "hello"
+
+
+@pytest.mark.parametrize(
+    "params_json",
+    [
+        "{not-json",  # malformed JSON
+        json.dumps([1, 2, 3]),  # JSON array
+        json.dumps("string-value"),  # JSON string
+        json.dumps(42),  # JSON primitive
+        json.dumps(None),  # JSON null
+        "",  # empty string
+    ],
+    ids=["malformed", "array", "string", "primitive", "null", "empty"],
+)
+async def test_handle_invoke_invalid_paramsjson_returns_invalid_params(
+    params_json: str,
+) -> None:
+    """Malformed / non-object `paramsJSON` must surface as INVALID_PARAMS, not silently {}."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    await client._handle_invoke(
+        ws,
+        {"id": "inv-bad", "command": "ping", "paramsJSON": params_json},
+    )
+    ws.send.assert_called_once()
+    sent = json.loads(ws.send.call_args[0][0])
+    assert sent["params"]["ok"] is False
+    assert sent["params"]["error"]["code"] == "INVALID_PARAMS"
+
+
+async def test_pull_pending_malformed_payload_skipped() -> None:
+    """A pending item with `payload` present but not a dict is skipped (not acked)."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    items = [
+        {"id": "bad-item", "payload": "not-a-dict"},  # malformed: skipped
+        {
+            "id": "good-item",
+            "payload": {"id": "inv-G", "command": "ping", "params": {}},
+        },
+    ]
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    await client._pull_pending(ws)
+    # pull req + (invoke result + ack) for the good item only.
+    assert ws.send.call_count == 3
+    ack_frame = _find_sent_method(ws.send, "node.pending.ack")
+    assert ack_frame["params"]["ids"] == ["good-item"]
 
 
 async def test_pull_pending_failure_logged() -> None:
@@ -382,17 +512,29 @@ async def test_connect_and_loop_paired() -> None:
             "payload": {"nonce": "nonce1", "ts": 1000},
         }
     )
-    connect_ok = json.dumps({"type": "res", "ok": True, "payload": {"sessionId": "s1"}})
     pending_pull_ok = json.dumps({"ok": True, "payload": {"items": []}})
 
-    recv_calls = [challenge, connect_ok, pending_pull_ok]
-    recv_idx = 0
+    # The connect-response id must match the connect-request id (canonical
+    # schema validation). Build the recv values lazily so we can echo the
+    # actual req id captured from `ws.send`.
+    recv_step = 0
 
     async def _recv() -> str:
-        nonlocal recv_idx
-        val = recv_calls[recv_idx]
-        recv_idx += 1
-        return val
+        nonlocal recv_step
+        recv_step += 1
+        if recv_step == 1:
+            return challenge
+        if recv_step == 2:
+            connect_req = _find_sent_method(mock_ws.send, "connect")
+            return json.dumps(
+                {
+                    "type": "res",
+                    "id": connect_req["id"],
+                    "ok": True,
+                    "payload": {"sessionId": "s1"},
+                }
+            )
+        return pending_pull_ok
 
     mock_ws.recv = _recv
 
@@ -427,17 +569,26 @@ async def test_connect_and_loop_pending_then_approved() -> None:
             "payload": {"nonce": "nonce2", "ts": 2000},
         }
     )
-    connect_pending = json.dumps({"type": "res", "ok": False, "error": "PAIRING_REQUIRED"})
     pending_pull_ok = json.dumps({"ok": True, "payload": {"items": []}})
 
-    recv_calls = [challenge, connect_pending, pending_pull_ok]
-    recv_idx = 0
+    recv_step = 0
 
     async def _recv() -> str:
-        nonlocal recv_idx
-        val = recv_calls[recv_idx]
-        recv_idx += 1
-        return val
+        nonlocal recv_step
+        recv_step += 1
+        if recv_step == 1:
+            return challenge
+        if recv_step == 2:
+            connect_req = _find_sent_method(mock_ws.send, "connect")
+            return json.dumps(
+                {
+                    "type": "res",
+                    "id": connect_req["id"],
+                    "ok": False,
+                    "error": {"code": "PAIRING_REQUIRED", "message": "approval needed"},
+                }
+            )
+        return pending_pull_ok
 
     mock_ws.recv = _recv
 
