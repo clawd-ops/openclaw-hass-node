@@ -370,6 +370,24 @@ class GatewayClient:
             return False
         return True
 
+    def _reload_device_token(self) -> None:
+        """Re-read the persisted device token before each connect attempt.
+
+        In the dual-WS world the node-role connection may persist a new
+        token after pairing while the operator-role connection still holds
+        the stale bootstrap token in memory.  Re-reading the file ensures
+        the operator picks up the freshly persisted token on its next
+        reconnect cycle.
+        """
+        path = self._token_persist_path
+        try:
+            if path.is_file():
+                value = path.read_text().strip()
+                if value:
+                    self._device_token = value
+        except OSError as exc:
+            _LOG.debug("Could not reload device token from %s: %s", path, exc)
+
     async def _connect_and_loop(self) -> None:
         """Open a single WS connection, run the handshake, then the event loop.
 
@@ -377,6 +395,7 @@ class GatewayClient:
             Any exception from :mod:`websockets` or the pairing machine on a
             fatal (non-PAIRING_REQUIRED) auth rejection.
         """
+        self._reload_device_token()
         _LOG.info("Connecting to gateway: %s", self._config.gateway_url)
         async with websockets.asyncio.client.connect(self._config.gateway_url) as ws:
             # Step 1: receive connect.challenge

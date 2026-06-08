@@ -1191,3 +1191,34 @@ def test_persist_device_token_replace_failure_cleans_tmp(tmp_path: Path) -> None
         client._persist_device_token("tok")
     tmp = tmp_path / "device-token.tmp"
     assert not tmp.exists()
+
+
+# ---- _reload_device_token tests ----
+
+
+def test_reload_device_token_picks_up_persisted_value(tmp_path: Path) -> None:
+    """Operator client picks up a token the node client persisted to disk."""
+    client = _make_client_in(tmp_path)
+    client._device_token = "stale-bootstrap"
+    token_path = tmp_path / "device-token"
+    token_path.write_text("fresh-from-node\n")
+    client._reload_device_token()
+    assert client._device_token == "fresh-from-node"
+
+
+def test_reload_device_token_ignores_empty_file(tmp_path: Path) -> None:
+    """An empty token file must not overwrite an existing in-memory token."""
+    client = _make_client_in(tmp_path)
+    client._device_token = "keep-me"
+    token_path = tmp_path / "device-token"
+    token_path.write_text("   \n")
+    client._reload_device_token()
+    assert client._device_token == "keep-me"
+
+
+def test_reload_device_token_no_file(tmp_path: Path) -> None:
+    """Missing token file leaves the in-memory token unchanged."""
+    client = _make_client_in(tmp_path)
+    client._device_token = "original"
+    client._reload_device_token()
+    assert client._device_token == "original"
