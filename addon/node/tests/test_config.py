@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import base64
+import json
+
 import pytest
 
-from openclaw_node.config import allowed_roots_for_env, load_config
+from openclaw_node.config import allowed_roots_for_env, load_config, normalize_pairing_token
 
 
 def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -59,3 +62,71 @@ def test_allowed_roots_for_env_standalone_default(
     monkeypatch.delenv("OPENCLAW_ALLOWED_ROOTS", raising=False)
     roots = allowed_roots_for_env()
     assert roots == ()
+
+
+# ---- normalize_pairing_token ----
+
+
+def _encode_setup_code(payload: dict[str, object]) -> str:
+    """Encode a dict the way ``openclaw qr --setup-code-only`` would."""
+    encoded = base64.urlsafe_b64encode(json.dumps(payload).encode("utf-8"))
+    return encoded.decode("ascii").rstrip("=")
+
+
+def test_normalize_pairing_token_passes_raw_token_through() -> None:
+    """A raw bootstrap token (not base64-JSON) must round-trip unchanged."""
+    raw = "KsQ3euJaFrppxKsdqV4QUAJXhbtGg5pgg368BGUbwOk"
+    assert normalize_pairing_token(raw) == raw
+
+
+def test_normalize_pairing_token_extracts_bootstrap_token_from_setup_code() -> None:
+    """An ``openclaw qr --setup-code-only`` payload must yield bootstrapToken."""
+    setup = _encode_setup_code({"url": "wss://gw.example/ws", "bootstrapToken": "extracted-token"})
+    assert normalize_pairing_token(setup) == "extracted-token"
+
+
+def test_normalize_pairing_token_strips_whitespace() -> None:
+    """Leading/trailing whitespace from copy-paste must not break detection."""
+    setup = _encode_setup_code({"url": "x", "bootstrapToken": "tok"})
+    assert normalize_pairing_token(f"  {setup}\n") == "tok"
+
+
+def test_normalize_pairing_token_empty_string_is_empty() -> None:
+    """Empty input is allowed (no pairing on first boot — uses persisted token)."""
+    assert normalize_pairing_token("") == ""
+
+
+def test_normalize_pairing_token_garbage_passes_through() -> None:
+    """Non-base64 garbage is treated as a raw token (back-compat)."""
+    assert normalize_pairing_token("not!base64!at!all") == "not!base64!at!all"
+
+
+def test_normalize_pairing_token_base64_non_json_passes_through() -> None:
+    """Base64 that doesn't decode to JSON is treated as a raw token."""
+    raw_b64 = base64.urlsafe_b64encode(b"\xff\xfe\xfd").decode("ascii").rstrip("=")
+    assert normalize_pairing_token(raw_b64) == raw_b64
+
+
+def test_normalize_pairing_token_envelope_without_bootstrap_key() -> None:
+    """A base64-JSON object lacking bootstrapToken is treated as a raw token."""
+    envelope = _encode_setup_code({"url": "x", "other": "value"})
+    # No bootstrapToken to extract — pass through unchanged.
+    assert normalize_pairing_token(envelope) == envelope
+
+
+def test_normalize_pairing_token_envelope_with_empty_bootstrap_key() -> None:
+    """Empty bootstrapToken value falls back to raw."""
+    envelope = _encode_setup_code({"url": "x", "bootstrapToken": ""})
+    assert normalize_pairing_token(envelope) == envelope
+
+
+def test_load_config_decodes_setup_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    """load_config must apply the setup-code normalisation for env-supplied tokens."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
+    setup = _encode_setup_code(
+        {"url": "wss://gw.example/ws", "bootstrapToken": "decoded-bootstrap"}
+    )
+    monkeypatch.setenv("PAIRING_TOKEN", setup)
+    monkeypatch.setenv("GATEWAY_URL", "wss://gw.example/ws")
+    config = load_config()
+    assert config.pairing_token == "decoded-bootstrap"

@@ -82,19 +82,33 @@ stored approved-commands stays empty and you'll have to
      needs will then be rejected by the gateway with
      `INVALID_REQUEST: unauthorized role: operator`.
 
-     On a headless gateway, extract the raw token like this:
+     **Recommended:** run the one-liner below and paste the output
+     verbatim into this field — the addon detects the
+     base64-encoded setup-code envelope and extracts the inner
+     `bootstrapToken` automatically.
 
      ```bash
-     openclaw qr --json --no-ascii | \
-       jq -r .setupCode | base64 -d | jq -r .bootstrapToken
-     # → e.g. KsQ3euJaFrppxKsdqV4QUAJXhbtGg5pgg368BGUbwOk
+     openclaw qr --setup-code-only --no-ascii
+     # → eyJ1cmwiOiJ3c3M6Ly9...
      ```
 
-     `openclaw qr` is named for the mobile pairing flow, but on a
-     headless install you don't need the actual QR — the JSON output
-     contains the same dual-role bootstrap profile the mobile app
-     would scan. Paste the printed `bootstrapToken` value into this
-     field.
+     This is the same string the mobile app would scan from the QR
+     image, so the same field also works for phone-based pairing
+     (camera apps decode the QR to the setup-code text; paste it in
+     from your laptop's HA UI).
+
+     **Alternative:** if you've already extracted the raw token, the
+     field also accepts the bare `bootstrapToken` string. Note that
+     the setup code uses **base64url** (no padding, `-`/`_` instead of
+     `+`/`/`), so a plain `base64 -d` won't decode it on every system
+     — use Python or a base64url-aware tool:
+
+     ```bash
+     openclaw qr --json --no-ascii | jq -r .setupCode | \
+       python -c 'import base64,json,sys; s=sys.stdin.read().strip();
+                  pad="="*(-len(s)%4);
+                  print(json.loads(base64.urlsafe_b64decode(s+pad))["bootstrapToken"])'
+     ```
    - `node_name`: friendly name shown in the gateway UI (e.g. `hass`).
    - `local_api_token` **(required)**: any opaque random string
      (e.g. `openssl rand -hex 32`). The local HTTP API is fail-closed:
