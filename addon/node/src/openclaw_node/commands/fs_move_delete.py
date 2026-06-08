@@ -39,6 +39,9 @@ from openclaw_node.commands.fs_write import (
     _reset_store_for_testing,
     _resolve_write_target,
 )
+from openclaw_node.config import allowed_roots_for_env
+from openclaw_node.safe_fd import read_bytes_safe, replace_safe
+from openclaw_node.safe_path import OutOfBoundsError
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -233,11 +236,14 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
         return _error("INVALID_PARAM", "src and dst must differ")
 
     store = _get_store()
+    roots = allowed_roots_for_env()
 
-    # Capture destination prior bytes if the destination exists.
+    # Capture destination prior bytes if the destination exists (safe read).
     if dst.exists():
         try:
-            dst_prior = dst.read_bytes()
+            dst_prior = read_bytes_safe(dst_raw, roots, missing_ok=True)
+        except OutOfBoundsError:
+            return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {dst_raw!r}")
         except OSError as exc:
             return _error("READ_ERROR", f"Cannot read destination prior bytes: {exc}")
         try:
@@ -252,9 +258,11 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
             _LOG.error("backup capture of dst failed for %r: %s", dst_raw, exc)
             return _error("BACKUP_ERROR", "Backup capture of destination failed; move aborted")
 
-    # Capture source bytes under the source path as a move-src record.
+    # Capture source bytes under the source path as a move-src record (safe read).
     try:
-        src_bytes = src.read_bytes()
+        src_bytes = read_bytes_safe(src_raw, roots)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {src_raw!r}")
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read source: {exc}")
     try:
@@ -275,9 +283,16 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     # fallback is intentionally NOT used here because a partial copy could
     # mutate dst while the command returns MOVE_ERROR, leaving the caller
     # unable to distinguish "no mutation" from "partial mutation".
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    #
+    # Auto-creating dst.parent was removed in audit bundle 6: a path-string
+    # mkdir(parents=True) after path resolution reintroduces a TOCTOU window
+    # where a missing parent component can be swapped to a symlink between
+    # validation and mkdir. Callers must create the parent themselves (e.g.
+    # via a future fs.mkdir command) before invoking fs.move.
     try:
-        _move_file(src, dst)
+        replace_safe(src_raw, dst_raw, roots)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", "Source or destination escapes the allowed roots")
     except OSError as exc:
         _LOG.error("move failed %r → %r: %s", src_raw, dst_raw, exc)
         if exc.errno == errno.EXDEV:
@@ -333,9 +348,13 @@ def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
     if not resolved.exists():
         return _error("NOT_FOUND", f"Path does not exist: {path!r}")
 
-    # Capture prior bytes before trashing.
+    # Capture prior bytes before trashing (safe read defeats symlink swap
+    # between resolve and read).
+    roots = allowed_roots_for_env()
     try:
-        prior_bytes = resolved.read_bytes()
+        prior_bytes = read_bytes_safe(path, roots)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read file: {exc}")
 
