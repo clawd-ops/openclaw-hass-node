@@ -13,17 +13,35 @@ arch:
   - aarch64
   - armv7
 init: false
+# hassio_api: required to call Supervisor REST endpoints (addon status,
+# snapshot triggers, host info). hassio_role:manager is the minimum role
+# that allows add-on and HA lifecycle management; the alpha feature set
+# does not require supervisor-level admin (ingress, OS updates, hardware).
+# Elevate to "admin" only when a shipped feature explicitly requires it.
 hassio_api: true
-hassio_role: admin
+hassio_role: manager
 homeassistant_api: true
+# auth_api: needed to validate bearer tokens for the local HTTP API.
 auth_api: true
 map:
+  # config:rw — core feature: read/write HA configuration files on behalf
+  # of the gateway (e.g. automations, scripts, lovelace).
   - config:rw
+  # share:rw — core feature: read/write the /share volume for cross-addon
+  # data exchange and gateway-requested file operations.
   - share:rw
-  - ssl:rw
-  - addons:rw
+  # ssl:ro — read-only: the node reads TLS certificates for HA API calls
+  # but never writes to the ssl volume in the current feature set.
+  - ssl:ro
+  # addons:ro — read-only: addon enumeration and status reads only.
+  # No add-on installation or write operations are implemented yet.
+  - addons:ro
+  # media:rw — read/write: media file operations exposed to the gateway.
   - media:rw
-  - backup:rw
+  # backup:ro — read-only for now: backup listing and download. Snapshot
+  # creation via Supervisor API does not require rw on the backup volume
+  # directly; elevate to rw only when a backup-write feature lands.
+  - backup:ro
 options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
