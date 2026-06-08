@@ -272,15 +272,93 @@ async def test_handle_invoke_command_exception() -> None:
 # ---- _ack_pending tests ----
 
 
-async def test_ack_pending_sends_correct_request() -> None:
+async def test_ack_pending_sends_correct_request_and_awaits_response() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
+
+    async def _ack_response() -> str:
+        # Echo back ok=true with the same id the client just sent.
+        sent_frame = json.loads(ws.send.call_args[0][0])
+        return json.dumps({"type": "res", "id": sent_frame["id"], "ok": True})
+
+    ws.recv = _ack_response
     await client._ack_pending(ws, "inv-99")
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["method"] == "node.pending.ack"
     assert sent["params"]["ids"] == ["inv-99"]
+
+
+async def test_ack_pending_logs_when_gateway_rejects(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A non-ok ack response logs a WARNING so missed acks aren't silent."""
+    import logging
+
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+
+    async def _ack_response() -> str:
+        sent_frame = json.loads(ws.send.call_args[0][0])
+        return json.dumps(
+            {
+                "type": "res",
+                "id": sent_frame["id"],
+                "ok": False,
+                "error": {"code": "UNKNOWN_ID", "message": "no such pending id"},
+            }
+        )
+
+    ws.recv = _ack_response
+    with caplog.at_level(logging.WARNING):
+        await client._ack_pending(ws, "inv-bad")
+    assert any("rejected by gateway" in rec.message for rec in caplog.records)
+
+
+async def test_ack_pending_times_out_when_gateway_silent(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If the gateway never responds, _ack_pending logs a timeout and returns.
+
+    Regression guard against the deadlock-on-missing-ack scenario Codex
+    flagged in review. With no bounded timeout, a single dropped ack
+    response could stall the whole pending drain.
+    """
+    import logging
+
+    # Shorten the timeout so the test is fast.
+    monkeypatch.setattr("openclaw_node.gateway_ws._ACK_RESPONSE_TIMEOUT_S", 0.05)
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+
+    async def _never() -> str:
+        await asyncio.sleep(10)
+        return ""  # pragma: no cover
+
+    ws.recv = _never
+    with caplog.at_level(logging.WARNING):
+        await client._ack_pending(ws, "inv-silent")
+    assert any("response timeout" in rec.message for rec in caplog.records)
+
+
+async def test_ack_pending_tolerates_id_mismatch(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An interleaved frame with the wrong id is logged and dropped."""
+    import logging
+
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    ws.recv = AsyncMock(
+        return_value=json.dumps({"type": "event", "event": "node.invoke.request", "payload": {}})
+    )
+    with caplog.at_level(logging.WARNING):
+        await client._ack_pending(ws, "inv-x")
+    assert any("unexpected frame" in rec.message for rec in caplog.records)
 
 
 # ---- _pull_pending tests ----
@@ -431,6 +509,22 @@ async def test_await_approval_transitions_to_paired() -> None:
     await client._await_approval(ws)
     # mypy narrows state from prior assert; state actually mutated by _await_approval
     assert client.pairing_state is PairingState.PAIRED  # type: ignore[comparison-overlap]
+
+
+async def test_await_approval_raises_when_socket_closes_without_approval() -> None:
+    """If the WS iterator exits without approval, raise so reconnect kicks in."""
+    client = _make_client()
+    client._pairing.on_connect_response(ok=False, error="PAIRING_REQUIRED")
+    ws = MagicMock()
+
+    async def _empty() -> AsyncIterator[str]:
+        for _ in ():  # pragma: no cover — empty iterator marker
+            yield ""
+        return
+
+    ws.__aiter__ = lambda self: _empty().__aiter__()
+    with pytest.raises(ConnectionError, match="before pairing approval"):
+        await client._await_approval(ws)
 
 
 # ---- _event_loop tests ----
