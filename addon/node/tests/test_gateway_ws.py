@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -980,6 +981,37 @@ def test_persist_device_token_write_failure_cleans_tmp(tmp_path: Path) -> None:
         client._persist_device_token("tok")
     tmp = tmp_path / "device-token.tmp"
     assert not tmp.exists()
+
+
+def test_persist_device_token_closes_fd_when_fdopen_fails(tmp_path: Path) -> None:
+    """If os.fdopen raises before taking ownership, the raw fd is closed."""
+    import os as _os
+
+    client = _make_client_in(tmp_path)
+    # Use a real fd from the OS so os.close on it actually works (and would
+    # surface as an OSError on double-close if we got the bookkeeping wrong).
+    read_fd, write_fd = _os.pipe()
+    try:
+        closed_fds: list[int] = []
+        real_close = _os.close
+
+        def _tracking_close(fd: int) -> None:
+            closed_fds.append(fd)
+            real_close(fd)
+
+        with (
+            patch("os.open", return_value=read_fd),
+            patch("os.fchmod"),
+            patch("os.fdopen", side_effect=OSError("fdopen failed")),
+            patch("os.close", side_effect=_tracking_close),
+            pytest.raises(OSError, match="fdopen failed"),
+        ):
+            client._persist_device_token("tok")
+        assert read_fd in closed_fds, "fd from os.open must be closed when fdopen fails"
+    finally:
+        # Clean up the write end of the pipe (read end was closed by the test).
+        with contextlib.suppress(OSError):
+            _os.close(write_fd)
 
 
 def test_persist_device_token_replace_failure_cleans_tmp(tmp_path: Path) -> None:
