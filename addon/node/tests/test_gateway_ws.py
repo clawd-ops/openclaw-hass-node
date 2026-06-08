@@ -179,20 +179,7 @@ async def test_recv_connect_response_ok() -> None:
     assert client.pairing_state is PairingState.PAIRED
 
 
-async def test_recv_connect_response_pairing_required_legacy_string() -> None:
-    """Legacy gateway shape: bare string `error: "<code>"`."""
-    client = _make_client()
-    ws = AsyncMock()
-    ws.recv = AsyncMock(
-        return_value=json.dumps(
-            {"type": "res", "id": "req-1", "ok": False, "error": "PAIRING_REQUIRED"}
-        )
-    )
-    await client._recv_connect_response(ws, "req-1")
-    assert client.pairing_state is PairingState.PENDING
-
-
-async def test_recv_connect_response_pairing_required_canonical_object() -> None:
+async def test_recv_connect_response_pairing_required() -> None:
     """Canonical ResponseFrame.error shape: `{code, message}` object."""
     client = _make_client()
     ws = AsyncMock()
@@ -236,18 +223,27 @@ async def test_handle_invoke_ping() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    await client._handle_invoke(ws, {"id": "inv-1", "command": "ping", "params": {"message": "hi"}})
+    await client._handle_invoke(
+        ws,
+        {"id": "inv-1", "command": "ping", "paramsJSON": json.dumps({"message": "hi"})},
+    )
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is True
     assert sent["params"]["payload"]["pong"] is True
+    # Round-trip the decoded params into the handler — proves paramsJSON
+    # was decoded, not silently dropped.
+    assert sent["params"]["payload"]["message"] == "hi"
 
 
 async def test_handle_invoke_unknown_command() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    await client._handle_invoke(ws, {"id": "inv-2", "command": "does.not.exist", "params": {}})
+    await client._handle_invoke(
+        ws,
+        {"id": "inv-2", "command": "does.not.exist", "paramsJSON": "{}"},
+    )
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
@@ -265,7 +261,7 @@ async def test_handle_invoke_command_exception() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    await client._handle_invoke(ws, {"id": "inv-3", "command": "test.bad", "params": {}})
+    await client._handle_invoke(ws, {"id": "inv-3", "command": "test.bad", "paramsJSON": "{}"})
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
@@ -299,27 +295,15 @@ async def test_pull_pending_empty_items() -> None:
     ws.send.assert_called_once()
 
 
-async def test_pull_pending_with_items() -> None:
-    """Legacy shape: pending item IS the invoke payload (no envelope)."""
-    client = _make_client()
-    ws = AsyncMock()
-    ws.send = AsyncMock()
-    items = [{"id": "i1", "command": "ping", "params": {}}]
-    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
-    await client._pull_pending(ws)
-    # One send for pull request, one for invoke result, one for ack
-    assert ws.send.call_count == 3
-
-
 async def test_pull_pending_canonical_envelope() -> None:
-    """Canonical shape: each item is `{id, payload: <invoke-payload>}`."""
+    """Each item is the canonical `{id, payload: <invoke-payload>}` envelope."""
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
     items = [
         {
             "id": "queue-item-1",
-            "payload": {"id": "inv-A", "command": "ping", "params": {}},
+            "payload": {"id": "inv-A", "command": "ping", "paramsJSON": "{}"},
         }
     ]
     ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
@@ -330,22 +314,6 @@ async def test_pull_pending_canonical_envelope() -> None:
     assert ack_frame["method"] == "node.pending.ack"
     # Must ack the queue-item id from the envelope, not the inner invoke id.
     assert ack_frame["params"]["ids"] == ["queue-item-1"]
-
-
-async def test_handle_invoke_paramsjson_canonical() -> None:
-    """Canonical shape: `paramsJSON` is a JSON-encoded string of params."""
-    client = _make_client()
-    ws = AsyncMock()
-    ws.send = AsyncMock()
-    await client._handle_invoke(
-        ws,
-        {"id": "inv-pj", "command": "ping", "paramsJSON": json.dumps({"message": "hello"})},
-    )
-    ws.send.assert_called_once()
-    sent = json.loads(ws.send.call_args[0][0])
-    assert sent["params"]["ok"] is True
-    # ping echoes the message through; this proves paramsJSON was decoded.
-    assert sent["params"]["payload"]["message"] == "hello"
 
 
 @pytest.mark.parametrize(
@@ -377,6 +345,40 @@ async def test_handle_invoke_invalid_paramsjson_returns_invalid_params(
     assert sent["params"]["error"]["code"] == "INVALID_PARAMS"
 
 
+async def test_pull_pending_non_dict_item_skipped() -> None:
+    """A non-dict item in the pending list is skipped without crashing the loop."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    items = [
+        "not-an-object",
+        {
+            "id": "good-item",
+            "payload": {"id": "inv-G", "command": "ping", "paramsJSON": "{}"},
+        },
+    ]
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    await client._pull_pending(ws)
+    # pull req + (invoke result + ack) for the good item only.
+    assert ws.send.call_count == 3
+    ack_frame = _find_sent_method(ws.send, "node.pending.ack")
+    assert ack_frame["params"]["ids"] == ["good-item"]
+
+
+async def test_pull_pending_missing_id_skipped() -> None:
+    """A pending item with no `id` is skipped without ack."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    items = [
+        {"payload": {"id": "inv", "command": "ping", "paramsJSON": "{}"}},  # no envelope id
+    ]
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    await client._pull_pending(ws)
+    # Only the pull request itself was sent; no invoke, no ack.
+    assert ws.send.call_count == 1
+
+
 async def test_pull_pending_malformed_payload_skipped() -> None:
     """A pending item with `payload` present but not a dict is skipped (not acked)."""
     client = _make_client()
@@ -386,7 +388,7 @@ async def test_pull_pending_malformed_payload_skipped() -> None:
         {"id": "bad-item", "payload": "not-a-dict"},  # malformed: skipped
         {
             "id": "good-item",
-            "payload": {"id": "inv-G", "command": "ping", "params": {}},
+            "payload": {"id": "inv-G", "command": "ping", "paramsJSON": "{}"},
         },
     ]
     ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
@@ -401,7 +403,11 @@ async def test_pull_pending_failure_logged() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    ws.recv = AsyncMock(return_value=json.dumps({"ok": False, "error": "SOME_ERROR"}))
+    ws.recv = AsyncMock(
+        return_value=json.dumps(
+            {"ok": False, "error": {"code": "SOME_ERROR", "message": "queue offline"}}
+        )
+    )
     # Should not raise; just log and return
     await client._pull_pending(ws)
 
@@ -440,7 +446,7 @@ async def test_event_loop_dispatches_invoke() -> None:
             {
                 "type": "event",
                 "event": "node.invoke.request",
-                "payload": {"id": "e1", "command": "ping", "params": {}},
+                "payload": {"id": "e1", "command": "ping", "paramsJSON": "{}"},
             }
         ),
     ]
