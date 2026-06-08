@@ -74,18 +74,24 @@ stored approved-commands stays empty and you'll have to
    Python-on-Alpine base) and takes 2–4 minutes.
 3. **Configuration** tab — fill in:
    - `gateway_url`: e.g. `wss://oc.your-domain/ws`
-   - `pairing_token`: a one-time token from your gateway's pairing flow
-     (`openclaw devices` shows pending requests / lets you issue
-     bootstrap tokens).
+   - `pairing_token`: a one-time token from your gateway's pairing
+     flow. **For Assist to work, this MUST be a dual-role bootstrap
+     token** (grants both `node` and `operator` roles on a single
+     device record). Get it via `openclaw qr` and copy the token from
+     the displayed bootstrap profile. The plain `openclaw devices add`
+     flow issues a node-role-only token; the operator-role connection
+     ChatRelay needs will then be rejected by the gateway with
+     `INVALID_REQUEST: unauthorized role: operator`.
    - `node_name`: friendly name shown in the gateway UI (e.g. `hass`).
-   - `local_api_token` *(recommended)*: any opaque string. When set,
-     every local HTTP endpoint except `/health` and
-     `/v1/conversation/info` requires `Authorization: Bearer <token>`.
-     Leave empty for back-compat; the node logs a startup WARNING in
-     that case because the local API is then open to anything that can
-     reach it inside the Supervisor add-on network. Paste the same
-     value into the HACS shim config flow so the integration can call
-     the API.
+   - `local_api_token` **(required)**: any opaque random string
+     (e.g. `openssl rand -hex 32`). The local HTTP API is fail-closed:
+     when this is empty, every non-public path returns
+     `401 NO_TOKEN_CONFIGURED` and the HACS shim cannot reach the
+     node. Public paths (`/health`, `/v1/health`,
+     `/v1/conversation/info`) stay open so HA's health probes and the
+     shim's config-flow discovery still work. **Paste the same value
+     into the HACS shim config flow** (step 4) so the integration can
+     authenticate.
    - `hass_url` *(optional)*: HA base URL fallback. Leave blank in
      normal Supervisor installs — the node hits `http://supervisor/core`
      with the Supervisor-injected token. Set when (a) your Supervisor
@@ -103,17 +109,18 @@ stored approved-commands stays empty and you'll have to
 
 ## 3. Approve the pairing on the gateway
 
-A node connecting with `role: node` files two pair requests — one in the
-`devices` registry and one in the `nodes` registry. **Approve both** or
-the node pairs but with zero commands captured (so no `ha.*` invoke
-will work):
+A node connecting with a dual-role bootstrap token files multiple pair
+requests — one per role in the `devices` registry, plus one in the
+`nodes` registry. **Approve all pending requests for this device** or
+Assist will silently fall back to "operator not connected":
 
 ```bash
-openclaw nodes pending           # find the request id (this is the one that captures commands)
+openclaw nodes pending           # node-role + captured commands
 openclaw nodes approve <request-id>
 
-openclaw devices list            # also pair on the devices side for token auth
-openclaw devices approve <request-id>
+openclaw devices list            # find both pending entries for this device
+openclaw devices approve <request-id-node>
+openclaw devices approve <request-id-operator>
 ```
 
 The add-on (app)'s reconnect loop picks the approval up within ~5 seconds. The
@@ -141,9 +148,10 @@ first successful pairing** — it's consumed.
      auto-detected hostname uses underscores, the integration
      rewrites them to dashes automatically (Supervisor DNS uses
      dashes).
-   - **API token** *(optional)*: paste the same `local_api_token`
+   - **API token** **(required)**: paste the same `local_api_token`
      you set in the add-on config (step 2). The field renders as a
-     password. Leave blank if you didn't set one on the node.
+     password. The local API is fail-closed; if you skip this, the
+     shim will get `401 NO_TOKEN_CONFIGURED` on every Assist turn.
 5. Settings → **Voice assistants** → set OpenClaw Gateway as the
    conversation agent for whichever assistant you want.
 
