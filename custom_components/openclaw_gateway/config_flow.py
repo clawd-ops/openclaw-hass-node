@@ -8,6 +8,7 @@ from urllib.parse import urlparse, urlunparse
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
 from .const import CONF_API_TOKEN, CONF_SOCKET_URL, DEFAULT_SOCKET_URL, DOMAIN
 
@@ -101,10 +102,11 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data={CONF_SOCKET_URL: socket_url, CONF_API_TOKEN: api_token},
             )
 
+        _pw = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
         schema = vol.Schema(
             {
                 vol.Required(CONF_SOCKET_URL, default=DEFAULT_SOCKET_URL): str,
-                vol.Optional(CONF_API_TOKEN, default=""): str,
+                vol.Optional(CONF_API_TOKEN, default=""): _pw,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors={})
@@ -119,11 +121,12 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """
         entry = self._get_reconfigure_entry()
         current_url = str(entry.data.get(CONF_SOCKET_URL, DEFAULT_SOCKET_URL))
-        current_token = str(entry.data.get(CONF_API_TOKEN, "") or "")
 
         if user_input is not None:
             socket_url = _normalise_socket_url(str(user_input[CONF_SOCKET_URL]))
-            api_token = str(user_input.get(CONF_API_TOKEN, "") or "")
+            submitted_token = str(user_input.get(CONF_API_TOKEN, "") or "")
+            existing_token = str(entry.data.get(CONF_API_TOKEN, "") or "")
+            api_token = submitted_token or existing_token
             # If URL is unchanged, skip unique_id update. If changed, the
             # new URL must not collide with another entry's unique_id.
             # _abort_if_unique_id_mismatch can't be used because the URL
@@ -139,10 +142,11 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data={CONF_SOCKET_URL: socket_url, CONF_API_TOKEN: api_token},
             )
 
+        _pw = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
         schema = vol.Schema(
             {
                 vol.Required(CONF_SOCKET_URL, default=current_url): str,
-                vol.Optional(CONF_API_TOKEN, default=current_token): str,
+                vol.Optional(CONF_API_TOKEN, default=""): _pw,
             }
         )
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors={})
