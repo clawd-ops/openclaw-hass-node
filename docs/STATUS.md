@@ -118,6 +118,40 @@ for the post-mortem. Upstream OpenClaw doc gap that misled me is
 recorded in
 `workspace/runtime-audits/2026-06-06-openclaw-node-conversation-relay-doc-gap.md`.
 
+## Doc debt — end-to-end user documentation
+
+Per Rob (2026-06-08): before P7 ships, the repo needs comprehensive
+docs so a fresh user can understand the project without reading code
+or asking. Build incrementally as we work, not in one pass. Required
+coverage:
+
+- **What it is + why** — one-paragraph elevator pitch, then a
+  "what this gives you" feature list (28 commands, 13 ha tools, Assist
+  conversation surface, etc).
+- **Architecture diagram** — HA ↔ addon (node-host) ↔ gateway ↔ Clawd,
+  including the dual pair queues (`devices` for auth, `nodes` for
+  commands) and the device-token persistence/self-heal loop.
+- **Security model** — what the addon can do (Supervisor admin,
+  filesystem maps, shell), how the WSS handshake is authenticated
+  (Ed25519 v3 signed payload), where the device token lives, what an
+  attacker on the LAN can and cannot do, what `allowCommands` gates.
+- **Install + pair** — already in `docs/INSTALL.md`; keep it
+  user-friendly.
+- **Operating** — log format (see invoke ▶/◀ lines), version-bump
+  flow (HA Update vs Uninstall/Reinstall and what each preserves),
+  how to rotate the pairing token, how to revoke a node.
+- **Troubleshooting** — extend the existing table as new failure
+  modes show up; cross-link to `docs/LESSONS.md` for the postmortem
+  detail.
+- **Command + tool reference** — full list of the 28 commands and
+  13 ha.* tools, each with arg shape and example invoke.
+- **Contributing / version-bump rules** — already in
+  `docs/CONTRIBUTING.md`; verify it stays current.
+
+Tracking marker: when each section lands, link it from `README.md`
+so the user-facing entry point is a complete table of contents, not
+a stub.
+
 ## Current phase
 
 **Install-stabilisation push complete (2026.6.7).** Node command surface is round-trippable end-to-end through the gateway (`openclaw nodes invoke …` returns real results). Next code work is **P-INSTALL** (HA credentials) then **P5.12** (ChatRelay). P6.2 cutover waits on the validation-harness streak.
