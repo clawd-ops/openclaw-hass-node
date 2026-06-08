@@ -23,6 +23,10 @@ OpenClaw gateway → configured agent
 Speech reply
 ```
 
+**New here?** Read **[`docs/OVERVIEW.md`](docs/OVERVIEW.md)** for
+what this is, what each part (add-on, HACS integration, gateway)
+does and why, the end-to-end request flow, and the security model.
+
 ## Install
 
 See **[`docs/INSTALL.md`](docs/INSTALL.md)** for the full end-to-end
