@@ -16,9 +16,10 @@ from openclaw_node.safe_path import (
 
 
 def test_addon_allowed_roots_are_ha_mounts() -> None:
-    assert "/config" in ADDON_ALLOWED_ROOTS
-    assert "/share" in ADDON_ALLOWED_ROOTS
-    assert "/backup" in ADDON_ALLOWED_ROOTS
+    # Must match `map:` in addon/config.yaml exactly. ssl/addons/backup
+    # were removed for least-privilege; re-add together when a shipped
+    # feature needs them.
+    assert set(ADDON_ALLOWED_ROOTS) == {"/config", "/share", "/media"}
 
 
 def test_allowed_roots_addon_mode() -> None:

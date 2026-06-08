@@ -20,13 +20,15 @@ from pathlib import Path
 from typing import Final
 
 # Canonical add-on roots. Order is irrelevant; membership matters.
+# Must match the active `map:` grants in addon/config.yaml exactly —
+# anything listed here is authorized at runtime even if not currently
+# mounted. Removed mounts (/addons, /ssl, /backup) are deliberately
+# absent; re-add together with the manifest grant when a shipped
+# feature needs them.
 ADDON_ALLOWED_ROOTS: Final[tuple[str, ...]] = (
     "/config",
     "/share",
-    "/addons",
-    "/ssl",
     "/media",
-    "/backup",
 )
 
 
