@@ -124,6 +124,26 @@ openclaw nodes describe --node <your-node-id>
 #         Commands: list of 28
 ```
 
+Or round-trip a command directly from the gateway side:
+
+```bash
+openclaw nodes invoke --node <your-node-id> --command ping
+# → {"pong": true}
+```
+
+Every invoke is logged in the add-on log at INFO with a compact
+entry/exit pair and elapsed ms:
+
+```
+invoke ▶ ping id=abc12345
+invoke ◀ ping ok id=abc12345 4ms
+```
+
+Unknown commands log at WARNING (`UNKNOWN_COMMAND`); thrown exceptions
+log at ERROR (`COMMAND_ERROR`) with a traceback. If you ran an invoke
+and see nothing in the log, the node didn't receive it — check the
+gateway's pending queue and the WSS connection.
+
 Then ask HA Assist anything. Until P5.12 lands the ChatRelay, the node's
 `/v1/conversation` returns a placeholder ("chat-surface relay not wired
 yet — see P5.12"). Tool calls work standalone; conversation flow lands
