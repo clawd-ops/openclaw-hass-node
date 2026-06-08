@@ -120,10 +120,13 @@ recorded in
 
 ## Discoverability / sponsorship — pre-beta TODOs
 
-- **Buy Me a Coffee link.** Rob wants a BMC link in the README. Need
-  his BMC handle (placeholder badge is commented out in README.md).
-  Could also use GitHub Sponsors instead/in addition; ask before
-  filling in.
+- **Buy Me a Coffee link.** Live in README + `.github/FUNDING.yml`
+  pointing at `buymeacoffee.com/roblandry` (pulled from Rob's
+  apex-fusion-home-assistant repo). To add GitHub Sponsors too:
+  enable Sponsors on Rob's personal GH account, then extend
+  `.github/FUNDING.yml` with a `github: [roblandry]` line. Org
+  Sponsors on `clawd-ops` is also possible but more setup; ask
+  first.
 - **Stars badge.** Added (social-style shields.io badge pointing at
   `/stargazers`). Surfaces popularity as the project takes off.
 - **Other badges to consider once published:** HACS default badge
