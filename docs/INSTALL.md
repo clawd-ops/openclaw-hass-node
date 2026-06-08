@@ -219,5 +219,15 @@ Notes:
 - The HA REST snapshot endpoint (`/v1/ha/snapshot`) needs `HASS_URL`
   and `HASS_TOKEN` env vars in standalone mode (Supervisor injects the
   equivalents automatically inside HA).
-- The HACS shim is HA-specific and not used in this mode; gateway-side
-  tool invocations still work as soon as the node is paired/approved.
+- Conversation-agent integration in this mode: the HACS shim is a
+  Home Assistant custom component, so it only matters if you have a
+  Home Assistant instance somewhere — but that instance does **not**
+  need to be HAOS/Supervised. HA Container works too. Install HACS in
+  whichever HA you have, install the **OpenClaw Gateway** shim, and
+  point its socket URL at this node (e.g.
+  `http://<node-host>:8099`, plus the same `local_api_token` you set
+  on the node). The default URL targets the HA add-on hostname; the
+  config flow lets you override it.
+- If you have no Home Assistant at all and are only running the node
+  container, gateway-side tool invokes still work as soon as the node
+  is paired/approved — there is just no HA Assist surface to wire up.
