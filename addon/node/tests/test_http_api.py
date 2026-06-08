@@ -100,8 +100,8 @@ async def test_assist_turn_unpaired(client: TestClient[Request, Application]) ->
 
 
 @pytest.mark.asyncio
-async def test_assist_turn_paired(tmp_path: Path) -> None:
-    """Assist placeholder changes message when paired."""
+async def test_assist_turn_no_relay(tmp_path: Path) -> None:
+    """Assist returns diagnostic when paired but no chat relay."""
     config = NodeConfig(
         addon_mode=False,
         gateway_url="wss://gw.test/ws",
@@ -119,11 +119,127 @@ async def test_assist_turn_paired(tmp_path: Path) -> None:
     tc = TestClient[Request, Application](server)
     await tc.start_server()
     try:
-        response = await tc.post("/v1/conversation", json={"text": "hello"})
+        response = await tc.post(
+            "/v1/conversation",
+            json={"text": "hello", "conversation_id": "conv-1"},
+        )
         data = await response.json()
         assert data["paired"] is True
+        assert data["ok"] is False
+        assert "relay" in data["response"].lower()
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_missing_conversation_id(tmp_path: Path) -> None:
+    """Assist returns error when conversation_id is missing."""
+    from openclaw_node.chat_relay import ChatRelay
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.gateway_connected = True
+    runtime.chat_relay = ChatRelay(AsyncMock())
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post("/v1/conversation", json={"text": "hello"})
+        data = await response.json()
+        assert data["ok"] is False
+        assert "conversation_id" in data["response"]
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_relay_success(tmp_path: Path) -> None:
+    """Assist relays turn through ChatRelay and returns reply."""
+    from openclaw_node.chat_relay import ChatRelay
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.gateway_connected = True
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.relay_turn = AsyncMock(return_value="Lights turned on!")
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation",
+            json={"text": "turn on the lights", "conversation_id": "conv-42"},
+        )
+        data = await response.json()
+        assert response.status == 200
         assert data["ok"] is True
-        assert "P5.12" in data["response"]
+        assert data["response"] == "Lights turned on!"
+        assert data["echo"] == "turn on the lights"
+        mock_relay.relay_turn.assert_awaited_once_with("conv-42", "turn on the lights", "en")
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_relay_error(tmp_path: Path) -> None:
+    """Assist returns 502 on ChatRelayError."""
+    from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.gateway_connected = True
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.relay_turn = AsyncMock(
+        side_effect=ChatRelayError("TIMEOUT", "chat.send timed out")
+    )
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation",
+            json={"text": "hello", "conversation_id": "conv-err"},
+        )
+        data = await response.json()
+        assert response.status == 502
+        assert data["ok"] is False
+        assert data["error"] == "TIMEOUT"
     finally:
         await tc.close()
 

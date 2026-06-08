@@ -532,9 +532,12 @@ async def test_await_approval_raises_when_socket_closes_without_approval() -> No
 
 
 async def test_event_loop_dispatches_invoke() -> None:
+    from openclaw_node.chat_relay import ChatRelay
+
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
+    relay = ChatRelay(AsyncMock())
 
     messages = [
         json.dumps(
@@ -551,14 +554,17 @@ async def test_event_loop_dispatches_invoke() -> None:
             yield m
 
     ws.__aiter__ = lambda self: _recv_iter().__aiter__()
-    await client._event_loop(ws)
+    await client._event_loop(ws, relay)
     ws.send.assert_called_once()
 
 
 async def test_event_loop_ignores_unknown_events() -> None:
+    from openclaw_node.chat_relay import ChatRelay
+
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
+    relay = ChatRelay(AsyncMock())
 
     messages = [
         json.dumps({"type": "event", "event": "some.other.event", "payload": {}}),
@@ -569,8 +575,75 @@ async def test_event_loop_ignores_unknown_events() -> None:
             yield m
 
     ws.__aiter__ = lambda self: _recv_iter().__aiter__()
-    await client._event_loop(ws)
+    await client._event_loop(ws, relay)
     ws.send.assert_not_called()
+
+
+async def test_event_loop_routes_session_message_to_relay() -> None:
+    """session.message events are forwarded to the ChatRelay."""
+    from openclaw_node.chat_relay import ChatRelay
+
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    relay = ChatRelay(AsyncMock())
+    relay._reply_events["ha-assist:conv-1"] = asyncio.Event()
+
+    messages = [
+        json.dumps({
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": "ha-assist:conv-1",
+                "role": "assistant",
+                "message": "Hello from the agent!",
+            },
+        }),
+    ]
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        for m in messages:
+            yield m
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    await client._event_loop(ws, relay)
+
+    assert relay._last_assistant_text.get("ha-assist:conv-1") == "Hello from the agent!"
+
+
+async def test_event_loop_routes_response_to_relay() -> None:
+    """RPC responses are forwarded to the ChatRelay's pending futures."""
+    import asyncio
+
+    from openclaw_node.chat_relay import ChatRelay
+
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    relay = ChatRelay(AsyncMock())
+
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future[dict[str, Any]] = loop.create_future()
+    relay._pending["req-123"] = future
+
+    messages = [
+        json.dumps({
+            "type": "res",
+            "id": "req-123",
+            "ok": True,
+            "payload": {"status": "done"},
+        }),
+    ]
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        for m in messages:
+            yield m
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    await client._event_loop(ws, relay)
+
+    assert future.done()
+    assert future.result() == {"status": "done"}
 
 
 # ---- run() reconnect test ----

@@ -23,7 +23,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_SOCKET_URL, CONVERSATION_ENDPOINT, DOMAIN
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
-_REQUEST_TIMEOUT_S: Final[float] = 12.0
+_REQUEST_TIMEOUT_S: Final[float] = 35.0
 
 
 async def async_setup_entry(
