@@ -319,6 +319,25 @@ class GatewayClient:
         error: str | None = msg.get("error") if not ok else None
         self._pairing.on_connect_response(ok=ok, payload=payload, error=error)
         self._notify_pairing_state()
+        # On successful connect the gateway may issue a long-lived device_token
+        # in hello-ok.auth.deviceToken. Persist it and use it for subsequent
+        # connects — the original pairing_token from add-on options is one-shot
+        # and rejected once the pairing has been approved.
+        if ok and payload is not None:
+            auth = payload.get("auth") or {}
+            issued = auth.get("deviceToken")
+            if isinstance(issued, str) and issued and issued != self._device_token:
+                _LOG.info("Gateway issued a new device_token; persisting.")
+                self._device_token = issued
+                self._persist_device_token(issued)
+
+    def _persist_device_token(self, token: str) -> None:
+        """Atomically write the issued device token to ``config.device_token_path``."""
+        path = self._config.device_token_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(token)
+        tmp.replace(path)
 
     async def _await_approval(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Block and process events until the gateway sends pairing approval.
