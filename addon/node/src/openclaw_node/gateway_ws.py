@@ -166,11 +166,40 @@ class GatewayClient:
                     exc,
                     _RECONNECT_DELAY_S,
                 )
+                self._maybe_drop_invalid_device_token(exc)
                 self._pairing.on_reconnect()
                 self._notify_pairing_state()
                 if self._runtime is not None:
                     self._runtime.gateway_connected = False
                 await asyncio.sleep(_RECONNECT_DELAY_S)
+
+    def _maybe_drop_invalid_device_token(self, exc: BaseException) -> None:
+        """If the persisted device_token was rejected, fall back to pairing_token.
+
+        Gateway rejects an unknown / evicted device_token with codes
+        NOT_PAIRED or PAIRING_REQUIRED. Without this fallback the addon
+        would loop forever — sending the same bad token, getting the same
+        rejection — until the user manually clears /data/openclaw/device-token.
+        """
+        haystack = repr(exc)
+        if "NOT_PAIRED" not in haystack and "PAIRING_REQUIRED" not in haystack:
+            return
+        if not self._device_token:
+            return
+        path = self._config.device_token_path
+        if self._device_token == (self._config.pairing_token or ""):
+            return  # already using the pairing_token
+        _LOG.warning(
+            "Persisted device_token rejected by gateway; clearing and "
+            "falling back to pairing_token. The gateway will create a new "
+            "pairing request on the next connect.",
+        )
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError as os_exc:
+            _LOG.warning("Could not remove %s: %s", path, os_exc)
+        self._device_token = self._config.pairing_token or _EMPTY
 
     async def _connect_and_loop(self) -> None:
         """Open a single WS connection, run the handshake, then the event loop.

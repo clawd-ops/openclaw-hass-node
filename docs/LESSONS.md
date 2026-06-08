@@ -92,3 +92,21 @@
 17. **Add-on options reach the Python process via `addon/run.sh`** which
     reads `/data/options.json` and exports each key as an env var
     (uppercased). When adding a new option, update `run.sh` too.
+18. **Bump `addon/config.yaml` `version:` on every release.** Otherwise
+    HA Supervisor never offers Update; users must Uninstall →
+    Reinstall, which wipes `/data`, deletes the persisted device-token
+    and Ed25519 identity, and forces a re-pair every release. See
+    `docs/CONTRIBUTING.md`.
+19. **`gateway.nodes.allowCommands` is read at *pairing-approval time*,
+    not at every connect.** If the operator approves a device before
+    they add the addon's command list to `openclaw.json`, the gateway
+    stores an empty approved-commands set for that device and no
+    reconnect will fix it. Remediation: `openclaw devices remove
+    <deviceId>`, ensure the allowCommands patch is live, then re-pair.
+20. **Persisted device_token must have a fallback path.** If the
+    gateway evicts the device (operator-initiated remove, gateway data
+    wipe, etc.), the addon would loop NOT_PAIRED forever sending the
+    same invalid token. `_maybe_drop_invalid_device_token` deletes the
+    persisted token on NOT_PAIRED/PAIRING_REQUIRED and falls back to
+    `config.pairing_token` so the addon self-heals on the next
+    reconnect.

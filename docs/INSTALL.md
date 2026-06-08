@@ -53,6 +53,12 @@ openclaw gateway restart    # or apply hot via the gateway tool
 Without this, the node will pair and connect, but `openclaw nodes describe`
 will show `Commands: (none reported)` and no command will actually run.
 
+**Do this step BEFORE the pairing-approval in step 3.** The gateway
+captures the allowed-commands set at pairing-approval time, not on
+every connect. If you approve first and patch second, the device's
+stored approved-commands stays empty and you'll have to
+`openclaw devices remove <id>` and re-pair to pick up the new list.
+
 ## 2. HA add-on: install + configure
 
 1. Settings → Add-ons → Add-on Store → ⋮ → **Repositories** → paste
@@ -126,7 +132,7 @@ when the relay does.
 | `AUTH_TOKEN_MISSING`                                             | Either no `pairing_token` set on first run, or the token expired before pairing was approved.    |
 | `NOT_PAIRED` after `openclaw devices approve`                    | Add-on still using old pairing_token. Update to the latest add-on (token now auto-persists).     |
 | `Gateway connection lost: <ws error>` (every 5s)                 | Network or `gateway_url` typo. The 5s reconnect cadence is normal.                               |
-| Connected but `openclaw nodes describe` shows `Commands: (none)` | Missing the `gateway.nodes.allowCommands` patch above.                                           |
+| Connected but `openclaw nodes describe` shows `Commands: (none)` | Missing the `gateway.nodes.allowCommands` patch above — OR you approved the pairing before applying the patch. Run `openclaw devices remove <id>` and let the addon re-pair. |
 
 ## Updating
 
