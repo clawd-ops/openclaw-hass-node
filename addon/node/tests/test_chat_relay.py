@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 import pytest
 
 from openclaw_node.chat_relay import (
+    _SESSION_KEY_PREFIX,
     ChatRelay,
     ChatRelayError,
-    _SESSION_KEY_PREFIX,
 )
 
 
@@ -39,9 +38,7 @@ def _error_response(req_id: str, code: str, message: str = "") -> dict[str, Any]
     }
 
 
-def _session_message_event(
-    session_key: str, role: str, text: str
-) -> dict[str, Any]:
+def _session_message_event(session_key: str, role: str, text: str) -> dict[str, Any]:
     return {
         "type": "event",
         "event": "session.message",
@@ -80,9 +77,7 @@ async def test_relay_turn_success() -> None:
         await asyncio.sleep(0.01)
 
         # Simulate session.message event (assistant reply) before chat.send response
-        relay.handle_event(
-            _session_message_event(session_key, "assistant", "Hello from Clawd!")
-        )
+        relay.handle_event(_session_message_event(session_key, "assistant", "Hello from Clawd!"))
 
         # Respond to chat.send
         send_frame = sender.frames[2]
@@ -113,9 +108,7 @@ async def test_relay_turn_second_turn_skips_create() -> None:
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
-        relay.handle_event(
-            _session_message_event(session_key, "assistant", "First reply")
-        )
+        relay.handle_event(_session_message_event(session_key, "assistant", "First reply"))
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
 
     task = asyncio.create_task(_first())
@@ -128,9 +121,7 @@ async def test_relay_turn_second_turn_skips_create() -> None:
     # Second turn -- only chat.send, no create/subscribe
     async def _second() -> None:
         await asyncio.sleep(0.01)
-        relay.handle_event(
-            _session_message_event(session_key, "assistant", "Second reply")
-        )
+        relay.handle_event(_session_message_event(session_key, "assistant", "Second reply"))
         send_frame = sender.frames[first_count]
         assert send_frame["method"] == "chat.send"
         relay.handle_response(_ok_response(send_frame["id"]))
@@ -171,9 +162,7 @@ async def test_relay_turn_gateway_error() -> None:
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
-        relay.handle_response(
-            _error_response(sender.frames[2]["id"], "SESSION_LOCKED", "busy")
-        )
+        relay.handle_response(_error_response(sender.frames[2]["id"], "SESSION_LOCKED", "busy"))
 
     task = asyncio.create_task(_respond())
     with pytest.raises(ChatRelayError) as exc_info:
@@ -194,9 +183,7 @@ async def test_handle_response_unknown_id() -> None:
 async def test_handle_event_non_assistant_ignored() -> None:
     """Non-assistant session.message events are not captured."""
     relay = ChatRelay(FakeSender().send)
-    relay.handle_event(
-        _session_message_event("ha-assist:x", "user", "user text")
-    )
+    relay.handle_event(_session_message_event("ha-assist:x", "user", "user text"))
     assert relay._last_assistant_text == {}
 
 
@@ -254,17 +241,13 @@ async def test_create_session_already_exists() -> None:
     async def _respond() -> None:
         await asyncio.sleep(0.01)
         # sessions.create fails (ALREADY_EXISTS)
-        relay.handle_response(
-            _error_response(sender.frames[0]["id"], "ALREADY_EXISTS", "exists")
-        )
+        relay.handle_response(_error_response(sender.frames[0]["id"], "ALREADY_EXISTS", "exists"))
         await asyncio.sleep(0.01)
         # subscribe succeeds
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
         # chat.send succeeds
-        relay.handle_event(
-            _session_message_event(session_key, "assistant", "Still works")
-        )
+        relay.handle_event(_session_message_event(session_key, "assistant", "Still works"))
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
 
     task = asyncio.create_task(_respond())
@@ -284,13 +267,113 @@ async def test_handle_response_legacy_string_error() -> None:
     future: asyncio.Future[dict[str, Any]] = loop.create_future()
     relay._pending["req-legacy"] = future
 
-    relay.handle_response({
-        "type": "res",
-        "id": "req-legacy",
-        "ok": False,
-        "error": "SOME_ERROR",
-    })
+    relay.handle_response(
+        {
+            "type": "res",
+            "id": "req-legacy",
+            "ok": False,
+            "error": "SOME_ERROR",
+        }
+    )
 
     with pytest.raises(ChatRelayError) as exc_info:
         future.result()
     assert exc_info.value.code == "SOME_ERROR"
+
+
+@pytest.mark.asyncio
+async def test_handle_event_chat_family() -> None:
+    """Chat events (not just session.message) are captured."""
+    relay = ChatRelay(FakeSender().send)
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "chat",
+            "payload": {
+                "sessionKey": "ha-assist:chat-ev",
+                "role": "assistant",
+                "message": "Chat family reply",
+            },
+        }
+    )
+    assert relay._last_assistant_text["ha-assist:chat-ev"] == "Chat family reply"
+
+
+@pytest.mark.asyncio
+async def test_handle_event_nested_message_object() -> None:
+    """Nested message object in session.message is handled."""
+    relay = ChatRelay(FakeSender().send)
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": "ha-assist:nested",
+                "role": "assistant",
+                "message": {"content": "Nested content", "role": "assistant"},
+            },
+        }
+    )
+    assert relay._last_assistant_text["ha-assist:nested"] == "Nested content"
+
+
+@pytest.mark.asyncio
+async def test_handle_event_chat_nested_message() -> None:
+    """Chat event with nested message object is handled."""
+    relay = ChatRelay(FakeSender().send)
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "chat.delta",
+            "payload": {
+                "sessionKey": "ha-assist:chat-nested",
+                "message": {
+                    "role": "assistant",
+                    "content": "Chat nested content",
+                },
+            },
+        }
+    )
+    assert relay._last_assistant_text["ha-assist:chat-nested"] == "Chat nested content"
+
+
+@pytest.mark.asyncio
+async def test_deferred_reply_via_event() -> None:
+    """Reply arrives after chat.send ack (deferred reply flow)."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-deferred"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        # chat.send ack comes back immediately (no reply yet)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-123"}))
+        # Reply arrives later via event
+        await asyncio.sleep(0.05)
+        relay.handle_event(_session_message_event(session_key, "assistant", "Deferred reply!"))
+
+    task = asyncio.create_task(_respond())
+    reply = await relay.relay_turn(conv_id, "Hello")
+    await task
+
+    assert reply == "Deferred reply!"
+
+
+@pytest.mark.asyncio
+async def test_reply_event_signals_on_assistant_message() -> None:
+    """The reply event is set when an assistant message arrives."""
+    relay = ChatRelay(FakeSender().send)
+    key = "ha-assist:signal"
+
+    evt = asyncio.Event()
+    relay._reply_events[key] = evt
+
+    relay.handle_event(_session_message_event(key, "assistant", "Reply!"))
+    assert evt.is_set()
+    assert relay._last_assistant_text[key] == "Reply!"

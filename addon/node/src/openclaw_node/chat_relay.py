@@ -72,6 +72,8 @@ class ChatRelay:
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._subscribed: set[str] = set()
         self._last_assistant_text: dict[str, str] = {}
+        self._reply_events: dict[str, asyncio.Event] = {}
+        self._active_run_id: dict[str, str] = {}
 
     async def relay_turn(
         self,
@@ -98,10 +100,12 @@ class ChatRelay:
             await self._ensure_session(session_key, conversation_id)
 
         self._last_assistant_text.pop(session_key, None)
+        reply_event = asyncio.Event()
+        self._reply_events[session_key] = reply_event
 
         idempotency_key = str(uuid.uuid4())
         try:
-            await self._rpc(
+            ack = await self._rpc(
                 "chat.send",
                 {
                     "sessionKey": session_key,
@@ -111,16 +115,40 @@ class ChatRelay:
                 timeout=_TURN_TIMEOUT_S,
             )
         except ChatRelayError:
+            self._reply_events.pop(session_key, None)
             raise
         except Exception as exc:
+            self._reply_events.pop(session_key, None)
             raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+
+        run_id = ""
+        if isinstance(ack, dict):
+            run_id = str(ack.get("runId", "") or "")
+        if run_id:
+            self._active_run_id[session_key] = run_id
+
+        reply = self._last_assistant_text.get(session_key, "")
+        if reply:
+            self._reply_events.pop(session_key, None)
+            return reply
+
+        # chat.send may return an immediate ack before the model runs.
+        # Wait for the reply event from the subscription.
+        try:
+            async with asyncio.timeout(_TURN_TIMEOUT_S):
+                await reply_event.wait()
+        except TimeoutError:
+            pass
+        finally:
+            self._reply_events.pop(session_key, None)
 
         reply = self._last_assistant_text.get(session_key, "")
         if not reply:
             _LOG.warning(
-                "chat.send completed but no assistant reply captured "
-                "for session %s; returning empty string",
+                "No assistant reply captured for session %s "
+                "(runId=%s); returning empty string",
                 session_key,
+                run_id,
             )
         return reply
 
@@ -234,30 +262,59 @@ class ChatRelay:
         return True
 
     def handle_event(self, msg: dict[str, Any]) -> None:
-        """Process session events to capture assistant reply text.
+        """Process session/chat events to capture assistant reply text.
 
-        Handles ``session.message`` events. The ``message`` field is the
-        cumulative assistant snapshot (not a delta), so the last event
-        with ``role=assistant`` for a given session key contains the
-        complete reply.
+        Handles both ``session.message`` and ``chat`` event families.
+        The gateway may emit assistant output under either family
+        depending on protocol version and subscription mode. The handler
+        is defensive about payload shape: ``message`` can be a flat
+        string (role + message at top level) or a nested object.
 
         Args:
             msg: The parsed JSON event frame.
         """
         event = msg.get("event", "")
-        if event != "session.message":
-            return
-
         payload = msg.get("payload", {})
         if not isinstance(payload, dict):
             return
 
-        session_key = payload.get("sessionKey", "")
-        role = payload.get("role", "")
-        text = payload.get("message", "") or payload.get("text", "")
+        session_key = ""
+        role = ""
+        text = ""
+
+        if event == "session.message":
+            session_key = str(payload.get("sessionKey", ""))
+            role = str(payload.get("role", ""))
+            msg_field = payload.get("message", "")
+            if isinstance(msg_field, dict):
+                role = role or str(msg_field.get("role", ""))
+                text = str(msg_field.get("content", "")
+                           or msg_field.get("text", "")
+                           or msg_field.get("message", ""))
+            else:
+                text = str(msg_field) if msg_field else ""
+            if not text:
+                text = str(payload.get("text", "") or payload.get("content", ""))
+
+        elif isinstance(event, str) and event.startswith("chat"):
+            session_key = str(payload.get("sessionKey", ""))
+            role = str(payload.get("role", ""))
+            text = str(payload.get("message", "") or payload.get("text", ""))
+            if not role:
+                nested = payload.get("message", {})
+                if isinstance(nested, dict):
+                    role = str(nested.get("role", ""))
+                    text = str(
+                        nested.get("content", "")
+                        or nested.get("text", "")
+                        or nested.get("message", "")
+                    )
 
         if role == "assistant" and session_key and text:
             self._last_assistant_text[session_key] = text
+            reply_evt = self._reply_events.get(session_key)
+            if reply_evt is not None:
+                reply_evt.set()
 
     def reset(self) -> None:
         """Clear all state on disconnect.
@@ -271,3 +328,7 @@ class ChatRelay:
         self._pending.clear()
         self._subscribed.clear()
         self._last_assistant_text.clear()
+        for evt in self._reply_events.values():
+            evt.set()
+        self._reply_events.clear()
+        self._active_run_id.clear()

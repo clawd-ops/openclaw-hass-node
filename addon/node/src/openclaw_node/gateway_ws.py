@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _CONNECT_ROLE: Final[str] = "node"
-_CONNECT_SCOPES: Final[list[str]] = ["operator.read"]
+_CONNECT_SCOPES: Final[list[str]] = ["operator.read", "operator.write"]
 _CONNECT_CAPS: Final[list[str]] = ["system"]
 _CONNECT_COMMANDS: Final[list[str]] = [
     "ping",
@@ -704,7 +704,9 @@ class GatewayClient:
                 event = msg.get("event", "")
                 if event == "node.invoke.request":
                     await self._handle_invoke(ws, msg.get("payload", {}))
-                elif isinstance(event, str) and event.startswith("session."):
+                elif isinstance(event, str) and (
+                    event.startswith("session.") or event.startswith("chat")
+                ):
                     relay.handle_event(msg)
 
     async def _handle_invoke(
