@@ -14,7 +14,7 @@ from .const import CONF_SOCKET_URL, DEFAULT_SOCKET_URL, DOMAIN
 # Supervisor add-on hostnames look like '<hash>_<slug>' or '<hash>-<slug>'.
 # Extract the human-readable slug so the entry title is recognisable
 # regardless of which install hash HA generated.
-_SLUG_RE = re.compile(r"^[0-9a-f]+[_-](?P<slug>[a-z0-9_]+)$", re.IGNORECASE)
+_SLUG_RE = re.compile(r"^[0-9a-f]+[_-](?P<slug>[a-z0-9_-]+)$", re.IGNORECASE)
 
 
 def _entry_title(socket_url: str) -> str:
