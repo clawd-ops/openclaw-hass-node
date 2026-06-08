@@ -457,7 +457,7 @@ def test_fs_write_atomic_write_fails(
     def boom(*a: object, **kw: object) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr("openclaw_node.commands.fs_write._atomic_write", boom)
+    monkeypatch.setattr("openclaw_node.commands.fs_write.atomic_write_safe", boom)
     result = handle_fs_write({"path": str(live_file), "content": "x", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "WRITE_ERROR"
@@ -465,16 +465,13 @@ def test_fs_write_atomic_write_fails(
 
 def test_fs_write_prior_bytes_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     target = tmp_path / "fs" / "x.yaml"
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(b"existing")
 
-    original_read_bytes = Path.read_bytes
+    def boom(*a: object, **kw: object) -> bytes:
+        raise OSError("permission denied")
 
-    def fake_read_bytes(self: Path) -> bytes:
-        if self == target:
-            raise OSError("permission denied")
-        return original_read_bytes(self)
-
-    monkeypatch.setattr(Path, "read_bytes", fake_read_bytes)
+    monkeypatch.setattr("openclaw_node.commands.fs_write.read_bytes_safe", boom)
     result = handle_fs_write({"path": str(target), "content": "new", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
@@ -509,14 +506,10 @@ def test_fs_restore_prior_bytes_read_error(
     store = fs_write_mod._get_store()
     store.capture(str(live_file), live_file.read_bytes(), proposal_id="seed", op="write")
 
-    original_read_bytes = Path.read_bytes
+    def boom(*a: object, **kw: object) -> bytes:
+        raise OSError("permission denied")
 
-    def fake_read_bytes(self: Path) -> bytes:
-        if self == live_file:
-            raise OSError("permission denied")
-        return original_read_bytes(self)
-
-    monkeypatch.setattr(Path, "read_bytes", fake_read_bytes)
+    monkeypatch.setattr("openclaw_node.commands.fs_write.read_bytes_safe", boom)
     result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
@@ -567,7 +560,7 @@ def test_fs_restore_write_fails(
     def boom(*a: object, **kw: object) -> None:
         raise OSError("disk full")
 
-    monkeypatch.setattr("openclaw_node.commands.fs_write._atomic_write", boom)
+    monkeypatch.setattr("openclaw_node.commands.fs_write.atomic_write_safe", boom)
     result = handle_fs_restore({"path": str(live_file), "version": 1, "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "WRITE_ERROR"
@@ -585,39 +578,131 @@ def test_fs_history_store_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert result["error"] == "STORE_ERROR"
 
 
-def test_fs_write_atomic_cleanup_on_failure(
+def test_atomic_write_safe_cleanup_on_replace_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Test _atomic_write directly so the patch doesn't hit the backup store.
-    from openclaw_node.commands.fs_write import _atomic_write
+    """If renameat fails, the temp file is unlinked rather than left behind."""
+    target_dir = tmp_path / "fs"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "x.txt"
 
-    def boom_replace(*a: object) -> None:
+    from openclaw_node import safe_fd
+
+    real_replace = os.replace
+
+    def boom_replace(*a: object, **kw: object) -> None:
         raise OSError("full")
 
-    monkeypatch.setattr("openclaw_node.commands.fs_write.os.replace", boom_replace)
-    target = tmp_path / "target.txt"
+    monkeypatch.setattr("openclaw_node.safe_fd.os.replace", boom_replace)
+    roots = (tmp_path,)
     with pytest.raises(OSError):
-        _atomic_write(target, b"data")
-    leftovers = list(tmp_path.glob(".oc_write.*"))
+        safe_fd.atomic_write_safe(str(target), roots, b"data")
+
+    leftovers = list(target_dir.glob(".oc_write.*"))
     assert leftovers == []
+    monkeypatch.setattr("openclaw_node.safe_fd.os.replace", real_replace)
 
 
-def test_fs_write_atomic_dir_fsync_oserror_suppressed(
+def test_atomic_write_safe_does_not_follow_symlink_target(tmp_path: Path) -> None:
+    """A symlink planted at the target path must not be followed through.
+
+    Regression guard for audit issue #48 item 12 (fs_write TOCTOU): the
+    write must use ``renameat`` so the existing symlink at the target is
+    REPLACED with a regular file rather than dereferenced. The decoy file
+    the symlink used to point at must stay untouched.
+    """
+    from openclaw_node import safe_fd
+
+    target_dir = tmp_path / "fs"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "victim.txt"
+    decoy = tmp_path / "decoy.txt"
+    decoy.write_text("untouched")
+    target.symlink_to(decoy)
+
+    safe_fd.atomic_write_safe(str(target), (target_dir,), b"new bytes")
+
+    # Symlink is replaced by a regular file at the target.
+    assert target.is_symlink() is False
+    assert target.read_bytes() == b"new bytes"
+    # The decoy outside the safe root is unchanged — the write did NOT
+    # follow the symlink and overwrite its target.
+    assert decoy.read_text() == "untouched"
+
+
+def test_replace_safe_does_not_follow_symlinked_source(tmp_path: Path) -> None:
+    """Move must not follow a symlinked source through to a file outside the roots.
+
+    ``renameat`` operates on the symlink inode itself rather than the
+    target. The symlink ends up at dst (still a symlink), and the
+    decoy file outside the roots stays intact.
+    """
+    from openclaw_node import safe_fd
+
+    fs_dir = tmp_path / "fs"
+    fs_dir.mkdir(exist_ok=True)
+    decoy = tmp_path / "decoy.txt"
+    decoy.write_text("untouched")
+    src_link = fs_dir / "src_link"
+    src_link.symlink_to(decoy)
+    dst = fs_dir / "dst.txt"
+
+    safe_fd.replace_safe(str(src_link), str(dst), (fs_dir,))
+
+    # Decoy outside the safe root is untouched.
+    assert decoy.read_text() == "untouched"
+    # The symlink moved as a symlink; the source name no longer exists.
+    assert not src_link.is_symlink()
+    assert dst.is_symlink()
+
+
+def test_read_bytes_safe_rejects_symlink(tmp_path: Path) -> None:
+    """read_bytes_safe must refuse to follow a symlink at the final component."""
+    from openclaw_node import safe_fd
+    from openclaw_node.safe_path import OutOfBoundsError
+
+    fs_dir = tmp_path / "fs"
+    fs_dir.mkdir(exist_ok=True)
+    secret = tmp_path / "secret.txt"
+    secret.write_text("nope")
+    link = fs_dir / "link"
+    link.symlink_to(secret)
+
+    with pytest.raises((OSError, OutOfBoundsError)):
+        safe_fd.read_bytes_safe(str(link), (fs_dir,))
+
+
+def test_unlink_safe_round_trip(tmp_path: Path) -> None:
+    """unlink_safe removes a regular file and returns False for absent paths."""
+    from openclaw_node import safe_fd
+
+    fs_dir = tmp_path / "fs"
+    fs_dir.mkdir(exist_ok=True)
+    f = fs_dir / "victim.txt"
+    f.write_text("x")
+    assert safe_fd.unlink_safe(str(f), (fs_dir,)) is True
+    assert not f.exists()
+    assert safe_fd.unlink_safe(str(f), (fs_dir,)) is False
+
+
+def test_atomic_write_safe_dir_fsync_oserror_suppressed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """OSError on directory fsync after os.replace is suppressed; write still succeeds."""
-    from openclaw_node.commands.fs_write import _atomic_write
+    """OSError on parent dir fsync is suppressed; the write still succeeds."""
+    from openclaw_node import safe_fd
 
-    original_open = os.open
+    real_fsync = os.fsync
 
-    def failing_dir_open(path: str, flags: int, *a: object, **kw: object) -> int:
-        if flags & os.O_DIRECTORY:
+    def failing_fsync(fd: int) -> None:
+        if os.fstat(fd).st_mode & 0o040000:  # S_IFDIR
             raise OSError("dir fsync not supported")
-        return original_open(path, flags)
+        real_fsync(fd)
 
-    monkeypatch.setattr("openclaw_node.commands.fs_write.os.open", failing_dir_open)
-    target = tmp_path / "fs" / "out.txt"
-    _atomic_write(target, b"hello")  # must not raise
+    monkeypatch.setattr("openclaw_node.safe_fd.os.fsync", failing_fsync)
+    target_dir = tmp_path / "fs"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "out.txt"
+    safe_fd.atomic_write_safe(str(target), (tmp_path,), b"hello")
     assert target.read_bytes() == b"hello"
 
 

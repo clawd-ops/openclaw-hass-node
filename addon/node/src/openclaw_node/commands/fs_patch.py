@@ -29,13 +29,15 @@ from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError
 from openclaw_node.commands.fs_write import (
-    _atomic_write,
     _error,
     _is_protected,
     _is_storage,
     _reset_store_for_testing,
     _resolve_write_target,
 )
+from openclaw_node.config import allowed_roots_for_env
+from openclaw_node.safe_fd import atomic_write_safe, read_bytes_safe
+from openclaw_node.safe_path import OutOfBoundsError
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -163,11 +165,13 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
             f"Resolved path {resolved!r} is under a protected root",
         )
 
-    if not resolved.exists():
-        return _error("NOT_FOUND", f"Path does not exist: {path!r}")
-
+    roots = allowed_roots_for_env()
     try:
-        original_bytes = resolved.read_bytes()
+        original_bytes = read_bytes_safe(path, roots)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
+    except FileNotFoundError:
+        return _error("NOT_FOUND", f"Path does not exist: {path!r}")
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read file: {exc}")
 
@@ -201,7 +205,9 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
         return _error("BACKUP_ERROR", "Backup capture failed; patch aborted")
 
     try:
-        _atomic_write(resolved, patched_bytes)
+        atomic_write_safe(path, roots, patched_bytes)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
     except OSError as exc:
         return _error("WRITE_ERROR", f"Atomic write failed: {exc}")
 

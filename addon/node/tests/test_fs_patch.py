@@ -245,10 +245,14 @@ def test_fs_patch_failed(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_fs_patch_read_error(tmp_path: Path) -> None:
+def test_fs_patch_read_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    with mock_patch.object(Path, "read_bytes", side_effect=OSError("permission denied")):
-        result = handle_fs_patch({"path": str(p), "patch": "--- a\n+++ b\n"})
+
+    def boom(*a: object, **kw: object) -> bytes:
+        raise OSError("permission denied")
+
+    monkeypatch.setattr("openclaw_node.commands.fs_patch.read_bytes_safe", boom)
+    result = handle_fs_patch({"path": str(p), "patch": "--- a\n+++ b\n"})
     assert result["error"] == "READ_ERROR"
 
 
@@ -295,7 +299,7 @@ def test_fs_patch_write_error(tmp_path: Path) -> None:
             return_value=(b"goodbye\n", 1),
         ),
         mock_patch(
-            "openclaw_node.commands.fs_patch._atomic_write",
+            "openclaw_node.commands.fs_patch.atomic_write_safe",
             side_effect=OSError("no space left"),
         ),
     ):
@@ -415,7 +419,7 @@ def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
         ),
         mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn,
         mock_patch(
-            "openclaw_node.commands.fs_patch._atomic_write",
+            "openclaw_node.commands.fs_patch.atomic_write_safe",
         ),
     ):
         mock_store = mock_store_fn.return_value

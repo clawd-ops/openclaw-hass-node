@@ -28,15 +28,14 @@ unless ``to_version`` is ``None`` (compare a stored version against disk).
 from __future__ import annotations
 
 import base64
-import contextlib
 import logging
 import os
-import tempfile
 from pathlib import Path
 from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError, VersionNotFoundError
 from openclaw_node.config import allowed_roots_for_env
+from openclaw_node.safe_fd import atomic_write_safe, read_bytes_safe
 from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError, resolve_safe
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -187,38 +186,6 @@ def _decode_content(content: str, encoding: str) -> bytes | dict[str, Any]:
     return _error("INVALID_ENCODING", f"Unknown encoding: {encoding!r}; use utf-8 or base64")
 
 
-def _atomic_write(target: Path, data: bytes) -> None:
-    """Write *data* to *target* atomically using a sibling temp file.
-
-    Unlike :func:`openclaw_node.backup_store._atomic_write_bytes`, this
-    helper is for the live file path itself (outside the store) and therefore
-    does its own temp/rename/fsync sequence.
-
-    Args:
-        target: Destination file path.
-        data: Bytes to write.
-    """
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(prefix=".oc_write.", dir=str(target.parent))
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp_name, target)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp_name)
-        raise
-    # Fsync parent dir so rename is crash-durable.
-    with contextlib.suppress(OSError):
-        dir_fd = os.open(str(target.parent), os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(dir_fd)
-        finally:
-            os.close(dir_fd)
-
-
 # ---------------------------------------------------------------------------
 # Command handlers
 # ---------------------------------------------------------------------------
@@ -286,9 +253,15 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     if isinstance(content_bytes, dict):
         return content_bytes
 
-    # Capture prior bytes (empty if file does not yet exist).
+    roots = allowed_roots_for_env()
+
+    # Capture prior bytes (empty if file does not yet exist) via a
+    # TOCTOU-safe fd read so a symlink at the path can't redirect the read
+    # between resolve and capture.
     try:
-        prior_bytes = resolved.read_bytes() if resolved.exists() else b""
+        prior_bytes = read_bytes_safe(path, roots, missing_ok=True)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read prior bytes: {exc}")
 
@@ -306,7 +279,9 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
         return _error("BACKUP_ERROR", "Backup capture failed; write aborted")
 
     try:
-        _atomic_write(resolved, content_bytes)
+        atomic_write_safe(path, roots, content_bytes)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
     except OSError as exc:
         _LOG.error("write failed for %r: %s", path, exc)
         return _error("WRITE_ERROR", f"Write failed: {exc}")
@@ -410,9 +385,13 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     except BackupStoreError as exc:
         return _error("OBJECT_MISSING", str(exc))
 
+    roots = allowed_roots_for_env()
+
     # Capture current bytes as a restore entry before overwriting.
     try:
-        prior_bytes = resolved.read_bytes() if resolved.exists() else b""
+        prior_bytes = read_bytes_safe(path, roots, missing_ok=True)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read prior bytes: {exc}")
 
@@ -429,7 +408,9 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
         return _error("BACKUP_ERROR", "Pre-restore capture failed; restore aborted")
 
     try:
-        _atomic_write(resolved, restore_bytes)
+        atomic_write_safe(path, roots, restore_bytes)
+    except OutOfBoundsError:
+        return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
     except OSError as exc:
         _LOG.error("restore write failed for %r: %s", path, exc)
         return _error("WRITE_ERROR", f"Restore write failed: {exc}")

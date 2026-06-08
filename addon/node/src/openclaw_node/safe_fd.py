@@ -239,3 +239,206 @@ def open_safe_fd(path: str, roots: tuple[Path, ...], *, dir_fd_only: bool = Fals
             return _fallback_openat(root_fd, rel_parts, path, flags=flags)
     finally:
         os.close(root_fd)
+
+
+# --------------------------------------------------------------------------- #
+# TOCTOU-safe mutation helpers (audit issue #48 item 12).
+#
+# The legacy pattern was: resolve_safe(path) -> Path; then operate on the path
+# string. Between resolve and operate, an attacker with write access to any
+# parent directory can swap the path target via symlink or rename. The fix is
+# to open a stable dir fd for the parent, validate it once, and run every
+# mutation (write, read, unlink, rename) relative to that dir fd. Even if the
+# attacker swaps the parent or basename mid-flight, the kernel ops still
+# operate on the originally-validated inodes.
+#
+# Helpers below all take ``(path, roots)`` and own the dir-fd lifecycle. Call
+# sites in commands/fs_*.py just use the high-level functions.
+# --------------------------------------------------------------------------- #
+
+
+def open_safe_parent_dir(path: str, roots: tuple[Path, ...]) -> tuple[int, str]:
+    """Open the parent dir of *path* beneath *roots* and return ``(dir_fd, basename)``.
+
+    The returned ``dir_fd`` is an ``O_PATH`` directory fd whose path resolves
+    under *roots* with no symlinks followed during traversal. Subsequent
+    ``openat`` / ``renameat`` / ``unlinkat`` calls relative to ``dir_fd``
+    cannot be redirected outside the originally-validated directory.
+
+    Args:
+        path: Caller-supplied absolute path.
+        roots: Allowed roots.
+
+    Returns:
+        Tuple of (parent dir fd, basename).
+
+    Raises:
+        NoAllowedRootsError: If *roots* is empty.
+        OutOfBoundsError: If *path* escapes roots, uses symlinks, or has an
+            empty/dot basename.
+    """
+    p = Path(path)
+    basename = p.name
+    if not basename or basename in (".", ".."):
+        raise OutOfBoundsError(path)
+    dir_fd = open_safe_fd(str(p.parent), roots, dir_fd_only=True)
+    return dir_fd, basename
+
+
+def read_bytes_safe(path: str, roots: tuple[Path, ...], *, missing_ok: bool = False) -> bytes:
+    """Read *path*'s bytes via a TOCTOU-safe fd open.
+
+    Symlinks at the final component are rejected via ``O_NOFOLLOW``.
+
+    Args:
+        path: Caller-supplied absolute path.
+        roots: Allowed roots.
+        missing_ok: When ``True``, return ``b""`` if the file does not
+            exist (the prior-bytes capture pattern used by write/restore
+            and move). When ``False`` (default), ``FileNotFoundError``
+            propagates so callers like ``fs.patch`` and ``fs.delete``
+            don't have to re-check ``Path.exists()`` after the read
+            (which would reintroduce a TOCTOU window).
+    """
+    try:
+        fd = open_safe_fd(path, roots)
+    except FileNotFoundError:
+        if missing_ok:
+            return b""
+        raise
+    with os.fdopen(fd, "rb") as fh:
+        return fh.read()
+
+
+def atomic_write_safe(
+    path: str, roots: tuple[Path, ...], data: bytes, *, mode: int = 0o644
+) -> None:
+    """Atomically write *data* to *path* under *roots* with TOCTOU defense.
+
+    Opens the parent dir as a stable fd, writes to a sibling temp file via
+    ``openat(parent_fd, ...)`` with ``O_NOFOLLOW | O_EXCL``, ``fsync``s the
+    data, and renames atomically via ``renameat(parent_fd, ...)``. The parent
+    dir fd is also ``fsync``-ed so the rename is crash-durable.
+
+    Even if an attacker rewrites the parent symlink or swaps the basename
+    after the parent dir fd is opened, the writes still land in the validated
+    directory (the dir fd points to the inode, not the path string).
+
+    Args:
+        path: Destination absolute path.
+        roots: Allowed roots.
+        data: Bytes to write.
+        mode: POSIX mode for the new file (default ``0o644``).
+
+    Raises:
+        NoAllowedRootsError / OutOfBoundsError / OSError: As for safe_fd
+            primitives.
+    """
+    import contextlib as _ctx
+    import secrets as _secrets
+
+    dir_fd, basename = open_safe_parent_dir(path, roots)
+    tmp_name = f".oc_write.{_secrets.token_hex(8)}"
+    fd: int | None = None
+    try:
+        fd = os.open(
+            tmp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+            mode,
+            dir_fd=dir_fd,
+        )
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                fd = None  # fdopen owns the fd from here on.
+                fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())
+        except BaseException:
+            with _ctx.suppress(OSError):
+                os.unlink(tmp_name, dir_fd=dir_fd)
+            raise
+        try:
+            os.replace(tmp_name, basename, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        except BaseException:
+            with _ctx.suppress(OSError):
+                os.unlink(tmp_name, dir_fd=dir_fd)
+            raise
+        # Crash durability for the rename. ``dir_fd`` is opened ``O_PATH``,
+        # which fsync rejects with EBADF — open a regular directory fd
+        # against the already-validated parent (the openat is relative to
+        # ``dir_fd`` so it cannot be redirected by a symlink swap).
+        try:
+            sync_fd = os.open(".", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC, dir_fd=dir_fd)
+        except OSError:
+            pass
+        else:
+            try:
+                with _ctx.suppress(OSError):
+                    os.fsync(sync_fd)
+            finally:
+                os.close(sync_fd)
+    finally:
+        if fd is not None:
+            with _ctx.suppress(OSError):
+                os.close(fd)
+        os.close(dir_fd)
+
+
+def unlink_safe(path: str, roots: tuple[Path, ...]) -> bool:
+    """Unlink *path* under *roots* via the parent dir fd.
+
+    Refuses to follow a symlink at the final component.
+
+    Args:
+        path: Absolute path to remove.
+        roots: Allowed roots.
+
+    Returns:
+        ``True`` if the file was removed, ``False`` if it did not exist.
+
+    Raises:
+        OutOfBoundsError: If *path* escapes roots or names a symlink at the
+            final component.
+        IsADirectoryError: If *path* is a directory (caller should use a
+            directory-aware helper instead).
+    """
+    dir_fd, basename = open_safe_parent_dir(path, roots)
+    try:
+        try:
+            os.unlink(basename, dir_fd=dir_fd)
+        except FileNotFoundError:
+            return False
+        return True
+    finally:
+        os.close(dir_fd)
+
+
+def replace_safe(src_path: str, dst_path: str, roots: tuple[Path, ...]) -> None:
+    """Rename *src_path* to *dst_path*, both validated under *roots*.
+
+    Uses ``os.replace`` with explicit ``src_dir_fd`` / ``dst_dir_fd`` so each
+    side is validated independently and neither leg follows a symlink at the
+    final component.
+
+    Within a single filesystem the operation is atomic. Across filesystems
+    the kernel returns ``EXDEV``; callers that need cross-fs moves should
+    fall back to ``read_bytes_safe`` + ``atomic_write_safe`` + ``unlink_safe``.
+
+    Args:
+        src_path: Source absolute path.
+        dst_path: Destination absolute path.
+        roots: Allowed roots (both src and dst must resolve under them).
+
+    Raises:
+        OSError(EXDEV): On cross-filesystem rename.
+        Other safe_fd errors as documented above.
+    """
+    src_dir_fd, src_name = open_safe_parent_dir(src_path, roots)
+    try:
+        dst_dir_fd, dst_name = open_safe_parent_dir(dst_path, roots)
+        try:
+            os.replace(src_name, dst_name, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+        finally:
+            os.close(dst_dir_fd)
+    finally:
+        os.close(src_dir_fd)

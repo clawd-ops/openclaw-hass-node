@@ -273,14 +273,10 @@ def test_fs_move_dst_read_error(
     dst = tmp_path / "fs" / "dst.yaml"
     dst.write_text("existing\n", encoding="utf-8")
 
-    original = Path.read_bytes
+    def bad_read(*a: object, **kw: object) -> bytes:
+        raise OSError("permission denied")
 
-    def bad_read(self: Path) -> bytes:
-        if self == dst:
-            raise OSError("permission denied")
-        return original(self)
-
-    monkeypatch.setattr(Path, "read_bytes", bad_read)
+    monkeypatch.setattr("openclaw_node.commands.fs_move_delete.read_bytes_safe", bad_read)
     result = handle_fs_move({"src": str(src_file), "dst": str(dst), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
@@ -289,14 +285,10 @@ def test_fs_move_dst_read_error(
 def test_fs_move_src_read_error(
     tmp_path: Path, src_file: Path, dst_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    original = Path.read_bytes
+    def bad_read(*a: object, **kw: object) -> bytes:
+        raise OSError("permission denied")
 
-    def bad_read(self: Path) -> bytes:
-        if self == src_file:
-            raise OSError("permission denied")
-        return original(self)
-
-    monkeypatch.setattr(Path, "read_bytes", bad_read)
+    monkeypatch.setattr("openclaw_node.commands.fs_move_delete.read_bytes_safe", bad_read)
     result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
@@ -344,10 +336,10 @@ def test_fs_move_backup_src_error(
 def test_fs_move_operation_fails(
     tmp_path: Path, src_file: Path, dst_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def boom(src: object, dst: object) -> None:
+    def boom(*a: object, **kw: object) -> None:
         raise OSError("busy")
 
-    monkeypatch.setattr("openclaw_node.commands.fs_move_delete._move_file", boom)
+    monkeypatch.setattr("openclaw_node.commands.fs_move_delete.replace_safe", boom)
     result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "MOVE_ERROR"
@@ -359,10 +351,10 @@ def test_fs_move_cross_device_rejected(
     """Cross-device moves (EXDEV) return CROSS_DEVICE, not MOVE_ERROR."""
     import errno as _errno
 
-    def exdev(src: object, dst: object) -> None:
+    def exdev(*a: object, **kw: object) -> None:
         raise OSError(_errno.EXDEV, "Invalid cross-device link")
 
-    monkeypatch.setattr("openclaw_node.commands.fs_move_delete._move_file", exdev)
+    monkeypatch.setattr("openclaw_node.commands.fs_move_delete.replace_safe", exdev)
     result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "CROSS_DEVICE"
@@ -460,7 +452,10 @@ def test_fs_delete_captures_to_store(tmp_path: Path, src_file: Path) -> None:
 def test_fs_delete_read_error(
     tmp_path: Path, src_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(Path, "read_bytes", lambda self: (_ for _ in ()).throw(OSError("denied")))
+    monkeypatch.setattr(
+        "openclaw_node.commands.fs_move_delete.read_bytes_safe",
+        lambda p, r: (_ for _ in ()).throw(OSError("denied")),
+    )
     result = handle_fs_delete({"path": str(src_file), "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "READ_ERROR"
