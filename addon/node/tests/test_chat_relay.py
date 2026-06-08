@@ -377,3 +377,126 @@ async def test_reply_event_signals_on_assistant_message() -> None:
     relay.handle_event(_session_message_event(key, "assistant", "Reply!"))
     assert evt.is_set()
     assert relay._last_assistant_text[key] == "Reply!"
+
+
+@pytest.mark.asyncio
+async def test_create_session_non_benign_error_raises() -> None:
+    """Non-ALREADY_EXISTS create errors propagate."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_error_response(sender.frames[0]["id"], "UNAUTHORIZED", "bad token"))
+
+    task = asyncio.create_task(_respond())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn("conv-unauth", "Hello")
+    await task
+
+    assert exc_info.value.code == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
+async def test_content_block_array() -> None:
+    """Content as array of text blocks is extracted correctly."""
+    relay = ChatRelay(FakeSender().send)
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": "ha-assist:blocks",
+                "role": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": "Hello"},
+                        {"type": "text", "text": "world"},
+                    ],
+                },
+            },
+        }
+    )
+    assert relay._last_assistant_text["ha-assist:blocks"] == "Hello\nworld"
+
+
+@pytest.mark.asyncio
+async def test_stale_run_id_ignored() -> None:
+    """Events with a mismatched runId are ignored."""
+    relay = ChatRelay(FakeSender().send)
+    key = "ha-assist:stale"
+
+    relay._active_run_id[key] = "run-current"
+
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "Stale reply",
+                "runId": "run-old",
+            },
+        }
+    )
+    assert key not in relay._last_assistant_text
+
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "Current reply",
+                "runId": "run-current",
+            },
+        }
+    )
+    assert relay._last_assistant_text[key] == "Current reply"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_turns_serialized() -> None:
+    """Concurrent turns for the same conversation are serialized."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-serial"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    order: list[str] = []
+
+    async def _respond_all() -> None:
+        await asyncio.sleep(0.01)
+        # First turn: create
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        # First turn: subscribe
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        # First turn: chat.send reply + ack
+        relay.handle_event(_session_message_event(session_key, "assistant", "Reply 1"))
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        order.append("turn1_done")
+
+        await asyncio.sleep(0.05)
+        # Second turn: chat.send (no create/subscribe)
+        idx = len(sender.frames) - 1
+        relay.handle_event(_session_message_event(session_key, "assistant", "Reply 2"))
+        relay.handle_response(_ok_response(sender.frames[idx]["id"]))
+        order.append("turn2_done")
+
+    task = asyncio.create_task(_respond_all())
+    t1 = asyncio.create_task(relay.relay_turn(conv_id, "Turn 1"))
+    t2 = asyncio.create_task(relay.relay_turn(conv_id, "Turn 2"))
+
+    r1 = await t1
+    r2 = await t2
+    await task
+
+    assert r1 == "Reply 1"
+    assert r2 == "Reply 2"
+    assert order == ["turn1_done", "turn2_done"]

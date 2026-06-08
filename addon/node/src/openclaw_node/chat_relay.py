@@ -74,6 +74,7 @@ class ChatRelay:
         self._last_assistant_text: dict[str, str] = {}
         self._reply_events: dict[str, asyncio.Event] = {}
         self._active_run_id: dict[str, str] = {}
+        self._turn_locks: dict[str, asyncio.Lock] = {}
 
     async def relay_turn(
         self,
@@ -96,6 +97,12 @@ class ChatRelay:
         """
         session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
 
+        lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
+        async with lock:
+            return await self._relay_turn_locked(session_key, conversation_id, text)
+
+    async def _relay_turn_locked(self, session_key: str, conversation_id: str, text: str) -> str:
+        """Inner relay turn, called under the per-session lock."""
         if session_key not in self._subscribed:
             await self._ensure_session(session_key, conversation_id)
 
@@ -132,8 +139,6 @@ class ChatRelay:
             self._reply_events.pop(session_key, None)
             return reply
 
-        # chat.send may return an immediate ack before the model runs.
-        # Wait for the reply event from the subscription.
         try:
             async with asyncio.timeout(_TURN_TIMEOUT_S):
                 await reply_event.wait()
@@ -145,8 +150,7 @@ class ChatRelay:
         reply = self._last_assistant_text.get(session_key, "")
         if not reply:
             _LOG.warning(
-                "No assistant reply captured for session %s "
-                "(runId=%s); returning empty string",
+                "No assistant reply captured for session %s (runId=%s); returning empty string",
                 session_key,
                 run_id,
             )
@@ -169,12 +173,13 @@ class ChatRelay:
                 timeout=_RPC_TIMEOUT_S,
             )
         except ChatRelayError as exc:
-            if "ALREADY_EXISTS" not in exc.code.upper():
+            if "ALREADY_EXISTS" in exc.code.upper():
                 _LOG.debug(
-                    "sessions.create returned %s for %s (may be benign)",
-                    exc.code,
+                    "sessions.create returned ALREADY_EXISTS for %s (benign)",
                     session_key,
                 )
+            else:
+                raise
 
         try:
             await self._rpc(
@@ -261,6 +266,33 @@ class ChatRelay:
             future.set_exception(ChatRelayError(code, message))
         return True
 
+    @staticmethod
+    def _extract_text(content: Any) -> str:
+        """Extract plain text from a message content field.
+
+        Handles three shapes:
+        - ``str``: returned as-is.
+        - ``list``: content-block array (``[{"type":"text","text":"..."}]``),
+          joined with newlines.
+        - ``dict``: nested message object with ``content``/``text``/``message``.
+        - falsy: returns ``""``.
+        """
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    parts.append(str(block.get("text", "")))
+                elif isinstance(block, str):
+                    parts.append(block)
+            return "\n".join(parts)
+        if isinstance(content, dict):
+            return ChatRelay._extract_text(
+                content.get("content", "") or content.get("text", "") or content.get("message", "")
+            )
+        return str(content) if content else ""
+
     def handle_event(self, msg: dict[str, Any]) -> None:
         """Process session/chat events to capture assistant reply text.
 
@@ -268,7 +300,11 @@ class ChatRelay:
         The gateway may emit assistant output under either family
         depending on protocol version and subscription mode. The handler
         is defensive about payload shape: ``message`` can be a flat
-        string (role + message at top level) or a nested object.
+        string, a nested object, or a content-block array.
+
+        Events are filtered by ``runId`` when an active run is tracked
+        for the session, preventing stale events from prior runs from
+        being captured.
 
         Args:
             msg: The parsed JSON event frame.
@@ -281,6 +317,7 @@ class ChatRelay:
         session_key = ""
         role = ""
         text = ""
+        event_run_id = str(payload.get("runId", "") or "")
 
         if event == "session.message":
             session_key = str(payload.get("sessionKey", ""))
@@ -288,33 +325,47 @@ class ChatRelay:
             msg_field = payload.get("message", "")
             if isinstance(msg_field, dict):
                 role = role or str(msg_field.get("role", ""))
-                text = str(msg_field.get("content", "")
-                           or msg_field.get("text", "")
-                           or msg_field.get("message", ""))
+                text = self._extract_text(
+                    msg_field.get("content", "")
+                    or msg_field.get("text", "")
+                    or msg_field.get("message", "")
+                )
             else:
-                text = str(msg_field) if msg_field else ""
+                text = self._extract_text(msg_field)
             if not text:
-                text = str(payload.get("text", "") or payload.get("content", ""))
+                text = self._extract_text(payload.get("text", "") or payload.get("content", ""))
 
         elif isinstance(event, str) and event.startswith("chat"):
             session_key = str(payload.get("sessionKey", ""))
             role = str(payload.get("role", ""))
-            text = str(payload.get("message", "") or payload.get("text", ""))
-            if not role:
-                nested = payload.get("message", {})
-                if isinstance(nested, dict):
-                    role = str(nested.get("role", ""))
-                    text = str(
-                        nested.get("content", "")
-                        or nested.get("text", "")
-                        or nested.get("message", "")
-                    )
+            msg_field = payload.get("message", "")
+            if isinstance(msg_field, dict):
+                role = role or str(msg_field.get("role", ""))
+                text = self._extract_text(
+                    msg_field.get("content", "")
+                    or msg_field.get("text", "")
+                    or msg_field.get("message", "")
+                )
+            else:
+                text = self._extract_text(msg_field or payload.get("text", ""))
 
-        if role == "assistant" and session_key and text:
-            self._last_assistant_text[session_key] = text
-            reply_evt = self._reply_events.get(session_key)
-            if reply_evt is not None:
-                reply_evt.set()
+        if not (role == "assistant" and session_key and text):
+            return
+
+        active_run = self._active_run_id.get(session_key)
+        if active_run and event_run_id and event_run_id != active_run:
+            _LOG.debug(
+                "Ignoring stale event for %s: event runId=%s, active=%s",
+                session_key,
+                event_run_id,
+                active_run,
+            )
+            return
+
+        self._last_assistant_text[session_key] = text
+        reply_evt = self._reply_events.get(session_key)
+        if reply_evt is not None:
+            reply_evt.set()
 
     def reset(self) -> None:
         """Clear all state on disconnect.
@@ -332,3 +383,4 @@ class ChatRelay:
             evt.set()
         self._reply_events.clear()
         self._active_run_id.clear()
+        self._turn_locks.clear()
