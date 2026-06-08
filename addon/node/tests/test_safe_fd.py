@@ -90,10 +90,18 @@ def test_open_safe_fd_opens_root_dir_directly(tmp_path: Path) -> None:
         os.close(fd)
 
 
-def test_open_safe_parent_dir_rejects_dot_basename(tmp_path: Path) -> None:
-    """A path ending in '.' has no valid basename."""
+def test_open_safe_parent_dir_rejects_empty_basename(tmp_path: Path) -> None:
+    """Path ending in '.' normalizes to empty basename via Path()."""
     with pytest.raises(OutOfBoundsError):
         open_safe_parent_dir(str(tmp_path / "."), (tmp_path,))
+
+
+def test_open_safe_parent_dir_rejects_dotdot_basename(tmp_path: Path) -> None:
+    """A '..' basename is explicitly rejected by open_safe_parent_dir."""
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    with pytest.raises(OutOfBoundsError):
+        open_safe_parent_dir(f"{sub}/..", (tmp_path,))
 
 
 def test_read_bytes_safe_missing_ok(tmp_path: Path) -> None:
