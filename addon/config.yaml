@@ -13,17 +13,36 @@ arch:
   - aarch64
   - armv7
 init: false
-hassio_api: true
-hassio_role: admin
+# homeassistant_api: enables HA Core API access at
+# http://supervisor/core/api with SUPERVISOR_TOKEN. Used by `ha_client`
+# and `commands/ha` to proxy HA Core/WS calls.
+#
+# hassio_api intentionally omitted: shipped code does not call the
+# Supervisor API at http://supervisor/ (no add-on/host/backup lifecycle
+# usage). Re-enable only when a shipped Supervisor lifecycle feature
+# needs it; pair with `hassio_role: manager`/`admin` only as that
+# feature actually requires.
 homeassistant_api: true
-auth_api: true
+# auth_api intentionally omitted: the local HTTP API authenticates with a
+# shared bearer (`local_api_token`) via `hmac.compare_digest`, not via the
+# HA Auth API. Re-enable only if a shipped surface validates HA-issued
+# tokens with the Supervisor auth endpoint.
 map:
-  - config:rw
+  # config:ro — `/config` is exposed as an allowed read root. Writes are
+  # gated and currently return `PROPOSAL_REQUIRED` (proposal bridge not
+  # shipped); upgrade to `:rw` only when the proposal flow lands.
+  - config:ro
+  # share:rw — backs the per-file content-addressed backup store
+  # (/share/openclaw-backups) and the delete trash fallback
+  # (/share/openclaw-trash). Real shipped writes.
   - share:rw
-  - ssl:rw
-  - addons:rw
+  # media:rw — `/media` is an allowed root and not protected, so
+  # `fs.write` can resolve and atomically write here.
   - media:rw
-  - backup:rw
+# Removed maps (re-add when a shipped feature needs them):
+#   ssl:ro      — would expose TLS certs via generic fs.read/list/glob
+#   addons:ro   — no shipped add-on enumeration reader
+#   backup:ro   — exposing /backup leaks full-backup material via generic reads
 options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
