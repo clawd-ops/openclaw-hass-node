@@ -901,3 +901,94 @@ def test_maybe_drop_invalid_device_token_no_op_on_unrelated_exc(tmp_path: Path) 
     client._maybe_drop_invalid_device_token(RuntimeError("WS_CLOSED"))
     assert path.exists()
     assert client._device_token == "stale"
+
+
+def test_maybe_drop_invalid_device_token_no_op_when_empty(tmp_path: Path) -> None:
+    """No-op when device_token is empty (nothing to drop)."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    client = _make_client_in(data_dir)
+    client._device_token = ""
+    client._maybe_drop_invalid_device_token(RuntimeError("NOT_PAIRED"))
+    assert client._device_token == ""
+
+
+def test_maybe_drop_invalid_device_token_no_op_when_using_pairing_token(
+    tmp_path: Path,
+) -> None:
+    """No-op when device_token already equals pairing_token."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="pair-tok",
+        node_name="t",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=data_dir,
+    )
+    identity = generate_identity()
+    client = GatewayClient(config=config, identity=identity, device_token="pair-tok")
+    client._maybe_drop_invalid_device_token(RuntimeError("NOT_PAIRED"))
+    assert client._device_token == "pair-tok"
+
+
+def test_maybe_drop_invalid_device_token_unlink_oserror(tmp_path: Path) -> None:
+    """OSError during unlink is logged, not raised."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    client = _make_client_in(data_dir)
+    client._device_token = "stale"
+    path = client._config.device_token_path
+    path.write_text("stale")
+    with patch.object(Path, "unlink", side_effect=OSError("disk full")):
+        client._maybe_drop_invalid_device_token(RuntimeError("NOT_PAIRED"))
+    assert client._device_token == ""
+
+
+def test_token_path_safe_to_unlink_resolve_oserror(tmp_path: Path) -> None:
+    """OSError during path.resolve returns False."""
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    client = _make_client_in(data_dir)
+    bad_path = data_dir / "device-token"
+    with patch.object(Path, "resolve", side_effect=OSError("broken")):
+        assert client._token_path_safe_to_unlink(bad_path) is False
+
+
+def test_persist_device_token_fchmod_oserror_propagates(tmp_path: Path) -> None:
+    """OSError from fchmod propagates and closes the fd."""
+    import os as _os
+
+    client = _make_client_in(tmp_path)
+    with (
+        patch.object(_os, "fchmod", side_effect=OSError("not supported")),
+        pytest.raises(OSError, match="not supported"),
+    ):
+        client._persist_device_token("tok")
+
+
+def test_persist_device_token_write_failure_cleans_tmp(tmp_path: Path) -> None:
+    """If the write fails, the temp file is cleaned up."""
+    client = _make_client_in(tmp_path)
+    with (
+        patch("os.fdopen", side_effect=OSError("write failed")),
+        pytest.raises(OSError, match="write failed"),
+    ):
+        client._persist_device_token("tok")
+    tmp = tmp_path / "device-token.tmp"
+    assert not tmp.exists()
+
+
+def test_persist_device_token_replace_failure_cleans_tmp(tmp_path: Path) -> None:
+    """If replace fails, the temp file is cleaned up."""
+    client = _make_client_in(tmp_path)
+    with (
+        patch.object(Path, "replace", side_effect=OSError("replace failed")),
+        pytest.raises(OSError, match="replace failed"),
+    ):
+        client._persist_device_token("tok")
+    tmp = tmp_path / "device-token.tmp"
+    assert not tmp.exists()
