@@ -18,6 +18,7 @@ from typing import Any, Final
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
+from openclaw_node.chat_relay import ChatRelay, ChatRelayError
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.pairing import PairingState
@@ -60,6 +61,7 @@ class NodeRuntime:
         self.config = config
         self.pairing_state: PairingState = PairingState.UNKNOWN
         self.gateway_connected: bool = False
+        self.chat_relay: ChatRelay | None = None
 
     @property
     def is_paired(self) -> bool:
@@ -316,39 +318,119 @@ def aiohttp_timeout() -> ClientTimeout:
 async def assist_turn(request: web.Request) -> web.Response:
     """Handle an Assist turn forwarded by the HA companion integration.
 
-    Placeholder behaviour until P5.12 lands the real chat-surface relay
-    (``chat.send`` + ``sessions.messages.subscribe`` over the existing
-    gateway WS connection). See ``docs/RESEARCH-OPENCLAW-INTEGRATION.md``.
+    When the ChatRelay is available (gateway connected + paired), relays
+    the user's text into an OpenClaw agent session via ``chat.send`` and
+    returns the assistant's reply. Falls back to diagnostic messages when
+    the gateway connection is not ready.
 
     Args:
         request: Incoming aiohttp request.
 
     Returns:
-        JSON response with a placeholder ``response`` text plus runtime
-        diagnostics so the shim can show a clear status to the user.
+        JSON response with the assistant ``response`` text and runtime
+        diagnostics.
     """
     runtime = _runtime(request)
     body = await _json_body(request)
     text = str(body.get("text", "")).strip()
+    conversation_id = str(body.get("conversation_id", ""))
+    language = str(body.get("language", "en"))
+
     if not runtime.is_paired:
-        message = (
+        return _assist_error(
+            runtime,
             "OpenClaw Node is installed and reachable, but it is not paired "
-            "to the OpenClaw gateway yet. Pair the node, then retry Assist."
+            "to the OpenClaw gateway yet. Pair the node, then retry Assist.",
+            text,
         )
-    elif not runtime.gateway_connected:
-        message = "OpenClaw Node is paired but not currently connected to the gateway."
-    else:
-        message = (
-            "OpenClaw Node received the Assist turn. Chat-surface relay "
-            "(chat.send + subscribe) is not wired yet — see P5.12."
+
+    if not runtime.gateway_connected:
+        return _assist_error(
+            runtime,
+            "OpenClaw Node is paired but not currently connected to the gateway.",
+            text,
         )
+
+    relay = runtime.chat_relay
+    if relay is None:
+        return _assist_error(
+            runtime,
+            "OpenClaw Node is connected but the chat relay is not initialised.",
+            text,
+        )
+
+    if not text:
+        return _assist_error(runtime, "Empty text — nothing to relay.", text)
+
+    if not conversation_id:
+        return _assist_error(
+            runtime,
+            "Missing conversation_id — the HA shim must send one.",
+            text,
+        )
+
+    try:
+        reply = await relay.relay_turn(conversation_id, text, language)
+    except ChatRelayError as exc:
+        _LOG.warning("Assist relay failed: %s %s", exc.code, exc.message)
+        return web.json_response(
+            {
+                "ok": False,
+                "paired": True,
+                "gateway_connected": True,
+                "response": f"Relay error: {exc.code}",
+                "echo": text,
+                "error": exc.code,
+            },
+            status=502,
+            headers=_JSON_HEADERS,
+        )
+    except Exception as exc:
+        _LOG.exception("Unexpected error in assist relay: %s", exc)
+        return web.json_response(
+            {
+                "ok": False,
+                "paired": True,
+                "gateway_connected": True,
+                "response": "Internal relay error.",
+                "echo": text,
+                "error": "INTERNAL_ERROR",
+            },
+            status=500,
+            headers=_JSON_HEADERS,
+        )
+
     return web.json_response(
         {
-            "ok": runtime.is_paired and runtime.gateway_connected,
+            "ok": True,
+            "paired": True,
+            "gateway_connected": True,
+            "response": reply,
+            "echo": text,
+        },
+        status=200,
+        headers=_JSON_HEADERS,
+    )
+
+
+def _assist_error(runtime: NodeRuntime, message: str, echo: str) -> web.Response:
+    """Return a structured diagnostic error for Assist turns.
+
+    Args:
+        runtime: Current node runtime.
+        message: Human-readable diagnostic message.
+        echo: The user's original input text.
+
+    Returns:
+        JSON response with ``ok=False`` and runtime diagnostics.
+    """
+    return web.json_response(
+        {
+            "ok": False,
             "paired": runtime.is_paired,
             "gateway_connected": runtime.gateway_connected,
             "response": message,
-            "echo": text,
+            "echo": echo,
         },
         status=200,
         headers=_JSON_HEADERS,

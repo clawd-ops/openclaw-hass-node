@@ -40,6 +40,7 @@ import websockets
 import websockets.asyncio.client
 
 from openclaw_node import __version__
+from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.identity import DeviceIdentity
@@ -51,7 +52,7 @@ if TYPE_CHECKING:
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _CONNECT_ROLE: Final[str] = "node"
-_CONNECT_SCOPES: Final[list[str]] = []
+_CONNECT_SCOPES: Final[list[str]] = ["operator.read"]
 _CONNECT_CAPS: Final[list[str]] = ["system"]
 _CONNECT_COMMANDS: Final[list[str]] = [
     "ping",
@@ -317,16 +318,25 @@ class GatewayClient:
             # Step 4: drain any pending queued invokes
             await self._pull_pending(ws)
 
-            # Step 5: mark connected on the runtime so the local API can report.
+            # Step 5: create chat relay bound to this WS connection
+            async def _ws_send(frame: dict[str, Any]) -> None:
+                await ws.send(json.dumps(frame))
+
+            relay = ChatRelay(_ws_send)
+
+            # Step 6: mark connected on the runtime so the local API can report.
             if self._runtime is not None:
                 self._runtime.gateway_connected = True
+                self._runtime.chat_relay = relay
 
             try:
-                # Step 6: main event loop
-                await self._event_loop(ws)
+                # Step 7: main event loop
+                await self._event_loop(ws, relay)
             finally:
+                relay.reset()
                 if self._runtime is not None:
                     self._runtime.gateway_connected = False
+                    self._runtime.chat_relay = None
 
     async def _recv_challenge(
         self, ws: websockets.asyncio.client.ClientConnection
@@ -668,19 +678,34 @@ class GatewayClient:
                 msg.get("error"),
             )
 
-    async def _event_loop(self, ws: websockets.asyncio.client.ClientConnection) -> None:
-        """Process incoming gateway events indefinitely.
+    async def _event_loop(
+        self,
+        ws: websockets.asyncio.client.ClientConnection,
+        relay: ChatRelay,
+    ) -> None:
+        """Process incoming gateway frames indefinitely.
 
-        Handles ``node.invoke.request`` events by dispatching to the command
-        registry.  All other event types are logged and ignored.
+        Routes ``res`` frames to the :class:`ChatRelay` for RPC correlation,
+        ``session.*`` events for assistant reply capture, and
+        ``node.invoke.request`` events to the command dispatcher.
 
         Args:
             ws: The open WebSocket connection.
+            relay: The chat relay bound to this connection.
         """
         async for raw in ws:
             msg: dict[str, Any] = json.loads(raw)
-            if msg.get("type") == "event" and msg.get("event") == "node.invoke.request":
-                await self._handle_invoke(ws, msg.get("payload", {}))
+            msg_type = msg.get("type")
+
+            if msg_type == "res" and relay.handle_response(msg):
+                continue
+
+            if msg_type == "event":
+                event = msg.get("event", "")
+                if event == "node.invoke.request":
+                    await self._handle_invoke(ws, msg.get("payload", {}))
+                elif isinstance(event, str) and event.startswith("session."):
+                    relay.handle_event(msg)
 
     async def _handle_invoke(
         self,

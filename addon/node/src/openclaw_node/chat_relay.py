@@ -1,0 +1,273 @@
+"""Chat-surface relay for HA Assist turns via the OpenClaw gateway WS.
+
+Relays HA Assist conversation turns into OpenClaw agent sessions using
+the gateway's ``chat.send`` + ``sessions.messages.subscribe`` surface.
+Each HA ``conversation_id`` maps to a unique gateway session keyed as
+``ha-assist:{conversation_id}``.
+
+Design decisions (2026-06-08, Clawd, for Rob's follow-up review):
+
+1. **Fresh session per conversation_id.** Matches HA's conversation
+   model (each ``conversation_id`` is a self-contained thread); avoids
+   cross-conversation bleed.
+2. **Default agent.** Uses whatever agent the gateway routes the session
+   to. A future add-on option can pin the agent via ``agentId`` in
+   ``sessions.create`` if needed.
+3. **``chat.send`` for execution.** Triggers the full agent pipeline
+   (model + tool use + multi-turn). The RPC response signals completion;
+   the assistant reply text is captured from ``session.message`` events
+   delivered on the same WS before the response (TCP ordering guarantee).
+4. **30 s turn timeout.** Matches the ``_FORWARDER_TIMEOUT_S`` convention
+   from the deleted ``ConversationDispatcher``.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import uuid
+from collections.abc import Callable, Coroutine
+from typing import Any, Final
+
+_LOG: Final[logging.Logger] = logging.getLogger(__name__)
+
+_TURN_TIMEOUT_S: Final[float] = 30.0
+_RPC_TIMEOUT_S: Final[float] = 10.0
+_SESSION_KEY_PREFIX: Final[str] = "ha-assist:"
+
+
+class ChatRelayError(Exception):
+    """Raised when a relay RPC or turn fails."""
+
+    def __init__(self, code: str, message: str) -> None:
+        """Initialise with a stable error code and human message.
+
+        Args:
+            code: Stable error code for the wire result.
+            message: Human-readable detail.
+        """
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+SendFn = Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+
+
+class ChatRelay:
+    """Relay HA Assist turns into OpenClaw agent sessions.
+
+    Args:
+        send_fn: Async callable that sends a JSON-serialisable dict over
+            the gateway WS connection.
+    """
+
+    def __init__(self, send_fn: SendFn) -> None:
+        """Initialise the relay with no active sessions.
+
+        Args:
+            send_fn: Async callable to send a frame dict over the gateway WS.
+        """
+        self._send: SendFn = send_fn
+        self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        self._subscribed: set[str] = set()
+        self._last_assistant_text: dict[str, str] = {}
+
+    async def relay_turn(
+        self,
+        conversation_id: str,
+        text: str,
+        language: str = "en",  # noqa: ARG002
+    ) -> str:
+        """Relay one Assist turn and return the assistant's reply.
+
+        Args:
+            conversation_id: HA conversation id (stable across follow-ups).
+            text: The user's input text.
+            language: BCP-47 language tag (informational; not sent to gateway).
+
+        Returns:
+            The assistant's reply text.
+
+        Raises:
+            ChatRelayError: On timeout, gateway rejection, or missing reply.
+        """
+        session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
+
+        if session_key not in self._subscribed:
+            await self._ensure_session(session_key, conversation_id)
+
+        self._last_assistant_text.pop(session_key, None)
+
+        idempotency_key = str(uuid.uuid4())
+        try:
+            await self._rpc(
+                "chat.send",
+                {
+                    "sessionKey": session_key,
+                    "message": text,
+                    "idempotencyKey": idempotency_key,
+                },
+                timeout=_TURN_TIMEOUT_S,
+            )
+        except ChatRelayError:
+            raise
+        except Exception as exc:
+            raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+
+        reply = self._last_assistant_text.get(session_key, "")
+        if not reply:
+            _LOG.warning(
+                "chat.send completed but no assistant reply captured "
+                "for session %s; returning empty string",
+                session_key,
+            )
+        return reply
+
+    async def _ensure_session(self, session_key: str, conversation_id: str) -> None:
+        """Create the session and subscribe for messages if not already done.
+
+        Args:
+            session_key: Gateway session key.
+            conversation_id: HA conversation id for the label.
+        """
+        try:
+            await self._rpc(
+                "sessions.create",
+                {
+                    "key": session_key,
+                    "label": f"HA Assist ({conversation_id[:8]})",
+                },
+                timeout=_RPC_TIMEOUT_S,
+            )
+        except ChatRelayError as exc:
+            if "ALREADY_EXISTS" not in exc.code.upper():
+                _LOG.debug(
+                    "sessions.create returned %s for %s (may be benign)",
+                    exc.code,
+                    session_key,
+                )
+
+        try:
+            await self._rpc(
+                "sessions.messages.subscribe",
+                {"key": session_key},
+                timeout=_RPC_TIMEOUT_S,
+            )
+        except ChatRelayError as exc:
+            _LOG.warning(
+                "sessions.messages.subscribe failed for %s: %s",
+                session_key,
+                exc.code,
+            )
+            raise
+
+        self._subscribed.add(session_key)
+
+    async def _rpc(
+        self,
+        method: str,
+        params: dict[str, Any],
+        timeout: float = _RPC_TIMEOUT_S,
+    ) -> dict[str, Any]:
+        """Send a gateway RPC and await the response.
+
+        Args:
+            method: The RPC method name.
+            params: The params dict.
+            timeout: Seconds to wait before raising TIMEOUT.
+
+        Returns:
+            The response payload dict (may be empty).
+
+        Raises:
+            ChatRelayError: On timeout or gateway rejection.
+        """
+        req_id = str(uuid.uuid4())
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[dict[str, Any]] = loop.create_future()
+        self._pending[req_id] = future
+
+        frame = {
+            "type": "req",
+            "id": req_id,
+            "method": method,
+            "params": params,
+        }
+        await self._send(frame)
+
+        try:
+            async with asyncio.timeout(timeout):
+                return await future
+        except TimeoutError:
+            raise ChatRelayError("TIMEOUT", f"{method} timed out after {timeout}s") from None
+        finally:
+            self._pending.pop(req_id, None)
+
+    def handle_response(self, msg: dict[str, Any]) -> bool:
+        """Route a gateway ``res`` frame to its pending future.
+
+        Args:
+            msg: The parsed JSON response frame.
+
+        Returns:
+            True if the response was consumed by a pending relay RPC.
+        """
+        req_id = msg.get("id")
+        if not isinstance(req_id, str):
+            return False
+        future = self._pending.get(req_id)
+        if future is None or future.done():
+            return False
+
+        if msg.get("ok"):
+            future.set_result(msg.get("payload") or {})
+        else:
+            raw_error = msg.get("error", {})
+            if isinstance(raw_error, dict):
+                code = str(raw_error.get("code", "UNKNOWN"))
+                message = str(raw_error.get("message", ""))
+            else:
+                code = str(raw_error) if raw_error else "UNKNOWN"
+                message = code
+            future.set_exception(ChatRelayError(code, message))
+        return True
+
+    def handle_event(self, msg: dict[str, Any]) -> None:
+        """Process session events to capture assistant reply text.
+
+        Handles ``session.message`` events. The ``message`` field is the
+        cumulative assistant snapshot (not a delta), so the last event
+        with ``role=assistant`` for a given session key contains the
+        complete reply.
+
+        Args:
+            msg: The parsed JSON event frame.
+        """
+        event = msg.get("event", "")
+        if event != "session.message":
+            return
+
+        payload = msg.get("payload", {})
+        if not isinstance(payload, dict):
+            return
+
+        session_key = payload.get("sessionKey", "")
+        role = payload.get("role", "")
+        text = payload.get("message", "") or payload.get("text", "")
+
+        if role == "assistant" and session_key and text:
+            self._last_assistant_text[session_key] = text
+
+    def reset(self) -> None:
+        """Clear all state on disconnect.
+
+        Cancels pending futures and clears session tracking so the next
+        connect starts clean.
+        """
+        for future in self._pending.values():
+            if not future.done():
+                future.set_exception(ChatRelayError("DISCONNECTED", "Gateway connection lost"))
+        self._pending.clear()
+        self._subscribed.clear()
+        self._last_assistant_text.clear()
