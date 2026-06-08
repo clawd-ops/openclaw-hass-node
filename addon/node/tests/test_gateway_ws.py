@@ -193,9 +193,7 @@ async def test_handle_invoke_ping() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    await client._handle_invoke(
-        ws, {"id": "inv-1", "command": "ping", "params": {"message": "hi"}}
-    )
+    await client._handle_invoke(ws, {"id": "inv-1", "command": "ping", "params": {"message": "hi"}})
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is True
@@ -206,9 +204,7 @@ async def test_handle_invoke_unknown_command() -> None:
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    await client._handle_invoke(
-        ws, {"id": "inv-2", "command": "does.not.exist", "params": {}}
-    )
+    await client._handle_invoke(ws, {"id": "inv-2", "command": "does.not.exist", "params": {}})
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
