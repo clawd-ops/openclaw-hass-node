@@ -78,7 +78,7 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     add-on hostname and port used by this repository.
     """
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -131,9 +131,10 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # new URL must not collide with another entry's unique_id.
             # _abort_if_unique_id_mismatch can't be used because the URL
             # is user-editable by design.
-            if socket_url != entry.unique_id:
+            if socket_url != _normalise_socket_url(entry.unique_id or ""):
                 for other in self._async_current_entries(include_ignore=False):
-                    if other.entry_id != entry.entry_id and other.unique_id == socket_url:
+                    normalised_other = _normalise_socket_url(other.unique_id or "")
+                    if other.entry_id != entry.entry_id and normalised_other == socket_url:
                         return self.async_abort(reason="already_configured")
                 self.hass.config_entries.async_update_entry(entry, unique_id=socket_url)
             return self.async_update_reload_and_abort(
