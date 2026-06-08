@@ -32,9 +32,9 @@ The project has three moving parts, plus the gateway it talks to.
 
 ---
 
-## Part 1: The Home Assistant add-on (`addon/`)
+## Part 1: The Home Assistant add-on (app) (`addon/`)
 
-A Supervisor add-on you install into HA. This is the long-lived
+A Supervisor add-on (app) you install into HA. This is the long-lived
 process that connects to your OpenClaw gateway and handles incoming
 commands.
 
@@ -53,7 +53,7 @@ commands.
     entity registry, list areas, list services, call service, turn
     lights on/off, logbook, history.
   - `fs.*` (11 commands): list directory, read file, write file,
-    stat, glob, etc. Scoped to the maps the add-on is granted
+    stat, glob, etc. Scoped to the maps the add-on (app) is granted
     (`config:rw`, `share:rw`, `ssl:rw`, `addons:rw`, `media:rw`,
     `backup:rw`).
   - `system.*` (2 commands): host info, uptime.
@@ -62,10 +62,10 @@ commands.
   elapsed milliseconds, so you can see what the agent is doing
   without enabling debug.
 
-**Why it lives in HA's Supervisor:** Supervisor add-ons get a
+**Why it lives in HA's Supervisor:** Supervisor add-ons (apps) get a
 short-lived `SUPERVISOR_TOKEN`, controlled filesystem maps, and a
 clean lifecycle (install, update, uninstall). That is the right
-isolation boundary for a process with this much reach. The add-on
+isolation boundary for a process with this much reach. The add-on (app)
 runs as its own container; HA can stop, restart, and uninstall it
 without touching the rest of your install.
 
@@ -82,25 +82,25 @@ without touching the rest of your install.
 ## Part 2: The HACS integration (`custom_components/openclaw_gateway/`)
 
 A thin Home Assistant custom integration installed via HACS. It does
-**not** do command execution; that is the add-on's job. The
-integration's job is to make the add-on visible to HA's voice
+**not** do command execution; that is the add-on (app)'s job. The
+integration's job is to make the add-on (app) visible to HA's voice
 pipeline so users can pick it as their Assist conversation agent.
 
 **What it does:**
 
 - Registers a `ConversationEntity` that HA's Assist pipeline can
   select.
-- Forwards each conversation turn from HA to the add-on's local
+- Forwards each conversation turn from HA to the add-on (app)'s local
   socket (`http://<addon-slug>:8099/v1/conversation`).
 - Returns the agent's reply for HA to speak.
 
-**Why it's separate from the add-on:** HA's Assist pipeline only
-binds to entities exposed by an integration, not to add-ons.
+**Why it's separate from the add-on (app):** HA's Assist pipeline only
+binds to entities exposed by an integration, not to add-ons (apps).
 Splitting the two lets people who only want the tool surface skip
 the conversation wiring entirely, and lets people who only want
-Assist routing run it against a non-add-on instance later.
+Assist routing run it against a non-add-on (app) instance later.
 
-**Configuration the user provides:** Just pick the add-on's socket
+**Configuration the user provides:** Just pick the add-on (app)'s socket
 in the config flow, then select **OpenClaw Gateway** as the
 conversation agent under Settings → Voice assistants.
 
@@ -139,7 +139,7 @@ HA Assist user turn
 HACS integration (ConversationEntity)
     │ POST /v1/conversation
     ▼
-HA add-on (this project)
+HA add-on (app) (this project)
     │ chat.send to OpenClaw gateway
     ▼
 OpenClaw gateway → configured agent
@@ -148,7 +148,7 @@ OpenClaw gateway → configured agent
 gateway → node.invoke(ha.call_service, …)
     │
     ▼
-HA add-on runs the call via HA's REST API
+HA add-on (app) runs the call via HA's REST API
     │ result
     ▼
 Agent crafts reply
@@ -162,30 +162,30 @@ HA speaks "Done."
 
 For invokes the agent initiates directly (e.g. from a chat session,
 not Assist), the top half of that flow is skipped: the gateway sends
-`node.invoke` straight to the add-on.
+`node.invoke` straight to the add-on (app).
 
 ---
 
 ## Security model
 
-- **Outbound-only WSS.** The add-on opens the connection to the
+- **Outbound-only WSS.** The add-on (app) opens the connection to the
   gateway. There is no inbound port for the gateway to attack.
 - **Signed handshake.** Pairing uses an Ed25519 key generated inside
-  the add-on. The private key never leaves `/data`. Connect frames
+  the add-on (app). The private key never leaves `/data`. Connect frames
   are signed (payload format v3) and the gateway verifies the
   signature against the registered public key.
 - **Device-token persistence with self-heal.** After first pairing
-  the add-on persists the device token. If the gateway later rejects
+  the add-on (app) persists the device token. If the gateway later rejects
   it (`NOT_PAIRED`, `PAIRING_REQUIRED`, `AUTH_TOKEN_MISMATCH`,
-  `token_mismatch`), the add-on drops the stored token and falls
+  `token_mismatch`), the add-on (app) drops the stored token and falls
   back to the pairing token, so a stale token doesn't lock you out.
-- **Gateway-side allowlist.** Even if the add-on were compromised,
+- **Gateway-side allowlist.** Even if the add-on (app) were compromised,
   the gateway only honors commands listed in
   `gateway.nodes.allowCommands`. Removing a command from that list
   and restarting the gateway disables it everywhere.
-- **HA Supervisor isolation.** The add-on runs in its own container
+- **HA Supervisor isolation.** The add-on (app) runs in its own container
   with explicit filesystem maps. Removing a map (e.g. `backup:rw`)
-  immediately removes the add-on's access to that area.
+  immediately removes the add-on (app)'s access to that area.
 - **No agent reasoning happens here.** This node is purely an
   executor. Prompts, tool-choice, model selection, and policy all
   live in the gateway. That keeps the trust boundary clean: the

@@ -8,7 +8,7 @@
 ## Goal
 
 Build a single OpenClaw node that runs on a Home Assistant host (as an
-add-on, with the same image runnable as a standalone Docker container) and
+add-on (app), with the same image runnable as a standalone Docker container) and
 gives the gateway three capability surfaces in one process:
 
 1. **Filesystem + shell** on the HA host (`/config`, `/share`, `/addons`,
@@ -53,16 +53,16 @@ and pairs once via `openclaw devices approve`.
                                           +----------------+
 ```
 
-Inside the add-on container we mount HA volumes per the HA add-on spec.
+Inside the add-on (app) container we mount HA volumes per the HA add-on (app) spec.
 The node process is the only thing in the container. The Supervisor API
-token (`SUPERVISOR_TOKEN`) is available when running as an add-on; when
+token (`SUPERVISOR_TOKEN`) is available when running as an add-on (app); when
 running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 
 ## Surfaces in detail
 
 ### 1. Filesystem + shell
 
-- Mounted paths (add-on `config.yaml` map): `config:rw`, `share:rw`,
+- Mounted paths (add-on (app) `config.yaml` map): `config:rw`, `share:rw`,
   `addons:rw`, `ssl:rw`, `media:rw`, `backup:rw`.
 - Bind mounts placed under an allowed root are treated as operator-trusted
   configuration; the read-only command layer does not try to distinguish or
@@ -83,7 +83,7 @@ Purpose-built per-file versioning. No git in `/config`. No Supervisor
 snapshot per file change. No `.bak` sidecars next to live files.
 
 - **Store**: `/share/openclaw-backups/` (outside `/config`, survives
-  add-on rebuilds, included in normal HA backups).
+  add-on (app) rebuilds, included in normal HA backups).
 - **Layout**: content-addressed object store + per-path index.
   - Objects: `objects/<sha256[0:2]>/<sha256>` — raw prior bytes,
     deduplicated across versions and files.
@@ -114,7 +114,7 @@ See `docs/BACKUPS.md` for the storage format and edge cases.
   `ha.list_entity_registry`, plus convenience wrappers
   (`ha.light_turn_on/off`).
 - Transport: HA WebSocket API for state/event streams; REST for
-  one-shots. Token comes from `SUPERVISOR_TOKEN` (add-on) or
+  one-shots. Token comes from `SUPERVISOR_TOKEN` (add-on (app)) or
   `HASS_TOKEN` env (standalone).
 - Once stable, the existing `homeassistant` + `homeassistant-readonly`
   MCP servers in this gateway config are removed for this HA.
@@ -204,7 +204,7 @@ Three pieces, only one of which is bespoke:
 
 1. **HACS shim** (`custom_components/openclaw_gateway/`, ~150 LOC).
    `ConversationEntity` subclass whose `async_process` POSTs to the
-   add-on's local HTTP endpoint. Distributed via HACS. Required by HA
+   add-on (app)'s local HTTP endpoint. Distributed via HACS. Required by HA
    core because conversation-agent registration is in-process Python
    only (see `docs/RESEARCH-CONVERSATION-AGENT.md`).
 2. **Node** (this repo). Already paired with the gateway. Adds a
@@ -247,19 +247,19 @@ fits. The node carries no model knowledge.
 - Scopes requested on first connect: `operator.write` + `operator.admin`.
 - One-time approval: `openclaw devices approve <requestId>`.
 - Token rotation handled by gateway. Node persists its key under
-  `/data/openclaw/node-key` (HA add-on `/data` is per-add-on durable).
+  `/data/openclaw/node-key` (HA add-on (app) `/data` is per-add-on (app) durable).
 
 ## Packaging
 
 - Single Docker image. Two run modes:
-  - **HA add-on**: `config.yaml` declares slug, mapped volumes,
+  - **HA add-on (app)**: `config.yaml` declares slug, mapped volumes,
     `hassio_api: true`, `hassio_role: admin`, `homeassistant_api: true`.
     Built per HA arch matrix (`amd64`, `aarch64`, `armv7`).
   - **Standalone Docker**: `docker run` with explicit volume mounts and
     `HASS_URL` + `HASS_TOKEN` env. Same entrypoint detects which mode
     it's in.
-- Repo published as a HA add-on repository (`repository.yaml`) so users
-  can add the URL in HA → Add-on Store → Repositories.
+- Repo published as a HA add-on (app) repository (`repository.yaml`) so users
+  can add the URL in HA → Add-on (App) Store → Repositories.
 
 See `PACKAGING.md` for the full layout.
 
@@ -285,7 +285,7 @@ bar enforced in GitHub Actions:
 - 100 % branch coverage on shipped code (`pytest` + `coverage.py`).
 - Lint/format: `ruff check` and `ruff format --check`.
 - Security: `bandit`, `pip-audit`.
-- Add-on smoke build for `amd64`/`aarch64`/`armv7`.
+- Add-on (App) smoke build for `amd64`/`aarch64`/`armv7`.
 
 Full details in `docs/QUALITY.md`. Language is Python 3.13+ for both
 the node and the `custom_components/openclaw_gateway/` shim (the
@@ -295,7 +295,7 @@ remove a build chain).
 ## Open questions
 
 1. **Conversation agent registration from outside `custom_components/`** —
-   research needed before committing to add-on-only.
+   research needed before committing to add-on (app)-only.
 2. ~~**agent-bridge connectivity from the node**~~ **Resolved (P1.2,
    2026-06-05): gateway brokers.** Node speaks only the gateway WS
    protocol; emits `node.propose` requests, gateway translates to
@@ -316,7 +316,7 @@ remove a build chain).
 4. ~~**Update channel**~~ **Resolved (P1.4, 2026-06-05):**
    date-based versioning, `YYYY.M.PATCH` (e.g. `2026.6.0`). The
    leading two components track the HA release this node was tested
-   against, so users can read add-on/HA compatibility at a glance.
+   against, so users can read add-on (app)/HA compatibility at a glance.
    Patch increments for fixes within a HA release. The breaking-change
    discipline in §2c is the same discipline we want at the version
    bump — both happen on HA's cadence.
@@ -346,4 +346,4 @@ Live state in `STATUS.md`. Checkmarks here are an at-a-glance summary.
 - ◑ **P6 — Retire MCP servers** for this HA after the validation
   window. P6.1 (validation harness) shipped; cron it. P6.2 (cutover
   PR) fires only when the harness ever prints `RETIREMENT_READY`.
-- ⏭ **P7 — Publish add-on repo** + docs.
+- ⏭ **P7 — Publish add-on (app) repo** + docs.

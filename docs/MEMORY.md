@@ -20,7 +20,7 @@ HA Assist UI
 custom_components/openclaw_gateway/   ← HACS shim (ConversationEntity)
     │ POST /v1/conversation
     ▼
-node/  (OpenClaw add-on)
+node/  (OpenClaw add-on (app))
     │ chat.send + sessions.messages.subscribe
     ▼
 OpenClaw gateway (existing)
@@ -43,7 +43,7 @@ the current placeholder behaviour and full E2E Assist. See
 
 ## Repo layout
 
-- **`node/`** — Python add-on. Pairs with the gateway via the
+- **`node/`** — Python add-on (app). Pairs with the gateway via the
   Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (13 tools)
   through `node.invoke`, and runs a local HTTP API on port 8099 for
   health checks + Assist turn relay.
@@ -51,16 +51,16 @@ the current placeholder behaviour and full E2E Assist. See
   `ConversationEntity` that POSTs Assist turns to the node's
   `/v1/conversation`. Required because HA's conversation-agent
   registration is in-process Python only.
-- **`addon/`** — Home Assistant add-on packaging (Dockerfile + config).
+- **`addon/`** — Home Assistant add-on (app) packaging (Dockerfile + config).
 - **`docs/`** — durable plan, status, command surface, decisions, and
   the architecture post-mortem in `RESEARCH-OPENCLAW-INTEGRATION.md`.
 
 ## Install
 
-1. Install the **add-on** from this repo's add-on repo URL. Start it.
+1. Install the **add-on (app)** from this repo's add-on (app) repo URL. Start it.
 2. Approve the node on the gateway: `openclaw devices approve <id>`.
 3. Install the **HACS shim** from this repo, point its config flow at
-   the add-on's local socket URL.
+   the add-on (app)'s local socket URL.
 4. In HA → Settings → Voice → pick **OpenClaw Gateway** as the
    conversation agent.
 
@@ -107,7 +107,7 @@ CI gates (six, see `.github/workflows/ci.yaml`):
 
 - Mutation surface (`fs.write`, `fs.patch`, `ha.config.*`) is
   proposal-gated through agent-bridge. No direct writes to `/config`.
-- Add-on first; HACS shim only for the conversation entity HA cannot
+- Add-on (App) first; HACS shim only for the conversation entity HA cannot
   register out-of-process.
 - One node per HA instance.
 - Docs in `docs/` are the source of truth across context compactions.

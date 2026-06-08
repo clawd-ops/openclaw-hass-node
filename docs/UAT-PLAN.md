@@ -6,9 +6,9 @@
 
 ## Phase A — Install (today's deliverable)
 
-### A1. Add the add-on repository
+### A1. Add the add-on (app) repository
 
-1. In HA → **Settings → Add-ons → Add-on Store → ⋮ → Repositories**.
+1. In HA → **Settings → Add-ons (Apps) → Add-on (App) Store → ⋮ → Repositories**.
 2. Add: `https://github.com/clawd-ops/openclaw-hass-node`
 3. Refresh.
 4. **Expect:** "OpenClaw Node" appears in the store under a section
@@ -30,12 +30,12 @@
    ```
 
 5. **Failure modes to watch:**
-   - "SUPERVISOR_TOKEN missing" → if running as an HA add-on, this
-     is an add-on permissions issue (check `hassio_api: true` and
+   - "SUPERVISOR_TOKEN missing" → if running as an HA add-on (app), this
+     is an add-on (app) permissions issue (check `hassio_api: true` and
      `homeassistant_api: true` in `addon/config.yaml`, and that the
-     add-on was started normally rather than e.g. via a manual
+     add-on (app) was started normally rather than e.g. via a manual
      `docker run`). If running standalone Docker, this is expected;
-     the add-on falls back to a `/data` writability check via
+     the add-on (app) falls back to a `/data` writability check via
      `config._is_addon_mode` (PR #40).
    - "HA REST unreachable" → networking issue, not the node.
    - Python tracebacks → file a comment with the full log.
@@ -48,7 +48,7 @@
 3. Search for **OpenClaw Gateway** → Install → Restart HA.
 4. After restart: **Settings → Devices & Services → Add Integration
    → OpenClaw Gateway**.
-5. Config flow asks for the add-on socket; default
+5. Config flow asks for the add-on (app) socket; default
    (`http://a0d7b954-openclaw-gateway:8099`) should auto-fill.
 6. **Expect:** integration sets up clean; one conversation entity
    `conversation.openclaw_gateway` shows up under Settings → Voice
@@ -125,7 +125,7 @@ Once pairing is up, this is what proves the MCP-replacement story:
 
 ### E2. Trigger a voice/text intent through Assist.
 
-- Verify it flows: HA Assist → shim ConversationEntity → add-on
+- Verify it flows: HA Assist → shim ConversationEntity → add-on (app)
   socket → gateway → Clawd → response streams back.
 
 ### E3. Tool calling via Assist.

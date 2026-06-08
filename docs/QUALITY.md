@@ -9,7 +9,7 @@
   shim. Matches HA's runtime and lets the same engineers swap
   between the two without context switching. The conversation-agent
   shim has to be Python anyway (it imports from HA core); aligning
-  the add-on rules out an extra build chain.
+  the add-on (app) rules out an extra build chain.
 - `pyproject.toml` for both packages. `src/` layout. `uv` for
   dependency management (fast, reproducible lockfiles).
 
@@ -105,7 +105,7 @@ green:
    below 100 %.
 6. `security` — `bandit`, `pip-audit`.
 7. `docs-build` — markdown lint + dead-link check on `docs/`.
-8. `addon-build` — HA add-on build for `amd64`, `aarch64`, `armv7`
+8. `addon-build` — HA add-on (app) build for `amd64`, `aarch64`, `armv7`
    via the official `home-assistant/builder` action (smoke build,
    not published).
 9. `cross-review` — when the PR is opened by the Claude generator

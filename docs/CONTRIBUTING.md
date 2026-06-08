@@ -6,9 +6,9 @@
 the matching `io.hass.version` label in `addon/build.yaml`.**
 
 This isn't cosmetic — it's the *only* signal HA Supervisor watches to
-decide whether the add-on needs a new build. Without a bump:
+decide whether the add-on (app) needs a new build. Without a bump:
 
-- Users won't see an **Update** button in the add-on store. They'll have
+- Users won't see an **Update** button in the add-on (app) store. They'll have
   to **Uninstall → Refresh repo → Reinstall**, which wipes `/data` and
   destroys the pairing identity. They have to re-pair every release.
 - With a bump, HA shows **Update**, which preserves `/data`. The

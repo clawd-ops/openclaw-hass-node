@@ -72,7 +72,7 @@ path. See `HA-CONFIG-EDITING.md` for the per-domain breakdown.
 | `docs.search`     | `query`, `version?`               | Local-cache backed search              |
 | `docs.versions`   | —                                 | Available cached versions              |
 
-## `ha.supervisor.*` — Supervisor API (add-on mode only)
+## `ha.supervisor.*` — Supervisor API (add-on (app) mode only)
 
 | Command                       | Notes                          |
 |-------------------------------|--------------------------------|

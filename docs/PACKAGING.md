@@ -8,7 +8,7 @@
 ```
 openclaw-hass-node/
 ├── README.md
-├── repository.yaml                  # HA add-on store descriptor
+├── repository.yaml                  # HA add-on (app) store descriptor
 ├── hacs.json                        # HACS descriptor for the shim
 ├── pyproject.toml                   # Root workspace (uv)
 ├── .github/workflows/ci.yaml        # Lint, type, test, coverage, build
@@ -25,7 +25,7 @@ openclaw-hass-node/
 │   ├── RESEARCH-CONVERSATION-AGENT.md
 │   └── RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md
 ├── addon/
-│   ├── config.yaml                  # HA add-on manifest
+│   ├── config.yaml                  # HA add-on (app) manifest
 │   ├── Dockerfile                   # python:3.13-alpine base
 │   ├── build.yaml                   # HA build args per arch
 │   ├── rootfs/etc/s6-overlay/...    # s6 service definitions
@@ -34,7 +34,7 @@ openclaw-hass-node/
 │   ├── pyproject.toml
 │   ├── src/openclaw_node/
 │   │   ├── __init__.py
-│   │   ├── __main__.py              # Detects add-on vs standalone
+│   │   ├── __main__.py              # Detects add-on (app) vs standalone
 │   │   ├── gateway_ws.py            # Gateway WS client (role: node)
 │   │   ├── pairing.py
 │   │   ├── commands/
@@ -54,12 +54,12 @@ openclaw-hass-node/
         ├── __init__.py
         ├── manifest.json
         ├── config_flow.py
-        ├── conversation.py          # ConversationEntity → POST to add-on
+        ├── conversation.py          # ConversationEntity → POST to add-on (app)
         ├── const.py
         └── strings.json
 ```
 
-## Add-on `config.yaml` sketch
+## Add-on (App) `config.yaml` sketch
 
 ```yaml
 name: OpenClaw Node
@@ -108,7 +108,7 @@ docker run -d --name openclaw-hass-node \
 ```
 
 Entrypoint detects mode:
-- `SUPERVISOR_TOKEN` present → add-on mode, talk to `http://supervisor/`
+- `SUPERVISOR_TOKEN` present → add-on (app) mode, talk to `http://supervisor/`
   and `http://homeassistant/`.
 - Else → standalone, use `HASS_URL` + `HASS_TOKEN`.
 

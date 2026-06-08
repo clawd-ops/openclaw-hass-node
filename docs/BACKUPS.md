@@ -11,7 +11,7 @@
   reversible at the file level.
 - Storage cost is bounded and predictable.
 - Restores are themselves proposal-gated and auditable.
-- The store survives add-on rebuilds (lives in `/share`, included in
+- The store survives add-on (app) rebuilds (lives in `/share`, included in
   normal HA backups).
 
 ## Store layout

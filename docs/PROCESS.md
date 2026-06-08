@@ -59,7 +59,7 @@ mechanical quality gates in `docs/QUALITY.md`:
 - 100 % branch coverage on shipped code (`pytest` + `coverage.py`).
 - Lint/format (`ruff check`, `ruff format --check`).
 - Security (`bandit`, `pip-audit`).
-- HA add-on smoke build for `amd64`/`aarch64`/`armv7`.
+- HA add-on (app) smoke build for `amd64`/`aarch64`/`armv7`.
 
 All gates run in GitHub Actions; merge requires all green. The
 Codex reviewer pass is gate #9 — it does not replace the mechanical

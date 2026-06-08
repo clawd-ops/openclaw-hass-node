@@ -35,7 +35,7 @@ surface in `openclaw nodes describe`, `node.invoke.request` →
    Supervisor isn't injecting `SUPERVISOR_TOKEN` despite
    `hassio_api: true + homeassistant_api: true + auth_api: true`.
    Workarounds: (a) figure out why Supervisor isn't injecting, (b) add
-   `hass_url` + `hass_token` add-on options users can fill in.
+   `hass_url` + `hass_token` add-on (app) options users can fill in.
    Tracked as next step P-INSTALL.
 
 **Install push 2026-06-06/07/08 — 17 PRs (#29–#45) shipped:**
@@ -80,7 +80,7 @@ approach in `docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
    protocol-wise but error in-payload with `HA_NOT_CONFIGURED: HASS_URL
    is not set`. Either (a) diagnose why Rob's HA Supervisor isn't
    injecting `SUPERVISOR_TOKEN` despite the addon's API flags, OR (b)
-   add `hass_url` + `hass_token` as add-on options surfaced through
+   add `hass_url` + `hass_token` as add-on (app) options surfaced through
    `run.sh` env. (b) is the more portable fix and is probably what
    ships. Small change, ~30 LOC + INSTALL doc update.
 2. **P5.12 — ChatRelay** (~100 LOC node Python). Add `operator.read`
@@ -101,7 +101,7 @@ approach in `docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
    against OpenClaw logs. When it prints `RETIREMENT_READY`, drop the
    `homeassistant` + `homeassistant-readonly` MCP server entries from
    gateway config in one PR.
-5. **P7 — publish.** Add-on repo metadata, HACS index entry, release
+5. **P7 — publish.** Add-on (App) repo metadata, HACS index entry, release
    workflow for GHCR-published per-arch images (lets us put the
    `image:` key back in config.yaml and skip the on-device build).
 
@@ -377,7 +377,7 @@ pattern, and tool catalog shapes.
 After P5.10:
 - P6.1 validation harness already merged (PR #23, portable in #24).
   Cron it; once ever prints `RETIREMENT_READY` do P6.2.
-- P7 — add-on publishing checklist + CI release pipeline.
+- P7 — add-on (app) publishing checklist + CI release pipeline.
 - `ha.config.*` proposal-gated write surface from COMMAND-SURFACE.md.
 
 ## Codex review status
@@ -411,7 +411,7 @@ PR #3 cross-review returned BLOCK with 10 findings. Fix mapping:
 - P2.1 — Repo scaffolding: `pyproject.toml` (uv workspace),
   `addon/Dockerfile` + `config.yaml`, `custom_components/openclaw_gateway/`
   stub, GitHub Actions workflow.
-- P2.2 — Node entrypoint that detects add-on vs standalone mode and
+- P2.2 — Node entrypoint that detects add-on (app) vs standalone mode and
   opens the gateway WS connection.
 - P2.3 — Pairing handshake against the gateway, Ed25519 device identity,
   key persistence under `/data/openclaw/node-key.json`.
@@ -441,8 +441,8 @@ resolved (see [memory: project_codex_oauth_regression_2026_06_06]).
   there is no WS/REST/Supervisor path that lets an external process
   register an agent. All precedent ships as `custom_components/`.
   Decision: ship a thin ~150 LOC `custom_components/openclaw_gateway/`
-  HACS shim alongside the add-on, whose sole job is to register a
-  `ConversationEntity` that forwards turns to the add-on's local
+  HACS shim alongside the add-on (app), whose sole job is to register a
+  `ConversationEntity` that forwards turns to the add-on (app)'s local
   socket. Full citations in `docs/RESEARCH-CONVERSATION-AGENT.md`.
 - **P1.2 (2026-06-05) — agent-bridge connectivity.** Verdict:
   **Gateway brokers.** Node speaks only the gateway WS protocol; emits
@@ -459,7 +459,7 @@ None.
 
 - 2026-06-05 — Single node per HA. (Rob)
 - 2026-06-05 — All `/config` mutations go through agent-bridge. (Rob)
-- 2026-06-05 — Add-on first. HACS only as last resort. (Rob)
+- 2026-06-05 — Add-on (App) first. HACS only as last resort. (Rob)
 - 2026-06-05 — Code lives under `~/.openclaw/projects/openclaw-hass-node/`. (Rob)
 - 2026-06-05 — Docs in `docs/` are source of truth across compactions. (Rob)
 - 2026-06-05 — Deletes use `trash-cli`, recoverable via `fs.restore`. (Rob, issue #1)
@@ -478,9 +478,9 @@ None.
   running version's breaking changes and include a functional fix
   when impacted. Cross-validated by Codex reviewer. (Rob, issue #1
   round 2)
-- 2026-06-05 — Assist conversation agent: ship as add-on **plus**
+- 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
   thin `custom_components/openclaw_gateway/` HACS shim. Plan A
-  (add-on alone) confirmed not viable; see
+  (add-on (app) alone) confirmed not viable; see
   `RESEARCH-CONVERSATION-AGENT.md`. (Clawd, P1.1)
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
   gateway WS protocol; does not connect to agent-bridge directly. See

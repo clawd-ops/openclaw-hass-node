@@ -17,7 +17,7 @@ The `a0d7b954` prefix is the expected HA-Supervisor hostname hash for the
 based on the slug and we haven't been able to verify it offline.
 
 **Action needed:** during UAT Phase A3, check the actual hostname shown in the
-add-on Network section of HA → Settings → Add-ons → OpenClaw Node. If it
+add-on (app) Network section of HA → Settings → Add-ons (Apps) → OpenClaw Node. If it
 differs from `a0d7b954-openclaw-hass-node`, update `const.py` with the correct
 value and re-release.
 
@@ -28,7 +28,7 @@ is not blocking — just cosmetically wrong.
 
 ### Q2 — `pairing_token` option: needed or remove?
 
-The add-on `config.yaml` and `NodeConfig` include a `pairing_token` option.
+The add-on (app) `config.yaml` and `NodeConfig` include a `pairing_token` option.
 The intent was a bootstrap token for headless first-time pairing without the
 CLI approval step.
 

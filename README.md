@@ -8,11 +8,11 @@
 > round-trips cleanly), but the HA Assist conversation relay is
 > not yet wired (P5.12), publishing infrastructure isn't in place,
 > and breaking changes between versions are expected. If you
-> install today, the add-on will pair and run tool commands, but
+> install today, the add-on (app) will pair and run tool commands, but
 > Assist turns will return a placeholder. Watch
 > [`docs/STATUS.md`](docs/STATUS.md) for the first beta tag.
 
-Home Assistant add-on + HACS shim that connects HA to an [OpenClaw][]
+Home Assistant add-on (app) + HACS shim that connects HA to an [OpenClaw][]
 gateway as a node. Lets your OpenClaw agent (Clawd or whichever agent
 you've routed to) answer HA Assist turns and run the full `ha.*`
 control surface — read entity states, call services, control lights,
@@ -26,7 +26,7 @@ HA Assist UI
 HACS shim (ConversationEntity)
     │ POST /v1/conversation
     ▼
-OpenClaw HA node (this add-on)
+OpenClaw HA node (this add-on (app))
     │ chat.send + sessions.messages.subscribe (existing OC chat surface)
     ▼
 OpenClaw gateway → configured agent
@@ -36,7 +36,7 @@ Speech reply
 ```
 
 **New here?** Read **[`docs/OVERVIEW.md`](docs/OVERVIEW.md)** for
-what this is, what each part (add-on, HACS integration, gateway)
+what this is, what each part (add-on (app), HACS integration, gateway)
 does and why, the end-to-end request flow, and the security model.
 
 ## Install
@@ -48,11 +48,11 @@ gateway side. Short version:
 1. Patch `gateway.nodes.allowCommands` in your OpenClaw config (the
    gateway silently drops unknown commands; without this the node
    pairs but no commands work).
-2. Add this repo as an HA add-on repository, install **OpenClaw Node**,
+2. Add this repo as an HA add-on (app) repository, install **OpenClaw Node**,
    fill in `gateway_url` + `pairing_token` + `node_name`, start it.
 3. `openclaw devices approve <request-id>` on the gateway.
 4. Install the **OpenClaw Gateway** HACS integration, point its config
-   flow at the add-on socket.
+   flow at the add-on (app) socket.
 5. Pick it as your HA Assist conversation agent.
 
 ## Status

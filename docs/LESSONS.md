@@ -108,7 +108,7 @@ Lessons learned from that loop:
 
 16. **`gateway.nodes.allowCommands`** (see lesson 9) is required to
     surface our commands. Documented in `INSTALL.md` § 1.
-17. **Add-on options reach the Python process via `addon/run.sh`** which
+17. **Add-on (App) options reach the Python process via `addon/run.sh`** which
     reads `/data/options.json` and exports each key as an env var
     (uppercased). When adding a new option, update `run.sh` too.
 18. **Bump `addon/config.yaml` `version:` on every release.** Otherwise
