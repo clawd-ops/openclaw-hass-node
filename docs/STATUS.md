@@ -42,17 +42,21 @@ The exact version string is enforced by `test_version_sync.py` across
   write. Path-validated unlink before token reset.
 - Tests pass with branch coverage gated at 95%, all CI gates green.
 
-**Two holes still open:**
+**One hole still open:**
 
 1. **`assist_turn` (the `/v1/conversation` handler) is a placeholder.**
    Reports pairing/connection state but doesn't relay turns. P5.12.
-2. **HA-side credentials are not wired.** `ha.list_areas` returns
-   `HA_NOT_CONFIGURED: HASS_URL is not set`. Root cause: Rob's
-   Supervisor isn't injecting `SUPERVISOR_TOKEN` despite
-   `hassio_api: true + homeassistant_api: true + auth_api: true`.
-   Workarounds: (a) figure out why Supervisor isn't injecting, (b) add
-   `hass_url` + `hass_token` add-on (app) options users can fill in.
-   Tracked as next step P-INSTALL.
+
+**Recently closed:**
+
+- **P-INSTALL — HA credentials option fallback (2026-06-08).** Added
+  optional `hass_url` + `hass_token` add-on options. `run.sh` exports
+  them to `HASS_URL`/`HASS_TOKEN` only when the user filled them in
+  (no clobber of valid Supervisor-injected setups). `ha_client.py`
+  already had the env fallback wired. Path: addon/config.yaml,
+  addon/run.sh, docs/INSTALL.md. Option (b) shipped (the more portable
+  fix); the upstream "why isn't Supervisor injecting?" question is
+  parked, since the credential gap is solved either way.
 
 **Install push 2026-06-06/07/08 — 17 PRs (#29–#45) shipped:**
 
