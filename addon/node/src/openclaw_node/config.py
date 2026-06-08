@@ -61,6 +61,16 @@ class NodeConfig:
         """
         return self.data_dir / "node-key.json"
 
+    @property
+    def device_token_path(self) -> Path:
+        """Return the path to the persisted device-token file.
+
+        The token is written on first successful connect (when the gateway
+        issues one in the hello-ok payload) and reused for every subsequent
+        connect, replacing the one-shot pairing_token from add-on options.
+        """
+        return self.data_dir / "device-token"
+
 
 def load_config() -> NodeConfig:
     """Build a :class:`NodeConfig` from environment variables.
