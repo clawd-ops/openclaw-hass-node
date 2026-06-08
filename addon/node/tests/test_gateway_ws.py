@@ -586,6 +586,84 @@ async def test_pull_pending_failure_logged() -> None:
     await client._pull_pending(ws)
 
 
+async def test_pull_pending_non_dict_payload_does_not_crash() -> None:
+    """Gateway returning `payload: null` must NOT bubble an AttributeError
+    out of the connect path (Codex review #88 follow-up)."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": None}))
+    await client._pull_pending(ws)  # returns cleanly, logs a warning
+    ws.send.assert_called_once()  # one pull request, no ack, no second pull
+
+
+async def test_pull_pending_drains_until_hasmore_false() -> None:
+    """Pull loops on hasMore until the gateway reports no more items (#88/2)."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+
+    batch_a = [{"id": "q-1", "payload": {"id": "inv-1", "command": "ping", "paramsJSON": "{}"}}]
+    batch_b = [{"id": "q-2", "payload": {"id": "inv-2", "command": "ping", "paramsJSON": "{}"}}]
+    responses = iter(
+        [
+            json.dumps({"ok": True, "payload": {"items": batch_a, "hasMore": True}}),
+            # ack response for q-1
+            json.dumps({"ok": True, "id": "ack-a", "payload": {}}),
+            json.dumps({"ok": True, "payload": {"items": batch_b, "hasMore": False}}),
+            # ack response for q-2
+            json.dumps({"ok": True, "id": "ack-b", "payload": {}}),
+        ]
+    )
+    ws.recv = AsyncMock(side_effect=lambda: next(responses))
+
+    await client._pull_pending(ws)
+
+    sent_methods = [json.loads(c[0][0]).get("method") for c in ws.send.call_args_list]
+    # Two pulls, two invoke results, two acks — order-independent assertion below.
+    assert sent_methods.count("node.pending.pull") == 2
+    assert sent_methods.count("node.pending.ack") == 2
+    acked_ids: list[str] = []
+    for call in ws.send.call_args_list:
+        frame = json.loads(call[0][0])
+        if frame.get("method") == "node.pending.ack":
+            acked_ids.extend(frame["params"]["ids"])
+    assert acked_ids == ["q-1", "q-2"]
+
+
+async def test_pull_pending_bails_after_max_iterations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Gateway stuck on hasMore=True does not livelock the connect handshake."""
+    from openclaw_node import gateway_ws as gw_mod
+
+    monkeypatch.setattr(gw_mod, "_PENDING_PULL_MAX_ITERATIONS", 3)
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    # Always return one item + hasMore=True; loop must bail after 3 iterations.
+    payload = {
+        "items": [
+            {"id": "q-stuck", "payload": {"id": "inv-x", "command": "ping", "paramsJSON": "{}"}}
+        ],
+        "hasMore": True,
+    }
+    ack_resp = json.dumps({"ok": True, "id": "x", "payload": {}})
+    pull_resp = json.dumps({"ok": True, "payload": payload})
+    # Pattern: pull → ack → pull → ack → pull → ack → bail (no further pull).
+    responses = iter([pull_resp, ack_resp, pull_resp, ack_resp, pull_resp, ack_resp])
+    ws.recv = AsyncMock(side_effect=lambda: next(responses))
+
+    await client._pull_pending(ws)
+
+    pulls = [
+        c
+        for c in ws.send.call_args_list
+        if json.loads(c[0][0]).get("method") == "node.pending.pull"
+    ]
+    assert len(pulls) == 3  # exactly the cap, no runaway
+
+
 # ---- _await_approval tests ----
 
 

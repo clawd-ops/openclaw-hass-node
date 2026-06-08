@@ -2,15 +2,71 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
-from .const import CONF_API_TOKEN, CONF_SOCKET_URL, DEFAULT_SOCKET_URL, DOMAIN
+from .const import (
+    CONF_API_TOKEN,
+    CONF_SOCKET_URL,
+    CONVERSATION_INFO_ENDPOINT,
+    DEFAULT_SOCKET_URL,
+    DOMAIN,
+    NODE_LOCAL_PORT,
+    PROBE_CANDIDATE_HOSTS,
+    PROBE_TIMEOUT_S,
+)
+
+_LOG = logging.getLogger(__name__)
+
+
+async def _probe_one(session: aiohttp.ClientSession, url: str) -> bool:
+    """Return True when ``GET {url}/v1/conversation/info`` answers 200.
+
+    Uses the per-request short timeout; never raises on network errors.
+    The probe endpoint is in the unauthed allowlist on the node side so a
+    fresh install with no token configured still answers.
+    """
+    try:
+        async with session.get(
+            url + CONVERSATION_INFO_ENDPOINT,
+            timeout=aiohttp.ClientTimeout(total=PROBE_TIMEOUT_S),
+        ) as resp:
+            return resp.status == 200
+    except (aiohttp.ClientError, TimeoutError, OSError) as exc:
+        _LOG.debug("probe %s failed: %s", url, exc)
+        return False
+
+
+async def _probe_default_socket_url(session: aiohttp.ClientSession) -> str:
+    """Probe candidate hostnames for a reachable OpenClaw Node API.
+
+    Probes are run **concurrently** — worst-case stall is bounded by a single
+    ``PROBE_TIMEOUT_S`` window (~1s) rather than ``len(candidates) * timeout``
+    (Codex review feedback). Returns the first URL that answers
+    ``GET /v1/conversation/info`` with 200 in the candidate-defined order,
+    or :data:`DEFAULT_SOCKET_URL` if none respond. This lets users install
+    the integration without knowing their Supervisor install-specific
+    add-on hash (#88/1).
+    """
+    urls = [f"http://{host}:{NODE_LOCAL_PORT}" for host in PROBE_CANDIDATE_HOSTS]
+    results = await asyncio.gather(
+        *(_probe_one(session, url) for url in urls), return_exceptions=False
+    )
+    for url, ok in zip(urls, results, strict=True):
+        if ok:
+            _LOG.info("openclaw node detected at %s", url)
+            return url
+    return DEFAULT_SOCKET_URL
+
 
 # Supervisor add-on hostnames look like '<hash>_<slug>' or '<hash>-<slug>'.
 # Extract the human-readable slug so the entry title is recognisable
@@ -102,10 +158,12 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data={CONF_SOCKET_URL: socket_url, CONF_API_TOKEN: api_token},
             )
 
+        session = aiohttp_client.async_get_clientsession(self.hass)
+        suggested_url = await _probe_default_socket_url(session)
         _pw = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
         schema = vol.Schema(
             {
-                vol.Required(CONF_SOCKET_URL, default=DEFAULT_SOCKET_URL): str,
+                vol.Required(CONF_SOCKET_URL, default=suggested_url): str,
                 vol.Optional(CONF_API_TOKEN, default=""): _pw,
             }
         )

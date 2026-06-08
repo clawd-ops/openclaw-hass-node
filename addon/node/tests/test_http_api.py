@@ -320,17 +320,39 @@ async def test_conversation_info_endpoint(client: TestClient[Request, Applicatio
 
 
 @pytest.mark.asyncio
-async def test_command_dispatch_success(client: TestClient[Request, Application]) -> None:
-    """Successful unknown command route returns ok with result."""
-    # Register a temp handler and dispatch via the generic route
-    from openclaw_node.commands.dispatcher import register_handler
+async def test_command_dispatch_success(
+    client: TestClient[Request, Application],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Successful generic command route returns ok with result."""
+    # Register a temp handler and add it to the HTTP allowlist for this test.
+    from openclaw_node import http_api as http_api_mod
+    from openclaw_node.commands import dispatcher as _dispatcher
 
-    register_handler("test.echo", lambda p: {"echoed": p})
+    monkeypatch.setitem(_dispatcher._REGISTRY, "test.echo", lambda p: {"echoed": p})
+    monkeypatch.setattr(http_api_mod, "_HTTP_COMMAND_ALLOWLIST", frozenset({"ping", "test.echo"}))
     response = await client.post("/v1/commands/test.echo", json={"x": 1})
     data = await response.json()
     assert response.status == 200
     assert data["ok"] is True
     assert data["result"]["echoed"] == {"x": 1}
+
+
+@pytest.mark.asyncio
+async def test_command_dispatch_rejects_non_allowlisted(
+    client: TestClient[Request, Application],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-allowlisted commands return 404 UNKNOWN_COMMAND even if registered (#88/3)."""
+    from openclaw_node.commands import dispatcher as _dispatcher
+
+    monkeypatch.setitem(
+        _dispatcher._REGISTRY, "system.run", lambda p: {"should": "never run via http"}
+    )
+    response = await client.post("/v1/commands/system.run", json={})
+    data = await response.json()
+    assert response.status == 404
+    assert data == {"ok": False, "error": "UNKNOWN_COMMAND", "command": "system.run"}
 
 
 @pytest.mark.asyncio

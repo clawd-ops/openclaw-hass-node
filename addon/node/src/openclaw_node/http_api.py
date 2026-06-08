@@ -37,6 +37,18 @@ _UNAUTHED_PATHS: Final[frozenset[str]] = frozenset(
     }
 )
 
+# Allowlist for commands callable over the local HTTP surface (#88/3).
+# The HACS shim never needs more than these for normal operation, and the
+# gateway invokes powerful commands like fs.write / system.run over the WS
+# path (operator-authorized). Restricting the HTTP surface limits the blast
+# radius if `local_api_token` ever leaks.
+_HTTP_COMMAND_ALLOWLIST: Final[frozenset[str]] = frozenset(
+    {
+        "ping",
+        "system.which",
+    }
+)
+
 _Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
 
@@ -246,6 +258,16 @@ async def command_dispatch(request: web.Request) -> web.Response:
         JSON command result or a structured error.
     """
     command = request.match_info["command"]
+    if command not in _HTTP_COMMAND_ALLOWLIST:
+        # Defense-in-depth: the bearer token gates *access*, this allowlist
+        # gates *blast radius*. Return UNKNOWN_COMMAND (not 403) so the
+        # response shape matches a missing handler — the surface doesn't
+        # advertise which commands exist behind it.
+        return web.json_response(
+            {"ok": False, "error": "UNKNOWN_COMMAND", "command": command},
+            status=404,
+            headers=_JSON_HEADERS,
+        )
     params = await _json_body(request)
     try:
         result = await dispatch_async(command, params)

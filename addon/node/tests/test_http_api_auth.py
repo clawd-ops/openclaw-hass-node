@@ -170,12 +170,17 @@ async def test_command_dispatch_runs_async_handler(
     ``dispatch()``.
     """
 
+    from openclaw_node import http_api as http_api_mod
+
     async def _async_echo(params: dict[str, object]) -> dict[str, object]:
         return {"echoed": params, "via": "async"}
 
     # Use monkeypatch.setitem so the registry is restored after the test, not
     # leaked into sibling tests that may register the same name.
     monkeypatch.setitem(_dispatcher._REGISTRY, "test.async_echo", _async_echo)
+    monkeypatch.setattr(
+        http_api_mod, "_HTTP_COMMAND_ALLOWLIST", frozenset({"ping", "test.async_echo"})
+    )
     response = await authed_client.post(
         "/v1/commands/test.async_echo",
         json={"x": 2},

@@ -101,6 +101,10 @@ _OPERATOR_SCOPES: Final[list[str]] = [
 _EMPTY: Final[str] = "".join(())
 _RECONNECT_DELAY_S: Final[float] = 5.0
 _PENDING_PULL_BATCH: Final[int] = 50
+# Cap on hasMore drain iterations per connect — keeps a misbehaving gateway
+# from livelocking the connect handshake. 20 iterations * 50 items per batch
+# = 1000 items per connect (anything beyond that arrives on next reconnect).
+_PENDING_PULL_MAX_ITERATIONS: Final[int] = 20
 _ACK_RESPONSE_TIMEOUT_S: Final[float] = 5.0
 
 
@@ -690,48 +694,76 @@ class GatewayClient:
         is the canonical upper bound this client is willing to receive in a
         single drain.
 
+        Loops on the canonical ``NodePendingDrainResult.hasMore`` flag so a
+        backlog larger than one batch is fully drained before the event loop
+        starts (#88/2). Bounded by ``_PENDING_PULL_MAX_ITERATIONS`` to keep
+        a misbehaving gateway from livelocking the connect handshake.
+
         Args:
             ws: The open WebSocket connection.
         """
-        req = _make_req("node.pending.pull", {"maxItems": _PENDING_PULL_BATCH})
-        await ws.send(json.dumps(req))
-        raw = await ws.recv()
-        msg: dict[str, Any] = json.loads(raw)
-        if not msg.get("ok"):
-            _LOG.warning("node.pending.pull failed: %r", msg.get("error"))
-            return
-        items: list[Any] = msg.get("payload", {}).get("items", [])
-        _LOG.debug("Pulled %d pending items", len(items))
-        for item in items:
-            # Canonical NodePendingDrainResult.items[] is an envelope:
-            #   {id: str, payload: {invoke}, ...}
-            # Anything off that shape (non-dict item, missing/non-string
-            # id, missing/non-dict payload) is a schema violation — skip
-            # without ack so the gateway can retry/expire it. Log the
-            # specific reason so operators can debug the gateway side.
-            if not isinstance(item, dict):
+        for iteration in range(_PENDING_PULL_MAX_ITERATIONS):
+            req = _make_req("node.pending.pull", {"maxItems": _PENDING_PULL_BATCH})
+            await ws.send(json.dumps(req))
+            raw = await ws.recv()
+            msg: dict[str, Any] = json.loads(raw)
+            if not msg.get("ok"):
+                _LOG.warning("node.pending.pull failed: %r", msg.get("error"))
+                return
+            payload_obj_raw = msg.get("payload")
+            if not isinstance(payload_obj_raw, dict):
                 _LOG.warning(
-                    "skipping malformed pending item: not an object, got %s",
-                    type(item).__name__,
+                    "node.pending.pull returned non-object payload (got %s); "
+                    "treating as empty drain",
+                    type(payload_obj_raw).__name__,
                 )
-                continue
-            item_id = item.get("id")
-            if not isinstance(item_id, str) or not item_id:
-                _LOG.warning(
-                    "skipping malformed pending item: id missing or not a string (got %r)",
-                    item_id,
-                )
-                continue
-            payload = item.get("payload")
-            if not isinstance(payload, dict):
-                _LOG.warning(
-                    "skipping malformed pending item id=%s: payload missing or non-dict (got %s)",
-                    item_id,
-                    type(payload).__name__,
-                )
-                continue
-            await self._handle_invoke(ws, payload)
-            await self._ack_pending(ws, item_id)
+                return
+            items: list[Any] = payload_obj_raw.get("items", []) or []
+            has_more = bool(payload_obj_raw.get("hasMore", False))
+            _LOG.debug(
+                "Pulled %d pending items (iteration=%d, hasMore=%s)",
+                len(items),
+                iteration,
+                has_more,
+            )
+            for item in items:
+                # Canonical NodePendingDrainResult.items[] is an envelope:
+                #   {id: str, payload: {invoke}, ...}
+                # Anything off that shape (non-dict item, missing/non-string
+                # id, missing/non-dict payload) is a schema violation — skip
+                # without ack so the gateway can retry/expire it. Log the
+                # specific reason so operators can debug the gateway side.
+                if not isinstance(item, dict):
+                    _LOG.warning(
+                        "skipping malformed pending item: not an object, got %s",
+                        type(item).__name__,
+                    )
+                    continue
+                item_id = item.get("id")
+                if not isinstance(item_id, str) or not item_id:
+                    _LOG.warning(
+                        "skipping malformed pending item: id missing or not a string (got %r)",
+                        item_id,
+                    )
+                    continue
+                payload = item.get("payload")
+                if not isinstance(payload, dict):
+                    _LOG.warning(
+                        "skipping malformed pending item id=%s: "
+                        "payload missing or non-dict (got %s)",
+                        item_id,
+                        type(payload).__name__,
+                    )
+                    continue
+                await self._handle_invoke(ws, payload)
+                await self._ack_pending(ws, item_id)
+            if not has_more:
+                return
+        _LOG.warning(
+            "node.pending.pull bailing after %d iterations (gateway still reports hasMore); "
+            "remaining items will be redelivered on next connect",
+            _PENDING_PULL_MAX_ITERATIONS,
+        )
 
     async def _ack_pending(
         self, ws: websockets.asyncio.client.ClientConnection, invoke_id: str
