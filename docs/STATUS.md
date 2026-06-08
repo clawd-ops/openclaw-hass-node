@@ -4,34 +4,66 @@
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
 > `STATUS.md` disagree, fix whichever is wrong before continuing.
 
-## Where we are (2026-06-06)
+## Where we are (2026-06-08, ~01:30 EDT)
+
+**EYES AND HANDS WORK.** `openclaw nodes invoke --node hass --command ping`
+round-trips cleanly. Addon installed, paired, connected, all 28 commands
+surface in `openclaw nodes describe`, `node.invoke.request` →
+`node.invoke.result` works end-to-end. Currently on **2026.6.7**.
 
 **Install-ready surface:**
 
-- Node command surface complete: `fs.*`, `system.*`, and 13 `ha.*`
-  commands.
+- Node command surface complete: `fs.*` (11), `system.*` (2), `ha.*`
+  (13), `ping`. All 28 surface on the gateway after pair-approval (via
+  `openclaw nodes approve`, NOT `openclaw devices approve` — both
+  queues need to be approved, see LESSONS).
 - HACS shim wired: `custom_components/openclaw_gateway/` exposes a
   `ConversationEntity` that POSTs to the node's `/v1/conversation`.
-- Gateway WS client: Ed25519 handshake, pairing, reconnect loop, event
-  loop, `node.invoke` dispatcher. Connects as `role: node` to any
-  OpenClaw Gateway Protocol endpoint.
-- 424 tests, 97.37% branch coverage, all 6 CI gates green.
+- Gateway WS client: Ed25519 handshake, pairing, reconnect loop,
+  `node.invoke` dispatcher, device_token persistence with NOT_PAIRED /
+  PAIRING_REQUIRED / AUTH_TOKEN_MISMATCH self-heal. All frames now
+  shaped per the canonical SDK schema at
+  `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts`.
+- 424 tests, 96.21% branch coverage, all 6 CI gates green.
 
-**The hole:** `assist_turn` (the `/v1/conversation` handler) is a
-placeholder. It reports pairing/connection state but does not yet
-relay turns into an agent session. That's P5.12.
+**Two holes still open:**
 
-**Install lessons (2026-06-07).** First end-to-end install completed
-tonight: node pairs, connects, `openclaw nodes describe` shows it as
-paired+connected. Every speed bump captured in
-[`docs/LESSONS.md`](LESSONS.md); user walkthrough in
-[`docs/INSTALL.md`](INSTALL.md) which surfaces the **required**
-`gateway.nodes.allowCommands` patch on the OpenClaw side.
-PRs shipped: #29 drop GHCR image:, #30 move node into addon/ for
-Supervisor's local build context, #31 use HA python-on-Alpine base,
-#32 client.id=node-host (enum), #33 deviceFamily in connect frame for
-signature verify, #34 thread pairing_token through, #35 persist gateway-
-issued device_token, #36 displayName from node_name.
+1. **`assist_turn` (the `/v1/conversation` handler) is a placeholder.**
+   Reports pairing/connection state but doesn't relay turns. P5.12.
+2. **HA-side credentials are not wired.** `ha.list_areas` returns
+   `HA_NOT_CONFIGURED: HASS_URL is not set`. Root cause: Rob's
+   Supervisor isn't injecting `SUPERVISOR_TOKEN` despite
+   `hassio_api: true + homeassistant_api: true + auth_api: true`.
+   Workarounds: (a) figure out why Supervisor isn't injecting, (b) add
+   `hass_url` + `hass_token` add-on options users can fill in.
+   Tracked as next step P-INSTALL.
+
+**Install push 2026-06-06/07/08 — 17 PRs (#29–#45) shipped:**
+
+| PR | Fix |
+| --- | --- |
+| #29 | drop unpublished GHCR image: from config.yaml |
+| #30 | move `node/` into `addon/node/` so Supervisor's build context resolves COPY paths |
+| #31 | use HA python-on-Alpine base (`ghcr.io/home-assistant/{arch}-base-python:3.13-alpine3.20`) |
+| #32 | `client.id = "node-host"` (was rejected enum value) |
+| #33 | include `deviceFamily` in connect.client (for v3 signature reconstruct) |
+| #34 | thread `pairing_token` into GatewayClient construction |
+| #35 | persist gateway-issued `device_token`, prefer over pairing_token |
+| #36 | `displayName` from `node_name` config |
+| #37 | restructure docs: user-facing README, INSTALL.md, LESSONS.md |
+| #38 | self-heal on NOT_PAIRED / PAIRING_REQUIRED |
+| #39 | transparent icons + shim entry title from socket host |
+| #40 | `/data`-writable fallback for addon-mode detection + bump `__version__` |
+| #41 | self-heal also on AUTH_TOKEN_MISMATCH / token_mismatch |
+| #42 | docs: two-pair-queue + reloadKind=restart lessons |
+| #43 | `node.invoke.result` uses `id` not `invokeId` |
+| #44 | canonical `node.invoke.result` shape `{id, nodeId, ok, payload, error}` + drop `limit` from `node.pending.pull` |
+| #45 | error as `{code, message}` object, ack as `{ids: [...]}`, point at SDK schema as canonical source |
+
+Every gotcha lives in [`docs/LESSONS.md`](LESSONS.md). User-facing
+install walkthrough in [`docs/INSTALL.md`](INSTALL.md) including the
+**required** `gateway.nodes.allowCommands` patch on the OpenClaw side
+and the dual-queue approval flow.
 
 **Architecture for P5.12 (decided 2026-06-06):** the node calls
 `chat.send` over its existing gateway WS connection to inject the
@@ -44,20 +76,34 @@ approach in `docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
 
 **Next concrete steps (in order):**
 
-1. **P5.12 — ChatRelay** (~100 LOC node Python). Add `operator.read`
-   to the connect-frame scopes; build `ChatRelay` that owns one
+1. **P-INSTALL — wire HA credentials.** `ha.*` invokes round-trip
+   protocol-wise but error in-payload with `HA_NOT_CONFIGURED: HASS_URL
+   is not set`. Either (a) diagnose why Rob's HA Supervisor isn't
+   injecting `SUPERVISOR_TOKEN` despite the addon's API flags, OR (b)
+   add `hass_url` + `hass_token` as add-on options surfaced through
+   `run.sh` env. (b) is the more portable fix and is probably what
+   ships. Small change, ~30 LOC + INSTALL doc update.
+2. **P5.12 — ChatRelay** (~100 LOC node Python). Add `operator.read`
+   to connect-frame scopes; build `ChatRelay` that owns one
    `sessions.messages.subscribe` per active conversation_id, calls
    `chat.send` for each turn, awaits reply with a 30s timeout.
-   Rewrite `assist_turn` to use it. Decide whether to open a fresh
-   session per conversation_id (simpler) or reuse one per HA instance
-   (cheaper). Best done with Rob present.
-2. **P6.2 — MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
-   against OpenClaw logs. Once it ever prints `RETIREMENT_READY`,
-   drop the `homeassistant` + `homeassistant-readonly` MCP server
-   entries from the gateway config in one PR and update agent
-   prompts.
-3. **P7 — publish.** Add-on repo metadata, HACS index entry, release
-   workflow.
+   Rewrite `assist_turn` to use it. Open design questions: fresh
+   session per HA conversation_id vs one persistent session per HA
+   instance; fixed agent vs configurable in the shim's config flow.
+   Best done with Rob present.
+3. **Polish / hardening** — visible misses worth fixing before any
+   real users land:
+   - `node.pending.pull` warning on every connect is cosmetic noise
+     (gateway returns `ok: false` with null error); silence or drop.
+   - HACS brands PR so the integration list shows the OC icon.
+   - The `_PENDING_PULL_LIMIT` constant is dead after #44; remove.
+4. **P6.2 — MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
+   against OpenClaw logs. When it prints `RETIREMENT_READY`, drop the
+   `homeassistant` + `homeassistant-readonly` MCP server entries from
+   gateway config in one PR.
+5. **P7 — publish.** Add-on repo metadata, HACS index entry, release
+   workflow for GHCR-published per-arch images (lets us put the
+   `image:` key back in config.yaml and skip the on-device build).
 
 **What was wrong, kept here so future-me doesn't repeat it:**
 
@@ -74,7 +120,7 @@ recorded in
 
 ## Current phase
 
-**P5 — Assist agent** (P5.12 ChatRelay = next code work; node + shim install-ready; P6.2 cutover waits on validation harness streak).
+**Install-stabilisation push complete (2026.6.7).** Node command surface is round-trippable end-to-end through the gateway (`openclaw nodes invoke …` returns real results). Next code work is **P-INSTALL** (HA credentials) then **P5.12** (ChatRelay). P6.2 cutover waits on the validation-harness streak.
 
 P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
 P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
