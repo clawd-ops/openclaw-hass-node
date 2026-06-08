@@ -590,15 +590,17 @@ async def test_event_loop_routes_session_message_to_relay() -> None:
     relay._reply_events["ha-assist:conv-1"] = asyncio.Event()
 
     messages = [
-        json.dumps({
-            "type": "event",
-            "event": "session.message",
-            "payload": {
-                "sessionKey": "ha-assist:conv-1",
-                "role": "assistant",
-                "message": "Hello from the agent!",
-            },
-        }),
+        json.dumps(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": "ha-assist:conv-1",
+                    "role": "assistant",
+                    "message": "Hello from the agent!",
+                },
+            }
+        ),
     ]
 
     async def _recv_iter() -> AsyncIterator[str]:
@@ -627,12 +629,14 @@ async def test_event_loop_routes_response_to_relay() -> None:
     relay._pending["req-123"] = future
 
     messages = [
-        json.dumps({
-            "type": "res",
-            "id": "req-123",
-            "ok": True,
-            "payload": {"status": "done"},
-        }),
+        json.dumps(
+            {
+                "type": "res",
+                "id": "req-123",
+                "ok": True,
+                "payload": {"status": "done"},
+            }
+        ),
     ]
 
     async def _recv_iter() -> AsyncIterator[str]:

@@ -223,9 +223,7 @@ async def test_assist_turn_relay_error(tmp_path: Path) -> None:
     runtime.gateway_connected = True
 
     mock_relay = MagicMock(spec=ChatRelay)
-    mock_relay.relay_turn = AsyncMock(
-        side_effect=ChatRelayError("TIMEOUT", "chat.send timed out")
-    )
+    mock_relay.relay_turn = AsyncMock(side_effect=ChatRelayError("TIMEOUT", "chat.send timed out"))
     runtime.chat_relay = mock_relay
 
     server = TestServer(create_app(runtime))
