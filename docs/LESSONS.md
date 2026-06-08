@@ -24,6 +24,25 @@
    compiles but lies about whether Supervisor's invocation will work.
    The former mirrors Supervisor exactly.
 
+## Protocol wire shapes — canonical source
+
+**Read `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts` BEFORE editing any RPC payload.**
+
+The .md docs at `/app/docs/gateway/protocol.md` only list method names.
+Field shapes (`{id, nodeId, ok, payload, error: {code, message}}` etc.)
+live in `ProtocolSchemas.*Params` TypeBox declarations in that .d.ts
+file. The `*.js` compiled outputs are searchable but harder to read.
+
+Tonight ate 4 PRs (#41–#44) because I was bouncing between the .md
+docs and the compiled JS instead of going straight to the SDK schema.
+Lessons learned from that loop:
+
+- `client.id` must be a `GATEWAY_CLIENT_IDS` enum value (lesson 5).
+- `node.invoke.result` shape is `{id, nodeId, ok, payload?, error?}`
+  where `error` is an object `{code, message}`, not a string.
+- `node.pending.ack` takes `{ids: string[]}` — array, not single `id`.
+- `node.pending.pull` takes `{}` — no `limit` param.
+
 ## Connect frame (`/app/dist/message-handler-Du1uvc4A.js` is the source of truth)
 
 5. **`client.id` is enum-validated against `GATEWAY_CLIENT_IDS`.** Valid

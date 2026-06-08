@@ -1,6 +1,13 @@
 # pragma: no cover -- P2 scaffold; exercised once a gateway protocol harness lands.
 """Gateway WebSocket client for the OpenClaw node.
 
+**Canonical wire schema lives at:**
+``/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts``
+(see ``ProtocolSchemas.*Params``). When changing any RPC payload here,
+read that file FIRST. The .md docs at /app/docs/gateway/protocol.md
+are descriptive, not authoritative — they list method names but not
+field shapes.
+
 Implements the OpenClaw gateway WS protocol (role: ``node``):
 
 1. Connect.
@@ -432,7 +439,8 @@ class GatewayClient:
             ws: The open WebSocket connection.
             invoke_id: The invoke ID to acknowledge.
         """
-        ack = _make_req("node.pending.ack", {"id": invoke_id})
+        # Canonical NodePendingAckParams takes an array of ids.
+        ack = _make_req("node.pending.ack", {"ids": [invoke_id]})
         await ws.send(json.dumps(ack))
 
     async def _event_loop(self, ws: websockets.asyncio.client.ClientConnection) -> None:
@@ -481,13 +489,21 @@ class GatewayClient:
             _LOG.warning("Unknown command: %r", command)
             resp = _make_req(
                 "node.invoke.result",
-                {**base, "ok": False, "error": f"UNKNOWN_COMMAND: {exc.command}"},
+                {
+                    **base,
+                    "ok": False,
+                    "error": {"code": "UNKNOWN_COMMAND", "message": exc.command},
+                },
             )
         except Exception as exc:
             _LOG.exception("Command %r raised: %s", command, exc)
             resp = _make_req(
                 "node.invoke.result",
-                {**base, "ok": False, "error": "COMMAND_ERROR"},
+                {
+                    **base,
+                    "ok": False,
+                    "error": {"code": "COMMAND_ERROR", "message": "Internal command error"},
+                },
             )
 
         await ws.send(json.dumps(resp))
