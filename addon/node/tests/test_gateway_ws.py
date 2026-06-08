@@ -212,7 +212,7 @@ async def test_handle_invoke_unknown_command() -> None:
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
-    assert "UNKNOWN_COMMAND" in sent["params"]["error"]
+    assert sent["params"]["error"]["code"] == "UNKNOWN_COMMAND"
 
 
 async def test_handle_invoke_command_exception() -> None:
@@ -230,7 +230,7 @@ async def test_handle_invoke_command_exception() -> None:
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["params"]["ok"] is False
-    assert sent["params"]["error"] == "COMMAND_ERROR"
+    assert sent["params"]["error"]["code"] == "COMMAND_ERROR"
     assert "something went wrong" not in json.dumps(sent)
 
 
@@ -245,7 +245,7 @@ async def test_ack_pending_sends_correct_request() -> None:
     ws.send.assert_called_once()
     sent = json.loads(ws.send.call_args[0][0])
     assert sent["method"] == "node.pending.ack"
-    assert sent["params"]["id"] == "inv-99"
+    assert sent["params"]["ids"] == ["inv-99"]
 
 
 # ---- _pull_pending tests ----
