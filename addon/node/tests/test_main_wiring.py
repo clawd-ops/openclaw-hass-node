@@ -44,13 +44,24 @@ def identity(config: NodeConfig) -> DeviceIdentity:
 def test_build_runtime_shares_runtime_with_gateway(
     config: NodeConfig, identity: DeviceIdentity
 ) -> None:
-    """The gateway client must hold the same runtime instance as the HTTP API."""
-    runtime, client = build_runtime(config, identity)
+    """Both gateway clients must hold the same runtime instance as the HTTP API."""
+    runtime, node_client, operator_client = build_runtime(config, identity)
 
     assert runtime.config is config
     assert runtime.pairing_state is PairingState.UNKNOWN
     assert runtime.gateway_connected is False
-    assert client._runtime is runtime
+    assert node_client._runtime is runtime
+    assert operator_client._runtime is runtime
+    # Role + scope wiring for the P5.13 dual-WS world.
+    assert node_client._role == "node"
+    assert node_client._scopes == []
+    assert node_client._chat_relay_enabled is False
+    assert node_client._invoke_dispatch_enabled is True
+    assert operator_client._role == "operator"
+    assert "operator.write" in operator_client._scopes
+    assert operator_client._chat_relay_enabled is True
+    assert operator_client._invoke_dispatch_enabled is False
+    assert operator_client._pair_fallback_enabled is False
 
 
 @pytest.mark.parametrize(
@@ -69,9 +80,9 @@ def test_build_runtime_wires_pairing_callback(
     expected_paired: bool,
 ) -> None:
     """Pairing-state callback must mutate the shared runtime, not a private copy."""
-    runtime, client = build_runtime(config, identity)
+    runtime, node_client, _operator_client = build_runtime(config, identity)
 
-    callback = client._pairing_state_callback
+    callback = node_client._pairing_state_callback
     assert callback is not None
 
     callback(state)
@@ -130,20 +141,21 @@ async def test_main_starts_both_tasks_and_propagates_failure(
     """
     from openclaw_node import __main__ as main_mod
 
-    started: dict[str, bool] = {"gateway": False, "http": False}
-    cancelled: dict[str, bool] = {"gateway": False, "http": False}
+    started: dict[str, bool] = {"node": False, "operator": False, "http": False}
+    cancelled: dict[str, bool] = {"node": False, "operator": False, "http": False}
 
     class _StubClient:
-        def __init__(self, runtime: NodeRuntime) -> None:
+        def __init__(self, runtime: NodeRuntime, label: str) -> None:
             self.runtime = runtime
+            self._label = label
             self._pairing_state_callback = None
 
         async def run(self) -> None:
-            started["gateway"] = True
+            started[self._label] = True
             try:
                 await asyncio.sleep(10)
             except asyncio.CancelledError:
-                cancelled["gateway"] = True
+                cancelled[self._label] = True
                 raise
 
     async def _stub_http(runtime: NodeRuntime) -> None:
@@ -153,10 +165,12 @@ async def test_main_starts_both_tasks_and_propagates_failure(
 
     built_runtime: list[NodeRuntime] = []
 
-    def _build(cfg: NodeConfig, ident: DeviceIdentity) -> tuple[NodeRuntime, _StubClient]:
+    def _build(
+        cfg: NodeConfig, ident: DeviceIdentity
+    ) -> tuple[NodeRuntime, _StubClient, _StubClient]:
         runtime = NodeRuntime(cfg)
         built_runtime.append(runtime)
-        return runtime, _StubClient(runtime)
+        return runtime, _StubClient(runtime, "node"), _StubClient(runtime, "operator")
 
     monkeypatch.setattr(main_mod, "load_config", lambda: config)
     monkeypatch.setattr(main_mod, "load_or_generate", lambda _p: (identity, False))
@@ -166,7 +180,8 @@ async def test_main_starts_both_tasks_and_propagates_failure(
     with pytest.raises(ExceptionGroup) as exc_info:
         await main_mod._main()
 
-    assert started == {"gateway": True, "http": True}
-    assert cancelled["gateway"] is True
+    assert started == {"node": True, "operator": True, "http": True}
+    assert cancelled["node"] is True
+    assert cancelled["operator"] is True
     flat = [e for e in exc_info.value.exceptions if isinstance(e, RuntimeError)]
     assert any("http-task-boom" in str(e) for e in flat)

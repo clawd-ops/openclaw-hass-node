@@ -12,7 +12,7 @@ import logging
 import sys
 
 from openclaw_node.config import NodeConfig, load_config
-from openclaw_node.gateway_ws import GatewayClient
+from openclaw_node.gateway_ws import _OPERATOR_SCOPES, GatewayClient
 from openclaw_node.http_api import NodeRuntime, run_http_api
 from openclaw_node.identity import DeviceIdentity, load_or_generate
 from openclaw_node.pairing import PairingState
@@ -50,33 +50,62 @@ def _initial_device_token(config: NodeConfig) -> str | None:
 
 def build_runtime(
     config: NodeConfig, identity: DeviceIdentity
-) -> tuple[NodeRuntime, GatewayClient]:
-    """Construct the shared runtime and gateway client with pairing wired through.
+) -> tuple[NodeRuntime, GatewayClient, GatewayClient]:
+    """Construct the runtime + both gateway clients with pairing wired through.
 
-    The :class:`NodeRuntime` is shared with :class:`GatewayClient` so that
-    pairing state and gateway connection liveness changes are visible to the
-    HTTP API without an additional channel.
+    P5.13 dual-WS: the node runs two parallel gateway connections sharing
+    the same device identity + device token (the dual-role pairing profile
+    grants both roles on a single device record). The node-role connection
+    handles ``node.invoke.*`` and ``node.event``; the operator-role
+    connection handles ``chat.send`` / ``sessions.messages.subscribe`` via
+    :class:`ChatRelay`. Each connection runs an independent reconnect loop;
+    one failing does not take the other down.
 
     Args:
         config: Loaded runtime configuration.
         identity: Device identity loaded or freshly generated.
 
     Returns:
-        A ``(runtime, client)`` pair ready to be driven by :func:`_main`.
+        A ``(runtime, node_client, operator_client)`` tuple ready to be
+        driven by :func:`_main`.
     """
     runtime = NodeRuntime(config)
 
     def _on_pairing_state(state: PairingState) -> None:
         runtime.pairing_state = state
 
-    client = GatewayClient(
+    initial_token = _initial_device_token(config)
+
+    node_client = GatewayClient(
         config=config,
         identity=identity,
-        device_token=_initial_device_token(config),
+        device_token=initial_token,
         pairing_state_callback=_on_pairing_state,
         runtime=runtime,
+        chat_relay_enabled=False,  # operator owns the relay in P5.13
+        invoke_dispatch_enabled=True,
     )
-    return runtime, client
+    operator_client = GatewayClient(
+        config=config,
+        identity=identity,
+        device_token=initial_token,
+        # No pairing_state_callback — the operator connection inherits
+        # whatever the node connection already established; surfacing
+        # operator-side pairing state would just churn the same flag.
+        pairing_state_callback=None,
+        runtime=runtime,
+        role="operator",
+        scopes=_OPERATOR_SCOPES,
+        caps=[],
+        commands=[],
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        # Both connections share the device_token file (idempotent
+        # writes), but the operator side must NOT clear it on an
+        # INVALID_REQUEST — that would break the node connection too.
+        pair_fallback_enabled=False,
+    )
+    return runtime, node_client, operator_client
 
 
 async def _main() -> None:
@@ -104,10 +133,11 @@ async def _main() -> None:
     else:
         _LOG.info("Loaded existing device identity: %s", identity.device_id)
 
-    runtime, client = build_runtime(config, identity)
+    runtime, node_client, operator_client = build_runtime(config, identity)
 
     async with asyncio.TaskGroup() as tg:
-        tg.create_task(client.run(), name="gateway-ws")
+        tg.create_task(node_client.run(), name="gateway-ws-node")
+        tg.create_task(operator_client.run(), name="gateway-ws-operator")
         tg.create_task(run_http_api(runtime), name="http-api")
 
 

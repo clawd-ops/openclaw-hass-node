@@ -100,6 +100,39 @@ async def test_assist_turn_unpaired(client: TestClient[Request, Application]) ->
 
 
 @pytest.mark.asyncio
+async def test_assist_turn_operator_not_connected(tmp_path: Path) -> None:
+    """Assist returns a specific diagnostic when only the node connection
+    is up — Assist requires the operator-role connection."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = False  # node is up but operator isn't
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](server)
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation",
+            json={"text": "hello", "conversation_id": "conv-1"},
+        )
+        data = await response.json()
+        assert data["ok"] is False
+        assert "operator" in data["response"].lower()
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
 async def test_assist_turn_no_relay(tmp_path: Path) -> None:
     """Assist returns diagnostic when paired but no chat relay."""
     config = NodeConfig(
@@ -114,7 +147,8 @@ async def test_assist_turn_no_relay(tmp_path: Path) -> None:
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
-    runtime.gateway_connected = True
+    runtime.node_connected = True
+    runtime.operator_connected = True
     server = TestServer(create_app(runtime))
     tc = TestClient[Request, Application](server)
     await tc.start_server()
@@ -148,7 +182,8 @@ async def test_assist_turn_missing_conversation_id(tmp_path: Path) -> None:
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
-    runtime.gateway_connected = True
+    runtime.node_connected = True
+    runtime.operator_connected = True
     runtime.chat_relay = ChatRelay(AsyncMock())
     server = TestServer(create_app(runtime))
     tc = TestClient[Request, Application](server)
@@ -179,7 +214,8 @@ async def test_assist_turn_relay_success(tmp_path: Path) -> None:
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
-    runtime.gateway_connected = True
+    runtime.node_connected = True
+    runtime.operator_connected = True
 
     mock_relay = MagicMock(spec=ChatRelay)
     mock_relay.relay_turn = AsyncMock(return_value="Lights turned on!")
@@ -220,7 +256,8 @@ async def test_assist_turn_relay_error(tmp_path: Path) -> None:
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
-    runtime.gateway_connected = True
+    runtime.node_connected = True
+    runtime.operator_connected = True
 
     mock_relay = MagicMock(spec=ChatRelay)
     mock_relay.relay_turn = AsyncMock(side_effect=ChatRelayError("TIMEOUT", "chat.send timed out"))

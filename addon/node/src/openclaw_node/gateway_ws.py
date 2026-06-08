@@ -51,10 +51,15 @@ if TYPE_CHECKING:
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
-_CONNECT_ROLE: Final[str] = "node"
-_CONNECT_SCOPES: Final[list[str]] = []
-_CONNECT_CAPS: Final[list[str]] = ["system"]
-_CONNECT_COMMANDS: Final[list[str]] = [
+# Default role / scopes / caps / commands for a node-role connection.
+# These are class-level defaults; each GatewayClient instance can override
+# via constructor args (see P5.13 dual-WS refactor #84 — operator-role
+# connections use a different role + the four operator scopes the QR
+# pairing flow grants, and advertise NO caps/commands).
+_NODE_ROLE: Final[str] = "node"
+_NODE_SCOPES: Final[list[str]] = []
+_NODE_CAPS: Final[list[str]] = ["system"]
+_NODE_COMMANDS: Final[list[str]] = [
     "ping",
     "fs.read",
     "fs.list",
@@ -83,6 +88,15 @@ _CONNECT_COMMANDS: Final[list[str]] = [
     "ha.light_turn_off",
     "ha.list_automations",
     "ha.check_config",
+]
+# The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
+# in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.
+# Required for chat.send + sessions.messages.subscribe.
+_OPERATOR_SCOPES: Final[list[str]] = [
+    "operator.approvals",
+    "operator.read",
+    "operator.talk.secrets",
+    "operator.write",
 ]
 _EMPTY: Final[str] = "".join(())
 _RECONNECT_DELAY_S: Final[float] = 5.0
@@ -197,6 +211,15 @@ class GatewayClient:
         device_token: str | None = None,
         pairing_state_callback: Callable[[PairingState], None] | None = None,
         runtime: NodeRuntime | None = None,
+        *,
+        role: str = _NODE_ROLE,
+        scopes: list[str] | None = None,
+        caps: list[str] | None = None,
+        commands: list[str] | None = None,
+        chat_relay_enabled: bool = True,
+        invoke_dispatch_enabled: bool = True,
+        token_persist_path: Path | None = None,
+        pair_fallback_enabled: bool = True,
     ) -> None:
         """Initialise the client without opening a connection.
 
@@ -209,6 +232,35 @@ class GatewayClient:
                 pairing state may have changed.
             runtime: Optional shared :class:`NodeRuntime` used to surface
                 gateway-connected state to the local HTTP API.
+            role: Gateway connection role (``"node"`` or ``"operator"``).
+                Determines which RPCs the connection is authorized to call;
+                see the gateway role-policy notes in ``docs/LESSONS.md``.
+            scopes: Operator scopes to advertise at connect. Ignored for
+                node-role connections (gateway rejects scopes on node connect).
+            caps: Device capabilities to advertise. Empty list for operator.
+            commands: Command names to advertise. Empty list for operator.
+            chat_relay_enabled: When True, the connection owns a
+                :class:`ChatRelay` instance and routes ``session.message`` /
+                ``chat*`` events through it. Set False on the node-role
+                connection in the P5.13 dual-WS world.
+            invoke_dispatch_enabled: When True, the connection drains
+                ``node.pending.pull`` on connect and dispatches
+                ``node.invoke.request`` events. Set False on the
+                operator-role connection.
+            token_persist_path: Override the path where the gateway-issued
+                device token is persisted. Defaults to
+                ``config.device_token_path``. Both role connections may
+                share the same path safely — the gateway issues one
+                device token per device record (the dual-role pairing
+                profile grants both roles on a single token), so writes
+                are idempotent.
+            pair_fallback_enabled: When True, an INVALID_REQUEST /
+                NOT_PAIRED rejection clears the persisted device token
+                and falls back to the one-shot pairing_token. Disable on
+                the operator-role connection — it must NOT clear the
+                shared token file when its connect is rejected (which
+                would happen if the device is only single-role paired),
+                because that would break the node-role connection too.
         """
         self._config = config
         self._identity = identity
@@ -216,6 +268,14 @@ class GatewayClient:
         self._pairing = PairingMachine()
         self._pairing_state_callback = pairing_state_callback
         self._runtime = runtime
+        self._role = role
+        self._scopes = list(scopes) if scopes is not None else list(_NODE_SCOPES)
+        self._caps = list(caps) if caps is not None else list(_NODE_CAPS)
+        self._commands = list(commands) if commands is not None else list(_NODE_COMMANDS)
+        self._chat_relay_enabled = chat_relay_enabled
+        self._invoke_dispatch_enabled = invoke_dispatch_enabled
+        self._token_persist_path = token_persist_path or config.device_token_path
+        self._pair_fallback_enabled = pair_fallback_enabled
 
     @property
     def pairing_state(self) -> PairingState:
@@ -247,7 +307,7 @@ class GatewayClient:
                 self._pairing.on_reconnect()
                 self._notify_pairing_state()
                 if self._runtime is not None:
-                    self._runtime.gateway_connected = False
+                    self._set_runtime_connected(False)
                 await asyncio.sleep(_RECONNECT_DELAY_S)
 
     def _maybe_drop_invalid_device_token(self, exc: BaseException) -> None:
@@ -263,13 +323,15 @@ class GatewayClient:
         token, getting the same rejection, until the user manually clears
         /data/openclaw/device-token.
         """
+        if not self._pair_fallback_enabled:
+            return
         haystack = repr(exc)
         triggers = ("NOT_PAIRED", "PAIRING_REQUIRED", "AUTH_TOKEN_MISMATCH", "token_mismatch")
         if not any(t in haystack for t in triggers):
             return
         if not self._device_token:
             return
-        path = self._config.device_token_path
+        path = self._token_persist_path
         if self._device_token == (self._config.pairing_token or ""):
             return  # already using the pairing_token
         _LOG.warning(
@@ -308,6 +370,24 @@ class GatewayClient:
             return False
         return True
 
+    def _reload_device_token(self) -> None:
+        """Re-read the persisted device token before each connect attempt.
+
+        In the dual-WS world the node-role connection may persist a new
+        token after pairing while the operator-role connection still holds
+        the stale bootstrap token in memory.  Re-reading the file ensures
+        the operator picks up the freshly persisted token on its next
+        reconnect cycle.
+        """
+        path = self._token_persist_path
+        try:
+            if path.is_file():
+                value = path.read_text().strip()
+                if value:
+                    self._device_token = value
+        except OSError as exc:
+            _LOG.debug("Could not reload device token from %s: %s", path, exc)
+
     async def _connect_and_loop(self) -> None:
         """Open a single WS connection, run the handshake, then the event loop.
 
@@ -315,6 +395,7 @@ class GatewayClient:
             Any exception from :mod:`websockets` or the pairing machine on a
             fatal (non-PAIRING_REQUIRED) auth rejection.
         """
+        self._reload_device_token()
         _LOG.info("Connecting to gateway: %s", self._config.gateway_url)
         async with websockets.asyncio.client.connect(self._config.gateway_url) as ws:
             # Step 1: receive connect.challenge
@@ -334,28 +415,37 @@ class GatewayClient:
                 # Hold connection open so the gateway can push approval
                 await self._await_approval(ws)
 
-            # Step 4: drain any pending queued invokes
-            await self._pull_pending(ws)
+            # Step 4: drain any pending queued invokes (node-role only).
+            if self._invoke_dispatch_enabled:
+                await self._pull_pending(ws)
 
             # Step 5: create chat relay bound to this WS connection
+            # (operator-role only — chat.send + sessions.messages.subscribe
+            # are operator.write scope; node-role connections cannot call them).
             async def _ws_send(frame: dict[str, Any]) -> None:
                 await ws.send(json.dumps(frame))
 
-            relay = ChatRelay(_ws_send)
+            relay: ChatRelay | None = ChatRelay(_ws_send) if self._chat_relay_enabled else None
 
-            # Step 6: mark connected on the runtime so the local API can report.
+            # Step 6: mark per-role connected on the runtime so the local
+            # API can report. Each connection sets its own role-specific
+            # flag — node_connected vs operator_connected — to avoid the
+            # last-writer-wins race a single shared boolean would create.
             if self._runtime is not None:
-                self._runtime.gateway_connected = True
-                self._runtime.chat_relay = relay
+                self._set_runtime_connected(True)
+                if relay is not None:
+                    self._runtime.chat_relay = relay
 
             try:
                 # Step 7: main event loop
                 await self._event_loop(ws, relay)
             finally:
-                relay.reset()
+                if relay is not None:
+                    relay.reset()
                 if self._runtime is not None:
-                    self._runtime.gateway_connected = False
-                    self._runtime.chat_relay = None
+                    self._set_runtime_connected(False)
+                    if relay is not None:
+                        self._runtime.chat_relay = None
 
     async def _recv_challenge(
         self, ws: websockets.asyncio.client.ClientConnection
@@ -395,8 +485,8 @@ class GatewayClient:
         """
         signature, signed_at_ms = self._identity.sign_connect(
             nonce=nonce,
-            role=_CONNECT_ROLE,
-            scopes=_CONNECT_SCOPES,
+            role=self._role,
+            scopes=self._scopes,
             token=self._device_token,
         )
         req = _make_req(
@@ -425,10 +515,10 @@ class GatewayClient:
                     "displayName": self._config.node_name
                     or f"openclaw-hass-node@{self._identity.device_id[:12]}",
                 },
-                "role": _CONNECT_ROLE,
-                "scopes": _CONNECT_SCOPES,
-                "caps": _CONNECT_CAPS,
-                "commands": _CONNECT_COMMANDS,
+                "role": self._role,
+                "scopes": self._scopes,
+                "caps": self._caps,
+                "commands": self._commands,
                 "permissions": {},
                 "auth": {"token": self._device_token},
                 "locale": "en-US",
@@ -510,7 +600,7 @@ class GatewayClient:
           file on a failed replace.
         - Refuse to ``chmod`` the final path if it is a symlink.
         """
-        path = self._config.device_token_path
+        path = self._token_persist_path
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
         if tmp.is_symlink():
@@ -704,31 +794,34 @@ class GatewayClient:
     async def _event_loop(
         self,
         ws: websockets.asyncio.client.ClientConnection,
-        relay: ChatRelay,
+        relay: ChatRelay | None,
     ) -> None:
         """Process incoming gateway frames indefinitely.
 
         Routes ``res`` frames to the :class:`ChatRelay` for RPC correlation,
-        ``session.*`` events for assistant reply capture, and
+        ``session.*`` / ``chat*`` events for assistant reply capture, and
         ``node.invoke.request`` events to the command dispatcher.
 
         Args:
             ws: The open WebSocket connection.
-            relay: The chat relay bound to this connection.
+            relay: The chat relay bound to this connection, or ``None`` on
+                connections where ``chat_relay_enabled=False``.
         """
         async for raw in ws:
             msg: dict[str, Any] = json.loads(raw)
             msg_type = msg.get("type")
 
-            if msg_type == "res" and relay.handle_response(msg):
+            if msg_type == "res" and relay is not None and relay.handle_response(msg):
                 continue
 
             if msg_type == "event":
                 event = msg.get("event", "")
-                if event == "node.invoke.request":
+                if event == "node.invoke.request" and self._invoke_dispatch_enabled:
                     await self._handle_invoke(ws, msg.get("payload", {}))
-                elif isinstance(event, str) and (
-                    event.startswith("session.") or event.startswith("chat")
+                elif (
+                    relay is not None
+                    and isinstance(event, str)
+                    and (event.startswith("session.") or event.startswith("chat"))
                 ):
                     relay.handle_event(msg)
 
@@ -816,3 +909,18 @@ class GatewayClient:
         """Notify the optional callback of the current pairing state."""
         if self._pairing_state_callback is not None:
             self._pairing_state_callback(self._pairing.state)
+
+    def _set_runtime_connected(self, value: bool) -> None:
+        """Write this client's role-specific connected flag on the runtime.
+
+        Each role connection owns its own flag so the two reconnect loops
+        cannot race a shared boolean. The runtime's ``gateway_connected``
+        property derives from ``node_connected or operator_connected`` for
+        the /health back-compat surface.
+        """
+        if self._runtime is None:
+            return
+        if self._role == "operator":
+            self._runtime.operator_connected = value
+        else:
+            self._runtime.node_connected = value

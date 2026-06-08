@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openclaw_node.config import NodeConfig
-from openclaw_node.gateway_ws import _CONNECT_COMMANDS, GatewayClient, _make_req
+from openclaw_node.gateway_ws import _NODE_COMMANDS, GatewayClient, _make_req
 from openclaw_node.identity import generate_identity
 from openclaw_node.pairing import PairingState
 
@@ -85,7 +85,7 @@ def test_gateway_client_with_pairing_callback() -> None:
 
 
 def test_connect_commands_advertise_full_surface() -> None:
-    assert _CONNECT_COMMANDS == [
+    assert _NODE_COMMANDS == [
         "ping",
         "fs.read",
         "fs.list",
@@ -162,7 +162,97 @@ async def test_send_connect_sends_correct_frame() -> None:
     assert sent["params"]["device"]["nonce"] == "test-nonce"
     assert sent["params"]["auth"]["token"] == "my-token"
     assert sent["params"]["role"] == "node"
-    assert sent["params"]["commands"] == _CONNECT_COMMANDS
+    assert sent["params"]["commands"] == _NODE_COMMANDS
+
+
+async def test_send_connect_operator_role_advertises_operator_scopes() -> None:
+    """Operator-role clients send role=operator, the four operator scopes,
+    and NO caps/commands (chat surface only)."""
+    from openclaw_node.gateway_ws import _OPERATOR_SCOPES
+
+    config = _make_config()
+    identity = generate_identity()
+    client = GatewayClient(
+        config=config,
+        identity=identity,
+        device_token="shared-tok",
+        role="operator",
+        scopes=_OPERATOR_SCOPES,
+        caps=[],
+        commands=[],
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        pair_fallback_enabled=False,
+    )
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+
+    await client._send_connect(ws, "op-nonce")
+    sent = json.loads(ws.send.call_args[0][0])
+    assert sent["params"]["role"] == "operator"
+    assert sent["params"]["scopes"] == _OPERATOR_SCOPES
+    assert sent["params"]["caps"] == []
+    assert sent["params"]["commands"] == []
+    assert sent["params"]["auth"]["token"] == "shared-tok"
+
+
+def test_set_runtime_connected_writes_per_role_flag() -> None:
+    """Node and operator clients must write distinct runtime flags so the
+    two reconnect loops can't race a shared boolean (#82 follow-up)."""
+    from openclaw_node.http_api import NodeRuntime
+
+    config = _make_config()
+    identity = generate_identity()
+    runtime = NodeRuntime(config)
+    node = GatewayClient(config=config, identity=identity, runtime=runtime)
+    op = GatewayClient(
+        config=config,
+        identity=identity,
+        runtime=runtime,
+        role="operator",
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        pair_fallback_enabled=False,
+    )
+
+    assert runtime.gateway_connected is False
+    node._set_runtime_connected(True)
+    assert runtime.node_connected is True
+    assert runtime.operator_connected is False
+    assert runtime.gateway_connected is True  # derived: either flag true
+
+    op._set_runtime_connected(True)
+    assert runtime.operator_connected is True
+
+    node._set_runtime_connected(False)
+    assert runtime.node_connected is False
+    assert runtime.operator_connected is True  # operator still up
+    assert runtime.gateway_connected is True  # derived: operator is up
+
+    op._set_runtime_connected(False)
+    assert runtime.gateway_connected is False
+
+
+def test_operator_client_skips_pair_fallback_on_invalid_request() -> None:
+    """When pair_fallback_enabled=False, a NOT_PAIRED error must NOT
+    unlink the persisted token — the node client shares that file."""
+    config = _make_config()
+    identity = generate_identity()
+    config.device_token_path.parent.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("node-issued-token\n")
+    client = GatewayClient(
+        config=config,
+        identity=identity,
+        device_token="node-issued-token",
+        role="operator",
+        chat_relay_enabled=True,
+        invoke_dispatch_enabled=False,
+        pair_fallback_enabled=False,
+    )
+    client._maybe_drop_invalid_device_token(RuntimeError("NOT_PAIRED rejection"))
+    # Token file must still exist + still contain the node-issued token.
+    assert config.device_token_path.read_text().strip() == "node-issued-token"
+    assert client._device_token == "node-issued-token"
 
 
 # ---- _recv_connect_response tests ----
@@ -1101,3 +1191,34 @@ def test_persist_device_token_replace_failure_cleans_tmp(tmp_path: Path) -> None
         client._persist_device_token("tok")
     tmp = tmp_path / "device-token.tmp"
     assert not tmp.exists()
+
+
+# ---- _reload_device_token tests ----
+
+
+def test_reload_device_token_picks_up_persisted_value(tmp_path: Path) -> None:
+    """Operator client picks up a token the node client persisted to disk."""
+    client = _make_client_in(tmp_path)
+    client._device_token = "stale-bootstrap"
+    token_path = tmp_path / "device-token"
+    token_path.write_text("fresh-from-node\n")
+    client._reload_device_token()
+    assert client._device_token == "fresh-from-node"
+
+
+def test_reload_device_token_ignores_empty_file(tmp_path: Path) -> None:
+    """An empty token file must not overwrite an existing in-memory token."""
+    client = _make_client_in(tmp_path)
+    client._device_token = "keep-me"
+    token_path = tmp_path / "device-token"
+    token_path.write_text("   \n")
+    client._reload_device_token()
+    assert client._device_token == "keep-me"
+
+
+def test_reload_device_token_no_file(tmp_path: Path) -> None:
+    """Missing token file leaves the in-memory token unchanged."""
+    client = _make_client_in(tmp_path)
+    client._device_token = "original"
+    client._reload_device_token()
+    assert client._device_token == "original"
