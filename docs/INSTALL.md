@@ -1,9 +1,11 @@
 # Install
 
-> ⚠️ **Alpha.** Pair + connect + tool invokes + conversation relay
-> all work end-to-end. The integration appears as a conversation
-> agent in HA's Voice assistants picker. Install if you want to
-> route Assist turns through OpenClaw or help shape the project.
+> ⚠️ **Alpha.** Pair + connect + tool invokes work end-to-end. The
+> integration appears as a conversation agent in HA's Voice
+> assistants picker, but **Assist turns currently fail** with
+> `unauthorized role: node` — see #82 / #84. Fix is in progress
+> (P5.13 dual-WS refactor). Install if you want the tool surface
+> or to help shape the project; don't expect working Assist yet.
 
 End-to-end setup to get Home Assistant talking to your OpenClaw gateway.
 Three pieces install in order: **gateway-side config**, then the **HA add-on (app)**,

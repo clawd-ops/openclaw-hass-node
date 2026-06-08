@@ -150,3 +150,25 @@ Lessons learned from that loop:
     the next pair approval — the allowlist is captured into the
     device's stored record at approval-time. Approval before restart
     stores an empty set; pairing then has to be removed and re-done.
+
+## Gateway role policy is binary — operator-scope methods need an operator connection
+
+`isCoreNodeGatewayMethod(method) ? role === 'node' : role === 'operator'`
+in `/app/node_modules/openclaw/dist/role-policy-BdV3KRcf.js`. A
+`role: node` connection literally cannot call any operator-scope method,
+regardless of what scopes it advertised at connect. `chat.send` and
+`sessions.messages.subscribe` are `operator.write` scope, so they require
+a `role: operator` connection. The P5.12 ChatRelay was built on the
+opposite assumption — it shipped (PR #72), looked clean in code review,
+passed CI, and failed on first real use (#82) with `INVALID_REQUEST
+unauthorized role: node`. There's no `node.chat.send` equivalent.
+
+Fix path documented under P5.13 / #84: open a second WS as
+`role: operator`, dedicated to ChatRelay. The device must be paired as
+dual-role `[node, operator]` first — done by the `openclaw qr` flow,
+which issues a bootstrap token bound to `PAIRING_SETUP_BOOTSTRAP_PROFILE`
+(`/app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js`).
+
+When designing anything that calls gateway RPCs from the node: check
+the method's `scope` in `core-descriptors-B9yUgJ17.js`. If it's not
+`node`, it needs an operator connection.
