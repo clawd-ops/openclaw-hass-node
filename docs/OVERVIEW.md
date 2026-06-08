@@ -1,11 +1,11 @@
 # What is openclaw-hass-node?
 
-> ⚠️ **Alpha.** The node command surface is
-> working end-to-end (pair, connect, invoke), but the HA Assist
-> conversation relay (P5.12) is not yet wired, publishing
-> infrastructure is incomplete, and breaking changes between
-> versions are expected. Install today only if you want to help
-> shape it. Track [`STATUS.md`](STATUS.md) for the first beta tag.
+> ⚠️ **Alpha.** The node command surface and the HA Assist
+> conversation relay (P5.13 dual-WS) are working end-to-end (pair,
+> connect, invoke, ChatRelay). Publishing infrastructure is incomplete
+> and breaking changes between versions are expected. Install today
+> only if you want to help shape it. Track [`STATUS.md`](STATUS.md)
+> for the first beta tag.
 
 
 This project connects [Home Assistant](https://www.home-assistant.io)
@@ -16,19 +16,18 @@ and control your Home Assistant install the same way it controls any
 other OpenClaw node: through the standard OpenClaw Gateway Protocol,
 with the same pairing, auth, audit, and command-allowlist machinery.
 
-You get one practical outcome today, and one more once P5.12 lands:
+You get two practical outcomes today:
 
-1. **Your agent can drive HA directly.** *(Working today.)* From any
-   OpenClaw chat, sub-agent, cron job, or scheduled task, the agent can
-   read entity states, call services, control lights, query history and
-   logbook, inspect the filesystem inside the HA container, and run
-   shell commands, by invoking commands on this node.
-2. **HA Assist can talk to your real AI.** *(Planned — P5.12.)* When
-   the ChatRelay lands, asking Assist a question or giving it a command
-   will forward the turn to your OpenClaw gateway, your configured
-   agent will answer, and the answer will play back through HA's voice
-   pipeline. Until then, `/v1/conversation` returns a clear placeholder
-   string.
+1. **Your agent can drive HA directly.** From any OpenClaw chat,
+   sub-agent, cron job, or scheduled task, the agent can read entity
+   states, call services, control lights, query history and logbook,
+   inspect the filesystem inside the HA container, and run shell
+   commands, by invoking commands on this node.
+2. **HA Assist can talk to your real AI.** Asking Assist a question or
+   giving it a command forwards the turn to your OpenClaw gateway over
+   the node's operator-role WebSocket, your configured agent answers,
+   and the answer plays back through HA's voice pipeline. Pair the
+   device with a dual-role profile (`openclaw qr`) for Assist to work.
 
 The project has three moving parts, plus the gateway it talks to.
 

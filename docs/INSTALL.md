@@ -177,10 +177,14 @@ log at ERROR (`COMMAND_ERROR`) with a traceback. If you ran an invoke
 and see nothing in the log, the node didn't receive it — check the
 gateway's pending queue and the WSS connection.
 
-Then ask HA Assist anything. The conversation relay (P5.12) forwards
-Assist turns through the node into an OpenClaw agent session and
-returns the response. If you see a timeout, check the node log for
-connection/auth errors and verify the gateway is reachable.
+Then ask HA Assist anything. The conversation relay (P5.13 dual-WS)
+forwards Assist turns through the node's operator-role connection into
+an OpenClaw agent session and streams the response back. If you see a
+timeout, check the node log for connection/auth errors, confirm both
+the node-role and operator-role connections are up (two "connected"
+log lines per connect cycle), and verify the gateway is reachable.
+Pair the device with a dual-role profile via `openclaw qr` for Assist
+to work.
 
 ## Troubleshooting
 
