@@ -28,10 +28,23 @@ homeassistant_api: true
 # HA Auth API. Re-enable only if a shipped surface validates HA-issued
 # tokens with the Supervisor auth endpoint.
 map:
-  # config:ro — `/config` is exposed as an allowed read root. Writes are
-  # gated and currently return `PROPOSAL_REQUIRED` (proposal bridge not
-  # shipped); upgrade to `:rw` only when the proposal flow lands.
-  - config:ro
+  # config:rw — `/config` write capability is granted at the OS layer
+  # so the proposal-approved write path can land without re-touching
+  # this manifest.
+  #
+  # For the fs.* mutation commands (fs.write, fs.patch, fs.restore,
+  # fs.move, fs.delete), the actual write-protection boundary is the
+  # software gate: `_is_protected("/config")` returns True and each
+  # handler returns `PROPOSAL_REQUIRED` before any disk write/unlink/
+  # rename is attempted (see addon/node/src/openclaw_node/commands/
+  # fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
+  #
+  # NOT gated: `system.run` (commands/system_run.py) is admin-token
+  # gated (OPENCLAW_ADMIN_TOKEN) and can write anywhere the mount
+  # allows, including /config. The admin token is the protection
+  # boundary there, NOT _is_protected. Don't broaden system.run's
+  # capabilities without re-evaluating this trade-off.
+  - config:rw
   # share:rw — backs the per-file content-addressed backup store
   # (/share/openclaw-backups) and the delete trash fallback
   # (/share/openclaw-trash). Real shipped writes.
