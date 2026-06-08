@@ -85,6 +85,8 @@ _CONNECT_COMMANDS: Final[list[str]] = [
 ]
 _EMPTY: Final[str] = "".join(())
 _RECONNECT_DELAY_S: Final[float] = 5.0
+_PENDING_PULL_BATCH: Final[int] = 50
+_ACK_RESPONSE_TIMEOUT_S: Final[float] = 5.0
 
 
 def _decode_error_code(raw: Any) -> str | None:
@@ -517,8 +519,16 @@ class GatewayClient:
         When it sends a ``connect.approved`` event (or any re-authentication
         event), we transition out of PENDING.
 
+        If the WebSocket iterator exits without delivering an approval — for
+        example the gateway closes the connection mid-pairing — raise so the
+        caller's reconnect loop can re-establish the connection rather than
+        silently proceeding through ``_pull_pending`` against a dead socket.
+
         Args:
             ws: The open WebSocket connection.
+
+        Raises:
+            ConnectionError: When the iterator exits before approval.
         """
         _LOG.info("Waiting for pairing approval from the gateway…")
         async for raw in ws:
@@ -530,6 +540,10 @@ class GatewayClient:
                 self._notify_pairing_state()
                 return
             _LOG.debug("Ignoring event while pending: %r", event)
+        raise ConnectionError(  # noqa: TRY003
+            "WebSocket iterator exited before pairing approval; "
+            "gateway likely closed the connection — reconnecting."
+        )
 
     async def _pull_pending(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Drain queued invokes by sending ``node.pending.pull``.
@@ -537,11 +551,16 @@ class GatewayClient:
         Called once after each successful connect so that any invokes that
         arrived while the node was offline are processed.
 
+        Sends the canonical ``NodePendingDrainParams.maxItems`` field so a
+        large backlog is paged rather than dumped in one frame. The gateway
+        is documented to clamp values it doesn't like; ``_PENDING_PULL_BATCH``
+        is the canonical upper bound this client is willing to receive in a
+        single drain.
+
         Args:
             ws: The open WebSocket connection.
         """
-        # Gateway rejects 'limit' param; current schema takes empty params.
-        req = _make_req("node.pending.pull", {})
+        req = _make_req("node.pending.pull", {"maxItems": _PENDING_PULL_BATCH})
         await ws.send(json.dumps(req))
         raw = await ws.recv()
         msg: dict[str, Any] = json.loads(raw)
@@ -586,13 +605,58 @@ class GatewayClient:
     ) -> None:
         """Send ``node.pending.ack`` for a processed pending item.
 
+        Waits for the matching response frame and logs a warning if the
+        gateway returns ``ok: false`` so a silently-failed ack doesn't
+        leave processed items queued for redelivery on the next connect.
+        Frames that arrive with a different ``id`` (e.g. an interleaved
+        ``node.invoke.request`` event) are dropped here — the full
+        invoke-during-pull case is rare and the next connect's drain
+        re-fires the missed item. A frame-correlation queue is the
+        proper long-term fix and is out of scope for this bundle.
+
         Args:
             ws: The open WebSocket connection.
-            invoke_id: The invoke ID to acknowledge.
+            invoke_id: The queue-item id to acknowledge.
         """
-        # Canonical NodePendingAckParams takes an array of ids.
         ack = _make_req("node.pending.ack", {"ids": [invoke_id]})
         await ws.send(json.dumps(ack))
+        try:
+            async with asyncio.timeout(_ACK_RESPONSE_TIMEOUT_S):
+                raw = await ws.recv()
+        except TimeoutError:
+            _LOG.warning(
+                "node.pending.ack response timeout (%ss) for id=%s; "
+                "drain continues but the gateway may redeliver on next connect",
+                _ACK_RESPONSE_TIMEOUT_S,
+                invoke_id,
+            )
+            return
+        except (OSError, ConnectionError, websockets.exceptions.ConnectionClosed) as exc:
+            _LOG.warning(
+                "node.pending.ack connection closed before response for id=%s: %s",
+                invoke_id,
+                exc,
+            )
+            return
+        msg: dict[str, Any] = json.loads(raw)
+        if msg.get("type") != "res" or msg.get("id") != ack["id"]:
+            # TODO: tiny one-frame pending buffer so an interleaved
+            # node.invoke.request arriving here isn't lost. For now we
+            # rely on the gateway redelivering on the next connect drain.
+            _LOG.warning(
+                "node.pending.ack got unexpected frame for id=%s (type=%r id=%r); "
+                "next connect drain will retry if it was an ack failure",
+                invoke_id,
+                msg.get("type"),
+                msg.get("id"),
+            )
+            return
+        if not msg.get("ok"):
+            _LOG.warning(
+                "node.pending.ack rejected by gateway for id=%s: %r",
+                invoke_id,
+                msg.get("error"),
+            )
 
     async def _event_loop(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Process incoming gateway events indefinitely.
