@@ -9,19 +9,34 @@ read-only Home Assistant snapshot, and Assist turn forwarding placeholder.
 from __future__ import annotations
 
 import asyncio
+import hmac
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from typing import Any, Final
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
-from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch
+from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.pairing import PairingState
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _JSON_HEADERS: Final[dict[str, str]] = {"Cache-Control": "no-store"}
+
+# Paths reachable without an Authorization header. They never return secret
+# state and are needed for HA add-on health checks / HACS config-flow
+# discovery before the user has configured the shared token.
+_UNAUTHED_PATHS: Final[frozenset[str]] = frozenset(
+    {
+        "/health",
+        "/v1/health",
+        "/v1/conversation/info",
+    }
+)
+
+_Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
 
 class NodeRuntime:
@@ -56,6 +71,41 @@ class NodeRuntime:
         return self.pairing_state is PairingState.PAIRED
 
 
+@web.middleware
+async def _bearer_auth_middleware(request: web.Request, handler: _Handler) -> web.StreamResponse:
+    """Reject requests missing/wrong bearer token when one is configured.
+
+    When ``runtime.config.local_api_token`` is empty, every endpoint is open
+    (back-compat for the standalone dev path). When set, every endpoint
+    except those in :data:`_UNAUTHED_PATHS` must present a matching
+    ``Authorization: Bearer <token>`` header. The compare uses
+    :func:`hmac.compare_digest` to avoid leaking the token via timing.
+    """
+    runtime: NodeRuntime = request.app["runtime"]
+    expected = runtime.config.local_api_token
+    if not expected:
+        return await handler(request)
+    if request.path in _UNAUTHED_PATHS:
+        return await handler(request)
+    auth = request.headers.get("Authorization", "")
+    scheme, _, presented = auth.partition(" ")
+    if scheme.lower() != "bearer" or not presented:
+        return web.json_response(
+            {"ok": False, "error": "UNAUTHORIZED"},
+            status=401,
+            headers={**_JSON_HEADERS, "WWW-Authenticate": "Bearer"},
+        )
+    # Compare as bytes — hmac.compare_digest raises on non-ASCII str inputs,
+    # and HA's `password?` option accepts arbitrary Unicode.
+    if not hmac.compare_digest(presented.encode("utf-8"), expected.encode("utf-8")):
+        return web.json_response(
+            {"ok": False, "error": "FORBIDDEN"},
+            status=403,
+            headers=_JSON_HEADERS,
+        )
+    return await handler(request)
+
+
 def create_app(runtime: NodeRuntime) -> web.Application:
     """Create the aiohttp application for the local node API.
 
@@ -65,7 +115,7 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     Returns:
         Configured :class:`aiohttp.web.Application`.
     """
-    app = web.Application()
+    app = web.Application(middlewares=[_bearer_auth_middleware])
     app["runtime"] = runtime
     app.router.add_get("/health", health)
     app.router.add_get("/v1/health", health)
@@ -142,11 +192,14 @@ async def command_ping(request: web.Request) -> web.Response:
         JSON pong payload.
     """
     params = await _json_body(request)
-    return web.json_response(dispatch("ping", params), headers=_JSON_HEADERS)
+    return web.json_response(await dispatch_async("ping", params), headers=_JSON_HEADERS)
 
 
 async def command_dispatch(request: web.Request) -> web.Response:
     """Dispatch a local command by URL path.
+
+    Uses :func:`dispatch_async` so async handlers (every ``ha.*`` command
+    and a growing share of the registry) work alongside sync ones.
 
     Args:
         request: Incoming aiohttp request with ``command`` path variable.
@@ -157,7 +210,7 @@ async def command_dispatch(request: web.Request) -> web.Response:
     command = request.match_info["command"]
     params = await _json_body(request)
     try:
-        result = dispatch(command, params)
+        result = await dispatch_async(command, params)
     except UnknownCommandError as exc:
         return web.json_response(
             {"ok": False, "error": "UNKNOWN_COMMAND", "command": exc.command},
@@ -263,7 +316,7 @@ def aiohttp_timeout() -> ClientTimeout:
 async def assist_turn(request: web.Request) -> web.Response:
     """Handle an Assist turn forwarded by the HA companion integration.
 
-    Placeholder behaviour until P5.11 lands the real chat-surface relay
+    Placeholder behaviour until P5.12 lands the real chat-surface relay
     (``chat.send`` + ``sessions.messages.subscribe`` over the existing
     gateway WS connection). See ``docs/RESEARCH-OPENCLAW-INTEGRATION.md``.
 
@@ -287,7 +340,7 @@ async def assist_turn(request: web.Request) -> web.Response:
     else:
         message = (
             "OpenClaw Node received the Assist turn. Chat-surface relay "
-            "(chat.send + subscribe) is not wired yet — see P5.11."
+            "(chat.send + subscribe) is not wired yet — see P5.12."
         )
     return web.json_response(
         {

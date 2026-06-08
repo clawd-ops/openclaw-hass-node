@@ -61,6 +61,7 @@ class NodeConfig:
     hass_token: str
     supervisor_token: str
     data_dir: Path
+    local_api_token: str = ""
 
     @property
     def key_path(self) -> Path:
@@ -123,6 +124,7 @@ def load_config() -> NodeConfig:
         hass_token=hass_token,
         supervisor_token=supervisor_token,
         data_dir=data_dir,
+        local_api_token=os.environ.get("OPENCLAW_LOCAL_API_TOKEN", ""),
     )
 
 

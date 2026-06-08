@@ -23,6 +23,7 @@ values = {
     'GATEWAY_URL': data.get('gateway_url') or 'wss://gateway.example.com/ws',
     'PAIRING_TOKEN': data.get('pairing_token') or '',
     'NODE_NAME': data.get('node_name') or '',
+    'OPENCLAW_LOCAL_API_TOKEN': data.get('local_api_token') or '',
 }
 for key, value in values.items():
     print(f"export {key}={shlex.quote(str(value))}")

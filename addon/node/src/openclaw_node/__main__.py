@@ -90,6 +90,13 @@ async def _main() -> None:
     )
     _LOG.info("Gateway URL: %s", config.gateway_url)
     _LOG.info("Data dir: %s", config.data_dir)
+    if config.addon_mode and not config.local_api_token:
+        _LOG.warning(
+            "local_api_token is unset — the local HTTP API on port 8099 is "
+            "OPEN to anything that can reach it inside the Supervisor add-on "
+            "network. Set the `local_api_token` option to require a bearer "
+            "token for every endpoint except /health and /v1/conversation/info."
+        )
 
     identity, created = load_or_generate(config.key_path)
     if created:

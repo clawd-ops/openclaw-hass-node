@@ -123,7 +123,7 @@ async def test_assist_turn_paired(tmp_path: Path) -> None:
         data = await response.json()
         assert data["paired"] is True
         assert data["ok"] is True
-        assert "P5.11" in data["response"]
+        assert "P5.12" in data["response"]
     finally:
         await tc.close()
 
