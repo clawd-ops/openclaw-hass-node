@@ -118,6 +118,17 @@ for the post-mortem. Upstream OpenClaw doc gap that misled me is
 recorded in
 `workspace/runtime-audits/2026-06-06-openclaw-node-conversation-relay-doc-gap.md`.
 
+## Discoverability / sponsorship — pre-beta TODOs
+
+- **Buy Me a Coffee link.** Rob wants a BMC link in the README. Need
+  his BMC handle (placeholder badge is commented out in README.md).
+  Could also use GitHub Sponsors instead/in addition; ask before
+  filling in.
+- **Stars badge.** Added (social-style shields.io badge pointing at
+  `/stargazers`). Surfaces popularity as the project takes off.
+- **Other badges to consider once published:** HACS default badge
+  (after HACS index PR lands), CI status, release version, license.
+
 ## Doc debt — end-to-end user documentation
 
 Per Rob (2026-06-08): before P7 ships, the repo needs comprehensive

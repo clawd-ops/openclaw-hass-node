@@ -1,5 +1,10 @@
 # openclaw-hass-node
 
+[![GitHub stars](https://img.shields.io/github/stars/clawd-ops/openclaw-hass-node?style=social)](https://github.com/clawd-ops/openclaw-hass-node/stargazers)
+<!-- TODO: replace placeholder once Rob provides his Buy Me a Coffee handle:
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/<HANDLE>)
+-->
+
 > ⚠️ **Alpha — not ready for general use.** As of 2026-06-08 the
 > node command surface works end-to-end (pair, connect, invoke
 > round-trips cleanly), but the HA Assist conversation relay is
