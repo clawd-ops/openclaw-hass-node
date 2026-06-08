@@ -1,28 +1,53 @@
 # Contributing
 
-## Release / version-bump discipline
+## Commit messages
 
-**Every meaningful change must bump `addon/config.yaml`'s `version:` and
-the matching `io.hass.version` label in `addon/build.yaml`.**
+Use [Conventional Commits](https://www.conventionalcommits.org/) for
+every commit that lands on `main` (the squash-merge subject counts, so
+your PR title is what matters). Common prefixes: `feat:`, `fix:`,
+`perf:`, `refactor:`, `docs:`, `test:`, `build:`, `ci:`, `chore:`,
+`revert:`. Mark a breaking change with `feat!:` / `fix!:` or a
+`BREAKING CHANGE:` footer. Optional scopes: `addon`, `node`, `hacs`,
+`gateway`, `docs`.
 
-This isn't cosmetic — it's the *only* signal HA Supervisor watches to
-decide whether the add-on (app) needs a new build. Without a bump:
+This is what feeds the auto-generated changelog described in
+[`docs/RELEASE.md`](RELEASE.md). The release Action isn't wired yet —
+audit-hardening work comes first — but the commit history starting now
+needs to be Action-ready so the first auto-cut release isn't blind.
 
-- Users won't see an **Update** button in the add-on (app) store. They'll have
+## Version policy
+
+The project carries the version string in five places (`pyproject.toml`,
+`__init__.py` fallback, `addon/config.yaml`, `addon/build.yaml`,
+`custom_components/openclaw_gateway/manifest.json`). Today they're
+bumped by hand and kept honest by `test_version_sync.py`; once the
+release Action lands they'll be bumped together by tooling.
+
+**Until the Action lands, the manual rule is:** never edit just one.
+The CI gate fails if any of the five drift. The version stays on a
+pre-release marker (`a`/`b`/`rc`/`.dev`) until the project ships a 1.0
+— that's also enforced by CI (`test_alpha_tag_present`).
+
+**Why the bump matters at all:** `addon/config.yaml`'s `version:` is
+the *only* signal HA Supervisor watches to decide whether the add-on
+needs a new build. Without a bump:
+
+- Users won't see an **Update** button in the add-on store. They'll have
   to **Uninstall → Refresh repo → Reinstall**, which wipes `/data` and
   destroys the pairing identity. They have to re-pair every release.
 - With a bump, HA shows **Update**, which preserves `/data`. The
   persisted `device-token` and Ed25519 identity stick around. Pairing
   survives. No user action beyond clicking Update.
 
-Version scheme: `YYYY.M.PATCH`, per `docs/PLAN.md` P1.4. Bump `PATCH`
-within an HA release; bump `YYYY.M` when we re-test against a new HA
-release.
+See [`docs/RELEASE.md`](RELEASE.md) for the full versioning + release
+plan.
 
 ### Release checklist for any user-visible PR
 
-- [ ] Bump `addon/config.yaml`'s `version:`.
-- [ ] Bump `addon/build.yaml`'s `io.hass.version:` label (must match).
+- [ ] PR title is a Conventional Commit (`feat:`, `fix:`, …).
+- [ ] Bump every version source if and only if you need a Supervisor
+      Update prompt. `test_version_sync.py` will refuse to let you
+      bump some-but-not-all.
 - [ ] If the change touches the connect frame, the auth payload, or the
       command surface — add a `docs/LESSONS.md` entry so future-Clawd
       doesn't relitigate the gotcha.
