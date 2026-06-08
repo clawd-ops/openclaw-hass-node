@@ -260,7 +260,11 @@ class GatewayClient:
                 "minProtocol": 3,
                 "maxProtocol": 4,
                 "client": {
-                    "id": "openclaw-hass-node",
+                    # OpenClaw GATEWAY_CLIENT_IDS enum only allows specific
+                    # values; "node-host" is the headless-node id. Must match
+                    # the _CLIENT_ID baked into identity.sign_connect's signed
+                    # payload, or the gateway rejects the signature.
+                    "id": "node-host",
                     "version": __version__,
                     "platform": "linux",
                     "mode": "node",

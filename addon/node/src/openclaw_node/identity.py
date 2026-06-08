@@ -29,7 +29,10 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
-_CLIENT_ID: Final[str] = "openclaw-hass-node"
+# Must be a value in OpenClaw's GATEWAY_CLIENT_IDS enum. "node-host" is the
+# documented id for a headless node client. The signed v3 connect payload uses
+# this string verbatim, so it has to match what's sent in connect.params.client.id.
+_CLIENT_ID: Final[str] = "node-host"
 _CLIENT_MODE: Final[str] = "node"
 _PLATFORM: Final[str] = "linux"
 _DEVICE_FAMILY: Final[str] = "hass-node"
