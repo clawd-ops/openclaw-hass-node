@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openclaw_node.config import NodeConfig
-from openclaw_node.gateway_ws import _CONNECT_COMMANDS, GatewayClient, _make_req
+from openclaw_node.gateway_ws import _NODE_COMMANDS, GatewayClient, _make_req
 from openclaw_node.identity import generate_identity
 from openclaw_node.pairing import PairingState
 
@@ -85,7 +85,7 @@ def test_gateway_client_with_pairing_callback() -> None:
 
 
 def test_connect_commands_advertise_full_surface() -> None:
-    assert _CONNECT_COMMANDS == [
+    assert _NODE_COMMANDS == [
         "ping",
         "fs.read",
         "fs.list",
@@ -162,7 +162,7 @@ async def test_send_connect_sends_correct_frame() -> None:
     assert sent["params"]["device"]["nonce"] == "test-nonce"
     assert sent["params"]["auth"]["token"] == "my-token"
     assert sent["params"]["role"] == "node"
-    assert sent["params"]["commands"] == _CONNECT_COMMANDS
+    assert sent["params"]["commands"] == _NODE_COMMANDS
 
 
 # ---- _recv_connect_response tests ----
