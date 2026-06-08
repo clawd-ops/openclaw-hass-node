@@ -56,13 +56,29 @@ flips the section to "⚠ BREAKING CHANGES" and forces a major bump
 alpha bumps but still call them out in their own section so consumers
 know to read the upgrade notes.
 
-Scopes are encouraged but optional. The five we'll likely use:
-`addon`, `node`, `hacs`, `gateway`, `docs`. Example:
-`fix(node): reject paramsJSON that isn't an object`.
+Scopes are **required**, not optional, because they route each commit to
+the right changelog file (see [Per-component changelogs](#per-component-changelogs)
+below). The full scope vocabulary:
+
+| Scope    | Where the commit lands in the user-visible changelogs                                |
+| -------- | ------------------------------------------------------------------------------------ |
+| `addon`  | HA add-on `addon/CHANGELOG.md` only                                                  |
+| `node`   | HA add-on `addon/CHANGELOG.md` (the node code IS the add-on payload)                 |
+| `gateway`| HA add-on `addon/CHANGELOG.md` (gateway-WS wire changes ship in the add-on)          |
+| `hacs`   | HACS integration `custom_components/openclaw_gateway/info.md` only                   |
+| `both`   | Both `addon/CHANGELOG.md` AND HACS `info.md` (use for shared schema or auth changes) |
+| `docs`   | Repo-root `CHANGELOG.md` only (no user-visible component impact)                     |
+| `ci`     | Repo-root `CHANGELOG.md` only                                                        |
+| `repo`   | Repo-root `CHANGELOG.md` only (release plumbing, tooling, contributor docs)          |
+
+A commit with **no scope** is a config error and the release Action will
+fail the bump. `feat: do thing` is ambiguous; `feat(addon): do thing` or
+`feat(both): do thing` is not. The CI lint can catch this on PR rather
+than at release time.
 
 Existing audit-fix commits already loosely follow this pattern (`fix:`
-prefixes for the bundles); the policy starts in earnest on the next
-commit after this doc lands.
+prefixes for the bundles); the scope-required policy starts in earnest on
+the next commit after this doc lands.
 
 ## The mechanism: release-please
 
@@ -204,6 +220,83 @@ jobs:
 Subsequent `release-created` hooks can build & push the add-on image,
 upload the Python wheel, etc. — but those are orthogonal to the
 versioning concern and can be added one at a time.
+
+## Per-component changelogs
+
+This repo ships *two* user-visible artifacts that each have their own
+changelog surface inside Home Assistant:
+
+- **The HA add-on.** HA Supervisor renders `addon/CHANGELOG.md` (or a
+  URL pointed to via `addon/config.yaml`'s `changelog` key) inside the
+  add-on's **Documentation** / **Changelog** tab. The user opens this
+  tab from the add-on page in Settings → Add-ons.
+- **The HACS integration.** HACS renders
+  `custom_components/openclaw_gateway/info.md` on the integration's
+  detail page (the "Open in HACS" view in Settings → Devices &
+  Integrations → HACS → OpenClaw Gateway). HACS also surfaces the
+  GitHub *release notes* for the most recent tag below `info.md`, but
+  `info.md` is the canonical "what is this" page and the right home for
+  the integration changelog.
+
+A combined `CHANGELOG.md` at the repo root would dump add-on-only
+plumbing into the HACS user's face and HACS-shim quirks into the
+add-on user's face. Neither audience wants the other half. So the
+release Action writes **three** files from the same commit history,
+filtered by Conventional Commit scope:
+
+| File                                                  | Audience              | Scopes included                            |
+| ----------------------------------------------------- | --------------------- | ------------------------------------------ |
+| `addon/CHANGELOG.md`                                  | HA add-on operators   | `addon`, `node`, `gateway`, `both`         |
+| `custom_components/openclaw_gateway/info.md`          | HACS integration users| `hacs`, `both`                             |
+| `CHANGELOG.md` (repo root)                            | GitHub / maintainers  | all scopes (combined, for the release body)|
+
+The repo-root `CHANGELOG.md` is also what the GitHub release body
+shows. That's fine — it's the maintainer view. The HA user never has
+to look at it.
+
+### How the Action filters
+
+release-please's stock output is a single combined `CHANGELOG.md`. To
+get per-component files, the workflow has a post-processing step:
+
+1. release-please opens (or updates) its "release PR" with the
+   combined `CHANGELOG.md` + the version bumps. This is the standard
+   release-please behaviour.
+2. A follow-up step in the same workflow runs a small script that:
+   - Reads the commits since the previous release tag.
+   - Groups them by Conventional Commit scope.
+   - Renders `addon/CHANGELOG.md` with the addon-eligible scopes.
+   - Renders `info.md` with the hacs-eligible scopes (preserving the
+     fixed "About OpenClaw Gateway" header that explains what the
+     integration is).
+   - Stages the changes so they end up in the release PR alongside the
+     release-please-generated combined changelog.
+3. When the maintainer merges the release PR, all three changelog
+   files land at once and the GitHub release is cut.
+
+The script is ~50 lines of Python — it already has the commit history
+(release-please writes it into `.release-please-manifest.json`), and
+the per-scope grouping is a `groupby` over Conventional Commit type +
+scope. Implementation lands with the workflow itself; the design
+above is the contract.
+
+### What HA Supervisor and HACS actually read
+
+- **HA Supervisor (add-on)** reads `addon/CHANGELOG.md` if the
+  `changelog` key is absent from `addon/config.yaml`, OR fetches a URL
+  if `changelog` is set. We use the file path (no URL) so HA renders
+  the in-repo content directly.
+- **HACS (integration)** reads `info.md` for the "About / Changelog"
+  pane and renders the GitHub release body for the "Release notes"
+  pane. With the combined `CHANGELOG.md` powering the release body,
+  HACS users still see the full picture if they want it — but the
+  default `info.md` pane is HACS-specific.
+
+If we ever want HACS to show ONLY hacs-scoped commits in the release
+notes pane too, we'd need separate release tags per component
+(release-please can do this via its monorepo mode). That's a heavier
+configuration and we don't need it today; the per-`info.md` filtering
+already serves the same purpose for the audience that cares.
 
 ## Versioning policy
 
