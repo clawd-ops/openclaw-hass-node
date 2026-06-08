@@ -2,5 +2,10 @@
   "name": "OpenClaw Gateway (Alpha)",
   "category": "integration",
   "render_readme": true,
-  "homeassistant": "2024.7.0"
+  "homeassistant": "2024.7.0",
+  "domains": ["conversation"],
+  "country": ["US"],
+  "iot_class": "local_push",
+  "content_in_root": false,
+  "zip_release": false
 }

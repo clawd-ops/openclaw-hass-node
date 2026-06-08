@@ -89,20 +89,42 @@ class NodeRuntime:
 
 @web.middleware
 async def _bearer_auth_middleware(request: web.Request, handler: _Handler) -> web.StreamResponse:
-    """Reject requests missing/wrong bearer token when one is configured.
+    """Reject requests missing/wrong bearer token.
 
-    When ``runtime.config.local_api_token`` is empty, every endpoint is open
-    (back-compat for the standalone dev path). When set, every endpoint
-    except those in :data:`_UNAUTHED_PATHS` must present a matching
-    ``Authorization: Bearer <token>`` header. The compare uses
-    :func:`hmac.compare_digest` to avoid leaking the token via timing.
+    Fail-closed by default: the local HTTP API exposes the full ``fs.*`` /
+    ``ha.*`` / ``system.*`` command surface, so an unconfigured token
+    must NOT mean an open API. Only the paths in :data:`_UNAUTHED_PATHS`
+    (``/health``, ``/v1/health``, ``/v1/conversation/info``) are reachable
+    without a token — they're needed by HA add-on health checks and the
+    HACS shim config-flow probe before the user has configured the
+    shared token.
+
+    When ``runtime.config.local_api_token`` is empty, every non-public
+    path returns ``401 NO_TOKEN_CONFIGURED`` with a hint telling the
+    operator which option to set. When set, every non-public endpoint
+    must present a matching ``Authorization: Bearer <token>`` header;
+    the compare uses :func:`hmac.compare_digest` to avoid leaking the
+    token via timing.
     """
     runtime: NodeRuntime = request.app["runtime"]
     expected = runtime.config.local_api_token
-    if not expected:
-        return await handler(request)
     if request.path in _UNAUTHED_PATHS:
         return await handler(request)
+    if not expected:
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "NO_TOKEN_CONFIGURED",
+                "response": (
+                    "Local API token is not configured. Set "
+                    "`local_api_token` in the add-on options (or "
+                    "`OPENCLAW_LOCAL_API_TOKEN` standalone) before "
+                    "calling the local API."
+                ),
+            },
+            status=401,
+            headers={**_JSON_HEADERS, "WWW-Authenticate": "Bearer"},
+        )
     auth = request.headers.get("Authorization", "")
     scheme, _, presented = auth.partition(" ")
     if scheme.lower() != "bearer" or not presented:

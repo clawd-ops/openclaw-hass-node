@@ -72,24 +72,40 @@ Current shipped values (see `addon/config.yaml` for the live file):
 
 ```yaml
 name: OpenClaw Node
-version: "2026.6.8a1"
+version: "2026.6.8a7"
 slug: openclaw_hass_node
 arch: [amd64, aarch64, armv7]
 init: false
-hassio_api: true
-hassio_role: admin
+# Least-privilege API surface — no Supervisor API access, no HA Auth API
+# (the local HTTP API authenticates with `local_api_token` directly via
+# `hmac.compare_digest`, not via HA-issued tokens).
 homeassistant_api: true
-auth_api: true
-map: [config:rw, share:rw, ssl:rw, addons:rw, media:rw, backup:rw]
+# `hassio_api: true`, `hassio_role: admin`, and `auth_api: true` were all
+# removed in PR #68/#69 — nothing shipped today calls those Supervisor
+# surfaces. Re-add only when a real shipped feature needs them.
+map:
+  - config:rw    # fs.* mutations gated by software _is_protected("/config")
+                 # → PROPOSAL_REQUIRED before any write/rename/unlink
+  - share:rw    # backups + delete-trash store
+  - media:rw    # generic fs.* write root
+# `ssl:ro`, `addons:ro`, `backup:ro` removed — no shipped feature consumes
+# them and they leak sensitive material via the generic fs.read surface.
 options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
   node_name: ""
-  local_api_token: ""
+  local_api_token: ""    # shared bearer for the local HTTP API (HACS shim)
+  hass_url: ""
+  hass_token: ""
+ingress: false
 ```
 
 No host port mapping. The local HTTP API is only reachable inside the
-Supervisor add-on network by default.
+Supervisor add-on network by default. The local API is fail-closed:
+non-public paths require `Authorization: Bearer <local_api_token>`. When
+the option is unset, those paths return `401 NO_TOKEN_CONFIGURED`. Only
+`/health`, `/v1/health`, and `/v1/conversation/info` are reachable
+without a token (HA add-on probe + HACS shim config-flow discovery).
 
 ## Docker base image
 

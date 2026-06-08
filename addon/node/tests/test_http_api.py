@@ -17,12 +17,20 @@ from openclaw_node.config import NodeConfig
 from openclaw_node.http_api import NodeRuntime, aiohttp_timeout, create_app
 from openclaw_node.pairing import PairingState
 
+_TEST_TOKEN = "test-token-shhh"
+
 
 @pytest_asyncio.fixture
 async def client(
     tmp_path: Path,
 ) -> AsyncGenerator[TestClient[Request, Application]]:
-    """Return a test client for the local API."""
+    """Return a test client for the local API authed with ``_TEST_TOKEN``.
+
+    The fail-closed bearer middleware (P5.13 follow-up #70) means
+    non-public paths require a token. We bind it to ``_TEST_TOKEN`` and
+    use a ClientSession with a default ``Authorization`` header so each
+    test exercises the real auth path without per-test boilerplate.
+    """
     config = NodeConfig(
         addon_mode=False,
         gateway_url="wss://gateway.example/ws",
@@ -32,10 +40,14 @@ async def client(
         hass_token="",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     app = create_app(NodeRuntime(config))
     server = TestServer(app)
-    client = TestClient[Request, Application](server)
+    client = TestClient[Request, Application](
+        server,
+        headers={"Authorization": f"Bearer {_TEST_TOKEN}"},
+    )
     await client.start_server()
     try:
         yield client
@@ -112,13 +124,16 @@ async def test_assist_turn_operator_not_connected(tmp_path: Path) -> None:
         hass_token="",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
     runtime.node_connected = True
     runtime.operator_connected = False  # node is up but operator isn't
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
     try:
         response = await tc.post(
@@ -144,13 +159,16 @@ async def test_assist_turn_no_relay(tmp_path: Path) -> None:
         hass_token="",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
     runtime.node_connected = True
     runtime.operator_connected = True
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
     try:
         response = await tc.post(
@@ -179,6 +197,7 @@ async def test_assist_turn_missing_conversation_id(tmp_path: Path) -> None:
         hass_token="",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
@@ -186,7 +205,9 @@ async def test_assist_turn_missing_conversation_id(tmp_path: Path) -> None:
     runtime.operator_connected = True
     runtime.chat_relay = ChatRelay(AsyncMock())
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
     try:
         response = await tc.post("/v1/conversation", json={"text": "hello"})
@@ -211,6 +232,7 @@ async def test_assist_turn_relay_success(tmp_path: Path) -> None:
         hass_token="",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
@@ -222,7 +244,9 @@ async def test_assist_turn_relay_success(tmp_path: Path) -> None:
     runtime.chat_relay = mock_relay
 
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
     try:
         response = await tc.post(
@@ -253,6 +277,7 @@ async def test_assist_turn_relay_error(tmp_path: Path) -> None:
         hass_token="",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     runtime.pairing_state = PairingState.PAIRED
@@ -264,7 +289,9 @@ async def test_assist_turn_relay_error(tmp_path: Path) -> None:
     runtime.chat_relay = mock_relay
 
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
     try:
         response = await tc.post(
@@ -329,10 +356,13 @@ async def test_ha_snapshot_success(tmp_path: Path) -> None:
         hass_token="ha-tok",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
 
     try:
@@ -400,10 +430,13 @@ async def test_ha_snapshot_unreachable(tmp_path: Path) -> None:
         hass_token="ha-tok",
         supervisor_token="",
         data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
     )
     runtime = NodeRuntime(config)
     server = TestServer(create_app(runtime))
-    tc = TestClient[Request, Application](server)
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
     await tc.start_server()
 
     try:

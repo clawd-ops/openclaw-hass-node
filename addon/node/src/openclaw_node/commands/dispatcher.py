@@ -179,12 +179,33 @@ async def dispatch_async(command: str, params: dict[str, Any]) -> dict[str, Any]
     return result  # type: ignore[return-value]
 
 
+_REGISTER_HANDLER_GUARD_MSG = (
+    "register_handler is test/dev only. Set OPENCLAW_ALLOW_REGISTER_HANDLER=1 "
+    "to override (do NOT enable in production)."
+)
+
+
 def register_handler(command: str, handler: CommandHandler) -> None:
-    """Register or replace a command handler. Test-only.
+    """Register or replace a command handler. Test/dev only.
+
+    Guarded at runtime: refuses to mutate the registry unless ``pytest``
+    is imported into the running process or
+    ``OPENCLAW_ALLOW_REGISTER_HANDLER=1`` is set explicitly. Production
+    code paths never load pytest and never set that env var, so a stray
+    call site cannot grow the registry at runtime in a shipped addon.
 
     Args:
         command: The command name string.
-        handler: A callable accepting a ``params`` dict and returning a result
-            dict.
+        handler: A callable accepting a ``params`` dict and returning a
+            result dict.
+
+    Raises:
+        RuntimeError: If neither pytest nor the explicit env-var override
+            is present.
     """
+    import os
+    import sys
+
+    if "pytest" not in sys.modules and os.environ.get("OPENCLAW_ALLOW_REGISTER_HANDLER") != "1":
+        raise RuntimeError(_REGISTER_HANDLER_GUARD_MSG)
     _REGISTRY[command] = handler

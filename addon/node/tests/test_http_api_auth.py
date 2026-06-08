@@ -60,11 +60,25 @@ async def unauthed_client(
 
 
 @pytest.mark.asyncio
-async def test_empty_token_leaves_api_open(
+async def test_empty_token_fails_closed(
     unauthed_client: TestClient[Request, Application],
 ) -> None:
-    """With no local_api_token configured, every endpoint serves without auth."""
+    """With no local_api_token configured, non-public paths return 401."""
     response = await unauthed_client.post("/v1/commands/ping", json={"message": "hi"})
+    assert response.status == 401
+    assert response.headers.get("WWW-Authenticate") == "Bearer"
+    data = await response.json()
+    assert data["error"] == "NO_TOKEN_CONFIGURED"
+    assert "local_api_token" in data["response"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["/health", "/v1/health", "/v1/conversation/info"])
+async def test_empty_token_public_paths_still_open(
+    unauthed_client: TestClient[Request, Application], path: str
+) -> None:
+    """Health + conversation-info must work without a token (HA add-on probe)."""
+    response = await unauthed_client.get(path)
     assert response.status == 200
 
 
@@ -146,7 +160,7 @@ async def test_correct_bearer_passes_through(
 
 @pytest.mark.asyncio
 async def test_command_dispatch_runs_async_handler(
-    unauthed_client: TestClient[Request, Application],
+    authed_client: TestClient[Request, Application],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """``/v1/commands/{cmd}`` must await async handlers via dispatch_async.
@@ -162,7 +176,11 @@ async def test_command_dispatch_runs_async_handler(
     # Use monkeypatch.setitem so the registry is restored after the test, not
     # leaked into sibling tests that may register the same name.
     monkeypatch.setitem(_dispatcher._REGISTRY, "test.async_echo", _async_echo)
-    response = await unauthed_client.post("/v1/commands/test.async_echo", json={"x": 2})
+    response = await authed_client.post(
+        "/v1/commands/test.async_echo",
+        json={"x": 2},
+        headers={"Authorization": "Bearer s3cret"},
+    )
     data = await response.json()
     assert response.status == 200
     assert data["ok"] is True
