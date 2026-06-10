@@ -41,12 +41,12 @@ to be filled in once Phase 2 starts; expectations:
 
 ## Codex CLI fallback
 
-When OpenClaw's `openai/*` routing is regressed, the reviewer pairing
-runs via the bare `codex exec --skip-git-repo-check --cd <repo>` CLI
-instead of `sessions_spawn`. The verdict comment must state
-`via CLI workaround` so future-Clawd does not treat the review as
-non-conforming. The pairing rule still holds: generator and reviewer
-must be two different providers.
+OpenClaw 2026.6.5 (deployed 2026-06-10) restored `openai/*` direct-to-Codex
+routing, so reviewer pairing runs via `sessions_spawn` by default. The bare
+`codex exec --skip-git-repo-check --cd <repo>` CLI path remains a valid
+fallback if a future regression breaks gateway routing again — in that
+case the verdict comment must state `via CLI workaround`. The pairing rule
+always holds: generator and reviewer must be two different providers.
 
 ## Quality gates (mandatory)
 
