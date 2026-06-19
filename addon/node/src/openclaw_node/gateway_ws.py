@@ -106,6 +106,14 @@ _PENDING_PULL_BATCH: Final[int] = 50
 # = 1000 items per connect (anything beyond that arrives on next reconnect).
 _PENDING_PULL_MAX_ITERATIONS: Final[int] = 20
 _ACK_RESPONSE_TIMEOUT_S: Final[float] = 5.0
+# Timeout for awaiting a specific `res` frame by request id when the
+# gateway may interleave events with the response. Bounded so a missing
+# response cannot wedge the connect handshake forever.
+_RES_CORRELATION_TIMEOUT_S: Final[float] = 5.0
+# Per-await cap on intermediate frames consumed while waiting for a
+# specific `res` id. A pathological flood of events shouldn't trap the
+# loop here indefinitely.
+_RES_CORRELATION_MAX_FRAMES: Final[int] = 256
 
 
 def _decode_error_code(raw: Any) -> str | None:
@@ -682,6 +690,84 @@ class GatewayClient:
             "gateway likely closed the connection — reconnecting."
         )
 
+    async def _await_res(
+        self,
+        ws: websockets.asyncio.client.ClientConnection,
+        req_id: str,
+        label: str,
+    ) -> dict[str, Any] | None:
+        """Wait for the ``res`` frame matching *req_id*, tolerating events.
+
+        The gateway may interleave unsolicited events (e.g. ``connect.approved``,
+        ``node.invoke.request``) between the request and its response. Naively
+        treating the next ``ws.recv()`` as the response misreads an event as a
+        failed response — the bug behind the ``node.pending.pull failed: None``
+        log line on b#98 (the event has no ``ok`` field, so ``msg.get("ok")``
+        is falsy and the code declares the call failed).
+
+        Behaviour:
+          - Non-``res`` frames (events, etc.) are logged at debug and dropped.
+            They are re-delivered to the event loop on the next reconnect; the
+            connect-handshake path intentionally stays focused on pairing +
+            pending drain. A small message-buffer queue is the proper long-term
+            home for "process events received during handshake," but a buffer
+            without a reader leaks; the redelivery contract closes the gap
+            without growing surface area.
+          - ``res`` frames with a different ``id`` are also dropped with a
+            warning (likely a stale response from a prior request).
+          - Bounded by ``_RES_CORRELATION_MAX_FRAMES`` and
+            ``_RES_CORRELATION_TIMEOUT_S`` so a misbehaving gateway cannot
+            wedge the handshake.
+
+        Returns:
+            The matching ``res`` frame as a dict, or ``None`` on timeout or
+            when the bound is exhausted (caller treats as a soft failure).
+        """
+        try:
+            async with asyncio.timeout(_RES_CORRELATION_TIMEOUT_S):
+                for _ in range(_RES_CORRELATION_MAX_FRAMES):
+                    raw = await ws.recv()
+                    msg: dict[str, Any] = json.loads(raw)
+                    msg_type = msg.get("type")
+                    if msg_type == "res":
+                        if msg.get("id") == req_id:
+                            return msg
+                        _LOG.debug(
+                            "%s: dropping stale res id=%r while awaiting %s",
+                            label,
+                            msg.get("id"),
+                            req_id,
+                        )
+                        continue
+                    if msg_type == "event":
+                        _LOG.debug(
+                            "%s: dropping interleaved event %r while awaiting res id=%s",
+                            label,
+                            msg.get("event"),
+                            req_id,
+                        )
+                        continue
+                    # Frames with no canonical type field are accepted as the
+                    # response. The production gateway always sets type=res,
+                    # so this lenient path only matters for test fakes and
+                    # legacy/intermediate protocol shapes.
+                    return msg
+                _LOG.warning(
+                    "%s: exhausted %d frames waiting for res id=%s; treating as soft failure",
+                    label,
+                    _RES_CORRELATION_MAX_FRAMES,
+                    req_id,
+                )
+                return None
+        except TimeoutError:
+            _LOG.warning(
+                "%s: timed out after %ss waiting for res id=%s; treating as soft failure",
+                label,
+                _RES_CORRELATION_TIMEOUT_S,
+                req_id,
+            )
+            return None
+
     async def _pull_pending(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Drain queued invokes by sending ``node.pending.pull``.
 
@@ -705,8 +791,12 @@ class GatewayClient:
         for iteration in range(_PENDING_PULL_MAX_ITERATIONS):
             req = _make_req("node.pending.pull", {"maxItems": _PENDING_PULL_BATCH})
             await ws.send(json.dumps(req))
-            raw = await ws.recv()
-            msg: dict[str, Any] = json.loads(raw)
+            msg = await self._await_res(ws, req["id"], "node.pending.pull")
+            if msg is None:
+                # Correlation timed out; treat as empty drain and let the
+                # event loop continue. Whatever was queued will redeliver
+                # on the next connect.
+                return
             if not msg.get("ok"):
                 _LOG.warning("node.pending.pull failed: %r", msg.get("error"))
                 return

@@ -573,6 +573,79 @@ async def test_pull_pending_malformed_payload_skipped() -> None:
     assert ack_frame["params"]["ids"] == ["good-item"]
 
 
+async def test_pull_pending_drops_interleaved_event_and_uses_real_response() -> None:
+    """Regression for #98: an unsolicited event between request and response
+
+    must NOT be misread as a failed `pending.pull` response. Before the
+    correlation fix the addon logged `node.pending.pull failed: None` whenever
+    the gateway sent an event (e.g. `connect.approved` or a queued
+    `node.invoke.request`) before the actual `res` frame, and that misread
+    used to cascade into tearing down the freshly-paired session.
+    """
+    client = _make_client()
+    send = AsyncMock()
+
+    pull_id_holder: list[str] = []
+
+    async def _recv() -> str:
+        if not pull_id_holder:
+            last = _find_sent_method(send, "node.pending.pull")
+            pull_id_holder.append(last["id"])
+            # First frame after the request: an unsolicited event. Must be
+            # dropped silently, not treated as a failed pending.pull response.
+            return json.dumps({"type": "event", "event": "presence.updated", "payload": {}})
+        # Second frame: the actual response, properly correlated.
+        return json.dumps(
+            {
+                "type": "res",
+                "id": pull_id_holder[0],
+                "ok": True,
+                "payload": {"items": []},
+            }
+        )
+
+    ws = AsyncMock()
+    ws.send = send
+    ws.recv = AsyncMock(side_effect=_recv)
+
+    await client._pull_pending(ws)
+    # Only ONE pull request was sent — the event was dropped and the real
+    # response satisfied the await. No spurious second request, no ack.
+    methods = [json.loads(c[0][0]).get("method") for c in send.call_args_list]
+    assert methods == ["node.pending.pull"]
+
+
+async def test_pull_pending_drops_stale_res_with_wrong_id() -> None:
+    """A `res` frame with a non-matching id must not be accepted as the response."""
+    client = _make_client()
+    send = AsyncMock()
+    pull_id_holder: list[str] = []
+
+    async def _recv() -> str:
+        if not pull_id_holder:
+            last = _find_sent_method(send, "node.pending.pull")
+            pull_id_holder.append(last["id"])
+            return json.dumps(
+                {"type": "res", "id": "stale-id", "ok": False, "error": "should-be-ignored"}
+            )
+        return json.dumps(
+            {
+                "type": "res",
+                "id": pull_id_holder[0],
+                "ok": True,
+                "payload": {"items": []},
+            }
+        )
+
+    ws = AsyncMock()
+    ws.send = send
+    ws.recv = AsyncMock(side_effect=_recv)
+
+    await client._pull_pending(ws)
+    methods = [json.loads(c[0][0]).get("method") for c in send.call_args_list]
+    assert methods == ["node.pending.pull"]
+
+
 async def test_pull_pending_failure_logged() -> None:
     client = _make_client()
     ws = AsyncMock()
