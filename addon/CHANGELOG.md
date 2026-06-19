@@ -1,5 +1,15 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a9 (2026-06-19)
+
+### Bug fixes
+- **#102 — `reset_pairing` modes (#104):** The previous `reset_pairing: true` wiped both the device token AND the Ed25519 device identity, which invalidated any bootstrap previously issued by the gateway and produced `AUTH_TOKEN_MISMATCH` on the next pair. `reset_pairing` is now a string mode:
+  - `none` (default) — no-op.
+  - `token` — wipe only the device token; keep identity. Re-pair the SAME device record with a fresh bootstrap. This is the safe recovery path. Legacy boolean `true` resolves to this.
+  - `identity` — wipe both. Becomes a brand-new device. You MUST generate a fresh setup-code AFTER this wipe (the log warns explicitly).
+  Existing add-on installs with `reset_pairing: false` continue to load unchanged.
+- **#103 — Exponential backoff on `AUTH_RATE_LIMITED` (#104):** The reconnect loop was a flat 5 s, so after the gateway rate-limited us we kept extending the rate-limit window. Now uses exponential backoff (30 s → 300 s) specifically on `AUTH_RATE_LIMITED` / `recommendedNextStep=wait_then_retry`. Backoff resets on the next successful auth.
+
 ## 2026.6.8a8 (2026-06-19)
 
 ### Bug fixes
