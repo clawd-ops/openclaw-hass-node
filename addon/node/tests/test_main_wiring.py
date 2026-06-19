@@ -12,7 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from openclaw_node.__main__ import _initial_device_token, build_runtime
+from openclaw_node.__main__ import (
+    _initial_device_token,
+    _reset_pairing_state,
+    build_runtime,
+)
 from openclaw_node.config import NodeConfig
 from openclaw_node.http_api import NodeRuntime
 from openclaw_node.identity import DeviceIdentity, load_or_generate
@@ -126,6 +130,99 @@ def test_initial_device_token_whitespace_persisted_falls_back(
     object.__setattr__(config, "pairing_token", "one-shot")
 
     assert _initial_device_token(config) == "one-shot"
+
+
+def test_reset_pairing_state_removes_token_and_identity(
+    config: NodeConfig,
+) -> None:
+    """reset_pairing must delete the device-token and node-key files."""
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale-token\n")
+    config.key_path.write_text('{"fake":"identity"}\n')
+
+    _reset_pairing_state(config)
+
+    assert not config.device_token_path.exists()
+    assert not config.key_path.exists()
+
+
+def test_reset_pairing_state_is_idempotent_when_files_absent(
+    config: NodeConfig,
+) -> None:
+    """reset_pairing must not raise when the artifacts are already missing."""
+    assert not config.device_token_path.exists()
+    assert not config.key_path.exists()
+
+    _reset_pairing_state(config)
+
+    assert not config.device_token_path.exists()
+    assert not config.key_path.exists()
+
+
+def test_reset_pairing_state_refuses_symlink_targets(config: NodeConfig, tmp_path: Path) -> None:
+    """A symlinked device_token must NOT be followed and unlinked."""
+    outside = tmp_path / "outside.txt"
+    outside.write_text("do not delete me\n")
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.symlink_to(outside)
+
+    _reset_pairing_state(config)
+
+    # Symlink itself must remain (we refused to unlink it) and the target
+    # outside data_dir must still exist.
+    assert config.device_token_path.is_symlink()
+    assert outside.exists()
+
+
+@pytest.mark.asyncio
+async def test_main_runs_reset_before_identity_load(
+    config: NodeConfig,
+    identity: DeviceIdentity,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When reset_pairing is true, the wipe must run BEFORE load_or_generate."""
+    from openclaw_node import __main__ as main_mod
+
+    object.__setattr__(config, "reset_pairing", True)
+    order: list[str] = []
+
+    def _fake_reset(cfg: NodeConfig) -> None:
+        order.append("reset")
+        assert cfg is config
+
+    def _fake_load_or_generate(_path: Path) -> tuple[DeviceIdentity, bool]:
+        order.append("identity")
+        return identity, False
+
+    async def _stub_http(_runtime: NodeRuntime) -> None:
+        order.append("http")
+        raise RuntimeError("stop")
+
+    class _StubClient:
+        def __init__(self, _runtime: NodeRuntime) -> None:
+            self._pairing_state_callback = None
+
+        async def run(self) -> None:
+            await asyncio.sleep(0)
+
+    def _build(
+        cfg: NodeConfig, _ident: DeviceIdentity
+    ) -> tuple[NodeRuntime, _StubClient, _StubClient]:
+        runtime = NodeRuntime(cfg)
+        return runtime, _StubClient(runtime), _StubClient(runtime)
+
+    monkeypatch.setattr(main_mod, "load_config", lambda: config)
+    monkeypatch.setattr(main_mod, "_reset_pairing_state", _fake_reset)
+    monkeypatch.setattr(main_mod, "load_or_generate", _fake_load_or_generate)
+    monkeypatch.setattr(main_mod, "build_runtime", _build)
+    monkeypatch.setattr(main_mod, "run_http_api", _stub_http)
+
+    with pytest.raises(ExceptionGroup):
+        await main_mod._main()
+
+    assert order.index("reset") < order.index("identity"), (
+        f"reset_pairing must run before load_or_generate; got order={order}"
+    )
 
 
 @pytest.mark.asyncio

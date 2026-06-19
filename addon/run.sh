@@ -24,6 +24,7 @@ values = {
     'PAIRING_TOKEN': data.get('pairing_token') or '',
     'NODE_NAME': data.get('node_name') or '',
     'OPENCLAW_LOCAL_API_TOKEN': data.get('local_api_token') or '',
+    'OPENCLAW_RESET_PAIRING': '1' if data.get('reset_pairing') else '',
 }
 # Optional HA credentials fallback. ha_client.py already reads HASS_URL
 # and HASS_TOKEN from env when SUPERVISOR_TOKEN is missing; surface them
