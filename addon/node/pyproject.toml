@@ -32,4 +32,7 @@ dev = [
     "bandit>=1.8",
     "pip-audit>=2.10.0",
     "pydoclint>=0.5",
+    # Transitive dep of cachecontrol (used by pip-audit). Force >=1.2.1
+    # to clear GHSA-6v7p-g79w-8964; not used by shipped code.
+    "msgpack>=1.2.1",
 ]
