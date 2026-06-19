@@ -132,24 +132,54 @@ def test_initial_device_token_whitespace_persisted_falls_back(
     assert _initial_device_token(config) == "one-shot"
 
 
-def test_reset_pairing_state_removes_token_and_identity(
+def test_reset_pairing_state_token_mode_wipes_only_device_token(
     config: NodeConfig,
 ) -> None:
-    """reset_pairing must delete the device-token and node-key files."""
+    """``reset_pairing=token`` (the safe default) must keep the device identity."""
     config.data_dir.mkdir(parents=True, exist_ok=True)
     config.device_token_path.write_text("stale-token\n")
     config.key_path.write_text('{"fake":"identity"}\n')
+    object.__setattr__(config, "reset_pairing", "token")
+
+    _reset_pairing_state(config)
+
+    assert not config.device_token_path.exists()
+    assert config.key_path.exists(), "token-mode must NOT wipe the identity"
+
+
+def test_reset_pairing_state_identity_mode_wipes_both(
+    config: NodeConfig,
+) -> None:
+    """``reset_pairing=identity`` must wipe both device-token and node-key."""
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale-token\n")
+    config.key_path.write_text('{"fake":"identity"}\n')
+    object.__setattr__(config, "reset_pairing", "identity")
 
     _reset_pairing_state(config)
 
     assert not config.device_token_path.exists()
     assert not config.key_path.exists()
+
+
+def test_reset_pairing_state_none_mode_is_noop(config: NodeConfig) -> None:
+    """``reset_pairing=none`` must not delete anything."""
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("keep-me\n")
+    config.key_path.write_text('{"keep":"me"}\n')
+    object.__setattr__(config, "reset_pairing", "none")
+
+    _reset_pairing_state(config)
+
+    assert config.device_token_path.exists()
+    assert config.key_path.exists()
 
 
 def test_reset_pairing_state_is_idempotent_when_files_absent(
     config: NodeConfig,
 ) -> None:
-    """reset_pairing must not raise when the artifacts are already missing."""
+    """``reset_pairing`` modes must not raise when artifacts are already missing."""
+    object.__setattr__(config, "reset_pairing", "identity")
     assert not config.device_token_path.exists()
     assert not config.key_path.exists()
 
@@ -157,6 +187,55 @@ def test_reset_pairing_state_is_idempotent_when_files_absent(
 
     assert not config.device_token_path.exists()
     assert not config.key_path.exists()
+
+
+def test_reset_pairing_state_unknown_mode_is_skipped(config: NodeConfig) -> None:
+    """An unrecognised mode value must not delete anything (fail closed)."""
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("keep\n")
+    config.key_path.write_text('{"k":"v"}\n')
+    object.__setattr__(config, "reset_pairing", "bogus-mode")
+
+    _reset_pairing_state(config)
+
+    assert config.device_token_path.exists()
+    assert config.key_path.exists()
+
+
+def test_reset_pairing_state_swallows_unlink_oserror(
+    config: NodeConfig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A per-file OSError on unlink must be logged but not raised."""
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale\n")
+    object.__setattr__(config, "reset_pairing", "token")
+
+    real_unlink = Path.unlink
+
+    def _boom(self: Path, *args: object, **kwargs: object) -> None:
+        if self == config.device_token_path:
+            raise OSError("perm denied")
+        real_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "unlink", _boom)
+    _reset_pairing_state(config)
+    # Did not raise — that's the assertion.
+
+
+def test_reset_pairing_state_identity_logs_setup_code_warning(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Identity mode must log the actionable "generate a new setup-code" guidance."""
+    import logging
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("t\n")
+    config.key_path.write_text('{"k":"v"}\n')
+    object.__setattr__(config, "reset_pairing", "identity")
+
+    with caplog.at_level(logging.WARNING):
+        _reset_pairing_state(config)
+    assert any("generate a NEW setup-code" in rec.message for rec in caplog.records)
 
 
 def test_reset_pairing_state_refuses_symlink_targets(config: NodeConfig, tmp_path: Path) -> None:
@@ -165,6 +244,7 @@ def test_reset_pairing_state_refuses_symlink_targets(config: NodeConfig, tmp_pat
     outside.write_text("do not delete me\n")
     config.data_dir.mkdir(parents=True, exist_ok=True)
     config.device_token_path.symlink_to(outside)
+    object.__setattr__(config, "reset_pairing", "token")
 
     _reset_pairing_state(config)
 
@@ -183,7 +263,7 @@ async def test_main_runs_reset_before_identity_load(
     """When reset_pairing is true, the wipe must run BEFORE load_or_generate."""
     from openclaw_node import __main__ as main_mod
 
-    object.__setattr__(config, "reset_pairing", True)
+    object.__setattr__(config, "reset_pairing", "token")
     order: list[str] = []
 
     def _fake_reset(cfg: NodeConfig) -> None:

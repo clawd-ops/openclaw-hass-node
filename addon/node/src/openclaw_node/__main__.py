@@ -28,20 +28,35 @@ _LOG = logging.getLogger(__name__)
 
 
 def _reset_pairing_state(config: NodeConfig) -> None:
-    """Delete persisted pairing artifacts so the next connect re-pairs fresh.
+    """Delete persisted pairing artifacts based on ``config.reset_pairing``.
 
-    Triggered when the user sets the ``reset_pairing`` add-on option to
-    ``true``. Removes the persisted device token and device identity under
-    ``data_dir`` and logs each removal. Each target is constrained to
-    ``data_dir``: a symlink at the target, or a resolved location outside
-    ``data_dir``, is refused and logged rather than followed. Failures are
-    logged and swallowed — a missing file is the desired end state, and a
-    partial wipe is still preferable to refusing to start.
+    Modes:
 
-    Remind the user to toggle the option back to false; otherwise every
-    restart re-pairs from scratch.
+    - ``"none"``: no-op (caller normally short-circuits).
+    - ``"token"``: wipe ``device-token`` only. Identity (``node-key.json``)
+      stays so the SAME device record can re-pair with a freshly issued
+      bootstrap. This is the safe default — a brand-new identity invalidates
+      any bootstrap minted for the prior identity (gateway rejects with
+      ``AUTH_TOKEN_MISMATCH``).
+    - ``"identity"``: wipe both ``device-token`` and ``node-key.json``. The
+      node becomes a brand-new device. The user MUST generate a fresh
+      setup-code AFTER this wipe; any previously-issued bootstrap is tied
+      to the now-deleted identity and will be rejected.
+
+    Each target is constrained to ``data_dir``: a symlink at the target, or
+    a resolved location outside ``data_dir``, is refused and logged rather
+    than followed. Per-file failures are logged and swallowed.
     """
-    targets = (config.device_token_path, config.key_path)
+    mode = config.reset_pairing
+    if mode == "none":
+        return
+    if mode == "token":
+        targets: tuple[Path, ...] = (config.device_token_path,)
+    elif mode == "identity":
+        targets = (config.device_token_path, config.key_path)
+    else:
+        _LOG.warning("reset_pairing: unknown mode %r; skipping wipe", mode)
+        return
     try:
         data_dir = config.data_dir.resolve(strict=False)
     except OSError as exc:
@@ -57,13 +72,21 @@ def _reset_pairing_state(config: NodeConfig) -> None:
         try:
             if path.exists():
                 path.unlink()
-                _LOG.warning("reset_pairing: removed %s", path)
+                _LOG.warning("reset_pairing[%s]: removed %s", mode, path)
         except OSError as exc:
-            _LOG.warning("reset_pairing: failed to remove %s: %s", path, exc)
+            _LOG.warning("reset_pairing[%s]: failed to remove %s: %s", mode, path, exc)
+    if mode == "identity":
+        _LOG.warning(
+            "reset_pairing=identity wiped the device identity. The previously "
+            "issued bootstrap is no longer valid for this device — generate "
+            "a NEW setup-code on the gateway and paste it as `pairing_token` "
+            "before the next restart."
+        )
     _LOG.warning(
-        "reset_pairing was true on startup. Set it back to false in "
-        "add-on options after the node re-pairs successfully — otherwise "
-        "every restart will wipe pairing again."
+        "reset_pairing was %r on startup. Set it back to false in add-on "
+        "options after the node re-pairs successfully — otherwise every "
+        "restart will wipe pairing again.",
+        mode,
     )
 
 
@@ -187,7 +210,7 @@ async def _main() -> None:
     )
     _LOG.info("Gateway URL: %s", config.gateway_url)
     _LOG.info("Data dir: %s", config.data_dir)
-    if config.reset_pairing:
+    if config.reset_pairing != "none":
         _reset_pairing_state(config)
     if config.addon_mode and not config.local_api_token:
         _LOG.warning(

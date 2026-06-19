@@ -107,7 +107,17 @@ class NodeConfig:
     supervisor_token: str
     data_dir: Path
     local_api_token: str = ""
-    reset_pairing: bool = False
+    # One of "none" | "token" | "identity":
+    #   "none"     -do nothing on startup (default).
+    #   "token"    -wipe device-token only; keep the Ed25519 identity so
+    #                a freshly-issued bootstrap from the SAME device record
+    #                can re-pair this device.
+    #   "identity" -wipe device-token AND node-key.json. The node becomes
+    #                a brand-new device on the gateway, so the user MUST
+    #                generate a fresh setup-code AFTER this wipe (any
+    #                bootstrap minted for the old identity will be rejected
+    #                with AUTH_TOKEN_MISMATCH).
+    reset_pairing: str = "none"
 
     @property
     def key_path(self) -> Path:
@@ -171,33 +181,45 @@ def load_config() -> NodeConfig:
         supervisor_token=supervisor_token,
         data_dir=data_dir,
         local_api_token=os.environ.get("OPENCLAW_LOCAL_API_TOKEN", ""),
-        reset_pairing=_parse_bool_env("OPENCLAW_RESET_PAIRING"),
+        reset_pairing=_parse_reset_pairing_env("OPENCLAW_RESET_PAIRING"),
     )
 
 
-_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on", "y"})
-_FALSY_ENV_VALUES = frozenset({"", "0", "false", "no", "off", "n"})
+_RESET_PAIRING_MODES = frozenset({"none", "token", "identity"})
+_RESET_PAIRING_TOKEN_ALIASES = frozenset({"1", "true", "yes", "on", "y", "token"})
+_RESET_PAIRING_IDENTITY_ALIASES = frozenset({"identity", "full"})
+_RESET_PAIRING_NONE_ALIASES = frozenset({"", "0", "false", "no", "off", "n", "none"})
 
 
-def _parse_bool_env(name: str) -> bool:
-    """Parse a boolean env var with explicit truthy/falsy allowlists.
+def _parse_reset_pairing_env(name: str) -> str:
+    """Parse the ``reset_pairing`` env var into a canonical mode string.
 
-    Strict by design: anything outside the known truthy/falsy sets is
-    treated as ``False`` and logs a warning so a typo cannot trigger a
-    destructive operation. Comparison is case-insensitive.
+    Accepts:
+      - Truthy booleans (``1``, ``true``, ``yes``, ``on``, ``y``) -> ``"token"``.
+        This is the safe default because wiping only the device token lets
+        the user re-pair the SAME device record with a fresh bootstrap.
+      - ``"token"`` -> ``"token"``.
+      - ``"identity"`` / ``"full"`` -> ``"identity"``. Also wipes node-key.json.
+        The user MUST generate a brand-new setup-code AFTER this wipe.
+      - Falsy / empty -> ``"none"``.
+
+    Anything else is treated as ``"none"`` and logs a warning so a typo
+    cannot trigger a destructive operation. Comparison is case-insensitive.
     """
     raw = os.environ.get(name, "").strip().casefold()
-    if raw in _TRUTHY_ENV_VALUES:
-        return True
-    if raw in _FALSY_ENV_VALUES:
-        return False
+    if raw in _RESET_PAIRING_TOKEN_ALIASES:
+        return "token"
+    if raw in _RESET_PAIRING_IDENTITY_ALIASES:
+        return "identity"
+    if raw in _RESET_PAIRING_NONE_ALIASES:
+        return "none"
     _LOG.warning(
-        "%s=%r is not a recognized boolean; treating as false. "
-        "Use one of: 1/0, true/false, yes/no, on/off.",
+        "%s=%r is not a recognized reset_pairing mode; treating as 'none'. "
+        "Use one of: token (or true/1/yes), identity, false/0.",
         name,
         raw,
     )
-    return False
+    return "none"
 
 
 def allowed_roots_for_env() -> tuple[Path, ...]:

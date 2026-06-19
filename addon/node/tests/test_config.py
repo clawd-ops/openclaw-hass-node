@@ -33,58 +33,65 @@ def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.parametrize(
     ("env_value", "expected"),
     [
-        ("1", True),
-        ("true", True),
-        ("TRUE", True),
-        ("yes", True),
-        ("YES", True),
-        ("on", True),
-        ("y", True),
-        ("", False),
-        ("0", False),
-        ("false", False),
-        ("False", False),
-        ("FALSE", False),
-        ("no", False),
-        ("off", False),
-        ("n", False),
+        # Truthy bool aliases all coerce to safe "token" mode.
+        ("1", "token"),
+        ("true", "token"),
+        ("TRUE", "token"),
+        ("yes", "token"),
+        ("YES", "token"),
+        ("on", "token"),
+        ("y", "token"),
+        ("token", "token"),
+        # Identity wipe is opt-in via explicit string.
+        ("identity", "identity"),
+        ("full", "identity"),
+        # Falsy and "none" => no-op.
+        ("", "none"),
+        ("0", "none"),
+        ("false", "none"),
+        ("False", "none"),
+        ("FALSE", "none"),
+        ("no", "none"),
+        ("off", "none"),
+        ("n", "none"),
+        ("none", "none"),
     ],
 )
 def test_load_config_reset_pairing_env(
-    monkeypatch: pytest.MonkeyPatch, env_value: str, expected: bool
+    monkeypatch: pytest.MonkeyPatch, env_value: str, expected: str
 ) -> None:
-    """``OPENCLAW_RESET_PAIRING`` toggles ``config.reset_pairing`` only on known values."""
+    """``OPENCLAW_RESET_PAIRING`` canonicalises to one of none/token/identity."""
     monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
     monkeypatch.setenv("OPENCLAW_RESET_PAIRING", env_value)
 
     config = load_config()
 
-    assert config.reset_pairing is expected
+    assert config.reset_pairing == expected
 
 
-@pytest.mark.parametrize("garbage", ["maybe", "2", "tru", "yesplease"])
-def test_load_config_reset_pairing_unknown_value_is_false(
+@pytest.mark.parametrize("garbage", ["maybe", "2", "tru", "yesplease", "identitee"])
+def test_load_config_reset_pairing_unknown_value_is_none(
     monkeypatch: pytest.MonkeyPatch, garbage: str
 ) -> None:
-    """Unknown values must default to False so typos cannot trigger destructive reset."""
+    """Unknown values must default to ``"none"`` so typos cannot trigger a wipe."""
     monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
     monkeypatch.setenv("OPENCLAW_RESET_PAIRING", garbage)
 
     config = load_config()
 
-    assert config.reset_pairing is False
+    assert config.reset_pairing == "none"
 
 
-def test_load_config_reset_pairing_default_false(
+def test_load_config_reset_pairing_default_none(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Without ``OPENCLAW_RESET_PAIRING`` set, reset_pairing must be False."""
+    """Without ``OPENCLAW_RESET_PAIRING`` set, reset_pairing must be ``"none"``."""
     monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
     monkeypatch.delenv("OPENCLAW_RESET_PAIRING", raising=False)
 
     config = load_config()
 
-    assert config.reset_pairing is False
+    assert config.reset_pairing == "none"
 
 
 def test_load_config_standalone_mode(monkeypatch: pytest.MonkeyPatch) -> None:

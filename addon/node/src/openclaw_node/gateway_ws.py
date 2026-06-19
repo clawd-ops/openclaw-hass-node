@@ -100,6 +100,12 @@ _OPERATOR_SCOPES: Final[list[str]] = [
 ]
 _EMPTY: Final[str] = "".join(())
 _RECONNECT_DELAY_S: Final[float] = 5.0
+# When the gateway rejects auth with AUTH_RATE_LIMITED, hammering at the
+# base 5s interval just keeps extending the rate-limit window. Use
+# exponential backoff starting at this value, capped by the max below.
+_RATE_LIMITED_BACKOFF_BASE_S: Final[float] = 30.0
+_RATE_LIMITED_BACKOFF_MAX_S: Final[float] = 300.0
+_RATE_LIMITED_BACKOFF_FACTOR: Final[float] = 2.0
 _PENDING_PULL_BATCH: Final[int] = 50
 # Cap on hasMore drain iterations per connect — keeps a misbehaving gateway
 # from livelocking the connect handshake. 20 iterations * 50 items per batch
@@ -288,6 +294,7 @@ class GatewayClient:
         self._invoke_dispatch_enabled = invoke_dispatch_enabled
         self._token_persist_path = token_persist_path or config.device_token_path
         self._pair_fallback_enabled = pair_fallback_enabled
+        self._rate_limited_delay_s: float = 0.0
 
     @property
     def pairing_state(self) -> PairingState:
@@ -310,17 +317,42 @@ class GatewayClient:
             try:
                 await self._connect_and_loop()
             except Exception as exc:
+                delay = self._next_reconnect_delay(exc)
                 _LOG.error(
                     "Gateway connection lost: %s - reconnecting in %.0fs",
                     exc,
-                    _RECONNECT_DELAY_S,
+                    delay,
                 )
                 self._maybe_drop_invalid_device_token(exc)
                 self._pairing.on_reconnect()
                 self._notify_pairing_state()
                 if self._runtime is not None:
                     self._set_runtime_connected(False)
-                await asyncio.sleep(_RECONNECT_DELAY_S)
+                await asyncio.sleep(delay)
+
+    def _next_reconnect_delay(self, exc: BaseException) -> float:
+        """Return the wait before the next reconnect attempt.
+
+        Default is the flat :data:`_RECONNECT_DELAY_S`. When the gateway
+        rejects auth with ``AUTH_RATE_LIMITED`` (or recommends
+        ``wait_then_retry``), grow the delay exponentially up to
+        :data:`_RATE_LIMITED_BACKOFF_MAX_S` so the node stops extending the
+        rate-limit window with retries. On a successful connect the caller
+        resets the backoff to zero.
+        """
+        haystack = repr(exc)
+        is_rate_limited = "AUTH_RATE_LIMITED" in haystack or "wait_then_retry" in haystack
+        if not is_rate_limited:
+            self._rate_limited_delay_s = 0.0
+            return _RECONNECT_DELAY_S
+        if self._rate_limited_delay_s <= 0.0:
+            self._rate_limited_delay_s = _RATE_LIMITED_BACKOFF_BASE_S
+        else:
+            self._rate_limited_delay_s = min(
+                self._rate_limited_delay_s * _RATE_LIMITED_BACKOFF_FACTOR,
+                _RATE_LIMITED_BACKOFF_MAX_S,
+            )
+        return self._rate_limited_delay_s
 
     def _maybe_drop_invalid_device_token(self, exc: BaseException) -> None:
         """If the persisted device_token was rejected, fall back to pairing_token.
@@ -584,6 +616,11 @@ class GatewayClient:
             ok=ok, payload=payload, error=error, error_message=error_message
         )
         self._notify_pairing_state()
+        if ok:
+            # Auth succeeded — drop any rate-limit backoff so a transient
+            # disconnect after a healthy session doesn't carry the stale
+            # rate-limited delay forward.
+            self._rate_limited_delay_s = 0.0
         # On successful connect the gateway may issue a long-lived device_token
         # in hello-ok.auth.deviceToken. Persist it and use it for subsequent
         # connects — the original pairing_token from add-on options is one-shot

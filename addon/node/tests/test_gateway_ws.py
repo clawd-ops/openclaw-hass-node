@@ -896,6 +896,81 @@ async def test_event_loop_routes_response_to_relay() -> None:
     assert future.result() == {"status": "done"}
 
 
+# ---- backoff tests (#103) ----
+
+
+def test_next_reconnect_delay_normal_error_returns_flat_base() -> None:
+    """Non-rate-limit errors use the flat ``_RECONNECT_DELAY_S``."""
+    from openclaw_node.gateway_ws import _RECONNECT_DELAY_S
+
+    client = _make_client()
+    assert client._next_reconnect_delay(ConnectionError("network")) == _RECONNECT_DELAY_S
+
+
+def test_next_reconnect_delay_grows_on_rate_limit() -> None:
+    """AUTH_RATE_LIMITED triggers exponential backoff that caps."""
+    from openclaw_node.gateway_ws import (
+        _RATE_LIMITED_BACKOFF_BASE_S,
+        _RATE_LIMITED_BACKOFF_MAX_S,
+    )
+
+    client = _make_client()
+    exc = RuntimeError("AUTH_RATE_LIMITED: too many failed authentication attempts")
+
+    delays: list[float] = []
+    for _ in range(12):
+        delays.append(client._next_reconnect_delay(exc))
+
+    # First call seeds the backoff at the base; subsequent calls double until cap.
+    assert delays[0] == _RATE_LIMITED_BACKOFF_BASE_S
+    assert delays[1] > delays[0]
+    assert delays[-1] == _RATE_LIMITED_BACKOFF_MAX_S
+    # Monotonic non-decreasing (modulo cap).
+    assert all(delays[i] <= delays[i + 1] for i in range(len(delays) - 1))
+
+
+def test_next_reconnect_delay_recognizes_wait_then_retry_recommendation() -> None:
+    """The ``recommendedNextStep=wait_then_retry`` signal also triggers backoff."""
+    from openclaw_node.gateway_ws import _RATE_LIMITED_BACKOFF_BASE_S
+
+    client = _make_client()
+    exc = RuntimeError("INVALID_REQUEST recommendedNextStep=wait_then_retry")
+    assert client._next_reconnect_delay(exc) == _RATE_LIMITED_BACKOFF_BASE_S
+
+
+async def test_recv_connect_response_resets_rate_limit_backoff_on_ok() -> None:
+    """A successful auth (ok=True) must clear any pending rate-limit backoff
+    so a transient disconnect after a healthy session uses the base delay."""
+    from openclaw_node.gateway_ws import _RATE_LIMITED_BACKOFF_BASE_S
+
+    client = _make_client()
+    # Seed a non-zero backoff (simulate a prior rate-limit run).
+    client._rate_limited_delay_s = _RATE_LIMITED_BACKOFF_BASE_S
+    ws = AsyncMock()
+    ws.recv = AsyncMock(
+        return_value=json.dumps(
+            {"type": "res", "id": "req-x", "ok": True, "payload": {"sessionId": "s1"}}
+        )
+    )
+
+    await client._recv_connect_response(ws, "req-x")
+
+    assert client._rate_limited_delay_s == 0.0
+
+
+def test_next_reconnect_delay_resets_on_non_rate_limit_error() -> None:
+    """A non-rate-limit error after a rate-limit run drops back to the base."""
+    from openclaw_node.gateway_ws import _RECONNECT_DELAY_S
+
+    client = _make_client()
+    rate_limit = RuntimeError("AUTH_RATE_LIMITED")
+    client._next_reconnect_delay(rate_limit)
+    client._next_reconnect_delay(rate_limit)
+
+    other = ConnectionError("network glitch")
+    assert client._next_reconnect_delay(other) == _RECONNECT_DELAY_S
+
+
 # ---- run() reconnect test ----
 
 
