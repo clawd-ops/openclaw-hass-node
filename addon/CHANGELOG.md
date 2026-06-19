@@ -1,5 +1,15 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a10 (2026-06-19)
+
+### Bug fixes
+- **#109 — SUPERVISOR_TOKEN now reliably injected (#110):** Enabled `hassio_api: true` in the addon manifest. HA Supervisor reportedly injects `SUPERVISOR_TOKEN` for `homeassistant_api: true` alone per the docs, but three consecutive fresh installs (2026-06-08, -06-09, -06-19) came up without it, leaving `ha.*` commands stuck at `HA_NOT_CONFIGURED`. Enabling `hassio_api` makes the token land deterministically. No `hassio_role` is set, so privilege stays minimal (default role grants Supervisor `info` endpoints only — no addon/backup/host mutation; the node code does not use Supervisor REST at all today).
+- **`reset_pairing` schema reverted to `bool?` (#106):** The a9 change to `str?` broke add-on installs whose options store had `reset_pairing: false` (a bool); HA's options-schema validation runs against the SAVED value, so the Configuration tab refused to save until users manually typed a string. Schema is back to `bool?` (UI is a simple toggle: false=no-op, true=token-wipe). Identity-mode wipe is reachable for power users via `OPENCLAW_RESET_PAIRING=identity` in the addon container env.
+
+### Migration
+- Upgrading from a8 (or earlier): Configuration tab loads cleanly again; no action required.
+- Upgrading from a9: if you saved a string value (`"none"`, `"token"`, `"identity"`) under a9's transient schema, the value is invalid under `bool?` and the Configuration tab will refuse to save until you change the field. Toggle it to `false` once.
+
 ## 2026.6.8a9 (2026-06-19)
 
 ### Bug fixes
