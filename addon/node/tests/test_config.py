@@ -30,6 +30,63 @@ def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(config.key_path).endswith("/data/openclaw/node-key.json")
 
 
+@pytest.mark.parametrize(
+    ("env_value", "expected"),
+    [
+        ("1", True),
+        ("true", True),
+        ("TRUE", True),
+        ("yes", True),
+        ("YES", True),
+        ("on", True),
+        ("y", True),
+        ("", False),
+        ("0", False),
+        ("false", False),
+        ("False", False),
+        ("FALSE", False),
+        ("no", False),
+        ("off", False),
+        ("n", False),
+    ],
+)
+def test_load_config_reset_pairing_env(
+    monkeypatch: pytest.MonkeyPatch, env_value: str, expected: bool
+) -> None:
+    """``OPENCLAW_RESET_PAIRING`` toggles ``config.reset_pairing`` only on known values."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
+    monkeypatch.setenv("OPENCLAW_RESET_PAIRING", env_value)
+
+    config = load_config()
+
+    assert config.reset_pairing is expected
+
+
+@pytest.mark.parametrize("garbage", ["maybe", "2", "tru", "yesplease"])
+def test_load_config_reset_pairing_unknown_value_is_false(
+    monkeypatch: pytest.MonkeyPatch, garbage: str
+) -> None:
+    """Unknown values must default to False so typos cannot trigger destructive reset."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
+    monkeypatch.setenv("OPENCLAW_RESET_PAIRING", garbage)
+
+    config = load_config()
+
+    assert config.reset_pairing is False
+
+
+def test_load_config_reset_pairing_default_false(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without ``OPENCLAW_RESET_PAIRING`` set, reset_pairing must be False."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
+    monkeypatch.delenv("OPENCLAW_RESET_PAIRING", raising=False)
+
+    config = load_config()
+
+    assert config.reset_pairing is False
+
+
 def test_load_config_standalone_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Standalone mode uses explicit HA URL and token."""
     monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)

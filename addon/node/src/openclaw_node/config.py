@@ -107,6 +107,7 @@ class NodeConfig:
     supervisor_token: str
     data_dir: Path
     local_api_token: str = ""
+    reset_pairing: bool = False
 
     @property
     def key_path(self) -> Path:
@@ -170,7 +171,33 @@ def load_config() -> NodeConfig:
         supervisor_token=supervisor_token,
         data_dir=data_dir,
         local_api_token=os.environ.get("OPENCLAW_LOCAL_API_TOKEN", ""),
+        reset_pairing=_parse_bool_env("OPENCLAW_RESET_PAIRING"),
     )
+
+
+_TRUTHY_ENV_VALUES = frozenset({"1", "true", "yes", "on", "y"})
+_FALSY_ENV_VALUES = frozenset({"", "0", "false", "no", "off", "n"})
+
+
+def _parse_bool_env(name: str) -> bool:
+    """Parse a boolean env var with explicit truthy/falsy allowlists.
+
+    Strict by design: anything outside the known truthy/falsy sets is
+    treated as ``False`` and logs a warning so a typo cannot trigger a
+    destructive operation. Comparison is case-insensitive.
+    """
+    raw = os.environ.get(name, "").strip().casefold()
+    if raw in _TRUTHY_ENV_VALUES:
+        return True
+    if raw in _FALSY_ENV_VALUES:
+        return False
+    _LOG.warning(
+        "%s=%r is not a recognized boolean; treating as false. "
+        "Use one of: 1/0, true/false, yes/no, on/off.",
+        name,
+        raw,
+    )
+    return False
 
 
 def allowed_roots_for_env() -> tuple[Path, ...]:

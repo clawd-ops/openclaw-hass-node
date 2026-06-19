@@ -71,6 +71,12 @@ options:
   # scopes your ha.* calls need.
   hass_url: ""
   hass_token: ""
+  # One-shot pairing reset. When true, on next start the node deletes
+  # any persisted device_token (and device identity) under /data/openclaw
+  # before connecting, then proceeds with the bootstrap token from
+  # `pairing_token`. Toggle back to false after the node reconnects
+  # successfully — leaving it true would wipe pairing on every restart.
+  reset_pairing: false
 schema:
   gateway_url: url
   pairing_token: password
@@ -78,6 +84,7 @@ schema:
   local_api_token: password?
   hass_url: str?
   hass_token: password?
+  reset_pairing: bool?
 # No `ports:` host-mapping. The local API is only reachable inside the
 # Supervisor add-on network (the HACS shim uses the add-on hostname). A
 # host-mapped port would expose the API to anything on the host network,

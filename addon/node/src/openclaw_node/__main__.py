@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 from openclaw_node.config import NodeConfig, load_config
 from openclaw_node.gateway_ws import _OPERATOR_SCOPES, GatewayClient
@@ -24,6 +25,73 @@ logging.basicConfig(
 )
 
 _LOG = logging.getLogger(__name__)
+
+
+def _reset_pairing_state(config: NodeConfig) -> None:
+    """Delete persisted pairing artifacts so the next connect re-pairs fresh.
+
+    Triggered when the user sets the ``reset_pairing`` add-on option to
+    ``true``. Removes the persisted device token and device identity under
+    ``data_dir`` and logs each removal. Each target is constrained to
+    ``data_dir``: a symlink at the target, or a resolved location outside
+    ``data_dir``, is refused and logged rather than followed. Failures are
+    logged and swallowed — a missing file is the desired end state, and a
+    partial wipe is still preferable to refusing to start.
+
+    Remind the user to toggle the option back to false; otherwise every
+    restart re-pairs from scratch.
+    """
+    targets = (config.device_token_path, config.key_path)
+    try:
+        data_dir = config.data_dir.resolve(strict=False)
+    except OSError as exc:
+        _LOG.warning(
+            "reset_pairing: cannot resolve data_dir %s (%s); skipping wipe",
+            config.data_dir,
+            exc,
+        )
+        return
+    for path in targets:
+        if not _safe_to_unlink_under(path, data_dir):
+            continue
+        try:
+            if path.exists():
+                path.unlink()
+                _LOG.warning("reset_pairing: removed %s", path)
+        except OSError as exc:
+            _LOG.warning("reset_pairing: failed to remove %s: %s", path, exc)
+    _LOG.warning(
+        "reset_pairing was true on startup. Set it back to false in "
+        "add-on options after the node re-pairs successfully — otherwise "
+        "every restart will wipe pairing again."
+    )
+
+
+def _safe_to_unlink_under(path: Path, data_dir: Path) -> bool:
+    """Return True iff *path* resolves inside *data_dir* and is not a symlink.
+
+    Symlinks at *path* are refused so a tampered ``/data/openclaw`` cannot
+    be used to coax the reset into unlinking an arbitrary host file.
+    """
+    try:
+        resolved = path.resolve(strict=False)
+    except OSError as exc:
+        _LOG.warning("reset_pairing: cannot resolve %s (%s); skipping", path, exc)
+        return False
+    try:
+        resolved.relative_to(data_dir)
+    except ValueError:
+        _LOG.warning(
+            "reset_pairing: %s resolves to %s outside data_dir %s; skipping",
+            path,
+            resolved,
+            data_dir,
+        )
+        return False
+    if path.is_symlink():
+        _LOG.warning("reset_pairing: %s is a symlink; skipping", path)
+        return False
+    return True
 
 
 def _initial_device_token(config: NodeConfig) -> str | None:
@@ -119,6 +187,8 @@ async def _main() -> None:
     )
     _LOG.info("Gateway URL: %s", config.gateway_url)
     _LOG.info("Data dir: %s", config.data_dir)
+    if config.reset_pairing:
+        _reset_pairing_state(config)
     if config.addon_mode and not config.local_api_token:
         _LOG.warning(
             "local_api_token is unset — the local HTTP API on port 8099 is "
