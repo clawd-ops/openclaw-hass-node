@@ -71,12 +71,21 @@ options:
   # scopes your ha.* calls need.
   hass_url: ""
   hass_token: ""
-  # One-shot pairing reset. When true, on next start the node deletes
-  # any persisted device_token (and device identity) under /data/openclaw
-  # before connecting, then proceeds with the bootstrap token from
-  # `pairing_token`. Toggle back to false after the node reconnects
-  # successfully — leaving it true would wipe pairing on every restart.
-  reset_pairing: false
+  # One-shot pairing reset on next startup. One of:
+  #   none      – do nothing (default).
+  #   token     – wipe the persisted device-token only. Keeps the device
+  #               identity, so a fresh setup-code from the SAME device
+  #               record will re-pair. This is the safe recovery from an
+  #               AUTH_TOKEN_MISMATCH loop.
+  #   identity  – wipe device-token AND the Ed25519 device identity. The
+  #               node becomes a brand-new device on the gateway. After this
+  #               you MUST generate a NEW setup-code (any previously issued
+  #               bootstrap was bound to the now-deleted identity and will
+  #               be rejected with AUTH_TOKEN_MISMATCH).
+  # Toggle back to "none" after the node re-pairs successfully — otherwise
+  # every restart will wipe again. Legacy bool `true` is accepted as a
+  # synonym for "token".
+  reset_pairing: "none"
 schema:
   gateway_url: url
   pairing_token: password
@@ -84,7 +93,10 @@ schema:
   local_api_token: password?
   hass_url: str?
   hass_token: password?
-  reset_pairing: bool?
+  # Schema is str? (not list/enum) so existing add-on installs with the
+  # legacy bool value `false` continue to load — server-side parsing in
+  # config._parse_reset_pairing_env canonicalises any input.
+  reset_pairing: str?
 # No `ports:` host-mapping. The local API is only reachable inside the
 # Supervisor add-on network (the HACS shim uses the add-on hostname). A
 # host-mapped port would expose the API to anything on the host network,
