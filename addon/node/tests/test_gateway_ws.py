@@ -469,25 +469,77 @@ async def test_pull_pending_empty_items() -> None:
     ws.send.assert_called_once()
 
 
-async def test_pull_pending_canonical_envelope() -> None:
-    """Each item is the canonical `{id, payload: <invoke-payload>}` envelope."""
+async def test_pull_pending_canonical_actions_envelope() -> None:
+    """Each action is the canonical FLAT invoke envelope.
+
+    Per the canonical gateway schema (verified 2026-06-19) the result of
+    ``node.pending.pull`` is ``{nodeId, actions: [{id, command, paramsJSON,
+    enqueuedAtMs}]}``. There is no inner ``payload`` wrapper anymore.
+    """
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    items = [
+    actions = [
         {
             "id": "queue-item-1",
-            "payload": {"id": "inv-A", "command": "ping", "paramsJSON": "{}"},
+            "command": "ping",
+            "paramsJSON": "{}",
+            "enqueuedAtMs": 1234567890,
         }
     ]
-    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    ws.recv = AsyncMock(
+        return_value=json.dumps({"ok": True, "payload": {"nodeId": "n", "actions": actions}})
+    )
     await client._pull_pending(ws)
     # pull req, invoke result, ack
     assert ws.send.call_count == 3
-    ack_frame = json.loads(ws.send.call_args_list[2][0][0])
-    assert ack_frame["method"] == "node.pending.ack"
-    # Must ack the queue-item id from the envelope, not the inner invoke id.
+    ack_frame = _find_sent_method(ws.send, "node.pending.ack")
     assert ack_frame["params"]["ids"] == ["queue-item-1"]
+    # pull req must have NO maxItems field (schema rejects it).
+    pull_frame = _find_sent_method(ws.send, "node.pending.pull")
+    assert pull_frame["params"] == {}
+
+
+async def test_pull_pending_null_paramsjson_treated_as_empty() -> None:
+    """An action with ``paramsJSON: null`` is a valid no-param invoke and must dispatch.
+
+    Canonical NodeInvokeParamsSchema.params is Optional; the live pull
+    handler maps a missing/omitted params field to JSON null. The live
+    invoke-event schema requires a non-empty string, so a naive pass-through
+    used to bubble INVALID_PARAMS and then the action got acked anyway,
+    silently dropping a valid queued invoke. Normalize null/"" to "{}".
+    """
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    actions = [
+        {"id": "q-null", "command": "ping", "paramsJSON": None},
+        {"id": "q-missing", "command": "ping"},
+    ]
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"actions": actions}}))
+    await client._pull_pending(ws)
+    # pull req + (invoke result + ack) x 2 actions
+    sent_methods = [json.loads(c[0][0]).get("method") for c in ws.send.call_args_list]
+    assert sent_methods.count("node.invoke.result") == 2
+    assert sent_methods.count("node.pending.ack") == 2
+    # Both invoke results must be OK (ping with empty params), not INVALID_PARAMS.
+    for call in ws.send.call_args_list:
+        frame = json.loads(call[0][0])
+        if frame.get("method") == "node.invoke.result":
+            assert frame["params"]["ok"] is True, frame
+
+
+async def test_pull_pending_accepts_legacy_items_field() -> None:
+    """For forward/backward compat, payload.items still works if a future gateway uses it."""
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    # Legacy gateway response shape: items[] containing flat invoke envelopes.
+    items = [{"id": "legacy-q", "command": "ping", "paramsJSON": "{}"}]
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    await client._pull_pending(ws)
+    ack_frame = _find_sent_method(ws.send, "node.pending.ack")
+    assert ack_frame["params"]["ids"] == ["legacy-q"]
 
 
 @pytest.mark.parametrize(
@@ -519,58 +571,52 @@ async def test_handle_invoke_invalid_paramsjson_returns_invalid_params(
     assert sent["params"]["error"]["code"] == "INVALID_PARAMS"
 
 
-async def test_pull_pending_non_dict_item_skipped() -> None:
-    """A non-dict item in the pending list is skipped without crashing the loop."""
+async def test_pull_pending_non_dict_action_skipped() -> None:
+    """A non-dict action in the pending list is skipped without crashing."""
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    items = [
+    actions = [
         "not-an-object",
-        {
-            "id": "good-item",
-            "payload": {"id": "inv-G", "command": "ping", "paramsJSON": "{}"},
-        },
+        {"id": "good-action", "command": "ping", "paramsJSON": "{}"},
     ]
-    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"actions": actions}}))
     await client._pull_pending(ws)
-    # pull req + (invoke result + ack) for the good item only.
+    # pull req + (invoke result + ack) for the good action only.
     assert ws.send.call_count == 3
     ack_frame = _find_sent_method(ws.send, "node.pending.ack")
-    assert ack_frame["params"]["ids"] == ["good-item"]
+    assert ack_frame["params"]["ids"] == ["good-action"]
 
 
 async def test_pull_pending_missing_id_skipped() -> None:
-    """A pending item with no `id` is skipped without ack."""
+    """An action with no `id` is skipped without ack."""
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    items = [
-        {"payload": {"id": "inv", "command": "ping", "paramsJSON": "{}"}},  # no envelope id
+    actions = [
+        {"command": "ping", "paramsJSON": "{}"},  # no id
     ]
-    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"actions": actions}}))
     await client._pull_pending(ws)
     # Only the pull request itself was sent; no invoke, no ack.
     assert ws.send.call_count == 1
 
 
-async def test_pull_pending_malformed_payload_skipped() -> None:
-    """A pending item with `payload` present but not a dict is skipped (not acked)."""
+async def test_pull_pending_missing_command_skipped() -> None:
+    """An action with no `command` is skipped (not a valid invoke envelope)."""
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-    items = [
-        {"id": "bad-item", "payload": "not-a-dict"},  # malformed: skipped
-        {
-            "id": "good-item",
-            "payload": {"id": "inv-G", "command": "ping", "paramsJSON": "{}"},
-        },
+    actions = [
+        {"id": "bad-action", "paramsJSON": "{}"},  # missing command
+        {"id": "good-action", "command": "ping", "paramsJSON": "{}"},
     ]
-    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"items": items}}))
+    ws.recv = AsyncMock(return_value=json.dumps({"ok": True, "payload": {"actions": actions}}))
     await client._pull_pending(ws)
-    # pull req + (invoke result + ack) for the good item only.
+    # pull req + (invoke result + ack) for the good action only.
     assert ws.send.call_count == 3
     ack_frame = _find_sent_method(ws.send, "node.pending.ack")
-    assert ack_frame["params"]["ids"] == ["good-item"]
+    assert ack_frame["params"]["ids"] == ["good-action"]
 
 
 async def test_pull_pending_drops_interleaved_event_and_uses_real_response() -> None:
@@ -670,21 +716,27 @@ async def test_pull_pending_non_dict_payload_does_not_crash() -> None:
     ws.send.assert_called_once()  # one pull request, no ack, no second pull
 
 
-async def test_pull_pending_drains_until_hasmore_false() -> None:
-    """Pull loops on hasMore until the gateway reports no more items (#88/2)."""
+async def test_pull_pending_is_single_shot() -> None:
+    """Canonical pull is single-shot — exactly one pull request per call.
+
+    The pre-#108 implementation looped on a ``hasMore`` field, but
+    ``NodePendingPullResult`` has no such field; the gateway returns every
+    queued action for this node in one frame. Verifying the single-shot
+    contract guards against a regression that would either spin (no
+    terminating condition) or send a second pull the gateway never expects.
+    """
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()
-
-    batch_a = [{"id": "q-1", "payload": {"id": "inv-1", "command": "ping", "paramsJSON": "{}"}}]
-    batch_b = [{"id": "q-2", "payload": {"id": "inv-2", "command": "ping", "paramsJSON": "{}"}}]
+    actions = [
+        {"id": "q-1", "command": "ping", "paramsJSON": "{}"},
+        {"id": "q-2", "command": "ping", "paramsJSON": "{}"},
+    ]
     responses = iter(
         [
-            json.dumps({"ok": True, "payload": {"items": batch_a, "hasMore": True}}),
-            # ack response for q-1
+            json.dumps({"ok": True, "payload": {"actions": actions}}),
+            # ack responses for q-1 / q-2
             json.dumps({"ok": True, "id": "ack-a", "payload": {}}),
-            json.dumps({"ok": True, "payload": {"items": batch_b, "hasMore": False}}),
-            # ack response for q-2
             json.dumps({"ok": True, "id": "ack-b", "payload": {}}),
         ]
     )
@@ -693,8 +745,7 @@ async def test_pull_pending_drains_until_hasmore_false() -> None:
     await client._pull_pending(ws)
 
     sent_methods = [json.loads(c[0][0]).get("method") for c in ws.send.call_args_list]
-    # Two pulls, two invoke results, two acks — order-independent assertion below.
-    assert sent_methods.count("node.pending.pull") == 2
+    assert sent_methods.count("node.pending.pull") == 1
     assert sent_methods.count("node.pending.ack") == 2
     acked_ids: list[str] = []
     for call in ws.send.call_args_list:
@@ -702,39 +753,6 @@ async def test_pull_pending_drains_until_hasmore_false() -> None:
         if frame.get("method") == "node.pending.ack":
             acked_ids.extend(frame["params"]["ids"])
     assert acked_ids == ["q-1", "q-2"]
-
-
-async def test_pull_pending_bails_after_max_iterations(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Gateway stuck on hasMore=True does not livelock the connect handshake."""
-    from openclaw_node import gateway_ws as gw_mod
-
-    monkeypatch.setattr(gw_mod, "_PENDING_PULL_MAX_ITERATIONS", 3)
-    client = _make_client()
-    ws = AsyncMock()
-    ws.send = AsyncMock()
-    # Always return one item + hasMore=True; loop must bail after 3 iterations.
-    payload = {
-        "items": [
-            {"id": "q-stuck", "payload": {"id": "inv-x", "command": "ping", "paramsJSON": "{}"}}
-        ],
-        "hasMore": True,
-    }
-    ack_resp = json.dumps({"ok": True, "id": "x", "payload": {}})
-    pull_resp = json.dumps({"ok": True, "payload": payload})
-    # Pattern: pull → ack → pull → ack → pull → ack → bail (no further pull).
-    responses = iter([pull_resp, ack_resp, pull_resp, ack_resp, pull_resp, ack_resp])
-    ws.recv = AsyncMock(side_effect=lambda: next(responses))
-
-    await client._pull_pending(ws)
-
-    pulls = [
-        c
-        for c in ws.send.call_args_list
-        if json.loads(c[0][0]).get("method") == "node.pending.pull"
-    ]
-    assert len(pulls) == 3  # exactly the cap, no runaway
 
 
 # ---- _await_approval tests ----
