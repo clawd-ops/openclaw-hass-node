@@ -1,5 +1,10 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a11 (2026-06-19)
+
+### Bug fixes
+- **#108 — node.pending.pull schema drift (#112):** The post-pair drain step was sending `{maxItems: 50}` and parsing an `{items, hasMore}` envelope, but the canonical gateway schema is `node.pending.pull` with EMPTY params and a `{nodeId, actions: [...]}` response, where each action is a flat invoke envelope. Live gateway rejected the addon's request with `INVALID_REQUEST: unexpected property "maxItems"`. Now matches canonical: empty params, single-shot, `actions[]` parsed directly. Also normalizes `paramsJSON: null` (legitimate for no-param commands like `ping`) to `"{}"` so the action isn't silently lost to `INVALID_PARAMS` after ack.
+
 ## 2026.6.8a10 (2026-06-19)
 
 ### Bug fixes
