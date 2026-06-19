@@ -106,11 +106,6 @@ _RECONNECT_DELAY_S: Final[float] = 5.0
 _RATE_LIMITED_BACKOFF_BASE_S: Final[float] = 30.0
 _RATE_LIMITED_BACKOFF_MAX_S: Final[float] = 300.0
 _RATE_LIMITED_BACKOFF_FACTOR: Final[float] = 2.0
-_PENDING_PULL_BATCH: Final[int] = 50
-# Cap on hasMore drain iterations per connect — keeps a misbehaving gateway
-# from livelocking the connect handshake. 20 iterations * 50 items per batch
-# = 1000 items per connect (anything beyond that arrives on next reconnect).
-_PENDING_PULL_MAX_ITERATIONS: Final[int] = 20
 _ACK_RESPONSE_TIMEOUT_S: Final[float] = 5.0
 # Timeout for awaiting a specific `res` frame by request id when the
 # gateway may interleave events with the response. Bounded so a missing
@@ -811,86 +806,91 @@ class GatewayClient:
         Called once after each successful connect so that any invokes that
         arrived while the node was offline are processed.
 
-        Sends the canonical ``NodePendingDrainParams.maxItems`` field so a
-        large backlog is paged rather than dumped in one frame. The gateway
-        is documented to clamp values it doesn't like; ``_PENDING_PULL_BATCH``
-        is the canonical upper bound this client is willing to receive in a
-        single drain.
+        Canonical gateway schema (verified 2026-06-19 against
+        ``/app/dist/schema-BwaBORnA.js`` — Issue #108):
 
-        Loops on the canonical ``NodePendingDrainResult.hasMore`` flag so a
-        backlog larger than one batch is fully drained before the event loop
-        starts (#88/2). Bounded by ``_PENDING_PULL_MAX_ITERATIONS`` to keep
-        a misbehaving gateway from livelocking the connect handshake.
+        - Params: ``NodeListParamsSchema`` — empty object ``{}``. The
+          gateway used to accept ``maxItems`` but no longer does;
+          ``additionalProperties: false`` rejects it as INVALID_REQUEST.
+          The drain is single-shot — every queued action for this node
+          comes back in one frame.
+        - Result: ``{nodeId: str, actions: NodePendingActionItem[]}`` where
+          each action is a FLAT invoke envelope ``{id, command,
+          paramsJSON, enqueuedAtMs}`` (the ``id`` is the queue-item id,
+          NOT an inner invoke id — they happen to be the same dispatch
+          target). No ``hasMore`` / paging.
+
+        Older addon builds called ``node.pending.pull`` with
+        ``{maxItems: 50}`` and parsed an ``{items: [...], hasMore}`` envelope.
+        Both shapes were wrong against the current gateway; the symptom was
+        ``INVALID_REQUEST: unexpected property "maxItems"``.
 
         Args:
             ws: The open WebSocket connection.
         """
-        for iteration in range(_PENDING_PULL_MAX_ITERATIONS):
-            req = _make_req("node.pending.pull", {"maxItems": _PENDING_PULL_BATCH})
-            await ws.send(json.dumps(req))
-            msg = await self._await_res(ws, req["id"], "node.pending.pull")
-            if msg is None:
-                # Correlation timed out; treat as empty drain and let the
-                # event loop continue. Whatever was queued will redeliver
-                # on the next connect.
-                return
-            if not msg.get("ok"):
-                _LOG.warning("node.pending.pull failed: %r", msg.get("error"))
-                return
-            payload_obj_raw = msg.get("payload")
-            if not isinstance(payload_obj_raw, dict):
-                _LOG.warning(
-                    "node.pending.pull returned non-object payload (got %s); "
-                    "treating as empty drain",
-                    type(payload_obj_raw).__name__,
-                )
-                return
-            items: list[Any] = payload_obj_raw.get("items", []) or []
-            has_more = bool(payload_obj_raw.get("hasMore", False))
-            _LOG.debug(
-                "Pulled %d pending items (iteration=%d, hasMore=%s)",
-                len(items),
-                iteration,
-                has_more,
+        req = _make_req("node.pending.pull", {})
+        await ws.send(json.dumps(req))
+        msg = await self._await_res(ws, req["id"], "node.pending.pull")
+        if msg is None:
+            # Correlation timed out; treat as empty drain and let the
+            # event loop continue. Whatever was queued will redeliver
+            # on the next connect.
+            return
+        if not msg.get("ok"):
+            _LOG.warning("node.pending.pull failed: %r", msg.get("error"))
+            return
+        payload_obj_raw = msg.get("payload")
+        if not isinstance(payload_obj_raw, dict):
+            _LOG.warning(
+                "node.pending.pull returned non-object payload (got %s); treating as empty drain",
+                type(payload_obj_raw).__name__,
             )
-            for item in items:
-                # Canonical NodePendingDrainResult.items[] is an envelope:
-                #   {id: str, payload: {invoke}, ...}
-                # Anything off that shape (non-dict item, missing/non-string
-                # id, missing/non-dict payload) is a schema violation — skip
-                # without ack so the gateway can retry/expire it. Log the
-                # specific reason so operators can debug the gateway side.
-                if not isinstance(item, dict):
-                    _LOG.warning(
-                        "skipping malformed pending item: not an object, got %s",
-                        type(item).__name__,
-                    )
-                    continue
-                item_id = item.get("id")
-                if not isinstance(item_id, str) or not item_id:
-                    _LOG.warning(
-                        "skipping malformed pending item: id missing or not a string (got %r)",
-                        item_id,
-                    )
-                    continue
-                payload = item.get("payload")
-                if not isinstance(payload, dict):
-                    _LOG.warning(
-                        "skipping malformed pending item id=%s: "
-                        "payload missing or non-dict (got %s)",
-                        item_id,
-                        type(payload).__name__,
-                    )
-                    continue
-                await self._handle_invoke(ws, payload)
-                await self._ack_pending(ws, item_id)
-            if not has_more:
-                return
-        _LOG.warning(
-            "node.pending.pull bailing after %d iterations (gateway still reports hasMore); "
-            "remaining items will be redelivered on next connect",
-            _PENDING_PULL_MAX_ITERATIONS,
-        )
+            return
+        # Accept both the canonical "actions" field and the legacy
+        # "items" field so the addon survives a gateway that hasn't
+        # rolled out the rename yet (or a future re-rename).
+        actions_raw = payload_obj_raw.get("actions")
+        if actions_raw is None:
+            actions_raw = payload_obj_raw.get("items", [])
+        actions: list[Any] = actions_raw or []
+        _LOG.debug("Pulled %d pending actions", len(actions))
+        for action in actions:
+            # Canonical action envelope is the invoke payload itself:
+            #   {id, command, paramsJSON, enqueuedAtMs}
+            # Anything off that shape is a schema violation -- skip without
+            # ack so the gateway can retry/expire.
+            if not isinstance(action, dict):
+                _LOG.warning(
+                    "skipping malformed pending action: not an object, got %s",
+                    type(action).__name__,
+                )
+                continue
+            action_id = action.get("id")
+            if not isinstance(action_id, str) or not action_id:
+                _LOG.warning(
+                    "skipping malformed pending action: id missing or not a string (got %r)",
+                    action_id,
+                )
+                continue
+            if not isinstance(action.get("command"), str) or not action["command"]:
+                _LOG.warning(
+                    "skipping malformed pending action id=%s: command missing or not a string",
+                    action_id,
+                )
+                continue
+            # Canonical pending.pull may carry `paramsJSON: null` for
+            # commands without params (NodeInvokeParamsSchema.params is
+            # Optional; the gateway maps that to JSON null). The live
+            # invoke-event schema requires a non-empty string, so
+            # `_decode_invoke_params` rejects null. Normalize to "{}" so
+            # the dispatcher sees an empty-params invoke instead of
+            # INVALID_PARAMS — otherwise the ack below would silently drop
+            # a valid queued no-param invoke.
+            params_json = action.get("paramsJSON")
+            if params_json is None or params_json == "":
+                action = {**action, "paramsJSON": "{}"}
+            await self._handle_invoke(ws, action)
+            await self._ack_pending(ws, action_id)
 
     async def _ack_pending(
         self, ws: websockets.asyncio.client.ClientConnection, invoke_id: str
