@@ -77,13 +77,16 @@ async def test_relay_turn_success() -> None:
 
         await asyncio.sleep(0.01)
 
-        # Simulate session.message event (assistant reply) before chat.send response
-        relay.handle_event(_session_message_event(session_key, "assistant", "Hello from Clawd!"))
-
-        # Respond to chat.send
+        # Respond to chat.send (#128: per-turn state installs only AFTER
+        # ack now, so events must arrive after the ack to be captured).
         send_frame = sender.frames[2]
         assert send_frame["method"] == "chat.send"
         relay.handle_response(_ok_response(send_frame["id"]))
+
+        await asyncio.sleep(0.01)
+
+        # Simulate session.message event (assistant reply) AFTER chat.send ack.
+        relay.handle_event(_session_message_event(session_key, "assistant", "Hello from Clawd!"))
 
     task = asyncio.create_task(_simulate_gateway())
     reply = await relay.relay_turn(conv_id, "Hello")
@@ -785,11 +788,13 @@ async def test_relay_turn_uses_canonical_key_from_subscribe_response() -> None:
             )
         )
         await asyncio.sleep(0.01)
+        # Ack chat.send first (#128 ordering), then deliver event.
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
         # Event arrives under the canonical key (NOT the raw key).
         relay.handle_event(
             _session_message_event(canonical_session_key, "assistant", "Reply via canonical key")
         )
-        relay.handle_response(_ok_response(sender.frames[2]["id"]))
 
     task = asyncio.create_task(_simulate_gateway())
     reply = await relay.relay_turn(conv_id, "hey")
@@ -814,8 +819,9 @@ async def test_relay_turn_second_turn_skips_create() -> None:
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
-        relay.handle_event(_session_message_event(session_key, "assistant", "First reply"))
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_session_message_event(session_key, "assistant", "First reply"))
 
     task = asyncio.create_task(_first())
     await relay.relay_turn(conv_id, "Turn 1")
@@ -827,10 +833,11 @@ async def test_relay_turn_second_turn_skips_create() -> None:
     # Second turn -- only chat.send, no create/subscribe
     async def _second() -> None:
         await asyncio.sleep(0.01)
-        relay.handle_event(_session_message_event(session_key, "assistant", "Second reply"))
         send_frame = sender.frames[first_count]
         assert send_frame["method"] == "chat.send"
         relay.handle_response(_ok_response(send_frame["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_session_message_event(session_key, "assistant", "Second reply"))
 
     task = asyncio.create_task(_second())
     reply = await relay.relay_turn(conv_id, "Turn 2")
@@ -953,9 +960,10 @@ async def test_create_session_already_exists() -> None:
         # subscribe succeeds
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
-        # chat.send succeeds
-        relay.handle_event(_session_message_event(session_key, "assistant", "Still works"))
+        # chat.send succeeds (event arrives AFTER ack per #128 ordering)
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_session_message_event(session_key, "assistant", "Still works"))
 
     task = asyncio.create_task(_respond())
     reply = await relay.relay_turn(conv_id, "Test")
@@ -1189,16 +1197,18 @@ async def test_concurrent_turns_serialized() -> None:
         # First turn: subscribe
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
-        # First turn: chat.send reply + ack
-        relay.handle_event(_session_message_event(session_key, "assistant", "Reply 1"))
+        # First turn: chat.send ack then reply event (#128 ordering)
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_session_message_event(session_key, "assistant", "Reply 1"))
         order.append("turn1_done")
 
         await asyncio.sleep(0.05)
         # Second turn: chat.send (no create/subscribe)
         idx = len(sender.frames) - 1
-        relay.handle_event(_session_message_event(session_key, "assistant", "Reply 2"))
         relay.handle_response(_ok_response(sender.frames[idx]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_session_message_event(session_key, "assistant", "Reply 2"))
         order.append("turn2_done")
 
     task = asyncio.create_task(_respond_all())
@@ -1215,34 +1225,28 @@ async def test_concurrent_turns_serialized() -> None:
 
 
 @pytest.mark.asyncio
-async def test_pre_ack_event_with_new_run_id() -> None:
-    """Pre-ack event with a new runId on turn 2 is not rejected as stale."""
+async def test_turn_boundary_stale_event_does_not_leak_into_next_turn() -> None:
+    """Regression for #128: a turn-1 trailer event arriving after turn-1
+    completed but before turn-2's chat.send ack MUST NOT be routed into
+    turn-2's reply waiter. Before the fix the queue/reply_event for
+    turn-2 was installed BEFORE chat.send awaited, so any late event
+    with runId=run-old (turn-1's id) leaked into turn-2 — dumping the
+    prior turn's text as turn-2's reply."""
     sender = FakeSender()
     relay = ChatRelay(sender.send)
 
-    conv_id = "conv-preack"
+    conv_id = "conv-stale-leak"
     session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
 
-    # Turn 1: sets _active_run_id to "run-old"
+    # Turn 1: completes normally with runId run-old.
     async def _first() -> None:
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[0]["id"]))
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[1]["id"]))
         await asyncio.sleep(0.01)
-        relay.handle_event(_session_message_event(session_key, "assistant", "T1"))
         relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-old"}))
-
-    task = asyncio.create_task(_first())
-    await relay.relay_turn(conv_id, "Turn 1")
-    await task
-
-    assert relay._active_run_id.get(session_key) == "run-old"
-
-    # Turn 2: event with run-new arrives BEFORE chat.send ack
-    async def _second() -> None:
-        await asyncio.sleep(0.01)
-        # Pre-ack event with new runId (active_run_id cleared at turn start)
+        await asyncio.sleep(0.005)
         relay.handle_event(
             {
                 "type": "event",
@@ -1250,19 +1254,188 @@ async def test_pre_ack_event_with_new_run_id() -> None:
                 "payload": {
                     "sessionKey": session_key,
                     "role": "assistant",
-                    "message": "T2 reply",
-                    "runId": "run-new",
+                    "message": "T1 reply",
+                    "runId": "run-old",
                 },
             }
         )
+
+    task = asyncio.create_task(_first())
+    r1 = await relay.relay_turn(conv_id, "Turn 1")
+    await task
+    assert r1 == "T1 reply"
+    assert relay._active_run_id.get(session_key) == "run-old"
+
+    # Turn 2: a stale trailer chat event from run-old fires BEFORE turn-2's
+    # chat.send ack returns. It MUST be filtered (runId mismatch) and
+    # MUST NOT appear in turn-2's reply.
+    async def _second() -> None:
+        await asyncio.sleep(0.01)
+        # Stale trailer from prior run, before turn-2 ack:
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": session_key,
+                    "role": "assistant",
+                    "state": "final",
+                    "runId": "run-old",
+                    "message": {"role": "assistant", "content": "STALE T1 LEAK"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        # Now turn-2's chat.send ack with the new runId
         send_frame = sender.frames[3]
+        assert send_frame["method"] == "chat.send"
         relay.handle_response(_ok_response(send_frame["id"], {"runId": "run-new"}))
+        await asyncio.sleep(0.005)
+        # Real turn-2 reply arrives with the new runId
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": session_key,
+                    "role": "assistant",
+                    "runId": "run-new",
+                    "message": "T2 reply",
+                },
+            }
+        )
 
     task = asyncio.create_task(_second())
-    reply = await relay.relay_turn(conv_id, "Turn 2")
+    r2 = await relay.relay_turn(conv_id, "Turn 2")
     await task
 
-    assert reply == "T2 reply"
+    assert r2 == "T2 reply", f"Stale turn-1 trailer leaked into turn-2: {r2!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_two_turns_both_stream_deltas() -> None:
+    """Regression for #128: turn-2 of a multi-turn streaming conversation
+    must also yield per-delta chunks, not dump the full text as a single
+    chunk. Before the fix, the queue was installed before chat.send
+    awaited, so late turn-1 events could leak into turn-2 and the
+    terminal-without-deltas fallback fired."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVHTWOTURNSTREAM"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    chunks_t1: list[str | StreamKeepalive] = []
+    chunks_t2: list[str | StreamKeepalive] = []
+
+    async def _drive_t1() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))  # create
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-t1"}))
+        await asyncio.sleep(0.005)
+        for delta in ["Hello", " ", "world"]:
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "deltaText": delta,
+                        "runId": "run-t1",
+                        "message": {"role": "assistant", "content": "ignored"},
+                    },
+                }
+            )
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-t1",
+                    "message": {"role": "assistant", "content": "Hello world"},
+                },
+            }
+        )
+
+    async def _consume_t1() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks_t1.append(chunk)
+
+    await asyncio.gather(_consume_t1(), _drive_t1())
+    assert chunks_t1 == ["Hello", " ", "world"], chunks_t1
+
+    # Turn 2: same conversation_id, only chat.send is sent.
+    base = len(sender.frames)
+
+    async def _drive_t2() -> None:
+        await asyncio.sleep(0.01)
+        # A stale turn-1 terminal arrives BEFORE turn-2 ack — must be ignored.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-t1",  # stale!
+                    "message": {"role": "assistant", "content": "STALE LEAK"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        send_frame = sender.frames[base]
+        assert send_frame["method"] == "chat.send"
+        relay.handle_response(_ok_response(send_frame["id"], {"runId": "run-t2"}))
+        await asyncio.sleep(0.005)
+        for delta in ["Great", "!"]:
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "deltaText": delta,
+                        "runId": "run-t2",
+                        "message": {"role": "assistant", "content": "ignored"},
+                    },
+                }
+            )
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-t2",
+                    "message": {"role": "assistant", "content": "Great!"},
+                },
+            }
+        )
+
+    async def _consume_t2() -> None:
+        async for chunk in relay.stream_turn(conv_id, "follow-up"):
+            chunks_t2.append(chunk)
+
+    await asyncio.gather(_consume_t2(), _drive_t2())
+    # Turn-2 must stream as deltas (not a single dumped chunk) and must
+    # NOT contain the stale turn-1 leak text.
+    assert chunks_t2 == ["Great", "!"], chunks_t2
+    assert "STALE LEAK" not in "".join(c for c in chunks_t2 if isinstance(c, str))
 
 
 @pytest.mark.asyncio
@@ -1317,3 +1490,311 @@ async def test_event_ignored_when_no_turn_active() -> None:
 
     relay.handle_event(_session_message_event(key, "assistant", "Stale!"))
     assert key not in relay._last_assistant_text
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_send_failure_after_subscribe() -> None:
+    """#128 path: if the WS send raises after sessions.create/subscribe
+    succeeded, relay_turn raises RELAY_FAILED and per-turn state is
+    cleaned up so the next turn isn't poisoned by the pending sentinel."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-send-fail"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    # Drive create+subscribe normally, then break send before chat.send.
+    original_send = sender.send
+    send_count = {"n": 0}
+
+    async def _send_then_break(frame: dict[str, Any]) -> None:
+        send_count["n"] += 1
+        if send_count["n"] >= 3:  # third call = chat.send
+            raise ConnectionError("WS broke")
+        await original_send(frame)
+
+    relay._send = _send_then_break
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+
+    task = asyncio.create_task(_respond())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn(conv_id, "hi")
+    await task
+
+    assert exc_info.value.code == "RELAY_FAILED"
+    # The pending-run sentinel must have been cleaned up.
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id
+    assert canonical not in relay._reply_events
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_send_failure_after_subscribe() -> None:
+    """#128 path: same as above for the streaming variant — the queue,
+    yielded-chars counter, and pending-run sentinel must all be cleaned
+    up when the chat.send WS write fails."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-stream-send-fail"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    original_send = sender.send
+    send_count = {"n": 0}
+
+    async def _send_then_break(frame: dict[str, Any]) -> None:
+        send_count["n"] += 1
+        if send_count["n"] >= 3:
+            raise ConnectionError("WS broke")
+        await original_send(frame)
+
+    relay._send = _send_then_break
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+
+    task = asyncio.create_task(_respond())
+    with pytest.raises(ChatRelayError) as exc_info:
+        async for _chunk in relay.stream_turn(conv_id, "hi"):
+            pass
+    await task
+
+    assert exc_info.value.code == "RELAY_FAILED"
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id
+    assert canonical not in relay._delta_queues
+    assert canonical not in relay._stream_yielded_chars
+
+
+@pytest.mark.asyncio
+async def test_chat_send_timeout_cleans_pending_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#128 path: if chat.send ack never arrives, the per-turn TIMEOUT
+    error path must clear the pending-run sentinel so a subsequent turn
+    is not permanently blocked by a non-matching active_run."""
+    import openclaw_node.chat_relay as cr_mod
+
+    monkeypatch.setattr(cr_mod, "_TURN_TIMEOUT_S", 0.05)
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-ack-timeout"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _respond_partial() -> None:
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        # chat.send ack intentionally never sent
+
+    task = asyncio.create_task(_respond_partial())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn(conv_id, "hi")
+    await task
+
+    assert exc_info.value.code == "TIMEOUT"
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id
+    assert canonical not in relay._reply_events
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_cancelled_during_chat_send_cleans_sentinel() -> None:
+    """#128 Codex follow-up: if the task is cancelled while awaiting the
+    chat.send ack, the pending-run sentinel + reply_event must not strand
+    behind, or all future events for the session would be dropped."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-cancel"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _respond_partial() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        # No chat.send ack — caller will be cancelled.
+
+    drive = asyncio.create_task(_respond_partial())
+    turn_task = asyncio.create_task(relay.relay_turn(conv_id, "hi"))
+
+    # Wait until chat.send is in flight, then cancel.
+    for _ in range(50):
+        await asyncio.sleep(0.005)
+        if len(sender.frames) >= 3:
+            break
+    turn_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await turn_task
+    await drive
+
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id, (
+        "pending-run sentinel must be cleaned up on cancellation"
+    )
+    assert canonical not in relay._reply_events
+    assert not relay._pending
+    assert not relay._chat_send_canonical
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> None:
+    """PR #129 re-review: after turn 2's chat.send ack installs a real
+    runId, but BEFORE any same-run event arrives, a delayed prior-turn
+    runId-less ``session.message`` must NOT be accepted as turn 2's
+    terminal. Previously ``stale_repeat_session`` only blocked it once a
+    terminal had already been captured for turn 2, leaving an open
+    window from ack→first-real-event. On STREAMING turns the gate
+    requires at least one event tagged with the active runId to have
+    been observed before accepting a runId-less ``session.message`` as
+    terminal."""
+    relay = ChatRelay(FakeSender().send)
+    key = "agent:clawd:ha-assist:post-ack-race"
+
+    # Simulate post-ack state: real active_run installed, streaming
+    # consumer present, no terminal captured yet, no same-run event yet.
+    relay._active_run_id[key] = "run-t2"
+    relay._seen_same_run_event[key] = False
+    queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
+    relay._delta_queues[key] = queue
+    relay._stream_yielded_chars[key] = 0
+
+    # Delayed prior-turn session.message arrives with NO runId before
+    # any same-run event for turn 2. Must be dropped.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "STALE TURN-1 TRAILER",
+            },
+        }
+    )
+
+    assert key not in relay._terminal_assistant_text, (
+        "runId-less session.message must not terminal-complete a streaming "
+        "turn before any same-run event has been observed"
+    )
+    assert queue.empty(), "the stale trailer must not be pushed onto the stream consumer's queue"
+
+    # Now a legitimate same-run event arrives — flag flips, and a
+    # subsequent runId-less session.message (the trailing transcript-only
+    # terminal) is accepted as belonging to this turn.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "chat",
+            "payload": {
+                "sessionKey": key,
+                "state": "delta",
+                "deltaText": "Hi",
+                "runId": "run-t2",
+                "message": {"role": "assistant", "content": "Hi"},
+            },
+        }
+    )
+    assert relay._seen_same_run_event[key] is True
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "Hi there",
+            },
+        }
+    )
+    assert relay._terminal_assistant_text[key] == "Hi there"
+
+
+@pytest.mark.asyncio
+async def test_session_message_without_run_id_after_terminal_is_filtered() -> None:
+    """#128 Codex follow-up: once a terminal has been captured for the
+    current turn, a follow-up session.message WITHOUT runId is treated
+    as a stale trailer from the prior turn and dropped, not allowed to
+    overwrite the captured reply or re-fire the reply event."""
+    relay = ChatRelay(FakeSender().send)
+    key = "agent:clawd:ha-assist:session-trailer"
+
+    # Simulate post-ack state: real active_run, reply_event installed,
+    # terminal already captured for this turn.
+    relay._active_run_id[key] = "run-current"
+    relay._reply_events[key] = asyncio.Event()
+    relay._terminal_assistant_text[key] = "current reply"
+    relay._last_assistant_text[key] = "current reply"
+
+    # A late runId-less session.message from the prior turn arrives.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "STALE PRIOR TURN TEXT",
+            },
+        }
+    )
+
+    # Captured terminal must be untouched and reply_event must NOT fire.
+    assert relay._terminal_assistant_text[key] == "current reply"
+    assert not relay._reply_events[key].is_set()
+
+
+@pytest.mark.asyncio
+async def test_handle_response_chat_send_ack_applies_run_id_synchronously() -> None:
+    """#128 core invariant: when the chat.send ack carries a runId,
+    handle_response sets _active_run_id BEFORE returning so any
+    same-batch event processed next sees the new active runId. This
+    test fakes the gateway sequence: pending sentinel installed →
+    handle_response on chat.send ack (replaces sentinel) → handle_event
+    with new runId arrives and is accepted (would have been dropped if
+    the sentinel were still in place)."""
+    relay = ChatRelay(FakeSender().send)
+    canonical = "agent:clawd:ha-assist:sync-apply"
+
+    # Simulate the pending sentinel state established by _stream_turn_locked.
+    relay._active_run_id[canonical] = "__pending_chat_send_ack__"
+    relay._reply_events[canonical] = asyncio.Event()
+    req_id = "req-chat-send-1"
+    fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+    relay._pending[req_id] = fut
+    relay._chat_send_canonical[req_id] = canonical
+
+    # Drive the chat.send ack.
+    handled = relay.handle_response(
+        {"type": "res", "id": req_id, "ok": True, "payload": {"runId": "run-new"}}
+    )
+    assert handled is True
+    # The sentinel MUST be replaced before the future resolves to the
+    # awaiter (this is the whole point of the fix).
+    assert relay._active_run_id[canonical] == "run-new"
+
+    # Same-batch event with the new runId is now accepted.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": canonical,
+                "role": "assistant",
+                "runId": "run-new",
+                "message": "Hi from new run",
+            },
+        }
+    )
+    assert relay._terminal_assistant_text[canonical] == "Hi from new run"
