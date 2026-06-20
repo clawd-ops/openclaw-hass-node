@@ -26,7 +26,11 @@ from openclaw_node.commands.fs_write import (
     handle_fs_write,
 )
 from openclaw_node.commands.ha import (
+    handle_ha_addon_changelog,
+    handle_ha_addon_documentation,
+    handle_ha_addon_info,
     handle_ha_addon_logs,
+    handle_ha_addon_stats,
     handle_ha_call_service,
     handle_ha_check_config,
     handle_ha_get_state,
@@ -88,6 +92,10 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.check_config": handle_ha_check_config,
     "ha.addon_logs": handle_ha_addon_logs,
     "ha.list_addons": handle_ha_list_addons,
+    "ha.addon_info": handle_ha_addon_info,
+    "ha.addon_stats": handle_ha_addon_stats,
+    "ha.addon_changelog": handle_ha_addon_changelog,
+    "ha.addon_documentation": handle_ha_addon_documentation,
 }
 
 

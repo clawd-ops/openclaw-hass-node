@@ -22,6 +22,10 @@ Commands in this module:
 - ``ha.check_config``         — validate HA configuration.yaml.
 - ``ha.addon_logs``           — fetch Supervisor add-on logs (read-only).
 - ``ha.list_addons``          — list Supervisor add-ons with slug + state (read-only).
+- ``ha.addon_info``           — per-addon metadata, options STRIPPED (read-only).
+- ``ha.addon_stats``          — per-addon CPU/memory/network/io numbers (read-only).
+- ``ha.addon_changelog``      — per-addon changelog markdown (read-only).
+- ``ha.addon_documentation``  — per-addon documentation markdown (read-only).
 """
 
 from __future__ import annotations
@@ -588,3 +592,213 @@ async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
         addons.append({field: entry.get(field) for field in _ADDON_FIELDS})
 
     return {"ok": True, "count": len(addons), "addons": addons}
+
+
+# Fields kept from Supervisor /addons/<slug>/info.
+#
+# DELIBERATELY OMITTED — these can leak operator-private state:
+#   - "options"        : current option VALUES (passwords, tokens, URLs, paths).
+#   - "schema"         : option SCHEMA can reveal field names (e.g. "mqtt_password",
+#                        "api_key_for_x"), which alone leak what integrations are
+#                        configured. Drop entirely rather than partially exposing.
+#   - "hostname"       : container hostname can leak naming conventions.
+#   - "ip_address"     : internal Docker network IP.
+#   - "host_network"   : whether the addon shares host networking.
+#   - "ports"          : configured host port mapping.
+#   - "ports_description"
+#   - "auth_api" / "homeassistant_api" / "hassio_api" / "hassio_role" / "host_dbus"
+#     / "host_ipc" / "host_pid" / "kernel_modules" / "privileged" / "devicetree"
+#     / "audio" / "video" / "gpio" / "usb" / "uart" / "stdin" — capability flags
+#     reveal what the addon is allowed to touch (security-relevant attack surface
+#     mapping).
+#   - "logo" / "icon" / "url" raw URLs — keeping name/description is enough; URLs
+#     can sometimes point at private repositories.
+#   - "discovery" / "services" / "webui" — internal service-discovery wiring.
+#   - "long_description" — generally safe but unbounded; included summary only.
+#
+# Kept fields are addon-metadata that are either public (slug/name/version/state/
+# repository — also visible in the public addon registry) or shape-only (boot,
+# startup, stage, arch, machine, update_available, ingress, ingress_port) and
+# don't depend on operator-private configuration.
+_ADDON_INFO_FIELDS: Final[tuple[str, ...]] = (
+    "slug",
+    "name",
+    "state",
+    "description",
+    "version",
+    "version_latest",
+    "update_available",
+    "repository",
+    "boot",
+    "startup",
+    "stage",
+    "arch",
+    "machine",
+    "ingress",
+    "ingress_port",
+)
+
+
+async def handle_ha_addon_info(params: dict[str, Any]) -> dict[str, Any]:
+    """Return public-safe metadata for a single Supervisor add-on.
+
+    Hits ``GET http://supervisor/addons/<slug>/info``. Read-only by
+    construction. Returns ONLY a fixed allowlist of fields that cannot leak
+    operator-private state — see the ``_ADDON_INFO_FIELDS`` definition above for
+    the full kept-vs-dropped policy and the security rationale.
+
+    In particular, the addon's current option VALUES (``options``) and the
+    option SCHEMA (``schema``) are dropped at the boundary. Even schema field
+    *names* are dropped because they can reveal which integrations are
+    configured (e.g. a ``mqtt_password`` schema field implies MQTT auth is
+    active). If a future caller needs option-aware introspection, that is a
+    separate, admin-gated command — not part of this read-only surface.
+
+    Params:
+        slug (str): Required; Supervisor add-on slug (validated against
+            ``_valid_addon_slug``). ``"self"`` returns this node's own info.
+
+    Returns:
+        ``{ok: True, slug, info}`` where ``info`` is a dict of the allowlisted
+        fields (missing source fields surface as ``None``), or an error dict.
+    """
+    slug = str(params.get("slug", "")).strip()
+    if not slug:
+        return _error("MISSING_PARAM", "slug is required")
+    if not _valid_addon_slug(slug):
+        return _error("INVALID_PARAM", f"invalid addon slug: {slug!r}")
+
+    try:
+        raw = await supervisor_get_json(f"/addons/{slug}/info")
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /addons/<slug>/info")
+    data = raw.get("data")
+    if not isinstance(data, dict):
+        return _error("HA_BAD_RESPONSE", "Supervisor /addons/<slug>/info response missing 'data'")
+
+    info = {field: data.get(field) for field in _ADDON_INFO_FIELDS}
+    return {"ok": True, "slug": slug, "info": info}
+
+
+# Supervisor /addons/<slug>/stats returns numeric utilisation fields. All of
+# these are operational metrics, not user-configurable state, so they're safe
+# to pass through. We still allowlist explicitly so a future Supervisor
+# release that adds a sensitive field (e.g. environment dump) does not leak by
+# default.
+_ADDON_STATS_FIELDS: Final[tuple[str, ...]] = (
+    "cpu_percent",
+    "memory_usage",
+    "memory_limit",
+    "memory_percent",
+    "network_rx",
+    "network_tx",
+    "blk_read",
+    "blk_write",
+)
+
+
+async def handle_ha_addon_stats(params: dict[str, Any]) -> dict[str, Any]:
+    """Return runtime resource stats for a single Supervisor add-on.
+
+    Hits ``GET http://supervisor/addons/<slug>/stats``. Read-only by
+    construction. Returns an allowlisted subset of utilisation metrics
+    (``_ADDON_STATS_FIELDS``); any future Supervisor field is dropped by
+    default so a release that adds a sensitive field cannot leak through.
+
+    Params:
+        slug (str): Required; Supervisor add-on slug. ``"self"`` returns this
+            node's own stats.
+
+    Returns:
+        ``{ok: True, slug, stats}`` with the allowlisted metric fields, or an
+        error dict.
+    """
+    slug = str(params.get("slug", "")).strip()
+    if not slug:
+        return _error("MISSING_PARAM", "slug is required")
+    if not _valid_addon_slug(slug):
+        return _error("INVALID_PARAM", f"invalid addon slug: {slug!r}")
+
+    try:
+        raw = await supervisor_get_json(f"/addons/{slug}/stats")
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /addons/<slug>/stats")
+    data = raw.get("data")
+    if not isinstance(data, dict):
+        return _error("HA_BAD_RESPONSE", "Supervisor /addons/<slug>/stats response missing 'data'")
+
+    stats = {field: data.get(field) for field in _ADDON_STATS_FIELDS}
+    return {"ok": True, "slug": slug, "stats": stats}
+
+
+# Markdown bodies (changelog + documentation) can be large; cap at a similar
+# 1 MiB trailing window to the addon_logs path. Both endpoints return text.
+_ADDON_DOC_MAX_BYTES: Final[int] = 1_048_576
+
+
+async def handle_ha_addon_changelog(params: dict[str, Any]) -> dict[str, Any]:
+    """Return the changelog markdown for a single Supervisor add-on.
+
+    Hits ``GET http://supervisor/addons/<slug>/changelog``. Read-only by
+    construction. Truncates to a bounded 1 MiB trailing window via
+    :func:`supervisor_get_text` so a runaway changelog cannot blow the wire
+    response size.
+
+    Params:
+        slug (str): Required; Supervisor add-on slug.
+
+    Returns:
+        ``{ok: True, slug, changelog}`` with the markdown body as text, or an
+        error dict. ``HA_NOT_FOUND`` if the addon doesn't publish a changelog.
+    """
+    slug = str(params.get("slug", "")).strip()
+    if not slug:
+        return _error("MISSING_PARAM", "slug is required")
+    if not _valid_addon_slug(slug):
+        return _error("INVALID_PARAM", f"invalid addon slug: {slug!r}")
+
+    try:
+        body = await supervisor_get_text(
+            f"/addons/{slug}/changelog", max_bytes=_ADDON_DOC_MAX_BYTES
+        )
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    return {"ok": True, "slug": slug, "changelog": body}
+
+
+async def handle_ha_addon_documentation(params: dict[str, Any]) -> dict[str, Any]:
+    """Return the documentation markdown for a single Supervisor add-on.
+
+    Hits ``GET http://supervisor/addons/<slug>/documentation``. Read-only by
+    construction. Bounded at 1 MiB trailing window via
+    :func:`supervisor_get_text`.
+
+    Params:
+        slug (str): Required; Supervisor add-on slug.
+
+    Returns:
+        ``{ok: True, slug, documentation}`` with the markdown body as text,
+        or an error dict. ``HA_NOT_FOUND`` if the addon doesn't publish
+        documentation.
+    """
+    slug = str(params.get("slug", "")).strip()
+    if not slug:
+        return _error("MISSING_PARAM", "slug is required")
+    if not _valid_addon_slug(slug):
+        return _error("INVALID_PARAM", f"invalid addon slug: {slug!r}")
+
+    try:
+        body = await supervisor_get_text(
+            f"/addons/{slug}/documentation", max_bytes=_ADDON_DOC_MAX_BYTES
+        )
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    return {"ok": True, "slug": slug, "documentation": body}
