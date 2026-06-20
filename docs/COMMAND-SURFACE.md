@@ -42,7 +42,7 @@ mode). Path traversal and symlink escape are blocked by `safe_fd.py`.
 | `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (15 commands)
+## `ha.*` — Home Assistant control (16 commands)
 
 | Command                   | Args / Notes                           |
 |---------------------------|----------------------------------------|
@@ -60,6 +60,7 @@ mode). Path traversal and symlink escape are blocked by `safe_fd.py`.
 | `ha.light_turn_off`       | `entity_id` or `area_id` or `device_id` |
 | `ha.list_automations`     | `include_traces?`; filters to `automation.` prefix |
 | `ha.check_config`         | Validates HA core config before reload |
+| `ha.addon_logs`           | `slug`, `lines?` (1–5000, default 200); Supervisor add-on logs, read-only; trims from a bounded 1 MiB trailing byte window |
 
 ## Planned (not yet registered)
 

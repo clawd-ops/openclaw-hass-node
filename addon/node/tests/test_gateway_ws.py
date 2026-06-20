@@ -114,6 +114,7 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.light_turn_off",
         "ha.list_automations",
         "ha.check_config",
+        "ha.addon_logs",
     ]
 
 

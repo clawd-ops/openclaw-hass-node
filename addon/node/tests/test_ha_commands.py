@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from openclaw_node.commands.ha import (
+    handle_ha_addon_logs,
     handle_ha_call_service,
     handle_ha_check_config,
     handle_ha_get_state,
@@ -704,3 +705,68 @@ async def test_check_config_missing_result_field_defaults_unknown() -> None:
         result = await handle_ha_check_config({})
     assert result["ok"] is True
     assert result["result"] == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_logs
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_logs_missing_slug() -> None:
+    result = await handle_ha_addon_logs({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+@pytest.mark.parametrize("slug", ["bad slug", "../etc", "with/slash", "a" * 200, ""])
+async def test_addon_logs_invalid_slug(slug: str) -> None:
+    result = await handle_ha_addon_logs({"slug": slug})
+    assert result["error"] in ("INVALID_PARAM", "MISSING_PARAM")
+
+
+async def test_addon_logs_returns_trimmed_tail() -> None:
+    body = "\n".join(f"line {i}" for i in range(500))
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        return_value=body,
+    ) as fake:
+        result = await handle_ha_addon_logs({"slug": "fcccfbbd_openclaw_hass_node", "lines": 50})
+    assert result["ok"] is True
+    assert result["slug"] == "fcccfbbd_openclaw_hass_node"
+    assert result["lines"] == 50
+    assert result["log"].splitlines()[0] == "line 450"
+    assert result["log"].splitlines()[-1] == "line 499"
+    assert fake.call_args.kwargs["max_bytes"] == 1_048_576
+
+
+async def test_addon_logs_lines_clamped() -> None:
+    body = "single line"
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        return_value=body,
+    ):
+        result = await handle_ha_addon_logs({"slug": "self", "lines": 999999})
+    assert result["ok"] is True
+    assert result["lines"] == 1
+
+
+async def test_addon_logs_lines_bad_type() -> None:
+    result = await handle_ha_addon_logs({"slug": "self", "lines": "many"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_addon_logs_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_addon_logs({"slug": "self"})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_addon_logs_supervisor_404() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("HA_NOT_FOUND", "addon not found"),
+    ):
+        result = await handle_ha_addon_logs({"slug": "does_not_exist"})
+    assert result["error"] == "HA_NOT_FOUND"

@@ -27,6 +27,7 @@ import aiohttp
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT_S: Final[float] = 10.0
+_SUPERVISOR_TEXT_MAX_BYTES: Final[int] = 1_048_576
 
 
 class HAClientError(Exception):
@@ -221,6 +222,64 @@ async def ha_ws_call(
     except aiohttp.ClientError as exc:
         _LOG.error("ha_ws_call network error %s: %s", msg_type, exc)
         raise HAClientError("HA_NETWORK", f"WS network error: {exc}") from exc
+
+
+async def supervisor_get_text(
+    path: str,
+    *,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+    max_bytes: int = _SUPERVISOR_TEXT_MAX_BYTES,
+) -> str:
+    """GET *path* on the Supervisor REST API and return bounded text.
+
+    Used for endpoints that return non-JSON payloads (notably ``/addons/<slug>/logs``,
+    which returns plain text journald output). Requires ``SUPERVISOR_TOKEN`` — the
+    long-lived HA bearer token cannot reach the Supervisor proper. For large
+    responses, only the trailing ``max_bytes`` are retained.
+
+    Args:
+        path: Path under the Supervisor root, e.g. ``"/addons/self/logs"``.
+            Must begin with ``/``.
+        timeout_s: Per-request timeout.
+        max_bytes: Maximum trailing bytes to retain before UTF-8 decoding.
+
+    Returns:
+        The bounded response body as text.
+
+    Raises:
+        HAClientError: ``SUPERVISOR_UNAVAILABLE`` when ``SUPERVISOR_TOKEN`` is not
+            set; otherwise network/HTTP error codes mirroring :func:`ha_get`.
+    """
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        raise HAClientError(
+            "SUPERVISOR_UNAVAILABLE",
+            "Supervisor API requires SUPERVISOR_TOKEN; not set in this environment.",
+        )
+    url = f"http://supervisor{path}"
+    headers = {"Authorization": f"Bearer {token}"}
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(url, headers=headers) as resp,
+        ):
+            if resp.status == 401:
+                raise HAClientError("HA_AUTH", "Supervisor rejected the token (401)")
+            if resp.status == 404:
+                raise HAClientError("HA_NOT_FOUND", f"Supervisor returned 404 for {path}")
+            if resp.status >= 400:
+                body = (await resp.text())[:512]
+                raise HAClientError("HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body}")
+            tail = bytearray()
+            async for chunk in resp.content.iter_chunked(65_536):
+                tail.extend(chunk)
+                if len(tail) > max_bytes:
+                    del tail[: len(tail) - max_bytes]
+            return tail.decode("utf-8", errors="replace")
+    except aiohttp.ClientError as exc:
+        _LOG.error("supervisor_get_text network error %s: %s", url, exc)
+        raise HAClientError("HA_NETWORK", f"Network error contacting Supervisor: {exc}") from exc
 
 
 async def _decode(resp: aiohttp.ClientResponse) -> Any:
