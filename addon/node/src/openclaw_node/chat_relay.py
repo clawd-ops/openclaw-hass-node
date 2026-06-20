@@ -32,8 +32,46 @@ from typing import Any, Final
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _TURN_TIMEOUT_S: Final[float] = 30.0
+_STREAM_TURN_TIMEOUT_S: Final[float] = 180.0
 _RPC_TIMEOUT_S: Final[float] = 10.0
 _SESSION_KEY_PREFIX: Final[str] = "ha-assist:"
+
+# HA Assist has a hard ~30s read timeout on the conversation stream.
+# On tool-heavy turns the gateway can go silent for tens of seconds
+# between chat.send ack and the first assistant delta while it runs
+# tool calls - HA sees a quiet NDJSON stream, times out, and surfaces
+# "node not responding" to the user even though we eventually get a
+# reply. To keep the stream alive we emit one short user-visible
+# progress delta after _STREAM_FIRST_KEEPALIVE_S of silence, then
+# transport-only keepalive sentinels every _STREAM_KEEPALIVE_INTERVAL_S
+# of continued silence. Real assistant deltas reset the timer so fast
+# turns never see a progress/keepalive frame.
+#
+# CRITICAL: the keepalive is yielded as a distinct sentinel
+# (StreamKeepalive), NOT as an assistant-text chunk. http_api wraps it
+# as a `{"keepalive": true}` NDJSON frame and the HA shim ignores
+# those frames when accumulating the assistant content. If we yielded
+# keepalives as text they would be persisted as part of the saved
+# assistant message in HA's conversation log — Codex review #129
+# follow-up catch.
+_STREAM_FIRST_KEEPALIVE_S: Final[float] = 8.0
+_STREAM_KEEPALIVE_INTERVAL_S: Final[float] = 15.0
+_STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
+
+
+class StreamKeepalive:
+    """Sentinel yielded by ChatRelay.stream_turn to request a keepalive.
+
+    Transport-only — http_api emits ``{"keepalive": true}`` on the
+    wire when this is yielded, and the HA shim skips those frames
+    when accumulating the assistant reply so they never appear in
+    the saved message.
+    """
+
+    __slots__ = ()
+
+
+_STREAM_KEEPALIVE: Final[StreamKeepalive] = StreamKeepalive()
 
 
 class ChatRelayError(Exception):
@@ -111,16 +149,21 @@ class ChatRelay:
         conversation_id: str,
         text: str,
         language: str = "en",  # noqa: ARG002
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | StreamKeepalive]:
         """Relay one Assist turn and yield assistant text as it streams.
 
         Implements the streaming half of the HA conversation API: each
         gateway ``chat`` event with ``state='delta'`` yields its
         ``deltaText`` (the NEW chunk, not the cumulative text). The
         ``state='final'`` (or ``session.message``) event closes the
-        iterator after yielding any tail that wasn't covered by deltas
-        (typically empty when deltas have been flowing, or the full
-        message text when a session.message arrives without deltas).
+        iterator after yielding any tail that wasn't covered by deltas.
+
+        On tool-heavy turns where the gateway stays silent past the HA
+        Assist read timeout this iterator also yields ``StreamKeepalive``
+        sentinels to signal "transport-only keepalive needed" — the
+        http wire layer converts those into ``{"keepalive": true}``
+        NDJSON frames that the HA shim ignores when accumulating the
+        assistant reply. Keepalives are NOT user-visible content.
 
         Args:
             conversation_id: HA conversation id.
@@ -128,7 +171,8 @@ class ChatRelay:
             language: BCP-47 language tag (informational).
 
         Yields:
-            Each delta chunk in the order received.
+            ``str`` for each real assistant content chunk and
+            ``StreamKeepalive`` sentinels during silent gaps.
 
         Raises:
             ChatRelayError: On subscribe / chat.send failure. Errors during
@@ -143,9 +187,9 @@ class ChatRelay:
 
     async def _stream_turn_locked(
         self, session_key: str, conversation_id: str, text: str
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | StreamKeepalive]:
         """Inner streaming turn under the per-session lock."""
-        deadline = asyncio.get_event_loop().time() + _TURN_TIMEOUT_S
+        deadline = asyncio.get_event_loop().time() + _STREAM_TURN_TIMEOUT_S
 
         canonical_key = self._canonical_by_raw.get(session_key)
         if canonical_key is None or canonical_key not in self._subscribed:
@@ -187,9 +231,19 @@ class ChatRelay:
         if run_id:
             self._active_run_id[canonical_key] = run_id
 
+        # Keepalive bookkeeping: time of the last real assistant delta (or
+        # the start of the wait, if no delta has yielded yet). The first
+        # silent-gap timeout yields a user-visible progress delta so HA
+        # chat shows that work is still happening. Later silent-gap
+        # timeouts yield transport-only keepalives to avoid cluttering the
+        # transcript.
+        loop = asyncio.get_event_loop()
+        last_yield_time = loop.time()
+        sent_keepalive_count = 0
         try:
             while True:
-                remaining = deadline - asyncio.get_event_loop().time()
+                now = loop.time()
+                remaining = deadline - now
                 if remaining <= 0:
                     # Best-effort: drain whatever is queued without further
                     # waiting, then close.
@@ -201,15 +255,54 @@ class ChatRelay:
                             raise item
                         yield item
                     return
+
+                # Time of the next keepalive: the first fires
+                # _STREAM_FIRST_KEEPALIVE_S after the last real delta,
+                # subsequent ones every _STREAM_KEEPALIVE_INTERVAL_S
+                # thereafter.
+                next_keepalive_at = (
+                    last_yield_time
+                    + _STREAM_FIRST_KEEPALIVE_S
+                    + sent_keepalive_count * _STREAM_KEEPALIVE_INTERVAL_S
+                )
+                wait_budget = min(remaining, max(next_keepalive_at - now, 0.0))
+                # Floor avoids asyncio.timeout rejecting a 0/negative
+                # budget when the keepalive deadline has just passed.
+                wait_budget = max(wait_budget, 0.001)
+
                 try:
-                    async with asyncio.timeout(remaining):
+                    async with asyncio.timeout(wait_budget):
                         item = await queue.get()
                 except TimeoutError:
-                    return
+                    # No real delta in the window. If the overall turn
+                    # deadline has elapsed, close out. Otherwise emit one
+                    # visible progress delta, then hidden keepalives.
+                    if loop.time() >= deadline:
+                        return
+                    if sent_keepalive_count == 0:
+                        yield _STREAM_PROGRESS_DELTA
+                    else:
+                        # Yield the transport-only sentinel. http_api
+                        # converts to a `{"keepalive": true}` NDJSON
+                        # frame that the HA shim skips for accumulation
+                        # — the user-visible assistant reply is NOT
+                        # affected by keepalives.
+                        yield _STREAM_KEEPALIVE
+                    sent_keepalive_count += 1
+                    # last_yield_time is NOT reset on progress/keepalives:
+                    # the cadence is measured from the last REAL assistant
+                    # delta so the n-th keepalive lands on a predictable
+                    # interval after gateway silence began.
+                    continue
+
                 if item is None:
                     return  # terminal sentinel
                 if isinstance(item, ChatRelayError):
                     raise item  # disconnect / fatal-stream sentinel
+                # Real delta resets the keepalive baseline so a stream
+                # of fast deltas suppresses keepalives entirely.
+                last_yield_time = loop.time()
+                sent_keepalive_count = 0
                 yield item
         finally:
             self._delta_queues.pop(canonical_key, None)

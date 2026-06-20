@@ -1,5 +1,13 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.19b2 (2026-06-20) — Slow-turn progress for HA Assist streaming
+
+### Fixes
+- **Slow-turn progress keeps HA Assist's stream alive.** HA Assist enforces a ~30s read timeout on the conversation stream. On tool-heavy turns the gateway can stay silent for tens of seconds between `chat.send` ack and the first assistant delta while it runs tool calls (calendar lookups, file reads, web searches). HA closed the stream during that gap and the user saw "node not responding" even though the real reply landed later — short conversational turns worked fine, "what is my schedule" / "how do the tanks look" did not. `ChatRelay.stream_turn` now emits one visible `Working on it...` progress delta after `_STREAM_FIRST_KEEPALIVE_S` (8s) of silence, then transport-only keepalive frames every `_STREAM_KEEPALIVE_INTERVAL_S` (15s) thereafter. The HACS shim now uses a read-gap timeout instead of a fixed 35s total request timeout, and streaming relay turns can run up to 180s. Real assistant deltas reset the timer so fast turns never see progress noise. New tests: `test_stream_turn_emits_keepalive_during_silent_gap`, `test_stream_turn_no_keepalive_on_fast_turn`, and `test_assist_turn_stream_emits_keepalive_frames`.
+
+### Known issues / follow-ups
+- **#128 follow-up turn-boundary race** — first identified during this release cycle, still on a follow-up branch. The original #128 fix closed the pre-`chat.send`-ack stale-trailer window; the post-ack window (a `runId`-less `session.message` arriving from the prior turn's broker queue after the new turn's ack but before its real terminal) remains open. Cleanly closing it requires either gateway-side coordination to put `runId` on `session.message` events, or a follow-up-turn detection signal that doesn't depend on a captured terminal. Tracked separately; not blocking this beta.
+
 ## 2026.6.19b1 (2026-06-20) — HA Assist streaming + beta promotion
 
 ### Features
