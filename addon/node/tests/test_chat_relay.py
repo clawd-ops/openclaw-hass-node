@@ -93,6 +93,134 @@ async def test_relay_turn_success() -> None:
 
 
 @pytest.mark.asyncio
+async def test_relay_turn_waits_for_final_not_first_delta() -> None:
+    """Regression for #118 part 2: gateway streams the assistant reply as
+    state='delta' chat events followed by a single state='final' event with
+    the complete text. The relay must wait for the final event, NOT wake on
+    the first delta (which truncates the reply to whatever short prefix was
+    in the first chunk). Symptom: "Hey" worked because short, "I'm Cl" /
+    "Not" truncated mid-word on a15."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH92VMPH2FQYTEFZSRWDM40"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _simulate_gateway() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))  # sessions.create
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))  # chat.send ack
+        await asyncio.sleep(0.01)
+        # Streaming deltas — must NOT wake the reply waiter mid-stream.
+        for partial in ["I'm", "I'm Clawd", "I'm Clawd, Rob's"]:
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "message": {"role": "assistant", "content": partial},
+                    },
+                }
+            )
+            await asyncio.sleep(0.005)
+        # Terminal event with the COMPLETE text — this is what the relay
+        # should return.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "message": {
+                        "role": "assistant",
+                        "content": "I'm Clawd, Rob's AI assistant.",
+                    },
+                },
+            }
+        )
+
+    task = asyncio.create_task(_simulate_gateway())
+    reply = await relay.relay_turn(conv_id, "who are you?")
+    await task
+
+    # Must return the FINAL text, not the first delta.
+    assert reply == "I'm Clawd, Rob's AI assistant."
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_delta_before_ack_does_not_truncate() -> None:
+    """Codex review catch on #118 part 2: a partial delta arriving BEFORE
+    the chat.send ack lands must not short-circuit the fast-path return.
+    Without separate terminal-text tracking, the post-ack check sees the
+    delta in _last_assistant_text and returns it as the reply."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH9DELTAFIRST"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _simulate_gateway() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        # Streaming delta BEFORE chat.send ack arrives.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "message": {"role": "assistant", "content": "OK"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        # NOW the chat.send ack.
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        # Then the terminal event with full text.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "message": {
+                        "role": "assistant",
+                        "content": "OK, here is the full answer.",
+                    },
+                },
+            }
+        )
+
+    task = asyncio.create_task(_simulate_gateway())
+    reply = await relay.relay_turn(conv_id, "Q")
+    await task
+
+    assert reply == "OK, here is the full answer."
+
+
+@pytest.mark.asyncio
 async def test_relay_turn_uses_canonical_key_from_subscribe_response() -> None:
     """Regression for #118: the gateway's subscribe response carries a
     canonical sessionKey (e.g. ``agent:clawd:ha-assist:...`` lowercased) and

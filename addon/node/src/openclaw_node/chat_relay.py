@@ -78,7 +78,15 @@ class ChatRelay:
         # the in-event lookup matches.
         self._canonical_by_raw: dict[str, str] = {}
         self._subscribed: set[str] = set()  # canonical keys
+        # Running buffer — overwritten by every assistant event (deltas
+        # included). Used as the BEST-EFFORT fallback when the turn times
+        # out without ever seeing a terminal event.
         self._last_assistant_text: dict[str, str] = {}  # canonical keys
+        # Only populated by TERMINAL events (chat state='final' / no state,
+        # or session.message). This is what the fast-path post-ack return
+        # checks so a delta arriving before chat.send acks doesn't truncate
+        # the reply.
+        self._terminal_assistant_text: dict[str, str] = {}  # canonical keys
         self._reply_events: dict[str, asyncio.Event] = {}  # canonical keys
         self._active_run_id: dict[str, str] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
@@ -121,6 +129,7 @@ class ChatRelay:
             canonical_key = await self._ensure_session(session_key, conversation_id)
 
         self._last_assistant_text.pop(canonical_key, None)
+        self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id.pop(canonical_key, None)
 
         reply_event = asyncio.Event()
@@ -154,7 +163,11 @@ class ChatRelay:
         if run_id:
             self._active_run_id[canonical_key] = run_id
 
-        reply = self._last_assistant_text.get(canonical_key, "")
+        # Fast-path: a TERMINAL event already arrived between subscribe and
+        # ack. Only checks the terminal-text dict; a partial delta in
+        # _last_assistant_text MUST NOT short-circuit here or we'd return
+        # a truncated reply (Codex review catch).
+        reply = self._terminal_assistant_text.get(canonical_key, "")
         if reply:
             self._reply_events.pop(canonical_key, None)
             return reply
@@ -168,7 +181,12 @@ class ChatRelay:
                 pass
         self._reply_events.pop(canonical_key, None)
 
-        reply = self._last_assistant_text.get(canonical_key, "")
+        # Terminal text wins; fall back to the last delta as a best-effort
+        # truncated reply only when the turn timed out without ever seeing
+        # the terminal event.
+        reply = self._terminal_assistant_text.get(
+            canonical_key, ""
+        ) or self._last_assistant_text.get(canonical_key, "")
         if not reply:
             raise ChatRelayError(
                 "NO_REPLY",
@@ -446,6 +464,25 @@ class ChatRelay:
             return
 
         self._last_assistant_text[session_key] = text
+        # Only fire the reply waiter on a TERMINAL event:
+        #   - chat events with state='final' (gateway's emitChatFinal, carries
+        #     the complete assistant message text)
+        #   - session.message events (no `state` field, emitted once per
+        #     committed assistant message)
+        # ``chat`` events with state='delta' carry partial / streaming text
+        # and would otherwise wake the waiter mid-stream, returning a
+        # truncated reply (the "I'm Cl" / "Not" / "OK" symptoms from #118
+        # part 2 on v2026.6.8a15).
+        state = payload.get("state")
+        is_terminal_chat = event != "session.message" and (state == "final" or state is None)
+        is_session_message = event == "session.message"
+        if not (is_terminal_chat or is_session_message):
+            return
+        # Record this as the terminal text. The fast-path return in
+        # _relay_turn_locked checks this dict (not the running
+        # _last_assistant_text buffer) so a delta arriving before the
+        # chat.send ack can't truncate the reply.
+        self._terminal_assistant_text[session_key] = text
         reply_evt = self._reply_events.get(session_key)
         if reply_evt is not None:
             reply_evt.set()
@@ -463,6 +500,7 @@ class ChatRelay:
         self._canonical_by_raw.clear()
         self._subscribed.clear()
         self._last_assistant_text.clear()
+        self._terminal_assistant_text.clear()
         for evt in self._reply_events.values():
             evt.set()
         self._reply_events.clear()
