@@ -535,6 +535,165 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stream_turn_emits_keepalive_during_silent_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#129 follow-up: on tool-heavy turns the gateway can go silent for
+    tens of seconds between chat.send ack and the first assistant delta.
+    HA Assist's ~30s read timeout closes the stream during that gap and
+    the user sees 'node not responding' even though the real reply
+    arrives later. The keepalive emits a short progress delta after a
+    configurable silence window so HA's read timer resets and the
+    stream stays alive long enough for the real reply.
+    """
+    # Shrink the keepalive timings so the test runs fast.
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_KEEPALIVE_GAP"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-slow"}))
+        # Long silence — simulates the gateway running tool calls
+        # before generating any assistant text. Must be > a few
+        # _STREAM_FIRST_KEEPALIVE_S / _STREAM_KEEPALIVE_INTERVAL_S
+        # so at least one keepalive fires.
+        await asyncio.sleep(0.20)
+        # Now the real reply arrives.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "Real reply",
+                    "runId": "run-slow",
+                    "message": {"role": "assistant", "content": "Real reply"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-slow",
+                    "message": {"role": "assistant", "content": "Real reply"},
+                },
+            }
+        )
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "long question"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    # At least one keepalive must fire during the silent gap, and the
+    # real reply must still arrive at the consumer in the right order.
+    keepalives = [c for c in chunks if "Working" in c or "still working" in c]
+    real_chunks = [c for c in chunks if c == "Real reply"]
+    assert keepalives, f"expected ≥1 keepalive during silent gap, got: {chunks!r}"
+    assert real_chunks == ["Real reply"], f"real reply lost: {chunks!r}"
+    # First keepalive comes before the real reply.
+    assert chunks.index(keepalives[0]) < chunks.index("Real reply")
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_no_keepalive_on_fast_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fast turns (deltas streaming continuously) must NOT see any
+    keepalive deltas — they'd be noise in HA's chat UI.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    # Keepalive must NOT fire within the test window. Set it well
+    # above the test's total duration.
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_FAST_TURN"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-fast"}))
+        await asyncio.sleep(0.005)
+        for delta in ["Hi", " there", "!"]:
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "deltaText": delta,
+                        "runId": "run-fast",
+                        "message": {"role": "assistant", "content": "ignored"},
+                    },
+                }
+            )
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-fast",
+                    "message": {"role": "assistant", "content": "Hi there!"},
+                },
+            }
+        )
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["Hi", " there", "!"], f"keepalive leaked into a fast turn: {chunks!r}"
+
+
+@pytest.mark.asyncio
 async def test_relay_turn_delta_before_ack_does_not_truncate() -> None:
     """Codex review catch on #118 part 2: a partial delta arriving BEFORE
     the chat.send ack lands must not short-circuit the fast-path return.
@@ -1147,6 +1306,138 @@ async def test_turn_boundary_stale_event_does_not_leak_into_next_turn() -> None:
     await task
 
     assert r2 == "T2 reply", f"Stale turn-1 trailer leaked into turn-2: {r2!r}"
+
+
+@pytest.mark.asyncio
+async def test_post_ack_runid_less_stale_session_message_dropped() -> None:
+    """Regression for #129 Codex finding: the original #128 fix only
+    closed the pre-ack window. After turn-N+1's chat.send ack installs
+    the new active_run, a runId-less session.message arriving from the
+    prior turn (broker delivery race) was still accepted as long as
+    _terminal_assistant_text was empty (it had just been cleared by the
+    turn install). That dumped the prior turn's reply text into the new
+    turn's terminal buffer and woke the fast-path waiter with stale
+    content.
+
+    Sequence: turn-1 completes → turn-2 ack with run-new → STALE
+    runId-less session.message arrives BEFORE any run-new event →
+    real run-new reply arrives. The stale must be dropped.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-post-ack-leak"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    # Turn 1 completes normally — this sets _has_prior_terminal so the
+    # stale-orphan check applies to turn 2.
+    async def _first() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-old"}))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": session_key,
+                    "role": "assistant",
+                    "message": "T1 reply",
+                    "runId": "run-old",
+                },
+            }
+        )
+
+    task = asyncio.create_task(_first())
+    r1 = await relay.relay_turn(conv_id, "Turn 1")
+    await task
+    assert r1 == "T1 reply"
+
+    # Turn 2: the dangerous ordering Codex flagged.
+    async def _second() -> None:
+        await asyncio.sleep(0.01)
+        send_frame = sender.frames[3]
+        assert send_frame["method"] == "chat.send"
+        # 1. Turn-2 ack lands with the new runId.
+        relay.handle_response(_ok_response(send_frame["id"], {"runId": "run-new"}))
+        await asyncio.sleep(0.005)
+        # 2. STALE runId-less session.message from turn-1's broker
+        #    queue arrives BEFORE any run-new event. Pre-fix this
+        #    would populate _terminal_assistant_text with the stale
+        #    text and wake the waiter.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": session_key,
+                    "role": "assistant",
+                    "message": "STALE TRAILER T1 LEAK",
+                    # No runId — simulates the gateway's transcript-only
+                    # terminal pattern. Without scoping by
+                    # _has_prior_terminal + _turn_seen_event_for_run
+                    # this is indistinguishable from a legit terminal.
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        # 3. Real turn-2 reply arrives with the new runId.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": session_key,
+                    "role": "assistant",
+                    "runId": "run-new",
+                    "message": "T2 real reply",
+                },
+            }
+        )
+
+    task = asyncio.create_task(_second())
+    r2 = await relay.relay_turn(conv_id, "Turn 2")
+    await task
+
+    assert r2 == "T2 real reply", (
+        f"Stale post-ack runId-less session.message leaked into turn-2: {r2!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_first_turn_runid_less_session_message_accepted() -> None:
+    """The stale-orphan check must NOT fire on the very first turn —
+    some gateway flows legitimately emit only a runId-less
+    session.message terminal, and there is no prior turn whose trailer
+    could leak. _has_prior_terminal scopes the check correctly.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-first-turn-runidless"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-first"}))
+        await asyncio.sleep(0.005)
+        # Only a runId-less session.message — first turn, no prior
+        # terminal, must be accepted.
+        relay.handle_event(_session_message_event(session_key, "assistant", "First reply"))
+
+    task = asyncio.create_task(_respond())
+    reply = await relay.relay_turn(conv_id, "Hello")
+    await task
+
+    assert reply == "First reply"
 
 
 @pytest.mark.asyncio

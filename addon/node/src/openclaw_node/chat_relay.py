@@ -45,6 +45,20 @@ _SESSION_KEY_PREFIX: Final[str] = "ha-assist:"
 # handle_event after the ack already see the correct runId. Issue #128.
 _PENDING_RUN_ID: Final[str] = "__pending_chat_send_ack__"
 
+# HA Assist has a hard ~30s read timeout on the conversation stream
+# (#129 follow-up). On tool-heavy turns the gateway can go silent for
+# tens of seconds while running tool calls before generating any
+# assistant text — HA sees a quiet NDJSON stream, times out, and
+# surfaces "node not responding" to the user even though we eventually
+# get a reply. To keep the stream alive we emit a short progress delta
+# after _STREAM_FIRST_KEEPALIVE_S of silence, then every
+# _STREAM_KEEPALIVE_INTERVAL_S of continued silence. Real assistant
+# deltas reset the timer so fast turns never see a keepalive.
+_STREAM_FIRST_KEEPALIVE_S: Final[float] = 8.0
+_STREAM_KEEPALIVE_INTERVAL_S: Final[float] = 15.0
+_STREAM_KEEPALIVE_TEXT_FIRST: Final[str] = "🔧 Working on it…\n"
+_STREAM_KEEPALIVE_TEXT_REPEAT: Final[str] = "…still working\n"
+
 
 class ChatRelayError(Exception):
     """Raised when a relay RPC or turn fails."""
@@ -120,6 +134,21 @@ class ChatRelay:
         # for session.message events that arrive without deltas).
         self._stream_yielded_chars: dict[str, int] = {}  # canonical keys
         self._active_run_id: dict[str, str] = {}  # canonical keys
+        # Tracks the runId for which we've already accepted at least one
+        # event in the current turn. Used to disambiguate runId-less
+        # session.message events on FOLLOW-UP turns: in protocol v4
+        # chat-family events always carry the runId, so a runId-less
+        # session.message arriving on a follow-up turn BEFORE we've
+        # seen any event tagged with the current active_run can only
+        # be a stale trailer from the prior turn. Codex review #129
+        # follow-up: closes the post-ack window where a stale
+        # runId-less session.message could populate
+        # _terminal_assistant_text for the wrong turn.
+        self._turn_seen_event_for_run: dict[str, str] = {}  # canonical keys
+        # Set after the first terminal is captured for a session — used
+        # to scope the stale-orphan check to follow-up turns (no stale
+        # trailer can exist on the very first turn).
+        self._has_prior_terminal: set[str] = set()  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -231,6 +260,10 @@ class ChatRelay:
         self._last_assistant_text.pop(canonical_key, None)
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
+        # Clear the seen-event flag for the new turn. handle_event will
+        # re-populate it once an event tagged with the real runId is
+        # accepted (after handle_response replaces the sentinel).
+        self._turn_seen_event_for_run.pop(canonical_key, None)
         self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
@@ -299,9 +332,18 @@ class ChatRelay:
             # also lack a runId and must be accepted.
             self._active_run_id.pop(canonical_key, None)
 
+        # Keepalive bookkeeping: time of the last yielded delta (or the
+        # start of the wait, if no delta has yielded yet). Sets the
+        # baseline for "time since last user-visible activity" — when
+        # that exceeds _STREAM_FIRST_KEEPALIVE_S we emit a progress
+        # delta so HA's read timer resets.
+        loop = asyncio.get_event_loop()
+        last_yield_time = loop.time()
+        sent_keepalive_count = 0
         try:
             while True:
-                remaining = deadline - asyncio.get_event_loop().time()
+                now = loop.time()
+                remaining = deadline - now
                 if remaining <= 0:
                     # Best-effort: drain whatever is queued without further
                     # waiting, then close.
@@ -313,15 +355,55 @@ class ChatRelay:
                             raise item
                         yield item
                     return
+
+                # Compute the next keepalive deadline. The first
+                # keepalive fires _STREAM_FIRST_KEEPALIVE_S after the
+                # last yield; subsequent keepalives fire every
+                # _STREAM_KEEPALIVE_INTERVAL_S thereafter.
+                if sent_keepalive_count == 0:
+                    next_keepalive_at = last_yield_time + _STREAM_FIRST_KEEPALIVE_S
+                else:
+                    next_keepalive_at = (
+                        last_yield_time
+                        + _STREAM_FIRST_KEEPALIVE_S
+                        + sent_keepalive_count * _STREAM_KEEPALIVE_INTERVAL_S
+                    )
+                wait_budget = min(remaining, max(next_keepalive_at - now, 0.0))
+                # Floor at a small positive value so asyncio.timeout
+                # doesn't reject a 0/negative budget when the
+                # keepalive is already due.
+                wait_budget = max(wait_budget, 0.001)
+
                 try:
-                    async with asyncio.timeout(remaining):
+                    async with asyncio.timeout(wait_budget):
                         item = await queue.get()
                 except TimeoutError:
-                    return
+                    # No real delta in the window. Decide whether this
+                    # was the keepalive window expiring or the overall
+                    # turn deadline.
+                    if loop.time() >= deadline:
+                        return
+                    # Emit a keepalive delta so HA sees activity.
+                    if sent_keepalive_count == 0:
+                        yield _STREAM_KEEPALIVE_TEXT_FIRST
+                    else:
+                        yield _STREAM_KEEPALIVE_TEXT_REPEAT
+                    sent_keepalive_count += 1
+                    # Do NOT reset last_yield_time on keepalives — we
+                    # want the cadence to be measured from the last
+                    # REAL delta (or the start of the wait), so the
+                    # n-th keepalive fires at a predictable interval.
+                    continue
+
                 if item is None:
                     return  # terminal sentinel
                 if isinstance(item, ChatRelayError):
                     raise item  # disconnect / fatal-stream sentinel
+                # Real delta: reset the keepalive baseline so a
+                # sequence of fast deltas suppresses keepalives
+                # entirely.
+                last_yield_time = loop.time()
+                sent_keepalive_count = 0
                 yield item
         finally:
             self._delta_queues.pop(canonical_key, None)
@@ -372,6 +454,11 @@ class ChatRelay:
         self._last_assistant_text.pop(canonical_key, None)
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
+        # Match _stream_turn_locked: clear the seen-event flag so a
+        # stale runId-less session.message from the prior turn cannot
+        # populate _terminal_assistant_text for this turn (Codex review
+        # #129 follow-up).
+        self._turn_seen_event_for_run.pop(canonical_key, None)
         reply_event = asyncio.Event()
         self._reply_events[canonical_key] = reply_event
 
@@ -766,7 +853,32 @@ class ChatRelay:
                 and not event_run_id
                 and bool(self._terminal_assistant_text.get(session_key))
             )
-            if mismatched or stale_chat or stale_pending or stale_repeat_session:
+            # Codex review #129 follow-up: even with empty
+            # _terminal_assistant_text, a runId-less session.message
+            # arriving in the post-ack window before any event tagged
+            # with the current active_run has been seen can only be a
+            # stale trailer from the PRIOR turn (gateway emits chat
+            # deltas — which always carry runId in protocol v4 — BEFORE
+            # the session.message terminal). Without this guard a stale
+            # trailer can populate _terminal_assistant_text for the
+            # wrong turn and wake the waiter at the fast-path check.
+            # Scoped to follow-up turns (_has_prior_terminal set) because
+            # on the very first turn no stale trailer can exist, and
+            # some gateway flows legitimately emit only a runId-less
+            # session.message terminal.
+            stale_orphan_session = (
+                is_session_msg
+                and not event_run_id
+                and session_key in self._has_prior_terminal
+                and self._turn_seen_event_for_run.get(session_key) != active_run
+            )
+            if (
+                mismatched
+                or stale_chat
+                or stale_pending
+                or stale_repeat_session
+                or stale_orphan_session
+            ):
                 _LOG.debug(
                     "Ignoring stale event for %s: event=%r runId=%r, active=%r",
                     session_key,
@@ -775,6 +887,13 @@ class ChatRelay:
                     active_run,
                 )
                 return
+
+        # Mark that we've seen ≥1 event for the current active_run.
+        # Subsequent runId-less session.message events on the same
+        # active_run are then allowed (gateway pattern: chat-family
+        # events with runId precede the session.message terminal).
+        if active_run and event_run_id == active_run:
+            self._turn_seen_event_for_run[session_key] = active_run
 
         self._last_assistant_text[session_key] = text
         state = payload.get("state")
@@ -834,6 +953,9 @@ class ChatRelay:
         if not (is_terminal_chat or is_session_message):
             return
         self._terminal_assistant_text[session_key] = text
+        # Mark this session as having had ≥1 completed turn so the
+        # stale-orphan check applies to subsequent turns.
+        self._has_prior_terminal.add(session_key)
         reply_evt = self._reply_events.get(session_key)
         if reply_evt is not None:
             reply_evt.set()
@@ -866,4 +988,6 @@ class ChatRelay:
             evt.set()
         self._reply_events.clear()
         self._active_run_id.clear()
+        self._turn_seen_event_for_run.clear()
+        self._has_prior_terminal.clear()
         self._turn_locks.clear()
