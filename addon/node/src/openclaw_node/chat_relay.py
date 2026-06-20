@@ -120,6 +120,14 @@ class ChatRelay:
         # for session.message events that arrive without deltas).
         self._stream_yielded_chars: dict[str, int] = {}  # canonical keys
         self._active_run_id: dict[str, str] = {}  # canonical keys
+        # True once an event with ``event_run_id == active_run`` has been
+        # seen for the current turn (i.e. after the chat.send ack has
+        # installed a real runId AND the gateway has emitted at least one
+        # event tagged with that runId). Used to close the post-ack /
+        # pre-terminal race window: a delayed prior-turn runId-less
+        # session.message must not be accepted as this turn's terminal
+        # before any same-run evidence has arrived (PR #129 re-review).
+        self._seen_same_run_event: dict[str, bool] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -187,6 +195,7 @@ class ChatRelay:
         # discard a real runId that another concurrent path may have set.
         if self._active_run_id.get(canonical_key) == _PENDING_RUN_ID:
             self._active_run_id.pop(canonical_key, None)
+        self._seen_same_run_event.pop(canonical_key, None)
 
     async def _stream_turn_locked(
         self, session_key: str, conversation_id: str, text: str
@@ -231,6 +240,7 @@ class ChatRelay:
         self._last_assistant_text.pop(canonical_key, None)
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
+        self._seen_same_run_event[canonical_key] = False
         self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
@@ -372,6 +382,7 @@ class ChatRelay:
         self._last_assistant_text.pop(canonical_key, None)
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
+        self._seen_same_run_event[canonical_key] = False
         reply_event = asyncio.Event()
         self._reply_events[canonical_key] = reply_event
 
@@ -766,7 +777,38 @@ class ChatRelay:
                 and not event_run_id
                 and bool(self._terminal_assistant_text.get(session_key))
             )
-            if mismatched or stale_chat or stale_pending or stale_repeat_session:
+            # Post-ack / pre-terminal race (PR #129 re-review): after
+            # the new turn's chat.send ack has installed a real runId,
+            # but before any same-run event has arrived, a delayed
+            # prior-turn runId-less session.message could still
+            # terminal-complete the new turn. Require at least one
+            # event tagged with the active runId before a runId-less
+            # session.message is accepted as terminal — but only on
+            # STREAMING turns (delta-queue consumer). On streaming
+            # turns the gateway always emits chat-delta events tagged
+            # with runId before the trailing session.message, so the
+            # absence of any same-run evidence proves the session.message
+            # cannot belong to this turn. Non-streaming relay_turn
+            # consumers legitimately receive a single runId-less
+            # session.message as the only event (deferred-reply flow),
+            # so the gate must not apply there. If the ack carried no
+            # runId, ``active_run`` was dropped (line 300/431) and this
+            # branch is not reached.
+            is_streaming_turn = session_key in self._delta_queues
+            stale_unconfirmed_session = (
+                is_session_msg
+                and not event_run_id
+                and active_run != _PENDING_RUN_ID
+                and is_streaming_turn
+                and not self._seen_same_run_event.get(session_key, False)
+            )
+            if (
+                mismatched
+                or stale_chat
+                or stale_pending
+                or stale_repeat_session
+                or stale_unconfirmed_session
+            ):
                 _LOG.debug(
                     "Ignoring stale event for %s: event=%r runId=%r, active=%r",
                     session_key,
@@ -775,6 +817,14 @@ class ChatRelay:
                     active_run,
                 )
                 return
+
+            # Mark that we've now seen a same-run event for the active
+            # turn. This allows a subsequent runId-less session.message
+            # terminal (the gateway sometimes omits runId on the
+            # transcript-only trailer — #118) to be accepted as belonging
+            # to this turn rather than a delayed prior-turn trailer.
+            if bool(event_run_id) and event_run_id == active_run and active_run != _PENDING_RUN_ID:
+                self._seen_same_run_event[session_key] = True
 
         self._last_assistant_text[session_key] = text
         state = payload.get("state")
@@ -866,4 +916,5 @@ class ChatRelay:
             evt.set()
         self._reply_events.clear()
         self._active_run_id.clear()
+        self._seen_same_run_event.clear()
         self._turn_locks.clear()

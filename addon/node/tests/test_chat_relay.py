@@ -1486,6 +1486,79 @@ async def test_relay_turn_cancelled_during_chat_send_cleans_sentinel() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> None:
+    """PR #129 re-review: after turn 2's chat.send ack installs a real
+    runId, but BEFORE any same-run event arrives, a delayed prior-turn
+    runId-less ``session.message`` must NOT be accepted as turn 2's
+    terminal. Previously ``stale_repeat_session`` only blocked it once a
+    terminal had already been captured for turn 2, leaving an open
+    window from ack→first-real-event. On STREAMING turns the gate
+    requires at least one event tagged with the active runId to have
+    been observed before accepting a runId-less ``session.message`` as
+    terminal."""
+    relay = ChatRelay(FakeSender().send)
+    key = "agent:clawd:ha-assist:post-ack-race"
+
+    # Simulate post-ack state: real active_run installed, streaming
+    # consumer present, no terminal captured yet, no same-run event yet.
+    relay._active_run_id[key] = "run-t2"
+    relay._seen_same_run_event[key] = False
+    queue: asyncio.Queue[str | None] = asyncio.Queue()
+    relay._delta_queues[key] = queue
+    relay._stream_yielded_chars[key] = 0
+
+    # Delayed prior-turn session.message arrives with NO runId before
+    # any same-run event for turn 2. Must be dropped.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "STALE TURN-1 TRAILER",
+            },
+        }
+    )
+
+    assert key not in relay._terminal_assistant_text, (
+        "runId-less session.message must not terminal-complete a streaming "
+        "turn before any same-run event has been observed"
+    )
+    assert queue.empty(), "the stale trailer must not be pushed onto the stream consumer's queue"
+
+    # Now a legitimate same-run event arrives — flag flips, and a
+    # subsequent runId-less session.message (the trailing transcript-only
+    # terminal) is accepted as belonging to this turn.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "chat",
+            "payload": {
+                "sessionKey": key,
+                "state": "delta",
+                "deltaText": "Hi",
+                "runId": "run-t2",
+                "message": {"role": "assistant", "content": "Hi"},
+            },
+        }
+    )
+    assert relay._seen_same_run_event[key] is True
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "Hi there",
+            },
+        }
+    )
+    assert relay._terminal_assistant_text[key] == "Hi there"
+
+
+@pytest.mark.asyncio
 async def test_session_message_without_run_id_after_terminal_is_filtered() -> None:
     """#128 Codex follow-up: once a terminal has been captured for the
     current turn, a follow-up session.message WITHOUT runId is treated

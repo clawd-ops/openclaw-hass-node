@@ -1,5 +1,10 @@
 # OpenClaw Node Add-on Changelog
 
+## Unreleased
+
+### Fixes
+- **PR #129 re-review — close the post-ack / pre-terminal race for streaming Assist turns.** After turn N's `chat.send` ack installs a real `runId` but before turn N's first same-run event arrives, a delayed prior-turn runId-less `session.message` could still set `_terminal_assistant_text` and wake the waiter, returning the prior turn's reply for the new turn. `ChatRelay.handle_event` now tracks a per-session `_seen_same_run_event` flag (reset at turn start, set when an event tagged with the active `runId` is observed) and drops runId-less `session.message` events on streaming turns until that evidence exists. Non-streaming `relay_turn` consumers (deferred-reply flow with a single runId-less `session.message` terminal) are unaffected. New regression test: `test_stream_turn_post_ack_runid_less_session_message_is_filtered`.
+
 ## 2026.6.19b2 (2026-06-20) — Assist follow-up streaming fix
 
 ### Fixes
