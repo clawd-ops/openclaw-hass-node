@@ -121,11 +121,11 @@ stored approved-commands stays empty and you'll have to
      authenticate.
    - `hass_url` *(optional)*: HA base URL fallback. Leave blank in
      normal Supervisor installs — the node hits `http://supervisor/core`
-     with the Supervisor-injected token. Set when (a) your Supervisor
-     does not inject `SUPERVISOR_TOKEN` despite the add-on's API flags,
-     or (b) you run the same image standalone outside of Supervisor.
-     Example values: `http://homeassistant:8123` from inside the add-on
-     network, or your full external HTTPS URL.
+     with the Supervisor-injected token. Set as the fallback when
+     `SUPERVISOR_TOKEN` is unavailable for any reason and you want HA
+     proxy calls to work via a long-lived token instead. Example values:
+     `http://homeassistant:8123` from inside the add-on network, or
+     your full external HTTPS URL.
    - `hass_token` *(optional)*: Long-lived access token from a HA user
      with the scopes your `ha.*` calls need. Required together with
      `hass_url` whenever you fill that in. Generate at HA → Profile →
@@ -240,50 +240,18 @@ Each release re-runs the local Supervisor build. After updating the
 add-on (app) repo, **Update** the add-on (app) (or **Stop → Rebuild → Start**). The
 device token persists across restarts; you do not need to re-pair.
 
-## Standalone Docker (without Home Assistant Supervisor)
+## Standalone Docker (not supported in alpha)
 
-The same image used by the HA add-on can run as a plain Docker
-container. The `addon/config.yaml` file is HA-Supervisor metadata; it
-is not consulted outside Supervisor, so the standalone path is wired
-entirely through env vars and a published port.
+Standalone Docker — running the addon image outside Home Assistant
+Supervisor — is **not a supported install path while the project is in
+alpha**. The runtime entrypoint (`addon/run.sh`) uses
+`#!/usr/bin/with-contenv sh`, which only resolves inside an HA
+base-python image. Bare `python:3.13-alpine` and other non-HA bases
+will not start (see Issue #109 for the underlying env-injection
+requirement).
 
-```bash
-# Build once
-docker build -t openclaw-hass-node:dev addon/
-
-# Run
-docker run --rm \
-  -e GATEWAY_URL="wss://oc.your-domain/ws" \
-  -e PAIRING_TOKEN="<one-time pairing token>" \
-  -e NODE_NAME="hass" \
-  -e OPENCLAW_LOCAL_API_TOKEN="$(openssl rand -hex 32)" \
-  -v openclaw-hass-node-data:/data \
-  -p 8099:8099 \
-  openclaw-hass-node:dev
-```
-
-Notes:
-- The container always binds `0.0.0.0:8099` inside; the `-p 8099:8099`
-  is what exposes it to the host. Use `-p 127.0.0.1:8099:8099` to bind
-  only to loopback.
-- `OPENCLAW_LOCAL_API_TOKEN` is strongly recommended for standalone
-  Docker — without it the API is open to anything that can reach the
-  published port.
-- `-v openclaw-hass-node-data:/data` persists the device identity and
-  device token across restarts. Without it the node re-pairs on every
-  start.
-- The HA REST snapshot endpoint (`/v1/ha/snapshot`) needs `HASS_URL`
-  and `HASS_TOKEN` env vars in standalone mode (Supervisor injects the
-  equivalents automatically inside HA).
-- Conversation-agent integration in this mode: the HACS shim is a
-  Home Assistant custom component, so it only matters if you have a
-  Home Assistant instance somewhere — but that instance does **not**
-  need to be HAOS/Supervised. HA Container works too. Install HACS in
-  whichever HA you have, install the **OpenClaw Gateway** shim, and
-  point its socket URL at this node (e.g.
-  `http://<node-host>:8099`, plus the same `local_api_token` you set
-  on the node). The default URL targets the HA add-on hostname; the
-  config flow lets you override it.
-- If you have no Home Assistant at all and are only running the node
-  container, gateway-side tool invokes still work as soon as the node
-  is paired/approved — there is just no HA Assist surface to wire up.
+The standalone-mode code paths in `__main__.py` and `ha_client.py` are
+preserved for development on the dev host directly (e.g. `python -m
+openclaw_node` with `HASS_URL` + `HASS_TOKEN` set), but the Docker
+image is HA-only. A first-class standalone deployment story will land
+post-beta.
