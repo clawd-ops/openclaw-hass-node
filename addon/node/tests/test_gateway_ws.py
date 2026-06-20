@@ -13,9 +13,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openclaw_node.config import NodeConfig
-from openclaw_node.gateway_ws import _NODE_COMMANDS, GatewayClient, _make_req
+from openclaw_node.gateway_ws import (
+    _NODE_COMMANDS,
+    GatewayClient,
+    _format_retry_at_utc,
+    _make_req,
+)
 from openclaw_node.identity import generate_identity
-from openclaw_node.pairing import PairingState
+from openclaw_node.pairing import PairingError, PairingState
 
 
 def _find_sent_method(send_mock: AsyncMock, method: str) -> dict[str, Any]:
@@ -116,6 +121,10 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.check_config",
         "ha.addon_logs",
         "ha.list_addons",
+        "ha.addon_info",
+        "ha.addon_stats",
+        "ha.addon_changelog",
+        "ha.addon_documentation",
     ]
 
 
@@ -1033,6 +1042,14 @@ def test_next_reconnect_delay_normal_error_returns_flat_base() -> None:
     assert client._next_reconnect_delay(ConnectionError("network")) == _RECONNECT_DELAY_S
 
 
+def test_next_reconnect_delay_uses_gateway_retry_after_ms() -> None:
+    """Gateway-provided retry metadata wins over generic reconnect backoff."""
+    client = _make_client()
+    exc = PairingError("UNAVAILABLE", "gateway starting", retry_after_ms=1250)
+
+    assert client._next_reconnect_delay(exc) == 1.25
+
+
 def test_next_reconnect_delay_grows_on_rate_limit() -> None:
     """AUTH_RATE_LIMITED triggers exponential backoff that caps."""
     from openclaw_node.gateway_ws import (
@@ -1095,6 +1112,16 @@ def test_next_reconnect_delay_resets_on_non_rate_limit_error() -> None:
 
     other = ConnectionError("network glitch")
     assert client._next_reconnect_delay(other) == _RECONNECT_DELAY_S
+
+
+def test_format_retry_at_utc() -> None:
+    """Reconnect logs include a human-readable UTC retry timestamp."""
+    from datetime import UTC, datetime
+
+    assert (
+        _format_retry_at_utc(90, now=datetime(2026, 6, 20, 17, 0, 0, tzinfo=UTC))
+        == "2026-06-20T17:01:30Z"
+    )
 
 
 # ---- run() reconnect test ----

@@ -35,6 +35,21 @@ def test_fatal_pairing_error() -> None:
     assert machine.state is PairingState.ERROR
 
 
+def test_fatal_pairing_error_preserves_retry_after_ms() -> None:
+    """Gateway retry metadata stays attached to fatal pairing errors."""
+    machine = PairingMachine()
+
+    with pytest.raises(PairingError) as exc_info:
+        machine.on_connect_response(
+            ok=False,
+            error="UNAVAILABLE",
+            error_message="gateway starting; retry shortly",
+            retry_after_ms=500,
+        )
+
+    assert exc_info.value.retry_after_ms == 500
+
+
 def test_reconnect_resets_non_error() -> None:
     """Reconnect resets pending state but preserves fatal errors."""
     machine = PairingMachine()

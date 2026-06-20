@@ -80,9 +80,11 @@ init: false
 # (the local HTTP API authenticates with `local_api_token` directly via
 # `hmac.compare_digest`, not via HA-issued tokens).
 homeassistant_api: true
-# `hassio_api: true`, `hassio_role: admin`, and `auth_api: true` were all
-# removed in PR #68/#69 — nothing shipped today calls those Supervisor
-# surfaces. Re-add only when a real shipped feature needs them.
+hassio_api: true
+hassio_role: manager
+# `hassio_role: manager` is required for the read-only Tier A add-on command
+# surface. Do not add lifecycle mutation commands without a separate admin
+# gate. `auth_api` remains omitted.
 map:
   - config:rw    # fs.* mutations gated by software _is_protected("/config")
                  # → PROPOSAL_REQUIRED before any write/rename/unlink

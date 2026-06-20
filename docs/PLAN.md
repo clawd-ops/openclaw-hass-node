@@ -282,7 +282,7 @@ fits. The node carries no model knowledge.
 
 - Single Docker image. Two run modes:
   - **HA add-on (app)**: `config.yaml` declares slug, mapped volumes,
-    `hassio_api: true`, `hassio_role: admin`, `homeassistant_api: true`.
+    `hassio_api: true`, `hassio_role: manager`, `homeassistant_api: true`.
     Built per HA arch matrix (`amd64`, `aarch64`, `armv7`).
   - **Standalone Docker**: `docker run` with explicit volume mounts and
     `HASS_URL` + `HASS_TOKEN` env. Same entrypoint detects which mode

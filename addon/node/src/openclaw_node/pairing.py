@@ -37,16 +37,18 @@ class PairingError(Exception):
         message: Human-readable error description.
     """
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str, message: str, retry_after_ms: float | None = None) -> None:
         """Initialise with a gateway error code and message.
 
         Args:
             code: Machine-readable error code (e.g. ``"AUTH_FAILED"``).
             message: Human-readable description of the error.
+            retry_after_ms: Optional gateway-provided reconnect delay.
         """
         super().__init__(f"{code}: {message}")
         self.code = code
         self.message = message
+        self.retry_after_ms = retry_after_ms
 
 
 class PairingMachine:
@@ -103,6 +105,7 @@ class PairingMachine:
         payload: dict[str, object] | None = None,
         error: str | None = None,
         error_message: str = "",
+        retry_after_ms: float | None = None,
     ) -> None:
         """Transition state based on a gateway ``connect`` response.
 
@@ -113,6 +116,7 @@ class PairingMachine:
             error_message: Human-readable message (and details) from the
                 gateway's ``error.message`` field, surfaced to logs so the
                 operator can see *why* the connect was rejected.
+            retry_after_ms: Optional gateway-provided reconnect delay.
 
         Raises:
             PairingError: If *ok* is False and the error is not
@@ -135,7 +139,11 @@ class PairingMachine:
             error_message or "(no detail)",
         )
         self._state = PairingState.ERROR
-        raise PairingError(code=code, message=error_message or str(payload or ""))
+        raise PairingError(
+            code=code,
+            message=error_message or str(payload or ""),
+            retry_after_ms=retry_after_ms,
+        )
 
     def on_reconnect(self) -> None:
         """Reset state to UNKNOWN when the WS connection drops.
