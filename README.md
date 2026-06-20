@@ -13,12 +13,12 @@
 > 🕷️ **With great power comes great responsibility.** Installing this
 > add-on hands an AI agent a direct line into your Home Assistant: it can
 > read entity state, call services, control devices, edit files under
-> `/config`/`/share`/`/ssl`/`/addons`/`/media`/`/backup`, fetch addon logs
-> and metadata, and (gated behind `OPENCLAW_ADMIN_TOKEN`) reload HA core
-> config or run shell commands inside the addon container. We sandbox what
-> we can — path-traversal protection, a read-only addon surface that
-> strips secrets at the boundary, admin tokens on the destructive commands
-> — but we are not a tinfoil hat. A misbehaving, jailbroken, or
+> `/config`, `/share`, and `/media`, fetch addon logs and metadata, and
+> (gated behind `OPENCLAW_ADMIN_TOKEN`) reload HA core config or run
+> shell commands inside the addon container. We sandbox what we can —
+> path-traversal protection, a read-only addon surface that strips
+> secrets at the boundary, admin tokens on the destructive commands —
+> but we are not a tinfoil hat. A misbehaving, jailbroken, or
 > well-meaning-but-overconfident agent CAN delete your automations, brick
 > an addon, leak configuration to a chat channel, or otherwise turn your
 > smart home into a smart pile of rubble. **If your agent vaporizes your
@@ -26,7 +26,7 @@
 > catches fire trying to render a chart, that is on you and your agent —
 > not on this project.** Back up `/config` before you pair. Use a
 > least-privilege agent. Pair this with a real backup integration. You
-> have been warned, fellow Spider-person.
+> have been warned.
 
 Home Assistant add-on (app) + HACS shim that connects HA to an [OpenClaw][]
 gateway as a node. Lets your OpenClaw agent (Clawd or whichever agent
