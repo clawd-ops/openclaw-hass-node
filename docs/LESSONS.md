@@ -172,3 +172,50 @@ which issues a bootstrap token bound to `PAIRING_SETUP_BOOTSTRAP_PROFILE`
 When designing anything that calls gateway RPCs from the node: check
 the method's `scope` in `core-descriptors-B9yUgJ17.js`. If it's not
 `node`, it needs an operator connection.
+
+## Gateway caches the node's advertised commands at pair time
+
+Discovered 2026-06-20 while shipping the Tier A addon command surface
+(b3 → b4). The gateway stores the node's advertised `commands` array in
+`~/.openclaw/nodes/paired.json` keyed by `nodeId` **at the original
+pair**. WS reconnects (even after an addon version bump) do NOT refresh
+that cached list. Newly-shipped commands therefore appear in the source,
+the dispatcher, and the node's b4 startup, but the gateway still rejects
+invocations with:
+
+```
+node command not allowed: the node (platform: linux) does not support "ha.<x>"
+```
+
+…and the invoke never reaches the node (no log line at the addon).
+Adding the command to `nodes.allowCommands` in `~/.openclaw/openclaw.json`
+is necessary but NOT sufficient — the per-node cache wins.
+
+**How to refresh the cache when adding new node commands:**
+
+1. Ship + release the command in the node (advertise it from
+   `_NODE_COMMANDS` in `gateway_ws.py`, register the handler in
+   `commands/dispatcher.py`).
+2. Add the command to `nodes.allowCommands` in the operator's gateway
+   config (`~/.openclaw/openclaw.json`).
+3. Restart the addon — NOT just the gateway. `hassio.addon_restart`
+   via HA service call is enough. The gateway-tool soft restart
+   (SIGUSR1 hot-reload) does NOT re-read `paired.json` from the live
+   node. The addon's reconnect handshake is what causes the gateway to
+   rewrite the per-node `commands` cache from the fresh advertise.
+4. Verify with `mcp__openclaw__nodes action=status node=hass` — the
+   live `commands` array should now include the new entries. If it
+   doesn't, the addon image didn't pick up the latest source (HA
+   "Update" sometimes reuses a cached layer — try Rebuild).
+
+Surgical workaround when you can't bounce the addon: directly edit
+`paired.json` to append the missing commands, then hot-reload the
+gateway. Brittle and drift-prone; only use if you understand why a
+proper re-handshake isn't available. The b3→b4 bring-up did this once
+and the addon restart immediately overwrote it (which was the actual
+fix).
+
+Future-Clawd: when a Tier B / new HA-domain command lands and "the node
+does not support" shows up despite a green build and a config push,
+this is almost always why. Don't waste a session debugging the wire
+protocol — restart the addon first.
