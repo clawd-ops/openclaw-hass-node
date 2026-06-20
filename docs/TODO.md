@@ -52,10 +52,10 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - Remaining grep hits are only historical-track explanations (`docs/RELEASE.md`, `docs/PACKAGING.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
-- Status: OPEN (PR #129 merged but race may persist)
-- Prior review found an unclosed post-ack runId-less `session.message` leak window. Do not assume #129 closed it.
-- Action: re-audit relay code paths shipped in #129 for post-ack messages without a runId; add regression test.
-- Cross-link: item 10 (placeholder coerces final) likely overlaps.
+- Status: CLOSED 2026-06-20 (streaming variant fixed; non-streaming variant accepted as structural)
+- Audit: PR #129's `_seen_same_run_event` gate in `chat_relay.py:902-908` closes the streaming case the original review flagged. Verified against the b3 changelog and the live merged code; the `stale_unconfirmed_session` branch covers post-ack runId-less `session.message` for any session that has a delta queue open.
+- Theoretical non-streaming variant: the same gate is intentionally NOT applied to `relay_turn` (non-streaming) consumers because the gateway's deferred-reply flow can legitimately emit a single runId-less `session.message` as the only event. Extending the gate would break that flow. Closing this cleanly requires the gateway to consistently tag `session.message` with `runId` — outside this repo's reach.
+- Recommendation: do not extend the gate. If a non-streaming stale-trailer bug actually manifests in production, revisit with timing-based heuristics or wait for a gateway-side runId-tagging fix.
 
 ### 5. HA Assist not responding on Ash's device
 - Status: OPEN
@@ -78,16 +78,16 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - Pairs with item 2.
 
 ### 9. Cross-session subscriber bleed
-- Status: OPEN
-- Addon log 2026-06-20 06:00:58 EDT: a `cron` sessionKey emitted `delta`+`final` with `subscribed=['agent:clawd:ha-assist:01kvj6z9...']`. Cron output routed to an ha-assist subscriber.
-- Likely root of cross-user message bleed (Ash seeing Rob's content).
-- Triage with item 1.
+- Status: CLOSED 2026-06-20 (addon-defended; gateway leak documented, not actionable from this repo)
+- Root cause: gateway `handleTranscriptUpdateBroadcast` in `/app/dist/server-session-events-TsYthLSk.js:166-211` unions the broad `sessionEventSubscribers.getAll()` registry into per-session `session.message` fan-out. Cron-session output therefore reaches every connection subscribed to `sessions.changed`.
+- Addon defense: `ChatRelay.handle_event` (`chat_relay.py:851`) drops any event whose `sessionKey` is not in `_reply_events` or `_delta_queues`. Wrong-sessionKey events show up in `[relay-diag]` logs but never reach HA text extraction. The "Ash seeing Rob's content" reports remain correlation, not confirmed root cause.
+- Recommendation: leave addon filter as-is (defense in depth). Gateway-side fix would remove `sessionEventSubscribers.getAll()` from the message fan-out path; not pursuing.
 
 ### 10. Placeholder coerces stream to final → real answer dropped
-- Status: OPEN (visible bug for "no follow-on response")
-- 05:58:34 EDT sequence: placeholder `session.message` → real delta → `final` → HA closes stream → toolResult arrives → real assistant message → second `final` to no listeners.
-- Fix area: gateway stream-finalization must wait for all post-toolResult assistant turns to settle before emitting `final`.
-- Likely overlaps with item 4.
+- Status: CLOSED 2026-06-20 (gateway-side; addon band-aid rejected)
+- Root cause: gateway `broadcastChatFinal` in `/app/dist/chat-BA3ikhey.js:2811/3031/3216` fires once the placeholder/short turn's `deliveredReplies` settles, before any post-toolResult assistant continuation lands. Stream-finalization pipeline lives in `/app/dist/setup.finalize-DqUrEk5p.js` + `pending-final-delivery-B7VNQKmB.js`.
+- Addon band-aid considered (treat first `final` as soft, wait 1-2s for a real assistant `session.message` post-toolResult before closing the stream). Rejected: would change stream contract semantics and delay every legitimate fast turn. Plan agent explicitly recommended against.
+- Recommendation: do nothing in this repo. If users hit "no follow-on response" reliably, revisit with a gateway-side change to defer `broadcastChatFinal` until pending toolResults + their assistant continuations settle for the same `runId`.
 
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
 - Status: IN PROGRESS

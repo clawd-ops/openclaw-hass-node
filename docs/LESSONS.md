@@ -219,3 +219,58 @@ Future-Clawd: when a Tier B / new HA-domain command lands and "the node
 does not support" shows up despite a green build and a config push,
 this is almost always why. Don't waste a session debugging the wire
 protocol — restart the addon first.
+
+## Known streaming edge cases (2026-06-20 audit, gateway-side root causes)
+
+Investigated 2026-06-20 for TODO items #4, #9, #10. All three live in
+the gateway (`/app/dist/*.js`), not this repo. None are being patched
+upstream by this project — these are operational notes so future-Clawd
+can recognise the symptoms instead of re-deriving them.
+
+### #4 non-streaming stale-trailer (theoretical, structural)
+
+PR #129 closed the STREAMING variant via the `_seen_same_run_event`
+gate in `chat_relay.py:902-908`. The non-streaming `relay_turn` path
+is intentionally NOT gated because the gateway's deferred-reply flow
+can legitimately emit a single runId-less `session.message` as the
+only event for a turn. Extending the gate would break that flow.
+
+Closing the non-streaming case cleanly requires the gateway to tag
+`session.message` with `runId` consistently. Until then: accept the
+theoretical risk; revisit only if it manifests in production. If it
+does, look for timing-based heuristics (post-ack quiescence period
+before accepting a runId-less terminal) rather than a hard gate.
+
+### #9 cross-session subscriber bleed (gateway leak, addon-defended)
+
+Gateway: `/app/dist/server-session-events-TsYthLSk.js:166-211`
+`handleTranscriptUpdateBroadcast` unions the broad
+`sessionEventSubscribers.getAll()` registry into per-session
+`session.message` fan-out. Cron-session deltas therefore reach every
+connection subscribed to `sessions.changed`.
+
+Addon defense already in place: `ChatRelay.handle_event`
+(`chat_relay.py:851`) drops events whose `sessionKey` is not in
+`_reply_events` or `_delta_queues`. Wrong-sessionKey events show in
+`[relay-diag]` logs but never reach HA text extraction. Don't be
+alarmed by cron sessionKeys in addon logs — they're gateway noise,
+not a user-visible leak.
+
+### #10 placeholder coerces `final` (gateway lifecycle bug)
+
+Gateway: `/app/dist/chat-BA3ikhey.js:2811/3031/3216` →
+`broadcastChatFinal`. Fires when the placeholder/short turn's
+`deliveredReplies` settles, before any post-toolResult assistant
+continuation lands. Real reply arrives after stream is closed; HA
+sees nothing. Stream-finalization pipeline:
+`/app/dist/setup.finalize-DqUrEk5p.js` +
+`pending-final-delivery-B7VNQKmB.js`.
+
+Addon band-aid (treat first `final` as soft, wait 1-2s for a real
+post-toolResult assistant `session.message`) was considered and
+rejected — would change stream contract semantics and delay every
+legitimate fast turn. Don't add it.
+
+If "no follow-on response" reports get reliable, the right fix is
+gateway-side: defer `broadcastChatFinal` until any pending toolResult
++ its assistant continuation settle for the same `runId`.
