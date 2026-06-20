@@ -93,6 +93,48 @@ async def test_relay_turn_success() -> None:
 
 
 @pytest.mark.asyncio
+async def test_relay_turn_uses_canonical_key_from_subscribe_response() -> None:
+    """Regression for #118: the gateway's subscribe response carries a
+    canonical sessionKey (e.g. ``agent:clawd:ha-assist:...`` lowercased) and
+    subsequent events arrive under that canonical form, NOT the raw key the
+    addon sent. The relay must capture the canonical key and use it for
+    internal state, otherwise the receive-side lookup fails and every turn
+    times out with NO_REPLY even though the agent replied."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH867BX32BYWJBQVGDCCG0V"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _simulate_gateway() -> None:
+        await asyncio.sleep(0.01)
+        # sessions.create
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        # sessions.messages.subscribe — RESPONSE carries canonical key
+        sub_frame = sender.frames[1]
+        assert sub_frame["method"] == "sessions.messages.subscribe"
+        relay.handle_response(
+            _ok_response(
+                sub_frame["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        # Event arrives under the canonical key (NOT the raw key).
+        relay.handle_event(
+            _session_message_event(canonical_session_key, "assistant", "Reply via canonical key")
+        )
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+
+    task = asyncio.create_task(_simulate_gateway())
+    reply = await relay.relay_turn(conv_id, "hey")
+    await task
+
+    assert reply == "Reply via canonical key"
+
+
+@pytest.mark.asyncio
 async def test_relay_turn_second_turn_skips_create() -> None:
     """Second turn in the same conversation skips session create."""
     sender = FakeSender()

@@ -70,11 +70,18 @@ class ChatRelay:
         """
         self._send: SendFn = send_fn
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
-        self._subscribed: set[str] = set()
-        self._last_assistant_text: dict[str, str] = {}
-        self._reply_events: dict[str, asyncio.Event] = {}
-        self._active_run_id: dict[str, str] = {}
-        self._turn_locks: dict[str, asyncio.Lock] = {}
+        # Per #118: gateway emits session-message events under a canonical
+        # form of the key (e.g. ``agent:clawd:ha-assist:01kvh...`` lowercased)
+        # which differs from the raw ``ha-assist:01KVH...`` form the addon
+        # sends on subscribe/chat.send. The subscribe response carries the
+        # canonicalKey; we capture it and use it for ALL internal state so
+        # the in-event lookup matches.
+        self._canonical_by_raw: dict[str, str] = {}
+        self._subscribed: set[str] = set()  # canonical keys
+        self._last_assistant_text: dict[str, str] = {}  # canonical keys
+        self._reply_events: dict[str, asyncio.Event] = {}  # canonical keys
+        self._active_run_id: dict[str, str] = {}  # canonical keys
+        self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def relay_turn(
         self,
@@ -109,19 +116,20 @@ class ChatRelay:
         """
         deadline = asyncio.get_event_loop().time() + _TURN_TIMEOUT_S
 
-        if session_key not in self._subscribed:
-            await self._ensure_session(session_key, conversation_id)
+        canonical_key = self._canonical_by_raw.get(session_key)
+        if canonical_key is None or canonical_key not in self._subscribed:
+            canonical_key = await self._ensure_session(session_key, conversation_id)
 
-        self._last_assistant_text.pop(session_key, None)
-        self._active_run_id.pop(session_key, None)
+        self._last_assistant_text.pop(canonical_key, None)
+        self._active_run_id.pop(canonical_key, None)
 
         reply_event = asyncio.Event()
-        self._reply_events[session_key] = reply_event
+        self._reply_events[canonical_key] = reply_event
 
         idempotency_key = str(uuid.uuid4())
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
-            self._reply_events.pop(session_key, None)
+            self._reply_events.pop(canonical_key, None)
             raise ChatRelayError("TIMEOUT", "Turn deadline expired before chat.send")
         try:
             ack = await self._rpc(
@@ -134,21 +142,21 @@ class ChatRelay:
                 timeout=remaining,
             )
         except ChatRelayError:
-            self._reply_events.pop(session_key, None)
+            self._reply_events.pop(canonical_key, None)
             raise
         except Exception as exc:
-            self._reply_events.pop(session_key, None)
+            self._reply_events.pop(canonical_key, None)
             raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
 
         run_id = ""
         if isinstance(ack, dict):
             run_id = str(ack.get("runId", "") or "")
         if run_id:
-            self._active_run_id[session_key] = run_id
+            self._active_run_id[canonical_key] = run_id
 
-        reply = self._last_assistant_text.get(session_key, "")
+        reply = self._last_assistant_text.get(canonical_key, "")
         if reply:
-            self._reply_events.pop(session_key, None)
+            self._reply_events.pop(canonical_key, None)
             return reply
 
         remaining = deadline - asyncio.get_event_loop().time()
@@ -158,22 +166,34 @@ class ChatRelay:
                     await reply_event.wait()
             except TimeoutError:
                 pass
-        self._reply_events.pop(session_key, None)
+        self._reply_events.pop(canonical_key, None)
 
-        reply = self._last_assistant_text.get(session_key, "")
+        reply = self._last_assistant_text.get(canonical_key, "")
         if not reply:
             raise ChatRelayError(
                 "NO_REPLY",
-                f"No assistant reply captured for session {session_key} (runId={run_id})",
+                f"No assistant reply captured for session {session_key} "
+                f"(canonical={canonical_key}, runId={run_id})",
             )
         return reply
 
-    async def _ensure_session(self, session_key: str, conversation_id: str) -> None:
+    async def _ensure_session(self, session_key: str, conversation_id: str) -> str:
         """Create the session and subscribe for messages if not already done.
 
+        Returns the gateway's CANONICAL session key — this is the form the
+        gateway emits in subsequent ``session.message`` / ``chat`` events
+        (e.g. ``agent:clawd:ha-assist:01kvh...`` lowercased) and differs from
+        the raw ``ha-assist:...`` key the addon sends on the request side.
+        Storing internal state under the canonical key is what makes the
+        receive-side lookup work (#118).
+
         Args:
-            session_key: Gateway session key.
+            session_key: Gateway session key (raw form).
             conversation_id: HA conversation id for the label.
+
+        Returns:
+            The canonical session key reported by the gateway, or *session_key*
+            unchanged if the subscribe response did not carry one.
         """
         try:
             await self._rpc(
@@ -194,7 +214,7 @@ class ChatRelay:
                 raise
 
         try:
-            await self._rpc(
+            sub_response = await self._rpc(
                 "sessions.messages.subscribe",
                 {"key": session_key},
                 timeout=_RPC_TIMEOUT_S,
@@ -207,7 +227,21 @@ class ChatRelay:
             )
             raise
 
-        self._subscribed.add(session_key)
+        canonical_key = session_key
+        if isinstance(sub_response, dict):
+            response_key = sub_response.get("key")
+            if isinstance(response_key, str) and response_key:
+                canonical_key = response_key
+
+        if canonical_key != session_key:
+            _LOG.info(
+                "Relay session %r resolved to canonical key %r",
+                session_key,
+                canonical_key,
+            )
+        self._canonical_by_raw[session_key] = canonical_key
+        self._subscribed.add(canonical_key)
+        return canonical_key
 
     async def _rpc(
         self,
@@ -426,6 +460,7 @@ class ChatRelay:
             if not future.done():
                 future.set_exception(ChatRelayError("DISCONNECTED", "Gateway connection lost"))
         self._pending.clear()
+        self._canonical_by_raw.clear()
         self._subscribed.clear()
         self._last_assistant_text.clear()
         for evt in self._reply_events.values():
