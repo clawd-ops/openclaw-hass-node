@@ -1,5 +1,13 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a12 (2026-06-19)
+
+### Bug fixes
+- **#98 part 3 — per-role device-token persistence (#114).** Both gateway WS connections (node + operator) used to share a single `device-token` file. The gateway issues distinct tokens per role on a dual-role pairing, so last-writer-wins clobbered one role's token; on restart that role looped `AUTH_TOKEN_MISMATCH`. Each role now persists to its own `device-token.<role>` file. The legacy `device-token` is auto-migrated to `device-token.node` on first start of a12 (symlinks refused, file relanded at mode 0o600). Also parses `hello-ok.auth.deviceTokens` (the dual-role bootstrap map) so a node-role bootstrap can seed the operator-role token file too. Role names are allowlisted to prevent filename-injection attacks via forged `deviceTokens` keys.
+
+### Migration
+- Upgrading from a8–a11 with a working pair: legacy `/data/openclaw/device-token` is moved to `/data/openclaw/device-token.node` on first start; operator gets a fresh token on its next successful connect via the new dual-role parsing. No user action required.
+
 ## 2026.6.8a11 (2026-06-19)
 
 ### Bug fixes
