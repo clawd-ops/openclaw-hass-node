@@ -312,6 +312,112 @@ async def test_recv_connect_response_wrong_type() -> None:
         await client._recv_connect_response(ws, "req-1")
 
 
+# ---- auth.deviceTokens (sibling-role persistence) tests ----
+
+
+def _client_with_data_dir(tmp_path: Path, role: str = "node") -> GatewayClient:
+    """Build a GatewayClient whose config.data_dir is tmp_path."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="t",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+    )
+    identity = generate_identity()
+    return GatewayClient(
+        config=config,
+        identity=identity,
+        device_token="",
+        role=role,
+        token_persist_path=tmp_path / f"device-token.{role}",
+    )
+
+
+def test_persist_dual_role_tokens_dict_shape(tmp_path: Path) -> None:
+    """``deviceTokens`` as ``{role: token}`` writes each sibling token to its per-role file."""
+    client = _client_with_data_dir(tmp_path, role="node")
+    client._persist_dual_role_tokens({"node": "should-be-skipped", "operator": "op-tok"})
+    assert (tmp_path / "device-token.operator").read_text() == "op-tok"
+    # Current role token is NOT written via this path (singular branch owns it).
+    assert not (tmp_path / "device-token.node").exists()
+
+
+def test_persist_dual_role_tokens_list_shape(tmp_path: Path) -> None:
+    """``deviceTokens`` as ``[{role, token}, ...]`` is accepted equivalently."""
+    client = _client_with_data_dir(tmp_path, role="node")
+    client._persist_dual_role_tokens(
+        [{"role": "operator", "token": "op-tok"}, {"role": "node", "token": "skip"}]
+    )
+    assert (tmp_path / "device-token.operator").read_text() == "op-tok"
+
+
+def test_persist_dual_role_tokens_handles_garbage(tmp_path: Path) -> None:
+    """Malformed entries are ignored without raising."""
+    client = _client_with_data_dir(tmp_path, role="node")
+    client._persist_dual_role_tokens({"operator": "", "": "x"})
+    client._persist_dual_role_tokens(["not-a-dict", {"role": "operator"}, {}])
+    client._persist_dual_role_tokens(None)
+    client._persist_dual_role_tokens([])
+    assert not (tmp_path / "device-token.operator").exists()
+
+
+def test_persist_dual_role_tokens_rejects_path_injection(tmp_path: Path) -> None:
+    """A malformed deviceTokens key must NOT escape the device-token namespace.
+
+    Regression for Codex review on the #98-part-3 PR: an attacker-controlled
+    role string like ``../node-key.json`` would otherwise be passed verbatim
+    into ``device_token_path_for`` and resolve to the device identity file
+    instead of a sibling token file. The allowlist clamps role to known
+    sibling roles only.
+    """
+    client = _client_with_data_dir(tmp_path, role="node")
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    sentinel = tmp_path / "node-key.json"
+    sentinel.write_text("DO_NOT_CLOBBER")
+    client._persist_dual_role_tokens(
+        {
+            "../node-key.json": "evil",
+            "x/../node-key.json": "evil",
+            "operator": "ok-sibling",
+        }
+    )
+    # Sentinel file MUST remain intact; only the allowlisted operator path
+    # was written.
+    assert sentinel.read_text() == "DO_NOT_CLOBBER"
+    assert (tmp_path / "device-token.operator").read_text() == "ok-sibling"
+
+
+async def test_recv_connect_response_persists_sibling_role_tokens(tmp_path: Path) -> None:
+    """A node-role connect that receives auth.deviceTokens must seed operator file."""
+    client = _client_with_data_dir(tmp_path, role="node")
+    ws = AsyncMock()
+    ws.recv = AsyncMock(
+        return_value=json.dumps(
+            {
+                "type": "res",
+                "id": "req-x",
+                "ok": True,
+                "payload": {
+                    "sessionId": "s1",
+                    "auth": {
+                        "deviceToken": "node-primary",
+                        "deviceTokens": {"node": "node-primary", "operator": "op-from-bootstrap"},
+                    },
+                },
+            }
+        )
+    )
+    await client._recv_connect_response(ws, "req-x")
+    # Singular path: node token persisted to its own per-role file.
+    assert (tmp_path / "device-token.node").read_text() == "node-primary"
+    # Plural path: operator token persisted from the deviceTokens map.
+    assert (tmp_path / "device-token.operator").read_text() == "op-from-bootstrap"
+
+
 # ---- _handle_invoke tests ----
 
 

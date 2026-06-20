@@ -115,6 +115,10 @@ _RES_CORRELATION_TIMEOUT_S: Final[float] = 5.0
 # specific `res` id. A pathological flood of events shouldn't trap the
 # loop here indefinitely.
 _RES_CORRELATION_MAX_FRAMES: Final[int] = 256
+# Sibling roles whose tokens may be persisted from auth.deviceTokens. Used
+# as a filename component, so the set is strictly allowlisted to prevent
+# a malformed/forged role string from escaping the device-token namespace.
+_PERSISTABLE_SIBLING_ROLES: Final[frozenset[str]] = frozenset({"node", "operator"})
 
 
 def _decode_error_code(raw: Any) -> str | None:
@@ -616,10 +620,16 @@ class GatewayClient:
             # disconnect after a healthy session doesn't carry the stale
             # rate-limited delay forward.
             self._rate_limited_delay_s = 0.0
-        # On successful connect the gateway may issue a long-lived device_token
-        # in hello-ok.auth.deviceToken. Persist it and use it for subsequent
-        # connects — the original pairing_token from add-on options is one-shot
-        # and rejected once the pairing has been approved.
+        # On successful connect the gateway may issue device tokens in two
+        # shapes:
+        #   - hello-ok.auth.deviceToken   (singular): token for THIS role.
+        #   - hello-ok.auth.deviceTokens  (plural map): {role: token} pairs,
+        #     typically emitted during a dual-role bootstrap so the node-role
+        #     connect can also seed the operator-role file. Without this
+        #     handling, the operator role only learns its token when its own
+        #     connect succeeds — which may not happen if the original
+        #     bootstrap was single-use (#98 part 3 / Codex review on
+        #     auth.deviceTokens).
         if ok and payload is not None:
             auth = payload.get("auth") or {}
             issued = auth.get("deviceToken")
@@ -627,24 +637,83 @@ class GatewayClient:
                 _LOG.info("Gateway issued a new device_token; persisting.")
                 self._device_token = issued
                 self._persist_device_token(issued)
+            self._persist_dual_role_tokens(auth.get("deviceTokens"))
 
-    def _persist_device_token(self, token: str) -> None:
-        """Atomically write the issued device token with mode 0o600.
+    def _persist_dual_role_tokens(self, tokens: Any) -> None:
+        """Persist any sibling-role tokens carried in ``auth.deviceTokens``.
 
-        The bearer token gates every gateway invoke; a 0o644 file under
-        ``/data`` is readable by any other process sharing the namespace,
-        and a symlink at the token (or temp) path could redirect the write
-        outside the data dir. Hardening:
+        Best-effort: parses entries like ``{role: token}`` or ``[{role, token}, ...]``
+        and writes each role's token to ``data_dir/device-token.<role>``,
+        respecting the same on-disk safety as :meth:`_persist_device_token`
+        (atomic replace, 0o600, no symlink follow). Errors are logged and
+        swallowed — failing to seed the sibling shouldn't block this
+        connection.
+
+        The current role's own token is skipped here; the singular
+        ``deviceToken`` branch already handled it via
+        :meth:`_persist_device_token`.
+        """
+        if not tokens:
+            return
+        entries: list[tuple[str, str]] = []
+        if isinstance(tokens, dict):
+            for role, tok in tokens.items():
+                if isinstance(role, str) and isinstance(tok, str) and role and tok:
+                    entries.append((role, tok))
+        elif isinstance(tokens, list):
+            for raw in tokens:
+                if not isinstance(raw, dict):
+                    continue
+                role = raw.get("role")
+                tok = raw.get("token")
+                if isinstance(role, str) and isinstance(tok, str) and role and tok:
+                    entries.append((role, tok))
+        for role, tok in entries:
+            if role == self._role:
+                continue  # already handled by the singular deviceToken branch
+            # Allowlist sibling roles. The role string is used as a filename
+            # suffix, so an attacker-controlled `auth.deviceTokens` with a
+            # role like `../node-key.json` would otherwise escape the
+            # device-token namespace and clobber arbitrary files under
+            # data_dir. Only the two roles the addon actually participates in
+            # are accepted.
+            if role not in _PERSISTABLE_SIBLING_ROLES:
+                _LOG.warning("ignoring deviceTokens entry with unsupported role=%r", role)
+                continue
+            sibling_path = self._config.device_token_path_for(role)
+            try:
+                GatewayClient._atomic_write_token(sibling_path, tok)
+                _LOG.info(
+                    "Gateway issued a %s device_token via deviceTokens; persisted to %s",
+                    role,
+                    sibling_path,
+                )
+            except OSError as exc:
+                _LOG.warning(
+                    "Could not persist sibling %s deviceToken to %s: %s",
+                    role,
+                    sibling_path,
+                    exc,
+                )
+
+    @staticmethod
+    def _atomic_write_token(path: Path, token: str) -> None:
+        """Write *token* to *path* with hardened on-disk safety.
 
         - O_NOFOLLOW on the temp open so an attacker-planted symlink at
-          ``device-token.tmp`` is rejected rather than written through.
+          ``<path>.tmp`` is rejected rather than written through.
         - ``os.fchmod`` immediately after open to force 0o600 even if the
           temp file already existed at a looser mode.
         - ``fsync`` data, ``replace`` atomically, then clean up the temp
           file on a failed replace.
         - Refuse to ``chmod`` the final path if it is a symlink.
+
+        Shared by ``_persist_device_token`` (current role) and
+        ``_persist_dual_role_tokens`` (sibling roles) so they apply the
+        same hardening, and by the startup legacy-migration path in
+        ``__main__`` so the migrated file lands at 0o600 instead of
+        carrying forward whatever mode the legacy file had.
         """
-        path = self._token_persist_path
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".tmp")
         if tmp.is_symlink():
@@ -660,8 +729,6 @@ class GatewayClient:
         try:
             fh = os.fdopen(fd, "w", encoding="utf-8")
         except BaseException:
-            # fdopen failed before it took ownership of fd; close it ourselves
-            # so we don't leak a raw fd into the long-running addon process.
             with contextlib.suppress(OSError):
                 os.close(fd)
             with contextlib.suppress(OSError):
@@ -682,12 +749,20 @@ class GatewayClient:
             with contextlib.suppress(OSError):
                 tmp.unlink()
             raise
-        # Replace preserves the temp file's mode, but be defensive in case
-        # an earlier 0o644 file already existed at `path`. Never chmod
-        # through a symlink.
         if not path.is_symlink():
             with contextlib.suppress(OSError):
                 path.chmod(0o600)
+
+    def _persist_device_token(self, token: str) -> None:
+        """Atomically write THIS client's role token to ``self._token_persist_path``.
+
+        Thin wrapper that delegates to :meth:`_atomic_write_token`, which
+        owns the on-disk safety (O_NOFOLLOW, 0o600, fsync + atomic replace,
+        symlink refusal). Kept as a named method because the call sites
+        treat persistence of the current role's token as a distinct concept
+        from seeding a sibling role's token.
+        """
+        GatewayClient._atomic_write_token(self._token_persist_path, token)
 
     async def _await_approval(self, ws: websockets.asyncio.client.ClientConnection) -> None:
         """Block and process events until the gateway sends pairing approval.
