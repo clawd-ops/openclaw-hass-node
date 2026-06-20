@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from openclaw_node.chat_relay import (
+    _PENDING_RUN_ID,
     _SESSION_KEY_PREFIX,
     ChatRelay,
     ChatRelayError,
@@ -695,6 +696,291 @@ async def test_stream_turn_no_keepalive_on_fast_turn(
     await asyncio.gather(_consume(), _drive())
 
     assert chunks == ["Hi", " there", "!"], f"keepalive leaked into fast turn: {chunks!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TODO item 2: when the operator client advertises ``tool-events`` the
+    gateway broadcasts ``agent``/``session.tool`` events with
+    ``stream='tool'`` and ``data.name`` / ``data.phase``. The relay
+    captures the active tool name and uses it in the visible slow-turn
+    progress delta instead of the generic placeholder.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_TOOL_PROGRESS"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-tool"}))
+        # Gateway emits a tool-start event BEFORE the silence window
+        # closes — the relay records the tool name for the visible
+        # keepalive emit.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "agent",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "stream": "tool",
+                    "runId": "run-tool",
+                    "data": {"name": "weather", "phase": "start"},
+                },
+            }
+        )
+        await asyncio.sleep(0.20)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "Sunny",
+                    "runId": "run-tool",
+                    "message": {"role": "assistant", "content": "Sunny"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-tool",
+                    "message": {"role": "assistant", "content": "Sunny"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "what's the weather"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert "🔧 Calling weather...\n\n" in chunks, (
+        f"expected tool-specific progress delta, got: {chunks!r}"
+    )
+    assert "Working on it...\n\n" not in chunks, (
+        f"generic placeholder should be suppressed when tool name available: {chunks!r}"
+    )
+    assert "Sunny" in chunks, f"real reply lost: {chunks!r}"
+
+
+@pytest.mark.asyncio
+async def test_handle_event_tool_start_and_end_update_active_tool() -> None:
+    """Direct test on the per-session active tool tracking. ``start``
+    sets the name; ``end`` clears it. ``stream`` other than ``"tool"``
+    is ignored.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_active_tool"
+    relay._canonical_by_raw[s_k] = s_k
+
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "weather", "phase": "start"},
+            },
+        }
+    )
+    assert relay._active_tool[s_k] == "weather"
+
+    relay.handle_event(
+        {
+            "event": "session.tool",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "calendar", "phase": "start"},
+            },
+        }
+    )
+    assert relay._active_tool[s_k] == "calendar"
+
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "calendar", "phase": "end"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # stream != "tool" must be ignored.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "text",
+                "data": {"name": "ignored", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+
+@pytest.mark.asyncio
+async def test_handle_event_tool_event_filtered_by_run_id() -> None:
+    """Codex review on PR #143: a delayed prior-run tool event must
+    not relabel the current turn's active tool. The runId staleness
+    filter that protects assistant events must also gate tool-event
+    capture.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_tool_runid_filter"
+    relay._canonical_by_raw[s_k] = s_k
+
+    # Simulate an active turn: real runId installed, same-run event
+    # already observed (post-ack, mid-turn state).
+    relay._active_run_id[s_k] = "run-current"
+    relay._seen_same_run_event[s_k] = True
+
+    # Mismatched runId — stale prior-run tool event must be dropped.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-prior",
+                "data": {"name": "stale_tool", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # Matching runId — accepted.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-current",
+                "data": {"name": "weather", "phase": "start"},
+            },
+        }
+    )
+    assert relay._active_tool[s_k] == "weather"
+
+    # Pending-ack window: every tool event (with or without runId) is
+    # stale until the ack arrives.
+    relay._active_tool.pop(s_k, None)
+    relay._active_run_id[s_k] = _PENDING_RUN_ID
+    relay._seen_same_run_event[s_k] = False
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-prior",
+                "data": {"name": "stale_pending", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # Post-ack but no same-run event seen yet: a runId-less tool event
+    # is treated as a possibly-stale prior-turn straggler and dropped.
+    relay._active_run_id[s_k] = "run-current"
+    relay._seen_same_run_event[s_k] = False
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "stale_unconfirmed", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # Defensive shape: non-dict `data` payload is silently ignored.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {"sessionKey": s_k, "stream": "tool", "data": "not-a-dict"},
+        }
+    )
+    # Empty sessionKey → no canonical key resolved, branch ignored.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": "",
+                "stream": "tool",
+                "data": {"name": "weather", "phase": "start"},
+            },
+        }
+    )
+    # handle_response with non-string id is a no-op.
+    assert relay.handle_response({"id": 42, "ok": True}) is False
+
+    # Matching runId + tool-end clears the active tool.
+    relay._active_run_id[s_k] = "run-end"
+    relay._seen_same_run_event[s_k] = True
+    relay._active_tool[s_k] = "weather"
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-end",
+                "data": {"name": "weather", "phase": "end"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+    # Unknown phase is also ignored (neither start nor end).
+    relay._active_run_id.pop(s_k, None)
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "weather", "phase": "progress"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
 
 
 @pytest.mark.asyncio

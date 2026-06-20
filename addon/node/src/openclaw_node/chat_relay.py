@@ -166,6 +166,13 @@ class ChatRelay:
         # session.message must not be accepted as this turn's terminal
         # before any same-run evidence has arrived (PR #129 re-review).
         self._seen_same_run_event: dict[str, bool] = {}  # canonical keys
+        # Latest tool name observed in an `agent`/`session.tool` start
+        # event for the active turn (operator client advertises the
+        # `tool-events` capability at handshake; see __main__.py). Used
+        # to name the slow-turn-progress visible delta with the actual
+        # tool being called instead of the generic "Working on it..."
+        # placeholder. Cleared on tool end and at turn start.
+        self._active_tool: dict[str, str] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -296,6 +303,7 @@ class ChatRelay:
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
         self._seen_same_run_event[canonical_key] = False
+        self._active_tool.pop(canonical_key, None)
         self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
@@ -413,7 +421,16 @@ class ChatRelay:
                     if loop.time() >= deadline:
                         return
                     if sent_keepalive_count == 0:
-                        yield _STREAM_PROGRESS_DELTA
+                        # Prefer the actual tool name (captured from
+                        # `agent`/`session.tool` start events on the
+                        # operator WS; see __main__.py caps). Falls back
+                        # to the generic placeholder when no tool has
+                        # started — e.g. the model is just thinking.
+                        active_tool = self._active_tool.get(canonical_key)
+                        if active_tool:
+                            yield f"🔧 Calling {active_tool}...\n\n"
+                        else:
+                            yield _STREAM_PROGRESS_DELTA
                     else:
                         # Yield the transport-only sentinel. http_api
                         # converts to a `{"keepalive": true}` NDJSON
@@ -487,6 +504,7 @@ class ChatRelay:
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
         self._seen_same_run_event[canonical_key] = False
+        self._active_tool.pop(canonical_key, None)
         reply_event = asyncio.Event()
         self._reply_events[canonical_key] = reply_event
 
@@ -785,6 +803,49 @@ class ChatRelay:
                 event,
                 type(payload).__name__,
             )
+            return
+
+        # Tool-event capture (slow-turn progress label, #TODO item 2).
+        # Gateway emits `agent` and `session.tool` events with
+        # `stream='tool'` to connections that advertised the
+        # `tool-events` capability at handshake (operator client; see
+        # __main__.py). `data.name` carries the tool name; `data.phase`
+        # is "start" or "end". The relay records the most recent active
+        # tool for the session so the slow-turn keepalive can name the
+        # specific tool instead of the generic "Working on it..."
+        # placeholder. No user-visible delta is emitted here — only the
+        # cached label is updated; the existing 8s silence threshold
+        # still gates visibility so fast turns stay quiet.
+        if event in ("agent", "session.tool") and payload.get("stream") == "tool":
+            raw_session_key = str(payload.get("sessionKey", ""))
+            tool_canonical_key = self._canonical_by_raw.get(raw_session_key) or raw_session_key
+            data = payload.get("data")
+            if isinstance(data, dict) and tool_canonical_key:
+                # Apply the same runId staleness filter used for
+                # assistant events (Codex review #143): a delayed
+                # prior-run tool event must not relabel the current
+                # turn's progress delta. Drop the tool event when an
+                # active run is tracked and the event's runId does
+                # not match (or is absent while we're still inside
+                # the pending-ack window).
+                tool_run_id = str(payload.get("runId", "") or "")
+                active_run = self._active_run_id.get(tool_canonical_key)
+                stale = False
+                if active_run:
+                    seen_same_run = self._seen_same_run_event.get(tool_canonical_key, False)
+                    if (
+                        active_run == _PENDING_RUN_ID
+                        or (tool_run_id and tool_run_id != active_run)
+                        or (not tool_run_id and not seen_same_run)
+                    ):
+                        stale = True
+                if not stale:
+                    phase = data.get("phase")
+                    tool_name = data.get("name")
+                    if phase == "start" and isinstance(tool_name, str) and tool_name:
+                        self._active_tool[tool_canonical_key] = tool_name
+                    elif phase == "end":
+                        self._active_tool.pop(tool_canonical_key, None)
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
         # key/role-shaped metadata that determines whether we capture it.
