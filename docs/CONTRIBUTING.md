@@ -26,7 +26,7 @@ release Action lands they'll be bumped together by tooling.
 **Until the Action lands, the manual rule is:** never edit just one.
 The CI gate fails if any of the five drift. The version stays on a
 pre-release marker (`a`/`b`/`rc`/`.dev`) until the project ships a 1.0
-— that's also enforced by CI (`test_alpha_tag_present`).
+— that's also enforced by CI (`test_prerelease_tag_present`).
 
 **Why the bump matters at all:** `addon/config.yaml`'s `version:` is
 the *only* signal HA Supervisor watches to decide whether the add-on

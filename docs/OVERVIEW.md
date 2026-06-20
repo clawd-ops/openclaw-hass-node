@@ -1,11 +1,11 @@
 # What is openclaw-hass-node?
 
-> ⚠️ **Alpha.** The node command surface and the HA Assist
-> conversation relay (P5.13 dual-WS) are working end-to-end (pair,
-> connect, invoke, ChatRelay). Publishing infrastructure is incomplete
-> and breaking changes between versions are expected. Install today
-> only if you want to help shape it. Track [`STATUS.md`](STATUS.md)
-> for the first beta tag.
+> ⚠️ **Beta.** The node command surface and the HA Assist
+> conversation relay (P5.13 dual-WS, streaming token deltas as of
+> 2026.6.19b1) are working end-to-end (pair, connect, invoke,
+> ChatRelay). Publishing infrastructure is still settling and pre-1.0
+> breaking changes are still possible. Track [`STATUS.md`](STATUS.md)
+> for the road to 1.0.
 
 
 This project connects [Home Assistant](https://www.home-assistant.io)

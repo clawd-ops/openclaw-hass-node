@@ -1,11 +1,11 @@
 # Install
 
-> ⚠️ **Alpha.** Pair + connect + tool invokes work end-to-end. The
-> integration appears as a conversation agent in HA's Voice
-> assistants picker, but **Assist turns currently fail** with
-> `unauthorized role: node` — see #82 / #84. Fix is in progress
-> (P5.13 dual-WS refactor). Install if you want the tool surface
-> or to help shape the project; don't expect working Assist yet.
+> ⚠️ **Beta.** Pair, connect, tool invokes, and HA Assist conversation
+> all work end-to-end (P5.13 dual-WS, streaming token deltas as of
+> 2026.6.19b1). The integration appears as a conversation agent in HA's
+> Voice assistants picker and now streams replies in real time instead
+> of buffering the full turn. Pre-1.0 breaking changes are still
+> possible; track [`docs/STATUS.md`](STATUS.md) for the road to 1.0.
 
 End-to-end setup to get Home Assistant talking to your OpenClaw gateway.
 Three pieces install in order: **gateway-side config**, then the **HA add-on (app)**,
@@ -240,11 +240,11 @@ Each release re-runs the local Supervisor build. After updating the
 add-on (app) repo, **Update** the add-on (app) (or **Stop → Rebuild → Start**). The
 device token persists across restarts; you do not need to re-pair.
 
-## Standalone Docker (not supported in alpha)
+## Standalone Docker (not supported during beta)
 
 Standalone Docker — running the addon image outside Home Assistant
-Supervisor — is **not a supported install path while the project is in
-alpha**. The runtime entrypoint (`addon/run.sh`) uses
+Supervisor — is **not a supported install path during the pre-1.0
+beta**. The runtime entrypoint (`addon/run.sh`) uses
 `#!/usr/bin/with-contenv sh`, which only resolves inside an HA
 base-python image. Bare `python:3.13-alpine` and other non-HA bases
 will not start (see Issue #109 for the underlying env-injection

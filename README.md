@@ -3,12 +3,12 @@
 [![GitHub stars](https://img.shields.io/github/stars/clawd-ops/openclaw-hass-node?style=social)](https://github.com/clawd-ops/openclaw-hass-node/stargazers)
 [![BuyMeCoffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-donate-FFDD00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/roblandry)
 
-> ⚠️ **Alpha — not ready for general use.** The node command surface
-> and the HA Assist conversation relay (P5.13 dual-WS) both work
-> end-to-end: pair, connect, invoke round-trips, and ChatRelay all
-> stream cleanly. Publishing infrastructure isn't in place yet, and
-> breaking changes between versions are expected. Watch
-> [`docs/STATUS.md`](docs/STATUS.md) for the first beta tag.
+> ⚠️ **Beta — not yet 1.0.** The node command surface and the HA
+> Assist conversation relay (P5.13 dual-WS, now streaming token deltas)
+> both work end-to-end: pair, connect, invoke round-trips, and ChatRelay
+> all stream cleanly. Publishing infrastructure is still settling and
+> breaking changes between pre-1.0 builds are still possible. Watch
+> [`docs/STATUS.md`](docs/STATUS.md) for the first stable tag.
 
 Home Assistant add-on (app) + HACS shim that connects HA to an [OpenClaw][]
 gateway as a node. Lets your OpenClaw agent (Clawd or whichever agent
@@ -59,7 +59,7 @@ gateway side. Short version:
 5. Pick it as your HA Assist conversation agent.
 
 > Standalone Docker (without HA Supervisor) is **not a supported install
-> path while the project is in alpha**. The runtime entrypoint depends on
+> path during beta**. The runtime entrypoint depends on
 > the HA base-python image's s6-overlay `with-contenv` wrapper to pick up
 > Supervisor's injected env (see Issue #109). Standalone-mode code in
 > `__main__.py` still exists for testing on the dev host directly, but

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict
@@ -176,6 +177,7 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_get("/v1/ha/snapshot", ha_snapshot)
     app.router.add_post("/assist/turn", assist_turn)
     app.router.add_post("/v1/conversation", assist_turn)
+    app.router.add_post("/v1/conversation/stream", assist_turn_stream)
     app.router.add_get("/v1/conversation/info", conversation_info)
     return app
 
@@ -496,6 +498,78 @@ def _assist_error(runtime: NodeRuntime, message: str, echo: str) -> web.Response
     )
 
 
+async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
+    """Streaming sibling of ``/v1/conversation``.
+
+    Returns ``Content-Type: application/x-ndjson`` with one JSON object per
+    line:
+
+    - ``{"delta": "..."}`` for each chunk yielded by the gateway as the
+      assistant streams its reply.
+    - ``{"done": true}`` once the run finishes cleanly.
+    - ``{"error": "<code>"}`` on a relay error; the body is closed after.
+
+    HA's conversation API (``async_add_delta_content_stream``) consumes
+    chunks like this; the HACS shim adapts NDJSON deltas into the
+    AsyncIterable HA expects.
+    """
+    runtime = _runtime(request)
+    body = await _json_body(request)
+    text = str(body.get("text", "")).strip()
+    conversation_id = str(body.get("conversation_id", ""))
+    language = str(body.get("language", "en"))
+
+    # Same precondition checks as the non-streaming variant but expressed
+    # as a single early-bail NDJSON error frame.
+    if not runtime.is_paired:
+        return await _stream_error(request, "NOT_PAIRED", 502)
+    if not runtime.operator_connected:
+        return await _stream_error(request, "OPERATOR_NOT_CONNECTED", 502)
+    relay = runtime.chat_relay
+    if relay is None:
+        return await _stream_error(request, "RELAY_NOT_INITIALISED", 502)
+    if not text:
+        return await _stream_error(request, "EMPTY_TEXT", 400)
+    if not conversation_id:
+        return await _stream_error(request, "MISSING_CONVERSATION_ID", 400)
+
+    response = web.StreamResponse(
+        status=200,
+        reason="OK",
+        headers={
+            "Content-Type": "application/x-ndjson",
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",  # discourage upstream buffering
+        },
+    )
+    await response.prepare(request)
+
+    try:
+        async for chunk in relay.stream_turn(conversation_id, text, language):
+            await response.write(json.dumps({"delta": chunk}).encode("utf-8") + b"\n")
+        await response.write(b'{"done":true}\n')
+    except ChatRelayError as exc:
+        _LOG.warning("Assist stream failed: %s %s", exc.code, exc.message)
+        await response.write(json.dumps({"error": exc.code}).encode("utf-8") + b"\n")
+    except Exception as exc:
+        _LOG.exception("Unexpected error in assist stream: %s", exc)
+        await response.write(b'{"error":"INTERNAL_ERROR"}\n')
+    await response.write_eof()
+    return response
+
+
+async def _stream_error(request: web.Request, code: str, status: int) -> web.StreamResponse:
+    """One-frame NDJSON error response for stream-endpoint preconditions."""
+    response = web.StreamResponse(
+        status=status,
+        headers={"Content-Type": "application/x-ndjson", "Cache-Control": "no-store"},
+    )
+    await response.prepare(request)
+    await response.write(json.dumps({"error": code}).encode("utf-8") + b"\n")
+    await response.write_eof()
+    return response
+
+
 async def conversation_info(request: web.Request) -> web.Response:
     """Return Assist-shim diagnostic metadata.
 
@@ -516,6 +590,10 @@ async def conversation_info(request: web.Request) -> web.Response:
             "paired": runtime.is_paired,
             "pairing_state": runtime.pairing_state.name,
             "gateway_connected": runtime.gateway_connected,
+            # HACS shim picks the streaming endpoint when this is true and
+            # falls back to /v1/conversation otherwise.
+            "supports_streaming": True,
+            "streaming_endpoint": "/v1/conversation/stream",
         },
         status=200,
         headers=_JSON_HEADERS,

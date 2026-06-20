@@ -4,11 +4,12 @@
 > result you should see. If anything diverges, paste the diff into
 > the channel and Clawd will dig in.
 >
-> **State as of the current alpha (`2026.6.8a7`):** install, pair,
+> **State as of the current beta (`2026.6.19b1`):** install, pair,
 > connect, gateway-side tool invokes, and Assist conversation relay
-> (P5.13 dual-WS) all work end-to-end. Local HTTP API is fail-closed
-> (a token is required); HACS shim probes for the local API at
-> config-flow time. The proposal/write flow is still planned.
+> (P5.13 dual-WS, now streaming token deltas) all work end-to-end.
+> Local HTTP API is fail-closed (a token is required); HACS shim probes
+> for the local API at config-flow time. The proposal/write flow is
+> still planned.
 
 ## Phase A — Install
 

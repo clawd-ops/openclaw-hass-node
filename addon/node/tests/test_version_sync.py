@@ -12,7 +12,7 @@ There are five sources of truth that all have to match exactly:
 Past versions drifted between these (e.g. UAT-PLAN expecting 2026.6.0 while
 code was on 2026.6.8). The user called it cosmetic at the time, but a
 mismatched version in startup logs is exactly the wrong signal during an
-alpha install when the operator is trying to figure out which build they
+pre-1.0 install when the operator is trying to figure out which build they
 are looking at. This test makes the drift fail CI loudly.
 """
 
@@ -110,17 +110,17 @@ def test_installed_version_matches_pyproject() -> None:
     assert _pkg_version("openclaw-node") == _read_pyproject_version()
 
 
-def test_alpha_tag_present() -> None:
-    """Pre-1.0 releases must carry an alpha/dev/rc marker.
+def test_prerelease_tag_present() -> None:
+    """Pre-1.0 releases must carry a PEP 440 prerelease marker.
 
-    The project is explicitly alpha (Assist conversation relay is P5.12 and
-    not wired; pairing + tool invokes work). PEP 440 markers we accept:
-    ``aN`` (alpha), ``bN`` (beta), ``rcN``, ``.devN``. Final releases
-    without any of these are rejected so the version string in startup
-    logs never claims false stability.
+    The project is explicitly pre-1.0 (currently on the beta track;
+    the earlier alpha track ran through 2026.6.8a16). PEP 440 markers
+    we accept: ``aN`` (alpha), ``bN`` (beta), ``rcN``, ``.devN``. Final
+    releases without any of these are rejected so the version string in
+    startup logs never claims false stability.
     """
     version = _read_pyproject_version()
     assert re.search(r"(a\d+|b\d+|rc\d+|\.dev\d+)$", version), (
-        f"version {version!r} has no pre-release marker — alpha builds must "
+        f"version {version!r} has no pre-release marker, pre-1.0 builds must "
         "carry one of aN/bN/rcN/.devN until the project ships a 1.0."
     )

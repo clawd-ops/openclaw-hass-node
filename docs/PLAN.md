@@ -382,7 +382,7 @@ Live state in `STATUS.md`. Checkmarks here are an at-a-glance summary.
     `PAIRING_SETUP_BOOTSTRAP_PROFILE` (QR / bootstrap-token flow).
     Independent reconnect loops; one connection failing doesn't take
     the other down. No back-compat migration — existing single-role
-    devices remove + re-add (alpha rule).
+    devices remove + re-add (pre-1.0 rule).
 - ◑ **P6 — Retire MCP servers** for this HA after the validation
   window. P6.1 (validation harness) shipped; cron it. P6.2 (cutover
   PR) fires only when the harness ever prints `RETIREMENT_READY`.

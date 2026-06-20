@@ -22,9 +22,10 @@ careful edits.
 2. **Changelogs are generated, not written.** Every release tag has
    a changelog grouped by intent (features, fixes, breaking changes,
    etc.) derived from the commits that landed since the last tag.
-3. **Pre-release markers are first-class.** The current alpha
-   (`2026.6.8a1`) is not an accident of timing; the project will
-   live on `aN`/`bN`/`rcN` until it ships a 1.0. The release pipeline
+3. **Pre-release markers are first-class.** The current beta
+   (`2026.6.19b1`) is not an accident of timing; the project lives on
+   `aN`/`bN`/`rcN` until it ships a 1.0 (alpha track ran through
+   `2026.6.8a16`; beta opens at `2026.6.19b1`). The release pipeline
    has to understand and preserve that.
 4. **No backports, no parallel branches.** `main` is the only branch
    that ships. Hot-fixes are forward-fixes that cut a new release.
@@ -38,8 +39,8 @@ release tool can categorise them deterministically:
 
 | Prefix      | Section in changelog | Bumps                                |
 | ----------- | -------------------- | ------------------------------------ |
-| `feat:`     | Features             | minor (or alpha increment pre-1.0)   |
-| `fix:`      | Bug Fixes            | patch (or alpha increment pre-1.0)   |
+| `feat:`     | Features             | minor (or prerelease increment pre-1.0) |
+| `fix:`      | Bug Fixes            | patch (or prerelease increment pre-1.0) |
 | `perf:`     | Performance          | patch                                |
 | `refactor:` | Code Refactoring     | patch                                |
 | `docs:`     | Documentation        | patch (sometimes excluded; see note) |
@@ -53,7 +54,7 @@ A breaking change is marked **either** by `feat!:` / `fix!:` syntax
 **or** by a `BREAKING CHANGE:` footer in the commit body. Either
 flips the section to "⚠ BREAKING CHANGES" and forces a major bump
 (once we're 1.0+). Pre-1.0 we treat breaking changes as ordinary
-alpha bumps but still call them out in their own section so consumers
+prerelease bumps but still call them out in their own section so consumers
 know to read the upgrade notes.
 
 Scopes are **required**, not optional, because they route each commit to
@@ -132,7 +133,7 @@ Two files in the repo root:
       "release-type": "python",
       "include-component-in-tag": false,
       "prerelease": true,
-      "prerelease-type": "alpha",
+      "prerelease-type": "beta",
       "changelog-sections": [
         { "type": "feat",     "section": "Features" },
         { "type": "fix",      "section": "Bug Fixes" },
@@ -300,19 +301,20 @@ already serves the same purpose for the audience that cares.
 
 ## Versioning policy
 
-- **Pre-1.0:** the project stays on a single alpha-channel CalVer
-  (`YYYY.M.Pa<N>`). Every release bumps the alpha increment (`a1` →
-  `a2` → `a3` …) unless a breaking change forces a `Y.M.P` rev.
-  Date-based bumps (`2026.6.8a1` → `2026.7.0a1`) happen when there's
-  a deliberate cut, not because the calendar rolled over.
+- **Pre-1.0:** the project stays on a single prerelease-channel CalVer
+  (`YYYY.M.Pb<N>` during the current beta track; the earlier alpha
+  track used `YYYY.M.Pa<N>`). Every release bumps the prerelease
+  increment (`b1` → `b2` → `b3` …) unless a breaking change forces a
+  `Y.M.P` rev. Date-based bumps (`2026.6.19b1` → `2026.7.0b1`) happen
+  when there's a deliberate cut, not because the calendar rolled over.
 - **1.0 and beyond:** semver from the same base. Breaking changes
   bump major; new functionality bumps minor; fixes bump patch.
-  Pre-1.0 the project has lived on alphas; that history is preserved
-  in the CHANGELOG.
+  Pre-1.0 the project lived first on alphas (`a1` … `a16`) and is now
+  on betas; that full history is preserved in the CHANGELOG.
 - **Hot-fixes** are forward-fixes off `main`; we don't maintain
-  long-lived release branches. If a stable user is on `2026.6.8a3`
-  and we ship `2026.6.8a4` with a regression, the fix is `a5` not
-  `a4.1`. This keeps the release pipeline single-tracked.
+  long-lived release branches. If a stable user is on `2026.6.19b3`
+  and we ship `2026.6.19b4` with a regression, the fix is `b5` not
+  `b4.1`. This keeps the release pipeline single-tracked.
 
 ## What this replaces
 

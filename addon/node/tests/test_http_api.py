@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -304,6 +305,152 @@ async def test_assist_turn_relay_error(tmp_path: Path) -> None:
         assert data["error"] == "TIMEOUT"
     finally:
         await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_yields_ndjson_deltas(tmp_path: Path) -> None:
+    """/v1/conversation/stream returns NDJSON with one delta per line + done."""
+    from openclaw_node.chat_relay import ChatRelay
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> Any:
+        for chunk in ["Hello", ", ", "world!"]:
+            yield chunk
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation/stream",
+            json={"text": "hi", "conversation_id": "conv-stream"},
+        )
+        assert response.status == 200
+        assert response.headers["Content-Type"] == "application/x-ndjson"
+        body = await response.text()
+    finally:
+        await tc.close()
+
+    lines = [json.loads(line) for line in body.strip().split("\n") if line]
+    assert lines == [
+        {"delta": "Hello"},
+        {"delta": ", "},
+        {"delta": "world!"},
+        {"done": True},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_error_frame_on_relay_error(tmp_path: Path) -> None:
+    """A ChatRelayError mid-stream surfaces as an `{"error": "<code>"}` frame."""
+    from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> Any:
+        yield "partial"
+        raise ChatRelayError("TIMEOUT", "chat.send timed out")
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation/stream",
+            json={"text": "hi", "conversation_id": "conv-err"},
+        )
+        body = await response.text()
+    finally:
+        await tc.close()
+
+    lines = [json.loads(line) for line in body.strip().split("\n") if line]
+    assert lines == [{"delta": "partial"}, {"error": "TIMEOUT"}]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_unpaired_emits_error_frame(tmp_path: Path) -> None:
+    """Stream endpoint returns NDJSON error frame when node is not paired."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)  # not paired
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation/stream",
+            json={"text": "hi", "conversation_id": "c"},
+        )
+        body = await response.text()
+        assert response.status == 502
+    finally:
+        await tc.close()
+
+    lines = [json.loads(line) for line in body.strip().split("\n") if line]
+    assert lines == [{"error": "NOT_PAIRED"}]
+
+
+@pytest.mark.asyncio
+async def test_conversation_info_advertises_streaming(
+    client: TestClient[Request, Application],
+) -> None:
+    """conversation_info advertises supports_streaming + streaming_endpoint."""
+    response = await client.get("/v1/conversation/info")
+    data = await response.json()
+    assert data["supports_streaming"] is True
+    assert data["streaming_endpoint"] == "/v1/conversation/stream"
 
 
 @pytest.mark.asyncio
