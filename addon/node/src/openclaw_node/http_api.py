@@ -19,7 +19,7 @@ from typing import Any, Final
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
-from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+from openclaw_node.chat_relay import ChatRelay, ChatRelayError, StreamKeepalive
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.pairing import PairingState
@@ -546,6 +546,15 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
 
     try:
         async for chunk in relay.stream_turn(conversation_id, text, language):
+            if isinstance(chunk, StreamKeepalive):
+                # Transport-only — kept out of the assistant content
+                # stream the HA shim accumulates. Just writing bytes
+                # on the wire is what HA actually needs (its read
+                # timer resets on any incoming bytes); the explicit
+                # marker also lets the shim cleanly distinguish the
+                # frame and skip it without parsing fallback paths.
+                await response.write(b'{"keepalive":true}\n')
+                continue
             await response.write(json.dumps({"delta": chunk}).encode("utf-8") + b"\n")
         await response.write(b'{"done":true}\n')
     except ChatRelayError as exc:

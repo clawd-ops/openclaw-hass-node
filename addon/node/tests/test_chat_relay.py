@@ -11,6 +11,7 @@ from openclaw_node.chat_relay import (
     _SESSION_KEY_PREFIX,
     ChatRelay,
     ChatRelayError,
+    StreamKeepalive,
 )
 
 
@@ -206,7 +207,7 @@ async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
             }
         )
 
-    chunks: list[str] = []
+    chunks: list[str | StreamKeepalive] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -242,7 +243,7 @@ async def test_stream_turn_session_message_yields_full_text_when_no_deltas() -> 
         # No deltas, just a single session.message terminal event.
         relay.handle_event(_session_message_event(canonical_session_key, "assistant", "Done."))
 
-    chunks: list[str] = []
+    chunks: list[str | StreamKeepalive] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -301,7 +302,7 @@ async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
             }
         )
 
-    chunks: list[str] = []
+    chunks: list[str | StreamKeepalive] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -318,7 +319,7 @@ async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.Mo
     queued must still be yielded before the iterator closes."""
     import openclaw_node.chat_relay as cr_mod
 
-    monkeypatch.setattr(cr_mod, "_TURN_TIMEOUT_S", 0.1)
+    monkeypatch.setattr(cr_mod, "_STREAM_TURN_TIMEOUT_S", 0.1)
     sender = FakeSender()
     relay = ChatRelay(sender.send)
 
@@ -352,7 +353,7 @@ async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.Mo
             }
         )
 
-    chunks: list[str] = []
+    chunks: list[str | StreamKeepalive] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -388,7 +389,7 @@ async def test_stream_turn_chat_send_generic_exception_becomes_relay_failed() ->
         if future is not None and not future.done():
             future.set_exception(RuntimeError("stream boom"))
 
-    chunks: list[str] = []
+    chunks: list[str | StreamKeepalive] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -514,7 +515,7 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
         await asyncio.sleep(0.01)
         relay.reset()
 
-    chunks: list[str] = []
+    chunks: list[str | StreamKeepalive] = []
     raised: list[ChatRelayError] = []
 
     async def _consume() -> None:
@@ -529,6 +530,168 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
     assert chunks == ["partial"]
     assert len(raised) == 1
     assert raised[0].code == "DISCONNECTED"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_emits_keepalive_during_silent_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#129 follow-up: on tool-heavy turns the gateway can go silent for
+    tens of seconds between chat.send ack and the first assistant delta.
+    HA Assist's ~30s read timeout closes the stream during that gap and
+    the user sees 'node not responding' even though the real reply
+    arrives later. The relay emits one short visible progress delta
+    after a configurable silence window, then transport-only keepalive
+    sentinels so HA's read timer resets and the stream stays alive long
+    enough for the real reply.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_KEEPALIVE_GAP"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-slow"}))
+        # Long silence — simulates the gateway running tool calls
+        # before generating any assistant text.
+        await asyncio.sleep(0.20)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "Real reply",
+                    "runId": "run-slow",
+                    "message": {"role": "assistant", "content": "Real reply"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-slow",
+                    "message": {"role": "assistant", "content": "Real reply"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "long question"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    progress_idxs = [i for i, c in enumerate(chunks) if c == "Working on it...\n\n"]
+    keepalive_idxs = [i for i, c in enumerate(chunks) if isinstance(c, StreamKeepalive)]
+    real_idxs = [i for i, c in enumerate(chunks) if c == "Real reply"]
+    assert progress_idxs == [0], (
+        f"expected one visible progress delta during silent gap, got: {chunks!r}"
+    )
+    assert keepalive_idxs, (
+        f"expected at least one StreamKeepalive sentinel during silent gap, got: {chunks!r}"
+    )
+    assert real_idxs == [chunks.index("Real reply")], f"real reply lost: {chunks!r}"
+    # Progress + keepalive(s) precede the real reply.
+    assert progress_idxs[0] < keepalive_idxs[0] < real_idxs[0]
+    # The only visible status text is the single initial progress delta;
+    # repeated keepalives stay transport-only.
+    str_chunks = [c for c in chunks if isinstance(c, str)]
+    assert str_chunks == ["Working on it...\n\n", "Real reply"], chunks
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_no_keepalive_on_fast_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fast turns (deltas streaming continuously) must NOT see any
+    keepalive deltas — they would be noise in HA's chat UI.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_FAST_TURN"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-fast"}))
+        await asyncio.sleep(0.005)
+        for delta in ["Hi", " there", "!"]:
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "deltaText": delta,
+                        "runId": "run-fast",
+                        "message": {"role": "assistant", "content": "ignored"},
+                    },
+                }
+            )
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-fast",
+                    "message": {"role": "assistant", "content": "Hi there!"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["Hi", " there", "!"], f"keepalive leaked into fast turn: {chunks!r}"
 
 
 @pytest.mark.asyncio
