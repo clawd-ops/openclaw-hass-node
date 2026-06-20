@@ -1,5 +1,16 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a15 (2026-06-20)
+
+### Bug fixes
+- **#118 — HA Assist conversation agent now actually replies (#122).** Root cause: the gateway emits session/chat events under a CANONICAL sessionKey (e.g. `agent:clawd:ha-assist:01kvh...` lowercased) returned in the `sessions.messages.subscribe` response. The addon was sending the raw key (`ha-assist:01KVH...`) and ignoring the canonical one the gateway gave back, so every event was filtered out as "wrong sessionKey" — producing NO_REPLY even when the agent had answered. Addon now captures the canonical key from the subscribe response and keys all internal state by it. Verified live against the v2026.6.8a14 diagnostic logs.
+- `@roblandry` added as repo + HACS integration codeowner.
+
+## 2026.6.8a14 (2026-06-20)
+
+### Diagnostics
+- Live INFO-level `[relay-diag]` logging in `ChatRelay.handle_event` for the #118 NO_REPLY investigation. No PII / message content — only structural metadata (event name, sessionKey, role, runId, state, subscription state). Will be downgraded to DEBUG in a15+.
+
 ## 2026.6.8a13 (2026-06-20)
 
 ### Bug fixes
