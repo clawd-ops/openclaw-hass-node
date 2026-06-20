@@ -88,6 +88,8 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.light_turn_off",
     "ha.list_automations",
     "ha.check_config",
+    "ha.addon_logs",
+    "ha.list_addons",
 ]
 # The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
 # in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.

@@ -8,12 +8,18 @@ from unittest.mock import patch
 import pytest
 
 from openclaw_node.commands.ha import (
+    handle_ha_addon_changelog,
+    handle_ha_addon_documentation,
+    handle_ha_addon_info,
+    handle_ha_addon_logs,
+    handle_ha_addon_stats,
     handle_ha_call_service,
     handle_ha_check_config,
     handle_ha_get_state,
     handle_ha_history,
     handle_ha_light_turn_off,
     handle_ha_light_turn_on,
+    handle_ha_list_addons,
     handle_ha_list_areas,
     handle_ha_list_automations,
     handle_ha_list_devices,
@@ -704,3 +710,405 @@ async def test_check_config_missing_result_field_defaults_unknown() -> None:
         result = await handle_ha_check_config({})
     assert result["ok"] is True
     assert result["result"] == "unknown"
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_logs
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_logs_missing_slug() -> None:
+    result = await handle_ha_addon_logs({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+@pytest.mark.parametrize("slug", ["bad slug", "../etc", "with/slash", "a" * 200, ""])
+async def test_addon_logs_invalid_slug(slug: str) -> None:
+    result = await handle_ha_addon_logs({"slug": slug})
+    assert result["error"] in ("INVALID_PARAM", "MISSING_PARAM")
+
+
+async def test_addon_logs_returns_trimmed_tail() -> None:
+    body = "\n".join(f"line {i}" for i in range(500))
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        return_value=body,
+    ) as fake:
+        result = await handle_ha_addon_logs({"slug": "fcccfbbd_openclaw_hass_node", "lines": 50})
+    assert result["ok"] is True
+    assert result["slug"] == "fcccfbbd_openclaw_hass_node"
+    assert result["lines"] == 50
+    assert result["log"].splitlines()[0] == "line 450"
+    assert result["log"].splitlines()[-1] == "line 499"
+    assert fake.call_args.kwargs["max_bytes"] == 1_048_576
+
+
+async def test_addon_logs_lines_clamped() -> None:
+    body = "single line"
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        return_value=body,
+    ):
+        result = await handle_ha_addon_logs({"slug": "self", "lines": 999999})
+    assert result["ok"] is True
+    assert result["lines"] == 1
+
+
+async def test_addon_logs_lines_bad_type() -> None:
+    result = await handle_ha_addon_logs({"slug": "self", "lines": "many"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_addon_logs_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_addon_logs({"slug": "self"})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_addon_logs_supervisor_404() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("HA_NOT_FOUND", "addon not found"),
+    ):
+        result = await handle_ha_addon_logs({"slug": "does_not_exist"})
+    assert result["error"] == "HA_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# ha.list_addons
+# ---------------------------------------------------------------------------
+
+
+async def test_list_addons_happy_path() -> None:
+    payload = {
+        "result": "ok",
+        "data": {
+            "addons": [
+                {
+                    "slug": "fcccfbbd_openclaw_hass_node",
+                    "name": "OpenClaw Node",
+                    "state": "started",
+                    "version": "2026.6.19b2",
+                    "version_latest": "2026.6.19b2",
+                    "update_available": False,
+                    "repository": "core",
+                    "boot": "auto",  # filtered out
+                    "options": {"secret": "should not leak"},  # filtered out
+                },
+                {"slug": "core_mosquitto", "name": "Mosquitto broker", "state": "started"},
+            ]
+        },
+    }
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        return_value=payload,
+    ):
+        result = await handle_ha_list_addons({})
+    assert result["ok"] is True
+    assert result["count"] == 2
+    first = result["addons"][0]
+    assert first["slug"] == "fcccfbbd_openclaw_hass_node"
+    assert first["state"] == "started"
+    assert "options" not in first
+    assert "boot" not in first
+    assert "repository" not in first
+    second = result["addons"][1]
+    assert second["slug"] == "core_mosquitto"
+    assert second["version"] is None
+
+
+async def test_list_addons_filters_non_dict_entries() -> None:
+    payload = {"data": {"addons": [{"slug": "a"}, "garbage", None, {"slug": "b"}]}}
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_list_addons({})
+    assert result["ok"] is True
+    assert result["count"] == 2
+
+
+async def test_list_addons_bad_top_level() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=["nope"]):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_addons_missing_data() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={"result": "ok"}):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_addons_data_addons_not_list() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        return_value={"data": {"addons": "oops"}},
+    ):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_addons_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_info
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_info_missing_slug() -> None:
+    result = await handle_ha_addon_info({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+@pytest.mark.parametrize(
+    "slug",
+    [
+        "bad slug",
+        "../etc",
+        "with/slash",
+        "a" * 200,
+        # Slug grammar must reject uppercase and non-ASCII alnum that
+        # str.isalnum() would otherwise accept.
+        "Self",
+        "CORE_MOSQUITTO",
+        "addonÿ",
+        "addón",
+        "ＡＢＣ",  # noqa: RUF001 - fullwidth chars are exactly the attack we reject
+        "-leading-dash",
+    ],
+)
+async def test_addon_info_invalid_slug(slug: str) -> None:
+    result = await handle_ha_addon_info({"slug": slug})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_addon_info_drops_options_and_schema() -> None:
+    """The whole point of this command — `options` and `schema` MUST NOT leak."""
+    payload = {
+        "data": {
+            "slug": "self",
+            "name": "OpenClaw Node",
+            "state": "started",
+            "version": "1.0.0",
+            "version_latest": "1.0.0",
+            "update_available": False,
+            "description": "OpenClaw node addon",
+            "repository": "core",
+            "boot": "auto",
+            "startup": "services",
+            "stage": "stable",
+            "arch": "amd64",
+            "machine": "qemux86-64",
+            "ingress": True,
+            "ingress_port": 8099,
+            # Sensitive fields that MUST be stripped:
+            "options": {"hass_token": "super-secret-leak", "mqtt_password": "leak"},
+            "schema": [{"name": "mqtt_password", "type": "password"}],
+            "hostname": "addon_internal_hostname",
+            "ip_address": "172.30.32.42",
+            "homeassistant_api": True,
+            "hassio_api": True,
+            "privileged": ["NET_ADMIN"],
+            "audio": True,
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_addon_info({"slug": "self"})
+    assert result["ok"] is True
+    info = result["info"]
+    # Kept fields:
+    assert info["slug"] == "self"
+    assert info["name"] == "OpenClaw Node"
+    assert info["state"] == "started"
+    assert info["ingress_port"] == 8099
+    # Dropped fields — CRITICAL invariant of this command:
+    for forbidden in (
+        "options",
+        "schema",
+        "hostname",
+        "ip_address",
+        "homeassistant_api",
+        "hassio_api",
+        "privileged",
+        "audio",
+        "repository",
+    ):
+        assert forbidden not in info, (
+            f"{forbidden!r} leaked into ha.addon_info output — see _ADDON_INFO_FIELDS"
+        )
+
+
+async def test_addon_info_missing_source_fields_are_none() -> None:
+    payload = {"data": {"slug": "x"}}
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_addon_info({"slug": "x"})
+    assert result["ok"] is True
+    assert result["info"]["slug"] == "x"
+    assert result["info"]["version"] is None
+
+
+async def test_addon_info_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=["nope"]):
+        result = await handle_ha_addon_info({"slug": "x"})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_addon_info_missing_data() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={"result": "ok"}):
+        result = await handle_ha_addon_info({"slug": "x"})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_addon_info_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_addon_info({"slug": "self"})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_addon_info_not_found() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("HA_NOT_FOUND", "no such"),
+    ):
+        result = await handle_ha_addon_info({"slug": "missing"})
+    assert result["error"] == "HA_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_stats
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_stats_missing_slug() -> None:
+    result = await handle_ha_addon_stats({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_addon_stats_invalid_slug() -> None:
+    result = await handle_ha_addon_stats({"slug": "../etc"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_addon_stats_happy_path() -> None:
+    payload = {
+        "data": {
+            "cpu_percent": 0.42,
+            "memory_usage": 12345678,
+            "memory_limit": 256000000,
+            "memory_percent": 4.8,
+            "network_rx": 100,
+            "network_tx": 200,
+            "blk_read": 300,
+            "blk_write": 400,
+            # A future Supervisor field that should NOT pass through:
+            "internal_env_dump": {"SECRET": "leak"},
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_addon_stats({"slug": "self"})
+    assert result["ok"] is True
+    stats = result["stats"]
+    assert stats["cpu_percent"] == 0.42
+    assert stats["memory_usage"] == 12345678
+    assert "internal_env_dump" not in stats
+
+
+async def test_addon_stats_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=["nope"]):
+        result = await handle_ha_addon_stats({"slug": "x"})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_addon_stats_missing_data() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={}):
+        result = await handle_ha_addon_stats({"slug": "x"})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_addon_stats_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_addon_stats({"slug": "self"})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_changelog
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_changelog_missing_slug() -> None:
+    result = await handle_ha_addon_changelog({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_addon_changelog_invalid_slug() -> None:
+    result = await handle_ha_addon_changelog({"slug": "../etc"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_addon_changelog_returns_body() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        return_value="# Changelog\n- thing happened",
+    ):
+        result = await handle_ha_addon_changelog({"slug": "self"})
+    assert result["ok"] is True
+    assert result["slug"] == "self"
+    assert "thing happened" in result["changelog"]
+
+
+async def test_addon_changelog_not_found() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("HA_NOT_FOUND", "no changelog"),
+    ):
+        result = await handle_ha_addon_changelog({"slug": "self"})
+    assert result["error"] == "HA_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_documentation
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_documentation_missing_slug() -> None:
+    result = await handle_ha_addon_documentation({})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_addon_documentation_invalid_slug() -> None:
+    result = await handle_ha_addon_documentation({"slug": "with/slash"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_addon_documentation_returns_body() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        return_value="# Docs\nUse like this.",
+    ):
+        result = await handle_ha_addon_documentation({"slug": "self"})
+    assert result["ok"] is True
+    assert "Use like this" in result["documentation"]
+
+
+async def test_addon_documentation_not_found() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("HA_NOT_FOUND", "no docs"),
+    ):
+        result = await handle_ha_addon_documentation({"slug": "self"})
+    assert result["error"] == "HA_NOT_FOUND"

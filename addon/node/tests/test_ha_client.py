@@ -3,16 +3,33 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from openclaw_node.ha_client import HAClientError, ha_get, ha_post, ha_ws_call
+from openclaw_node.ha_client import (
+    HAClientError,
+    ha_get,
+    ha_post,
+    ha_ws_call,
+    supervisor_get_json,
+    supervisor_get_text,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers — fake aiohttp ClientSession
 # ---------------------------------------------------------------------------
+
+
+class _FakeContent:
+    def __init__(self, body: str) -> None:
+        self._body = body.encode()
+
+    async def iter_chunked(self, size: int) -> AsyncIterator[bytes]:
+        for pos in range(0, len(self._body), size):
+            yield self._body[pos : pos + size]
 
 
 class _FakeResp:
@@ -27,6 +44,7 @@ class _FakeResp:
         self._body = body
         self.content_type = content_type
         self._text = text_body if text_body is not None else json.dumps(body or {})
+        self.content = _FakeContent(self._text)
         self.url = MagicMock(path="/api/test")
 
     async def __aenter__(self) -> _FakeResp:
@@ -390,3 +408,178 @@ async def test_ws_call_supervisor_mode_uses_supervisor_url(
         await ha_ws_call("config/area_registry/list")
     call_url = str(fake.return_value.ws_connect.call_args[0][0])
     assert "supervisor" in call_url
+
+
+# ---------------------------------------------------------------------------
+# supervisor_get_text
+# ---------------------------------------------------------------------------
+
+
+async def test_supervisor_get_text_requires_supervisor_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    with pytest.raises(HAClientError) as ei:
+        await supervisor_get_text("/addons/self/logs")
+    assert ei.value.code == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_supervisor_get_text_returns_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(
+        status=200,
+        content_type="text/plain",
+        text_body="line1\nline2\n",
+    )
+    with _patch_session(resp) as fake:
+        body = await supervisor_get_text("/addons/self/logs")
+    assert body == "line1\nline2\n"
+    call_args = fake.return_value.get.call_args
+    assert call_args[0][0] == "http://supervisor/addons/self/logs"
+    assert call_args[1]["headers"]["Authorization"] == "Bearer sup-tok"
+
+
+async def test_supervisor_get_text_keeps_only_trailing_max_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(
+        status=200,
+        content_type="text/plain",
+        text_body="0123456789",
+    )
+    with _patch_session(resp):
+        body = await supervisor_get_text("/addons/self/logs", max_bytes=4)
+    assert body == "6789"
+
+
+async def test_supervisor_get_text_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=401, content_type="text/plain", text_body="")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_text("/addons/self/logs")
+    assert ei.value.code == "HA_AUTH"
+
+
+async def test_supervisor_get_text_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=404, content_type="text/plain", text_body="")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_text("/addons/missing/logs")
+    assert ei.value.code == "HA_NOT_FOUND"
+
+
+async def test_supervisor_get_text_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=500, content_type="text/plain", text_body="boom")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_text("/addons/self/logs")
+    assert ei.value.code == "HA_HTTP_ERROR"
+
+
+async def test_supervisor_get_text_network_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import aiohttp
+
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    session = MagicMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(side_effect=aiohttp.ClientError("conn refused"))
+    with (
+        patch("aiohttp.ClientSession", return_value=session),
+        pytest.raises(HAClientError) as ei,
+    ):
+        await supervisor_get_text("/addons/self/logs")
+    assert ei.value.code == "HA_NETWORK"
+
+
+# ---------------------------------------------------------------------------
+# supervisor_get_json
+# ---------------------------------------------------------------------------
+
+
+async def test_supervisor_get_json_requires_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    with pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons")
+    assert ei.value.code == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_supervisor_get_json_returns_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    payload = {"result": "ok", "data": {"addons": [{"slug": "a"}]}}
+    resp = _FakeResp(status=200, body=payload, content_type="application/json")
+    with _patch_session(resp) as fake:
+        out = await supervisor_get_json("/addons")
+    assert out == payload
+    call_args = fake.return_value.get.call_args
+    assert call_args[0][0] == "http://supervisor/addons"
+    assert call_args[1]["headers"]["Authorization"] == "Bearer sup-tok"
+
+
+async def test_supervisor_get_json_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=401, content_type="application/json")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons")
+    assert ei.value.code == "HA_AUTH"
+
+
+async def test_supervisor_get_json_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=404, content_type="application/json")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons/nope")
+    assert ei.value.code == "HA_NOT_FOUND"
+
+
+async def test_supervisor_get_json_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=500, body={"result": "error"}, content_type="application/json")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons")
+    assert ei.value.code == "HA_HTTP_ERROR"
+
+
+async def test_supervisor_get_json_bad_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+
+    class _BadJsonResp(_FakeResp):
+        async def json(self, content_type: Any = None) -> Any:
+            raise ValueError("not json")
+
+    resp = _BadJsonResp(status=200, content_type="application/json", text_body="not json")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons")
+    assert ei.value.code == "HA_BAD_RESPONSE"
+
+
+async def test_supervisor_get_json_too_large(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    big = "x" * 2048
+    resp = _FakeResp(status=200, content_type="application/json", text_body=big)
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons/self/info", max_bytes=1024)
+    assert ei.value.code == "HA_RESPONSE_TOO_LARGE"
+
+
+async def test_supervisor_get_json_network_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import aiohttp
+
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    session = MagicMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(side_effect=aiohttp.ClientError("conn refused"))
+    with (
+        patch("aiohttp.ClientSession", return_value=session),
+        pytest.raises(HAClientError) as ei,
+    ):
+        await supervisor_get_json("/addons")
+    assert ei.value.code == "HA_NETWORK"
