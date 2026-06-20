@@ -20,6 +20,8 @@ Commands in this module:
 - ``ha.light_turn_off``       — turn off one or more lights.
 - ``ha.list_automations``     — list automation entities and optionally include traces.
 - ``ha.check_config``         — validate HA configuration.yaml.
+- ``ha.addon_logs``           — fetch Supervisor add-on logs (read-only).
+- ``ha.list_addons``          — list Supervisor add-ons with slug + state (read-only).
 """
 
 from __future__ import annotations
@@ -27,7 +29,14 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.ha_client import HAClientError, ha_get, ha_post, ha_ws_call
+from openclaw_node.ha_client import (
+    HAClientError,
+    ha_get,
+    ha_post,
+    ha_ws_call,
+    supervisor_get_json,
+    supervisor_get_text,
+)
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -473,3 +482,109 @@ async def handle_ha_check_config(_params: dict[str, Any]) -> dict[str, Any]:
         "errors": raw.get("errors"),
         "warnings": raw.get("warnings"),
     }
+
+
+_ADDON_SLUG_MAX_LEN: Final[int] = 128
+_ADDON_LOGS_DEFAULT_LINES: Final[int] = 200
+_ADDON_LOGS_MAX_LINES: Final[int] = 5000
+_ADDON_LOGS_MAX_BYTES: Final[int] = 1_048_576
+
+
+def _valid_addon_slug(slug: str) -> bool:
+    """Accept Supervisor add-on slugs: lowercase alnum, underscore, dash; plus 'self'."""
+    if not slug or len(slug) > _ADDON_SLUG_MAX_LEN:
+        return False
+    return all(c.isalnum() or c in ("_", "-") for c in slug)
+
+
+async def handle_ha_addon_logs(params: dict[str, Any]) -> dict[str, Any]:
+    """Return the most recent log lines for a Supervisor-managed add-on.
+
+    Hits ``GET http://supervisor/addons/<slug>/logs``. Read-only by construction
+    (the Supervisor endpoint does not mutate state). Requires the add-on to be
+    running under Supervisor with ``SUPERVISOR_TOKEN`` available.
+
+    Params:
+        slug (str): Required; the Supervisor add-on slug (e.g.
+            ``"fcccfbbd_openclaw_hass_node"``, or the special value ``"self"``
+            to fetch this node's own logs).
+        lines (int, optional): Number of trailing lines to return.
+            Defaults to ``200``; clamped to ``[1, 5000]``.
+
+    Returns:
+        ``{ok: True, slug, lines, log}`` where ``log`` is trimmed from a
+        bounded trailing byte window, or an error dict.
+    """
+    slug = str(params.get("slug", "")).strip()
+    if not slug:
+        return _error("MISSING_PARAM", "slug is required")
+    if not _valid_addon_slug(slug):
+        return _error("INVALID_PARAM", f"invalid addon slug: {slug!r}")
+
+    lines_param = params.get("lines", _ADDON_LOGS_DEFAULT_LINES)
+    try:
+        lines = int(lines_param)
+    except (TypeError, ValueError):
+        return _error("INVALID_PARAM", "lines must be an integer")
+    lines = max(1, min(lines, _ADDON_LOGS_MAX_LINES))
+
+    try:
+        body = await supervisor_get_text(f"/addons/{slug}/logs", max_bytes=_ADDON_LOGS_MAX_BYTES)
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    log_lines = body.splitlines()
+    trimmed = log_lines[-lines:] if len(log_lines) > lines else log_lines
+    return {
+        "ok": True,
+        "slug": slug,
+        "lines": len(trimmed),
+        "log": "\n".join(trimmed),
+    }
+
+
+_ADDON_FIELDS: Final[tuple[str, ...]] = (
+    "slug",
+    "name",
+    "state",
+    "version",
+    "version_latest",
+    "update_available",
+    "repository",
+)
+
+
+async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return the list of Supervisor-managed add-ons (slug + state + version).
+
+    Hits ``GET http://supervisor/addons``. Read-only by construction. Required
+    discovery path for :func:`handle_ha_addon_logs` — callers can't fetch logs
+    for a slug they can't see. Only a fixed, non-sensitive subset of fields is
+    returned (slug, name, state, version, version_latest, update_available,
+    repository); the full Supervisor response is dropped.
+
+    Returns:
+        ``{ok: True, count, addons}`` with ``addons`` as a list of dicts, or an
+        error dict.
+    """
+    try:
+        raw = await supervisor_get_json("/addons")
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /addons")
+    data = raw.get("data")
+    if not isinstance(data, dict):
+        return _error("HA_BAD_RESPONSE", "Supervisor /addons response missing 'data'")
+    addons_raw = data.get("addons")
+    if not isinstance(addons_raw, list):
+        return _error("HA_BAD_RESPONSE", "Supervisor /addons 'data.addons' is not a list")
+
+    addons: list[dict[str, Any]] = []
+    for entry in addons_raw:
+        if not isinstance(entry, dict):
+            continue
+        addons.append({field: entry.get(field) for field in _ADDON_FIELDS})
+
+    return {"ok": True, "count": len(addons), "addons": addons}

@@ -1,5 +1,11 @@
 # OpenClaw Node Add-on Changelog
 
+## Unreleased
+
+### Features
+- **`ha.list_addons` command (read-only).** Companion to `ha.addon_logs` — the slug-required form is useless without a discovery path. Hits `GET http://supervisor/addons` via a new `supervisor_get_json` helper and returns a fixed, non-sensitive subset per add-on: `slug`, `name`, `state`, `version`, `version_latest`, `update_available`, `repository`. All other Supervisor fields (notably `options`/`boot`) are dropped at the boundary so the read-only surface cannot leak per-addon configuration. Same read-only-by-construction guarantee as `ha.addon_logs`. Tests cover happy path, field filtering, malformed-entry tolerance, three `HA_BAD_RESPONSE` shapes, and `SUPERVISOR_UNAVAILABLE`.
+- **`ha.addon_logs` command (read-only).** Fetches the most recent Supervisor add-on log lines via `GET http://supervisor/addons/<slug>/logs` and returns them through the node's existing command dispatcher. Step toward sunsetting subagent reliance on the `mcp__homeassistant__*` MCP server and the long-lived `HASS_TOKEN`; the supervisor-token path keeps the call privileged-but-read-only by construction (Supervisor's `/addons/<slug>/logs` is GET-only). Params: `slug` (required, validated as `[a-z0-9_-]{1,128}`) and `lines` (optional, clamped 1–5000, default 200). Returns `{ok, slug, lines, log}` from a bounded 1 MiB trailing byte window before line trimming. New `supervisor_get_text` helper in `ha_client` issues the request without ever combining the supervisor token with a non-supervisor URL. Tests cover slug validation, lines clamping, tail-trim correctness, bounded byte retention, and the four error paths (`SUPERVISOR_UNAVAILABLE`, `HA_AUTH`, `HA_NOT_FOUND`, `HA_HTTP_ERROR`).
+
 ## 2026.6.19b2 (2026-06-20) — Slow-turn progress for HA Assist streaming
 
 ### Fixes
