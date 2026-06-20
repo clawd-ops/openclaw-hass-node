@@ -130,13 +130,30 @@ class NodeConfig:
 
     @property
     def device_token_path(self) -> Path:
-        """Return the path to the persisted device-token file.
+        """Return the legacy (pre-dual-role) device-token path.
 
-        The token is written on first successful connect (when the gateway
-        issues one in the hello-ok payload) and reused for every subsequent
-        connect, replacing the one-shot pairing_token from add-on options.
+        Retained for migration only — older add-on installs persisted a
+        single token to this path, before the gateway started issuing
+        per-role tokens. New code should use ``device_token_path_for(role)``;
+        ``__main__`` migrates any token at this path to the node-role path
+        on startup, then deletes it.
         """
         return self.data_dir / "device-token"
+
+    def device_token_path_for(self, role: str) -> Path:
+        """Return the per-role device-token path.
+
+        The gateway issues distinct ``deviceToken`` values for the ``node``
+        and ``operator`` roles on a dual-role pairing profile. Older builds
+        persisted both to ``data_dir/device-token``; whichever role's
+        ``_persist_device_token`` finished second clobbered the first, and
+        the loser looped ``AUTH_TOKEN_MISMATCH`` on the next restart (#98
+        part 3). Separate files keep each role's token intact.
+
+        Args:
+            role: Either ``"node"`` or ``"operator"``.
+        """
+        return self.data_dir / f"device-token.{role}"
 
 
 def load_config() -> NodeConfig:

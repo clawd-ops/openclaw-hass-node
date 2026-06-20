@@ -8,6 +8,7 @@ client and the local HTTP API concurrently under one task group.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import sys
 from pathlib import Path
@@ -51,9 +52,18 @@ def _reset_pairing_state(config: NodeConfig) -> None:
     if mode == "none":
         return
     if mode == "token":
-        targets: tuple[Path, ...] = (config.device_token_path,)
+        targets: tuple[Path, ...] = (
+            config.device_token_path,
+            config.device_token_path_for("node"),
+            config.device_token_path_for("operator"),
+        )
     elif mode == "identity":
-        targets = (config.device_token_path, config.key_path)
+        targets = (
+            config.device_token_path,
+            config.device_token_path_for("node"),
+            config.device_token_path_for("operator"),
+            config.key_path,
+        )
     else:
         _LOG.warning("reset_pairing: unknown mode %r; skipping wipe", mode)
         return
@@ -117,25 +127,81 @@ def _safe_to_unlink_under(path: Path, data_dir: Path) -> bool:
     return True
 
 
-def _initial_device_token(config: NodeConfig) -> str | None:
-    """Return the persisted device token, falling back to a one-shot pairing token.
+def _migrate_legacy_device_token(config: NodeConfig) -> None:
+    """Move a pre-#98-part-3 single device-token file to the node-role path.
+
+    Pre-fix builds persisted both roles' tokens to ``data_dir/device-token``
+    with last-writer-wins, which the gateway then rejected with
+    ``AUTH_TOKEN_MISMATCH`` on the next restart. New code uses per-role
+    paths. On first startup after the upgrade we move the legacy file to
+    the node-role path (best guess — the node token is the more critical
+    one and is what most invokes need); the operator side will fetch a
+    fresh token from the gateway on its next connect.
+
+    Failures are logged and swallowed; a missing legacy file is the
+    expected happy path.
+    """
+    legacy = config.device_token_path
+    target = config.device_token_path_for("node")
+    if not legacy.exists() or target.exists():
+        return
+    # Refuse to migrate a symlink — otherwise we'd carry the symlink (and
+    # its arbitrary target) into the new per-role path, defeating the
+    # symlink-refuse hardening elsewhere in the token write path.
+    if legacy.is_symlink():
+        _LOG.warning(
+            "Refusing to migrate %s: path is a symlink. Remove it manually "
+            "to force a fresh re-pair.",
+            legacy,
+        )
+        return
+    try:
+        token = legacy.read_text().strip()
+    except OSError as exc:
+        _LOG.warning("Could not read legacy %s for migration: %s", legacy, exc)
+        return
+    if not token:
+        # Nothing of value; unlink the empty file so it doesn't keep
+        # tripping the migration check.
+        with contextlib.suppress(OSError):
+            legacy.unlink()
+        return
+    # Re-write through the hardened atomic writer so the new file lands at
+    # 0o600 with O_NOFOLLOW, then unlink the legacy file.
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        from openclaw_node.gateway_ws import GatewayClient
+
+        GatewayClient._atomic_write_token(target, token)
+        legacy.unlink()
+        _LOG.info("Migrated legacy device-token to %s (#98 part 3)", target)
+    except OSError as exc:
+        _LOG.warning("Could not migrate legacy %s -> %s: %s", legacy, target, exc)
+
+
+def _initial_device_token(config: NodeConfig, role: str = "node") -> str | None:
+    """Return the persisted device token for *role*, with pairing fallback.
 
     The pairing token is consumed when the gateway approves the first connect.
     Subsequent connects with the same value fail ``NOT_PAIRED``, so always
-    prefer the persisted token when it exists.
+    prefer the persisted per-role token when it exists.
 
     Args:
         config: Loaded runtime configuration.
+        role: Which role's token to load. The gateway issues per-role tokens
+            on a dual-role pairing profile; mixing them produces
+            ``AUTH_TOKEN_MISMATCH`` (#98 part 3).
 
     Returns:
         The token to send on the next connect, or ``None`` when neither a
         persisted device token nor a one-shot pairing token is available.
     """
     persisted = ""
-    if config.device_token_path.exists():
-        persisted = config.device_token_path.read_text().strip()
+    path = config.device_token_path_for(role)
+    if path.exists():
+        persisted = path.read_text().strip()
         if persisted:
-            _LOG.info("Loaded persisted device_token from %s", config.device_token_path)
+            _LOG.info("Loaded persisted %s device_token from %s", role, path)
     return persisted or config.pairing_token or None
 
 
@@ -165,21 +231,23 @@ def build_runtime(
     def _on_pairing_state(state: PairingState) -> None:
         runtime.pairing_state = state
 
-    initial_token = _initial_device_token(config)
+    node_token = _initial_device_token(config, role="node")
+    operator_token = _initial_device_token(config, role="operator")
 
     node_client = GatewayClient(
         config=config,
         identity=identity,
-        device_token=initial_token,
+        device_token=node_token,
         pairing_state_callback=_on_pairing_state,
         runtime=runtime,
         chat_relay_enabled=False,  # operator owns the relay in P5.13
         invoke_dispatch_enabled=True,
+        token_persist_path=config.device_token_path_for("node"),
     )
     operator_client = GatewayClient(
         config=config,
         identity=identity,
-        device_token=initial_token,
+        device_token=operator_token,
         # No pairing_state_callback — the operator connection inherits
         # whatever the node connection already established; surfacing
         # operator-side pairing state would just churn the same flag.
@@ -191,9 +259,12 @@ def build_runtime(
         commands=[],
         chat_relay_enabled=True,
         invoke_dispatch_enabled=False,
-        # Both connections share the device_token file (idempotent
-        # writes), but the operator side must NOT clear it on an
-        # INVALID_REQUEST — that would break the node connection too.
+        # Per-role token persistence (#98 part 3): the gateway issues
+        # distinct deviceToken values for node and operator on a
+        # dual-role pairing; sharing one file last-writer-wins'd them
+        # and produced AUTH_TOKEN_MISMATCH on next restart. Operator
+        # still skips the pair-fallback wipe — that path is node-driven.
+        token_persist_path=config.device_token_path_for("operator"),
         pair_fallback_enabled=False,
     )
     return runtime, node_client, operator_client
@@ -212,6 +283,7 @@ async def _main() -> None:
     _LOG.info("Data dir: %s", config.data_dir)
     if config.reset_pairing != "none":
         _reset_pairing_state(config)
+    _migrate_legacy_device_token(config)
     if config.addon_mode and not config.local_api_token:
         _LOG.warning(
             "local_api_token is unset — the local HTTP API on port 8099 is "

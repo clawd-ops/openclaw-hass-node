@@ -97,12 +97,28 @@ def test_build_runtime_wires_pairing_callback(
 def test_initial_device_token_prefers_persisted(
     config: NodeConfig,
 ) -> None:
-    """A persisted device token must win over the one-shot pairing token."""
-    config.device_token_path.parent.mkdir(parents=True, exist_ok=True)
-    config.device_token_path.write_text("persisted-token\n")
+    """A persisted per-role device token must win over the one-shot pairing token."""
+    node_path = config.device_token_path_for("node")
+    node_path.parent.mkdir(parents=True, exist_ok=True)
+    node_path.write_text("persisted-node-token\n")
+    op_path = config.device_token_path_for("operator")
+    op_path.write_text("persisted-operator-token\n")
     object.__setattr__(config, "pairing_token", "one-shot")
 
-    assert _initial_device_token(config) == "persisted-token"
+    assert _initial_device_token(config, role="node") == "persisted-node-token"
+    assert _initial_device_token(config, role="operator") == "persisted-operator-token"
+
+
+def test_initial_device_token_per_role_isolated(config: NodeConfig) -> None:
+    """A node-only token must NOT satisfy an operator lookup (and vice versa)."""
+    node_path = config.device_token_path_for("node")
+    node_path.parent.mkdir(parents=True, exist_ok=True)
+    node_path.write_text("only-node\n")
+    object.__setattr__(config, "pairing_token", "boot")
+
+    assert _initial_device_token(config, role="node") == "only-node"
+    # operator has no persisted token; must fall back to the bootstrap.
+    assert _initial_device_token(config, role="operator") == "boot"
 
 
 def test_initial_device_token_falls_back_to_pairing(
@@ -125,11 +141,78 @@ def test_initial_device_token_whitespace_persisted_falls_back(
     config: NodeConfig,
 ) -> None:
     """A whitespace-only persisted token must not mask the one-shot pairing token."""
-    config.device_token_path.parent.mkdir(parents=True, exist_ok=True)
-    config.device_token_path.write_text("   \n")
+    node_path = config.device_token_path_for("node")
+    node_path.parent.mkdir(parents=True, exist_ok=True)
+    node_path.write_text("   \n")
     object.__setattr__(config, "pairing_token", "one-shot")
 
     assert _initial_device_token(config) == "one-shot"
+
+
+def test_legacy_device_token_migrates_to_node_role_path(config: NodeConfig) -> None:
+    """A legacy ``data_dir/device-token`` file must migrate to the node-role path."""
+    from openclaw_node.__main__ import _migrate_legacy_device_token
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("legacy-token\n")
+    target = config.device_token_path_for("node")
+    assert not target.exists()
+
+    _migrate_legacy_device_token(config)
+
+    assert not config.device_token_path.exists()
+    assert target.exists()
+    assert target.read_text() == "legacy-token"
+
+
+def test_legacy_migration_refuses_symlink(config: NodeConfig, tmp_path: Path) -> None:
+    """A symlinked legacy device-token must NOT be migrated (would carry the symlink)."""
+    from openclaw_node.__main__ import _migrate_legacy_device_token
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    outside = tmp_path / "evil.txt"
+    outside.write_text("evil")
+    config.device_token_path.symlink_to(outside)
+
+    _migrate_legacy_device_token(config)
+
+    # Per-role file NOT created via symlink follow.
+    assert not config.device_token_path_for("node").exists()
+    # Symlink itself stays in place (we refused to touch it).
+    assert config.device_token_path.is_symlink()
+
+
+def test_legacy_migration_token_lands_at_mode_0o600(
+    config: NodeConfig,
+) -> None:
+    """Migrated token must be 0o600 even if the legacy file was world-readable."""
+    from openclaw_node.__main__ import _migrate_legacy_device_token
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("legacy\n")
+    config.device_token_path.chmod(0o644)
+
+    _migrate_legacy_device_token(config)
+
+    target = config.device_token_path_for("node")
+    assert target.exists()
+    assert (target.stat().st_mode & 0o777) == 0o600
+
+
+def test_legacy_migration_skips_when_target_already_exists(config: NodeConfig) -> None:
+    """If the per-role path already holds a (newer) token, do NOT clobber it."""
+    from openclaw_node.__main__ import _migrate_legacy_device_token
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale-legacy\n")
+    target = config.device_token_path_for("node")
+    target.write_text("fresh-per-role\n")
+
+    _migrate_legacy_device_token(config)
+
+    # Per-role wins; legacy remains untouched as a no-op (idempotent).
+    assert target.read_text() == "fresh-per-role\n"
+    assert config.device_token_path.exists()
 
 
 def test_reset_pairing_state_token_mode_wipes_only_device_token(
