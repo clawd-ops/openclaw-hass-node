@@ -1,5 +1,10 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a16 (2026-06-20)
+
+### Bug fixes
+- **#118 part 2 — Assist replies no longer truncate mid-stream (#124).** After the a15 canonical-key fix, replies were arriving truncated: short answers like "Hey" survived, but longer ones came back as "I'm Cl" or "Not" instead of "I'm Clawd 🦀..." or "Not yet...". Cause: the gateway streams the assistant reply as `state='delta'` chunks followed by a single `state='final'` event with the COMPLETE text; the relay was firing the reply waiter on the first delta and returning whatever fragment was in chunk 1. The relay now only fires on terminal events (`state='final'` chat events or `session.message` events); deltas accumulate into a running buffer that's only returned as a best-effort partial when the turn times out. A separate terminal-text dict (caught by Codex review) prevents a delta-before-ack race from short-circuiting the fast-path return.
+
 ## 2026.6.8a15 (2026-06-20)
 
 ### Bug fixes
