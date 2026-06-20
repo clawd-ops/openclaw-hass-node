@@ -2,7 +2,7 @@
   "domain": "openclaw_gateway",
   "name": "OpenClaw Gateway",
   "after_dependencies": ["conversation"],
-  "codeowners": ["@clawd-ops"],
+  "codeowners": ["@clawd-ops", "@roblandry"],
   "config_flow": true,
   "documentation": "https://github.com/clawd-ops/openclaw-hass-node",
   "iot_class": "local_push",
