@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import AsyncIterator
 from typing import Any, Final
 
 import aiohttp
@@ -21,6 +23,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_API_TOKEN, CONF_SOCKET_URL, CONVERSATION_ENDPOINT, DOMAIN
+
+_STREAM_ENDPOINT: Final[str] = "/v1/conversation/stream"
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _REQUEST_TIMEOUT_S: Final[float] = 35.0
@@ -46,6 +50,12 @@ class OpenClawConversationEntity(ConversationEntity):
 
     _attr_name = "OpenClaw Gateway"
     _attr_supported_features = ConversationEntityFeature.CONTROL
+    # HA Assist UI renders the reply incrementally when this is True. The
+    # node addon exposes /v1/conversation/stream as an NDJSON stream of
+    # delta chunks (`{"delta": "..."}`) terminated by `{"done": true}` or
+    # `{"error": "<code>"}`. We adapt that into the AsyncIterable
+    # AssistantContentDeltaDict shape HA's chat_log expects.
+    _attr_supports_streaming = True
 
     @property
     def supported_languages(self) -> list[str] | str:
@@ -98,10 +108,10 @@ class OpenClawConversationEntity(ConversationEntity):
             A Home Assistant conversation result with the node response.
         """
         socket_url = str(self._entry.data[CONF_SOCKET_URL]).rstrip("/")
-        url = f"{socket_url}{CONVERSATION_ENDPOINT}"
+        url = f"{socket_url}{_STREAM_ENDPOINT}"
         session = async_get_clientsession(self.hass)
         timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT_S)
-        headers: dict[str, str] = {}
+        headers: dict[str, str] = {"Accept": "application/x-ndjson"}
         api_token = str(self._entry.data.get(CONF_API_TOKEN, "") or "")
         if api_token:
             headers["Authorization"] = f"Bearer {api_token}"
@@ -157,19 +167,63 @@ class OpenClawConversationEntity(ConversationEntity):
                         response=intent_response,
                         continue_conversation=False,
                     )
-                try:
-                    data = await response.json()
-                except aiohttp.ContentTypeError as exc:
-                    _LOG.warning(
-                        "OpenClaw Node responded with non-JSON content-type %r at %s: %s",
-                        response.headers.get("Content-Type"),
-                        url,
-                        exc,
-                    )
-                    speech = "OpenClaw Node returned a non-JSON response."
-                    chat_log.async_add_assistant_content_without_tools(
-                        AssistantContent(agent_id=user_input.agent_id, content=speech)
-                    )
+                # Stream NDJSON deltas line-by-line, converting each
+                # `{"delta": "..."}` chunk into an AssistantContentDeltaDict
+                # that chat_log.async_add_delta_content_stream consumes.
+                # `{"done": true}` cleanly closes the iterator;
+                # `{"error": "<code>"}` raises so the user sees the cause.
+                first_delta = True
+                stream_error: str | None = None
+                collected: list[str] = []
+
+                async def _stream() -> AsyncIterator[dict[str, Any]]:
+                    nonlocal first_delta, stream_error
+                    async for raw_line in response.content:
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        try:
+                            frame = json.loads(line.decode("utf-8"))
+                        except (UnicodeDecodeError, json.JSONDecodeError):
+                            continue
+                        if not isinstance(frame, dict):
+                            continue
+                        if "delta" in frame:
+                            delta_text = str(frame.get("delta") or "")
+                            if not delta_text:
+                                continue
+                            collected.append(delta_text)
+                            if first_delta:
+                                first_delta = False
+                                yield {"role": "assistant", "content": delta_text}
+                            else:
+                                yield {"content": delta_text}
+                        elif frame.get("error"):
+                            stream_error = str(frame["error"])
+                            return
+                        elif frame.get("done"):
+                            return
+
+                async for _msg in chat_log.async_add_delta_content_stream(
+                    user_input.agent_id, _stream()
+                ):
+                    # Consume so the generator runs to completion. The
+                    # accumulated content is already attached to the chat
+                    # log by HA — we just need to drive the stream.
+                    pass
+
+                if stream_error:
+                    speech = f"OpenClaw Node stream error: {stream_error}"
+                    # Stream error — the content was NOT attached to the
+                    # chat log via the stream (the generator returned
+                    # before yielding the final delta). Fall through to
+                    # the trailing async_add_assistant_content_without_tools.
+                elif collected:
+                    # Streaming success — HA already attached the content
+                    # to the chat log via the stream. Build the intent
+                    # response from the accumulated text and return early
+                    # so we don't double-add.
+                    speech = "".join(collected)
                     intent_response = intent.IntentResponse(language=user_input.language)
                     intent_response.async_set_speech(speech)
                     return conversation.ConversationResult(
@@ -177,9 +231,8 @@ class OpenClawConversationEntity(ConversationEntity):
                         response=intent_response,
                         continue_conversation=False,
                     )
-            speech = str(
-                data.get("response") or data.get("error") or "OpenClaw Node returned no response."
-            )
+                else:
+                    speech = "OpenClaw Node returned no response."
         except TimeoutError:
             _LOG.warning("OpenClaw Node timed out at %s after %ss", url, _REQUEST_TIMEOUT_S)
             speech = (

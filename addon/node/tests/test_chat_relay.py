@@ -159,6 +159,367 @@ async def test_relay_turn_waits_for_final_not_first_delta() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
+    """stream_turn yields each chunk as deltas arrive, closes on state='final'."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_OK"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))  # sessions.create
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))  # chat.send ack
+        await asyncio.sleep(0.005)
+        for delta in ["Hello", " there", "!"]:
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "deltaText": delta,
+                        "message": {"role": "assistant", "content": "ignored"},
+                    },
+                }
+            )
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "message": {"role": "assistant", "content": "Hello there!"},
+                },
+            }
+        )
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["Hello", " there", "!"]
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_session_message_yields_full_text_when_no_deltas() -> None:
+    """session.message events without preceding deltas yield the full text as one chunk."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_SESSION_ONLY"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        # No deltas, just a single session.message terminal event.
+        relay.handle_event(_session_message_event(canonical_session_key, "assistant", "Done."))
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["Done."]
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
+    """If the final's full text is longer than the sum of deltas, the tail is yielded."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_TAIL"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "Hello",
+                    "message": {"role": "assistant", "content": "Hello"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        # Final has more text than the deltas covered.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "message": {"role": "assistant", "content": "Hello, world!"},
+                },
+            }
+        )
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["Hello", ", world!"]
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When the turn deadline elapses while waiting, any chunks already
+    queued must still be yielded before the iterator closes."""
+    import openclaw_node.chat_relay as cr_mod
+
+    monkeypatch.setattr(cr_mod, "_TURN_TIMEOUT_S", 0.1)
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_TIMEOUT"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        # One delta arrives, then the stream times out without a final.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "partial",
+                    "message": {"role": "assistant", "content": "partial"},
+                },
+            }
+        )
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["partial"]
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_chat_send_generic_exception_becomes_relay_failed() -> None:
+    """Streaming variant of the generic-exception RELAY_FAILED path."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_FAIL"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        send_frame_id = sender.frames[2]["id"]
+        future = relay._pending.get(send_frame_id)
+        if future is not None and not future.done():
+            future.set_exception(RuntimeError("stream boom"))
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    drive_task = asyncio.create_task(_drive())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await _consume()
+    await drive_task
+
+    assert exc_info.value.code == "RELAY_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_chat_send_chatrelayerror_propagates() -> None:
+    """A ChatRelayError from chat.send propagates through stream_turn unchanged."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_RELAYERR"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_error_response(sender.frames[2]["id"], "RATE_LIMIT", "slow down"))
+
+    async def _consume() -> None:
+        async for _chunk in relay.stream_turn(conv_id, "hi"):
+            pass
+
+    drive_task = asyncio.create_task(_drive())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await _consume()
+    await drive_task
+
+    assert exc_info.value.code == "RATE_LIMIT"
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_chat_send_generic_exception_becomes_relay_failed() -> None:
+    """A non-ChatRelayError raised from chat.send becomes RELAY_FAILED."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_RELAY_FAIL"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        # Simulate the pending chat.send future raising a generic exception.
+        send_frame_id = sender.frames[2]["id"]
+        future = relay._pending.get(send_frame_id)
+        if future is not None and not future.done():
+            future.set_exception(RuntimeError("boom"))
+
+    task = asyncio.create_task(_drive())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn(conv_id, "hi")
+    await task
+
+    assert exc_info.value.code == "RELAY_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_reset_closes_iterator() -> None:
+    """reset() must push the sentinel into any active stream queues."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_STREAM_RESET"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        # Yield ONE delta, then disconnect mid-stream.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "partial",
+                    "message": {"role": "assistant", "content": "partial"},
+                },
+            }
+        )
+        await asyncio.sleep(0.01)
+        relay.reset()
+
+    chunks: list[str] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert chunks == ["partial"]
+
+
+@pytest.mark.asyncio
 async def test_relay_turn_delta_before_ack_does_not_truncate() -> None:
     """Codex review catch on #118 part 2: a partial delta arriving BEFORE
     the chat.send ack lands must not short-circuit the fast-path return.

@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import Callable, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, Final
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -88,8 +88,123 @@ class ChatRelay:
         # the reply.
         self._terminal_assistant_text: dict[str, str] = {}  # canonical keys
         self._reply_events: dict[str, asyncio.Event] = {}  # canonical keys
+        # Per-session async queue used by stream_turn(). Each delta event
+        # pushes a non-empty str; the terminal event pushes None as a
+        # sentinel to close the iterator. None outside a stream_turn means
+        # there is no active streaming consumer for this session.
+        self._delta_queues: dict[str, asyncio.Queue[str | None]] = {}  # canonical keys
+        # Per-session count of characters already yielded to the active
+        # stream consumer. Used at the terminal event to compute any tail
+        # that wasn't covered by deltas (or to yield the full message text
+        # for session.message events that arrive without deltas).
+        self._stream_yielded_chars: dict[str, int] = {}  # canonical keys
         self._active_run_id: dict[str, str] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
+
+    async def stream_turn(
+        self,
+        conversation_id: str,
+        text: str,
+        language: str = "en",  # noqa: ARG002
+    ) -> AsyncIterator[str]:
+        """Relay one Assist turn and yield assistant text as it streams.
+
+        Implements the streaming half of the HA conversation API: each
+        gateway ``chat`` event with ``state='delta'`` yields its
+        ``deltaText`` (the NEW chunk, not the cumulative text). The
+        ``state='final'`` (or ``session.message``) event closes the
+        iterator after yielding any tail that wasn't covered by deltas
+        (typically empty when deltas have been flowing, or the full
+        message text when a session.message arrives without deltas).
+
+        Args:
+            conversation_id: HA conversation id.
+            text: User's input text.
+            language: BCP-47 language tag (informational).
+
+        Yields:
+            Each delta chunk in the order received.
+
+        Raises:
+            ChatRelayError: On subscribe / chat.send failure. Errors during
+                streaming close the iterator after yielding any text already
+                received.
+        """
+        session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
+        lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
+        async with lock:
+            async for chunk in self._stream_turn_locked(session_key, conversation_id, text):
+                yield chunk
+
+    async def _stream_turn_locked(
+        self, session_key: str, conversation_id: str, text: str
+    ) -> AsyncIterator[str]:
+        """Inner streaming turn under the per-session lock."""
+        deadline = asyncio.get_event_loop().time() + _TURN_TIMEOUT_S
+
+        canonical_key = self._canonical_by_raw.get(session_key)
+        if canonical_key is None or canonical_key not in self._subscribed:
+            canonical_key = await self._ensure_session(session_key, conversation_id)
+
+        # Reset per-turn state.
+        self._last_assistant_text.pop(canonical_key, None)
+        self._terminal_assistant_text.pop(canonical_key, None)
+        self._active_run_id.pop(canonical_key, None)
+        self._stream_yielded_chars[canonical_key] = 0
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        self._delta_queues[canonical_key] = queue
+
+        idempotency_key = str(uuid.uuid4())
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining <= 0:
+            self._delta_queues.pop(canonical_key, None)
+            raise ChatRelayError("TIMEOUT", "Turn deadline expired before chat.send")
+        try:
+            ack = await self._rpc(
+                "chat.send",
+                {
+                    "sessionKey": session_key,
+                    "message": text,
+                    "idempotencyKey": idempotency_key,
+                },
+                timeout=remaining,
+            )
+        except ChatRelayError:
+            self._delta_queues.pop(canonical_key, None)
+            raise
+        except Exception as exc:
+            self._delta_queues.pop(canonical_key, None)
+            raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+
+        run_id = ""
+        if isinstance(ack, dict):
+            run_id = str(ack.get("runId", "") or "")
+        if run_id:
+            self._active_run_id[canonical_key] = run_id
+
+        try:
+            while True:
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    # Best-effort: drain whatever is queued without further
+                    # waiting, then close.
+                    while not queue.empty():
+                        item = queue.get_nowait()
+                        if item is None:
+                            return
+                        yield item
+                    return
+                try:
+                    async with asyncio.timeout(remaining):
+                        item = await queue.get()
+                except TimeoutError:
+                    return
+                if item is None:
+                    return  # terminal sentinel
+                yield item
+        finally:
+            self._delta_queues.pop(canonical_key, None)
+            self._stream_yielded_chars.pop(canonical_key, None)
 
     async def relay_turn(
         self,
@@ -447,10 +562,11 @@ class ChatRelay:
         if not (role == "assistant" and session_key and text):
             return
 
-        # Only capture events when a turn is actively waiting for a reply.
+        # Only capture events when a turn is actively waiting for a reply
+        # (non-streaming relay_turn) or actively streaming (stream_turn).
         # This prevents stale events from a prior turn (which may lack a
         # runId) from being captured for the next turn.
-        if session_key not in self._reply_events:
+        if session_key not in self._reply_events and session_key not in self._delta_queues:
             return
 
         active_run = self._active_run_id.get(session_key)
@@ -464,24 +580,46 @@ class ChatRelay:
             return
 
         self._last_assistant_text[session_key] = text
-        # Only fire the reply waiter on a TERMINAL event:
-        #   - chat events with state='final' (gateway's emitChatFinal, carries
-        #     the complete assistant message text)
-        #   - session.message events (no `state` field, emitted once per
-        #     committed assistant message)
-        # ``chat`` events with state='delta' carry partial / streaming text
-        # and would otherwise wake the waiter mid-stream, returning a
-        # truncated reply (the "I'm Cl" / "Not" / "OK" symptoms from #118
-        # part 2 on v2026.6.8a15).
         state = payload.get("state")
         is_terminal_chat = event != "session.message" and (state == "final" or state is None)
         is_session_message = event == "session.message"
+
+        # Streaming consumer: push deltaText for delta events, push tail of
+        # final text + sentinel for terminal events.
+        queue = self._delta_queues.get(session_key)
+        if queue is not None:
+            if state == "delta":
+                # Gateway includes deltaText for the new chunk. Fall back to
+                # the cumulative text - already-yielded if deltaText is absent.
+                delta_text = payload.get("deltaText")
+                if not isinstance(delta_text, str) or not delta_text:
+                    already = self._stream_yielded_chars.get(session_key, 0)
+                    delta_text = text[already:] if len(text) > already else ""
+                if delta_text:
+                    self._stream_yielded_chars[session_key] = self._stream_yielded_chars.get(
+                        session_key, 0
+                    ) + len(delta_text)
+                    queue.put_nowait(delta_text)
+            elif is_terminal_chat or is_session_message:
+                # Yield any tail not covered by deltas (or the full text on
+                # session.message that arrives without preceding deltas),
+                # then close.
+                already = self._stream_yielded_chars.get(session_key, 0)
+                tail = text[already:] if len(text) > already else ""
+                if tail:
+                    self._stream_yielded_chars[session_key] = self._stream_yielded_chars.get(
+                        session_key, 0
+                    ) + len(tail)
+                    queue.put_nowait(tail)
+                queue.put_nowait(None)  # sentinel: close iterator
+
+        # Non-streaming consumer (relay_turn): only fire on TERMINAL events.
+        # Deltas (state='delta') would otherwise wake the waiter mid-stream
+        # and truncate the reply (#118 part 2). Record terminal text in its
+        # own dict so a delta-before-ack race can't short-circuit the
+        # fast-path return.
         if not (is_terminal_chat or is_session_message):
             return
-        # Record this as the terminal text. The fast-path return in
-        # _relay_turn_locked checks this dict (not the running
-        # _last_assistant_text buffer) so a delta arriving before the
-        # chat.send ack can't truncate the reply.
         self._terminal_assistant_text[session_key] = text
         reply_evt = self._reply_events.get(session_key)
         if reply_evt is not None:
@@ -501,6 +639,12 @@ class ChatRelay:
         self._subscribed.clear()
         self._last_assistant_text.clear()
         self._terminal_assistant_text.clear()
+        # Close any active stream consumers with a sentinel so their
+        # generator exits cleanly instead of hanging forever.
+        for q in self._delta_queues.values():
+            q.put_nowait(None)
+        self._delta_queues.clear()
+        self._stream_yielded_chars.clear()
         for evt in self._reply_events.values():
             evt.set()
         self._reply_events.clear()
