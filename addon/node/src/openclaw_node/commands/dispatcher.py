@@ -33,6 +33,7 @@ from openclaw_node.commands.ha import (
     handle_ha_history,
     handle_ha_light_turn_off,
     handle_ha_light_turn_on,
+    handle_ha_list_addons,
     handle_ha_list_areas,
     handle_ha_list_automations,
     handle_ha_list_devices,
@@ -86,6 +87,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.list_automations": handle_ha_list_automations,
     "ha.check_config": handle_ha_check_config,
     "ha.addon_logs": handle_ha_addon_logs,
+    "ha.list_addons": handle_ha_list_addons,
 }
 
 

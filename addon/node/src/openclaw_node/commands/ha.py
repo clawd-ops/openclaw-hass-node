@@ -21,6 +21,7 @@ Commands in this module:
 - ``ha.list_automations``     — list automation entities and optionally include traces.
 - ``ha.check_config``         — validate HA configuration.yaml.
 - ``ha.addon_logs``           — fetch Supervisor add-on logs (read-only).
+- ``ha.list_addons``          — list Supervisor add-ons with slug + state (read-only).
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from openclaw_node.ha_client import (
     ha_get,
     ha_post,
     ha_ws_call,
+    supervisor_get_json,
     supervisor_get_text,
 )
 
@@ -539,3 +541,50 @@ async def handle_ha_addon_logs(params: dict[str, Any]) -> dict[str, Any]:
         "lines": len(trimmed),
         "log": "\n".join(trimmed),
     }
+
+
+_ADDON_FIELDS: Final[tuple[str, ...]] = (
+    "slug",
+    "name",
+    "state",
+    "version",
+    "version_latest",
+    "update_available",
+    "repository",
+)
+
+
+async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return the list of Supervisor-managed add-ons (slug + state + version).
+
+    Hits ``GET http://supervisor/addons``. Read-only by construction. Required
+    discovery path for :func:`handle_ha_addon_logs` — callers can't fetch logs
+    for a slug they can't see. Only a fixed, non-sensitive subset of fields is
+    returned (slug, name, state, version, version_latest, update_available,
+    repository); the full Supervisor response is dropped.
+
+    Returns:
+        ``{ok: True, count, addons}`` with ``addons`` as a list of dicts, or an
+        error dict.
+    """
+    try:
+        raw = await supervisor_get_json("/addons")
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /addons")
+    data = raw.get("data")
+    if not isinstance(data, dict):
+        return _error("HA_BAD_RESPONSE", "Supervisor /addons response missing 'data'")
+    addons_raw = data.get("addons")
+    if not isinstance(addons_raw, list):
+        return _error("HA_BAD_RESPONSE", "Supervisor /addons 'data.addons' is not a list")
+
+    addons: list[dict[str, Any]] = []
+    for entry in addons_raw:
+        if not isinstance(entry, dict):
+            continue
+        addons.append({field: entry.get(field) for field in _ADDON_FIELDS})
+
+    return {"ok": True, "count": len(addons), "addons": addons}

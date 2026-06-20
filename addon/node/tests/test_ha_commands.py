@@ -15,6 +15,7 @@ from openclaw_node.commands.ha import (
     handle_ha_history,
     handle_ha_light_turn_off,
     handle_ha_light_turn_on,
+    handle_ha_list_addons,
     handle_ha_list_areas,
     handle_ha_list_automations,
     handle_ha_list_devices,
@@ -770,3 +771,83 @@ async def test_addon_logs_supervisor_404() -> None:
     ):
         result = await handle_ha_addon_logs({"slug": "does_not_exist"})
     assert result["error"] == "HA_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# ha.list_addons
+# ---------------------------------------------------------------------------
+
+
+async def test_list_addons_happy_path() -> None:
+    payload = {
+        "result": "ok",
+        "data": {
+            "addons": [
+                {
+                    "slug": "fcccfbbd_openclaw_hass_node",
+                    "name": "OpenClaw Node",
+                    "state": "started",
+                    "version": "2026.6.19b2",
+                    "version_latest": "2026.6.19b2",
+                    "update_available": False,
+                    "repository": "core",
+                    "boot": "auto",  # filtered out
+                    "options": {"secret": "should not leak"},  # filtered out
+                },
+                {"slug": "core_mosquitto", "name": "Mosquitto broker", "state": "started"},
+            ]
+        },
+    }
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        return_value=payload,
+    ):
+        result = await handle_ha_list_addons({})
+    assert result["ok"] is True
+    assert result["count"] == 2
+    first = result["addons"][0]
+    assert first["slug"] == "fcccfbbd_openclaw_hass_node"
+    assert first["state"] == "started"
+    assert "options" not in first
+    assert "boot" not in first
+    second = result["addons"][1]
+    assert second["slug"] == "core_mosquitto"
+    assert second["version"] is None
+
+
+async def test_list_addons_filters_non_dict_entries() -> None:
+    payload = {"data": {"addons": [{"slug": "a"}, "garbage", None, {"slug": "b"}]}}
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_list_addons({})
+    assert result["ok"] is True
+    assert result["count"] == 2
+
+
+async def test_list_addons_bad_top_level() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=["nope"]):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_addons_missing_data() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={"result": "ok"}):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_addons_data_addons_not_list() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        return_value={"data": {"addons": "oops"}},
+    ):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_addons_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_list_addons({})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"

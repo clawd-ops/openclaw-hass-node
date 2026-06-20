@@ -282,6 +282,60 @@ async def supervisor_get_text(
         raise HAClientError("HA_NETWORK", f"Network error contacting Supervisor: {exc}") from exc
 
 
+async def supervisor_get_json(path: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> Any:
+    """GET *path* on the Supervisor REST API and return the decoded JSON body.
+
+    Companion to :func:`supervisor_get_text` for endpoints that return JSON
+    (e.g. ``/addons``). Same auth/URL safety rules: requires ``SUPERVISOR_TOKEN``
+    and the URL is always ``http://supervisor{path}`` (never combined with a
+    user-supplied URL).
+
+    Args:
+        path: Path under the Supervisor root, e.g. ``"/addons"``. Must begin
+            with ``/``.
+        timeout_s: Per-request timeout.
+
+    Returns:
+        The decoded JSON body (typically a ``dict`` with a ``result`` field).
+
+    Raises:
+        HAClientError: ``SUPERVISOR_UNAVAILABLE`` when ``SUPERVISOR_TOKEN`` is
+            not set; otherwise network/HTTP error codes mirroring
+            :func:`supervisor_get_text`. ``HA_BAD_RESPONSE`` if the body is not
+            valid JSON.
+    """
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        raise HAClientError(
+            "SUPERVISOR_UNAVAILABLE",
+            "Supervisor API requires SUPERVISOR_TOKEN; not set in this environment.",
+        )
+    url = f"http://supervisor{path}"
+    headers = {"Authorization": f"Bearer {token}"}
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(url, headers=headers) as resp,
+        ):
+            if resp.status == 401:
+                raise HAClientError("HA_AUTH", "Supervisor rejected the token (401)")
+            if resp.status == 404:
+                raise HAClientError("HA_NOT_FOUND", f"Supervisor returned 404 for {path}")
+            if resp.status >= 400:
+                body = (await resp.text())[:512]
+                raise HAClientError("HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body}")
+            try:
+                return await resp.json()
+            except (ValueError, aiohttp.ContentTypeError) as exc:
+                raise HAClientError(
+                    "HA_BAD_RESPONSE", f"Supervisor returned non-JSON body for {path}"
+                ) from exc
+    except aiohttp.ClientError as exc:
+        _LOG.error("supervisor_get_json network error %s: %s", url, exc)
+        raise HAClientError("HA_NETWORK", f"Network error contacting Supervisor: {exc}") from exc
+
+
 async def _decode(resp: aiohttp.ClientResponse) -> Any:
     if resp.status == 401:
         raise HAClientError("HA_AUTH", "HA rejected the bearer token (401)")
