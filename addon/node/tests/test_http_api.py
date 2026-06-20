@@ -719,3 +719,110 @@ def test_node_runtime_is_paired_false() -> None:
     assert runtime.is_paired is False
     runtime.pairing_state = PairingState.PENDING
     assert runtime.is_paired is False
+
+
+# ---------------------------------------------------------------------------
+# /v1/conversation/stream — precondition error frames (#127 coverage)
+# ---------------------------------------------------------------------------
+
+
+def _stream_runtime(tmp_path: Path) -> NodeRuntime:
+    """Build a paired runtime suitable for /v1/conversation/stream tests."""
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+    return runtime
+
+
+async def _post_stream(runtime: NodeRuntime, body: dict[str, Any]) -> tuple[int, list[Any]]:
+    """POST body to /v1/conversation/stream and parse the NDJSON frames."""
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post("/v1/conversation/stream", json=body)
+        status = response.status
+        text = await response.text()
+    finally:
+        await tc.close()
+    frames = [json.loads(line) for line in text.strip().split("\n") if line]
+    return status, frames
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_operator_not_connected(tmp_path: Path) -> None:
+    runtime = _stream_runtime(tmp_path)
+    runtime.operator_connected = False
+    status, frames = await _post_stream(runtime, {"text": "hi", "conversation_id": "c1"})
+    assert status == 502
+    assert frames == [{"error": "OPERATOR_NOT_CONNECTED"}]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_relay_not_initialised(tmp_path: Path) -> None:
+    runtime = _stream_runtime(tmp_path)
+    runtime.chat_relay = None
+    status, frames = await _post_stream(runtime, {"text": "hi", "conversation_id": "c1"})
+    assert status == 502
+    assert frames == [{"error": "RELAY_NOT_INITIALISED"}]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_empty_text(tmp_path: Path) -> None:
+    from openclaw_node.chat_relay import ChatRelay
+
+    runtime = _stream_runtime(tmp_path)
+    runtime.chat_relay = MagicMock(spec=ChatRelay)
+    status, frames = await _post_stream(runtime, {"text": "   ", "conversation_id": "c1"})
+    assert status == 400
+    assert frames == [{"error": "EMPTY_TEXT"}]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_missing_conversation_id(tmp_path: Path) -> None:
+    from openclaw_node.chat_relay import ChatRelay
+
+    runtime = _stream_runtime(tmp_path)
+    runtime.chat_relay = MagicMock(spec=ChatRelay)
+    status, frames = await _post_stream(runtime, {"text": "hi", "conversation_id": ""})
+    assert status == 400
+    assert frames == [{"error": "MISSING_CONVERSATION_ID"}]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_unexpected_exception_surfaces_internal_error(
+    tmp_path: Path,
+) -> None:
+    """An unexpected exception inside the relay surfaces as
+    `{"error": "INTERNAL_ERROR"}` on the stream and does NOT propagate
+    (otherwise HA would see a torn connection instead of an error frame).
+    """
+    from openclaw_node.chat_relay import ChatRelay
+
+    runtime = _stream_runtime(tmp_path)
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> Any:
+        yield "first"
+        raise RuntimeError("simulated relay bug")
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    status, frames = await _post_stream(runtime, {"text": "hi", "conversation_id": "c-boom"})
+    assert status == 200  # headers already flushed before the exception
+    assert frames == [{"delta": "first"}, {"error": "INTERNAL_ERROR"}]
