@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from openclaw_node.chat_relay import (
+    _PENDING_RUN_ID,
     _SESSION_KEY_PREFIX,
     ChatRelay,
     ChatRelayError,
@@ -845,6 +846,137 @@ async def test_handle_event_tool_start_and_end_update_active_tool() -> None:
                 "sessionKey": s_k,
                 "stream": "text",
                 "data": {"name": "ignored", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+
+@pytest.mark.asyncio
+async def test_handle_event_tool_event_filtered_by_run_id() -> None:
+    """Codex review on PR #143: a delayed prior-run tool event must
+    not relabel the current turn's active tool. The runId staleness
+    filter that protects assistant events must also gate tool-event
+    capture.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_tool_runid_filter"
+    relay._canonical_by_raw[s_k] = s_k
+
+    # Simulate an active turn: real runId installed, same-run event
+    # already observed (post-ack, mid-turn state).
+    relay._active_run_id[s_k] = "run-current"
+    relay._seen_same_run_event[s_k] = True
+
+    # Mismatched runId — stale prior-run tool event must be dropped.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-prior",
+                "data": {"name": "stale_tool", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # Matching runId — accepted.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-current",
+                "data": {"name": "weather", "phase": "start"},
+            },
+        }
+    )
+    assert relay._active_tool[s_k] == "weather"
+
+    # Pending-ack window: every tool event (with or without runId) is
+    # stale until the ack arrives.
+    relay._active_tool.pop(s_k, None)
+    relay._active_run_id[s_k] = _PENDING_RUN_ID
+    relay._seen_same_run_event[s_k] = False
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-prior",
+                "data": {"name": "stale_pending", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # Post-ack but no same-run event seen yet: a runId-less tool event
+    # is treated as a possibly-stale prior-turn straggler and dropped.
+    relay._active_run_id[s_k] = "run-current"
+    relay._seen_same_run_event[s_k] = False
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "stale_unconfirmed", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # Defensive shape: non-dict `data` payload is silently ignored.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {"sessionKey": s_k, "stream": "tool", "data": "not-a-dict"},
+        }
+    )
+    # Empty sessionKey → no canonical key resolved, branch ignored.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": "",
+                "stream": "tool",
+                "data": {"name": "weather", "phase": "start"},
+            },
+        }
+    )
+    # handle_response with non-string id is a no-op.
+    assert relay.handle_response({"id": 42, "ok": True}) is False
+
+    # Matching runId + tool-end clears the active tool.
+    relay._active_run_id[s_k] = "run-end"
+    relay._seen_same_run_event[s_k] = True
+    relay._active_tool[s_k] = "weather"
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "runId": "run-end",
+                "data": {"name": "weather", "phase": "end"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+    # Unknown phase is also ignored (neither start nor end).
+    relay._active_run_id.pop(s_k, None)
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "weather", "phase": "progress"},
             },
         }
     )

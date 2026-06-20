@@ -821,12 +821,31 @@ class ChatRelay:
             tool_canonical_key = self._canonical_by_raw.get(raw_session_key) or raw_session_key
             data = payload.get("data")
             if isinstance(data, dict) and tool_canonical_key:
-                phase = data.get("phase")
-                tool_name = data.get("name")
-                if phase == "start" and isinstance(tool_name, str) and tool_name:
-                    self._active_tool[tool_canonical_key] = tool_name
-                elif phase == "end":
-                    self._active_tool.pop(tool_canonical_key, None)
+                # Apply the same runId staleness filter used for
+                # assistant events (Codex review #143): a delayed
+                # prior-run tool event must not relabel the current
+                # turn's progress delta. Drop the tool event when an
+                # active run is tracked and the event's runId does
+                # not match (or is absent while we're still inside
+                # the pending-ack window).
+                tool_run_id = str(payload.get("runId", "") or "")
+                active_run = self._active_run_id.get(tool_canonical_key)
+                stale = False
+                if active_run:
+                    seen_same_run = self._seen_same_run_event.get(tool_canonical_key, False)
+                    if (
+                        active_run == _PENDING_RUN_ID
+                        or (tool_run_id and tool_run_id != active_run)
+                        or (not tool_run_id and not seen_same_run)
+                    ):
+                        stale = True
+                if not stale:
+                    phase = data.get("phase")
+                    tool_name = data.get("name")
+                    if phase == "start" and isinstance(tool_name, str) and tool_name:
+                        self._active_tool[tool_canonical_key] = tool_name
+                    elif phase == "end":
+                        self._active_tool.pop(tool_canonical_key, None)
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
         # key/role-shaped metadata that determines whether we capture it.
