@@ -1327,3 +1327,164 @@ async def test_event_ignored_when_no_turn_active() -> None:
 
     relay.handle_event(_session_message_event(key, "assistant", "Stale!"))
     assert key not in relay._last_assistant_text
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_send_failure_after_subscribe() -> None:
+    """#128 path: if the WS send raises after sessions.create/subscribe
+    succeeded, relay_turn raises RELAY_FAILED and per-turn state is
+    cleaned up so the next turn isn't poisoned by the pending sentinel."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-send-fail"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    # Drive create+subscribe normally, then break send before chat.send.
+    original_send = sender.send
+    send_count = {"n": 0}
+
+    async def _send_then_break(frame: dict[str, Any]) -> None:
+        send_count["n"] += 1
+        if send_count["n"] >= 3:  # third call = chat.send
+            raise ConnectionError("WS broke")
+        await original_send(frame)
+
+    relay._send = _send_then_break
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+
+    task = asyncio.create_task(_respond())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn(conv_id, "hi")
+    await task
+
+    assert exc_info.value.code == "RELAY_FAILED"
+    # The pending-run sentinel must have been cleaned up.
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id
+    assert canonical not in relay._reply_events
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_send_failure_after_subscribe() -> None:
+    """#128 path: same as above for the streaming variant — the queue,
+    yielded-chars counter, and pending-run sentinel must all be cleaned
+    up when the chat.send WS write fails."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-stream-send-fail"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    original_send = sender.send
+    send_count = {"n": 0}
+
+    async def _send_then_break(frame: dict[str, Any]) -> None:
+        send_count["n"] += 1
+        if send_count["n"] >= 3:
+            raise ConnectionError("WS broke")
+        await original_send(frame)
+
+    relay._send = _send_then_break
+
+    async def _respond() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+
+    task = asyncio.create_task(_respond())
+    with pytest.raises(ChatRelayError) as exc_info:
+        async for _chunk in relay.stream_turn(conv_id, "hi"):
+            pass
+    await task
+
+    assert exc_info.value.code == "RELAY_FAILED"
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id
+    assert canonical not in relay._delta_queues
+    assert canonical not in relay._stream_yielded_chars
+
+
+@pytest.mark.asyncio
+async def test_chat_send_timeout_cleans_pending_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#128 path: if chat.send ack never arrives, the per-turn TIMEOUT
+    error path must clear the pending-run sentinel so a subsequent turn
+    is not permanently blocked by a non-matching active_run."""
+    import openclaw_node.chat_relay as cr_mod
+
+    monkeypatch.setattr(cr_mod, "_TURN_TIMEOUT_S", 0.05)
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-ack-timeout"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _respond_partial() -> None:
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        # chat.send ack intentionally never sent
+
+    task = asyncio.create_task(_respond_partial())
+    with pytest.raises(ChatRelayError) as exc_info:
+        await relay.relay_turn(conv_id, "hi")
+    await task
+
+    assert exc_info.value.code == "TIMEOUT"
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id
+    assert canonical not in relay._reply_events
+
+
+@pytest.mark.asyncio
+async def test_handle_response_chat_send_ack_applies_run_id_synchronously() -> None:
+    """#128 core invariant: when the chat.send ack carries a runId,
+    handle_response sets _active_run_id BEFORE returning so any
+    same-batch event processed next sees the new active runId. This
+    test fakes the gateway sequence: pending sentinel installed →
+    handle_response on chat.send ack (replaces sentinel) → handle_event
+    with new runId arrives and is accepted (would have been dropped if
+    the sentinel were still in place)."""
+    relay = ChatRelay(FakeSender().send)
+    canonical = "agent:clawd:ha-assist:sync-apply"
+
+    # Simulate the pending sentinel state established by _stream_turn_locked.
+    relay._active_run_id[canonical] = "__pending_chat_send_ack__"
+    relay._reply_events[canonical] = asyncio.Event()
+    req_id = "req-chat-send-1"
+    fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+    relay._pending[req_id] = fut
+    relay._chat_send_canonical[req_id] = canonical
+
+    # Drive the chat.send ack.
+    handled = relay.handle_response(
+        {"type": "res", "id": req_id, "ok": True, "payload": {"runId": "run-new"}}
+    )
+    assert handled is True
+    # The sentinel MUST be replaced before the future resolves to the
+    # awaiter (this is the whole point of the fix).
+    assert relay._active_run_id[canonical] == "run-new"
+
+    # Same-batch event with the new runId is now accepted.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": canonical,
+                "role": "assistant",
+                "runId": "run-new",
+                "message": "Hi from new run",
+            },
+        }
+    )
+    assert relay._terminal_assistant_text[canonical] == "Hi from new run"
