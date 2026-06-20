@@ -26,7 +26,10 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - PR #131 — docs: HA Assist streaming + node follow-up punch list. Merged 2026-06-20.
 - PR #130 — release 2026.6.19b2: slow-turn progress for HA Assist streaming. Merged 2026-06-20.
 - PR #129 — `fix(node)`: Assist follow-up turns stream correctly (closes #128). Merged 2026-06-20. NOTE: streaming-followups handoff flagged a possible stale-trailer race; see open item 4.
+- PR #139 — docs: canonical `docs/TODO.md` (consolidates HA Assist + node punch list). Merged 2026-06-20.
+- PR #140 — release 2026.6.20b4: Tier A Supervisor access fix + pairing retry-after. Merged 2026-06-20.
 - Runtime: node re-paired in operator role (dual-WS pairing).
+- Runtime: `paired.json` for live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified working end-to-end (closes item 14). Lesson captured in `docs/LESSONS.md`.
 
 ---
 
@@ -45,9 +48,8 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - Evidence: PR #130; streaming-followups handoff item 2.
 
 ### 3. Strip "alpha" wording everywhere
-- Status: IN PROGRESS (likely DONE in user-facing surfaces; verify app/UI text only)
-- Repo grep: only remaining `alpha` mentions are historical track explanations in `docs/RELEASE.md`, `docs/PACKAGING.md`, `addon/CHANGELOG.md`, and a "base64url alphabet" comment in `addon/node/src/openclaw_node/config.py:42` (false positive). HACS title moved to "OpenClaw Gateway (Beta)" per CHANGELOG.
-- Remaining: confirm no `alpha` strings in the HA shim UI or addon config UI fields. Then close.
+- Status: CLOSED 2026-06-20
+- Remaining grep hits are only historical-track explanations (`docs/RELEASE.md`, `docs/PACKAGING.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
 - Status: OPEN (PR #129 merged but race may persist)
@@ -106,9 +108,8 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on Rob's gateway-flip approval.
 
 ### 14. Gateway allowCommands sync for new node commands
-- Status: UNCONFIRMED (treat as OPEN until proven)
-- addon-command-surface handoff: "PR #132 merged but the allowCommands entry is NOT yet added. Tool currently unreachable from gateway." Same risk for `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`.
-- Action: verify `nodes.allowCommands` in the operator's private gateway config repo includes all six new commands. Add missing entries before declaring Tier A "live to callers".
+- Status: CLOSED 2026-06-20
+- All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
 
 ### 15. Q1 — HACS shim default hostname hash
 - Status: OPEN (low risk)
@@ -127,9 +128,8 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - #1 — Direction (catch-all, leave for Rob).
 
 ### 18. SUPERVISOR_TOKEN injection loop (`hass-node-supervisor-token` in open-loops.md)
-- Status: LIKELY DONE — verify and close
-- Evidence: PRs #110 (hassio_api: true), #116/#117 (with-contenv shebang) merged; streaming-followups handoff explicitly says the SUPERVISOR_TOKEN caveat is STALE as of 2026-06-20.
-- Action: confirm `ha.list_areas` succeeds end-to-end post-rebuild, then remove the loop entry.
+- Status: CLOSED 2026-06-20
+- PRs #110 (`hassio_api: true`) and #116/#117 (`with-contenv` shebang) shipped. Streaming-followups handoff confirmed STALE. Live verification: b4 addon log shows `[run.sh] SUPERVISOR_TOKEN injected (len=112)` and the Tier A Supervisor calls now work, which transitively proves the token is being injected. Removed from open-loops.
 
 ---
 
