@@ -328,7 +328,34 @@ class ChatRelay:
         event = msg.get("event", "")
         payload = msg.get("payload", {})
         if not isinstance(payload, dict):
+            # Issue #118 diagnostics: even invalid-shape frames are logged
+            # so we can see which events arrive at all. Suppress the
+            # payload body — only structural metadata.
+            _LOG.info(
+                "[relay-diag] %r dropped (payload not a dict, type=%s)",
+                event,
+                type(payload).__name__,
+            )
             return
+        # Issue #118 diagnostics: log every event the relay sees, with the
+        # key/role-shaped metadata that determines whether we capture it.
+        # This is INFO-level (not DEBUG) so it lands in the default addon
+        # log without re-deploying. Suppress the message text itself — we
+        # do not want assistant replies in logs.
+        msg_field_diag = payload.get("message")
+        msg_role = msg_field_diag.get("role") if isinstance(msg_field_diag, dict) else None
+        _LOG.info(
+            "[relay-diag] event=%r sessionKey=%r role=%r msg.role=%r "
+            "runId=%r state=%r subscribed=%r reply_waiters=%r",
+            event,
+            payload.get("sessionKey"),
+            payload.get("role"),
+            msg_role,
+            payload.get("runId"),
+            payload.get("state"),
+            sorted(self._subscribed),
+            sorted(self._reply_events.keys()),
+        )
 
         session_key = ""
         role = ""
