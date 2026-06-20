@@ -58,7 +58,7 @@ Decide before implementing `ha.addon_info`.
 
 ## Gateway allowlist sync (REQUIRED, easy to forget)
 
-Every new node command must be added to `nodes.allowCommands` in the OpenClaw gateway config (Rob's `lonestarchief` repo on `gitea.landry.me` — NOT home-ops). Without that entry, the command is registered on the node but the gateway will refuse to dispatch it — the tool effectively does not exist for callers.
+Every new node command must be added to `nodes.allowCommands` in the OpenClaw gateway config (operator's private gateway config repo — NOT this repo, NOT any public repo). Without that entry, the command is registered on the node but the gateway will refuse to dispatch it — the tool effectively does not exist for callers.
 
 Current outstanding adds for that allowlist:
 
