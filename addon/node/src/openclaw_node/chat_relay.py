@@ -144,25 +144,27 @@ class ChatRelay:
     async def _stream_turn_locked(
         self, session_key: str, conversation_id: str, text: str
     ) -> AsyncIterator[str]:
-        """Inner streaming turn under the per-session lock."""
+        """Inner streaming turn under the per-session lock.
+
+        Turn-boundary ordering (issue #128 fix): chat.send runs FIRST so the
+        new runId is known before any per-turn state is installed. This
+        guarantees stale trailer events from the prior turn cannot leak
+        into this turn's queue: by the time the queue exists, the prior
+        turn has long since cleaned up and the new runId is in place, so
+        runId mismatch filters any straggler. Previously the queue was
+        installed BEFORE chat.send awaited, opening a window where late
+        turn-N events landed in turn-(N+1)'s stream as a single dumped
+        chunk and the actual turn-(N+1) reply never streamed deltas.
+        """
         deadline = asyncio.get_event_loop().time() + _TURN_TIMEOUT_S
 
         canonical_key = self._canonical_by_raw.get(session_key)
         if canonical_key is None or canonical_key not in self._subscribed:
             canonical_key = await self._ensure_session(session_key, conversation_id)
 
-        # Reset per-turn state.
-        self._last_assistant_text.pop(canonical_key, None)
-        self._terminal_assistant_text.pop(canonical_key, None)
-        self._active_run_id.pop(canonical_key, None)
-        self._stream_yielded_chars[canonical_key] = 0
-        queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
-        self._delta_queues[canonical_key] = queue
-
         idempotency_key = str(uuid.uuid4())
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
-            self._delta_queues.pop(canonical_key, None)
             raise ChatRelayError("TIMEOUT", "Turn deadline expired before chat.send")
         try:
             ack = await self._rpc(
@@ -175,17 +177,28 @@ class ChatRelay:
                 timeout=remaining,
             )
         except ChatRelayError:
-            self._delta_queues.pop(canonical_key, None)
             raise
         except Exception as exc:
-            self._delta_queues.pop(canonical_key, None)
             raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
 
         run_id = ""
         if isinstance(ack, dict):
             run_id = str(ack.get("runId", "") or "")
+
+        # Atomic state install: between this point and the next await, no
+        # other coroutine runs, so handle_event cannot route events into
+        # the queue with mismatched runId / missing state.
+        self._last_assistant_text.pop(canonical_key, None)
+        self._terminal_assistant_text.pop(canonical_key, None)
         if run_id:
             self._active_run_id[canonical_key] = run_id
+        else:
+            # No runId in ack: clear any stale prior runId so this turn's
+            # events (which will also lack a runId) are not filtered out.
+            self._active_run_id.pop(canonical_key, None)
+        self._stream_yielded_chars[canonical_key] = 0
+        queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
+        self._delta_queues[canonical_key] = queue
 
         try:
             while True:
@@ -252,17 +265,13 @@ class ChatRelay:
         if canonical_key is None or canonical_key not in self._subscribed:
             canonical_key = await self._ensure_session(session_key, conversation_id)
 
-        self._last_assistant_text.pop(canonical_key, None)
-        self._terminal_assistant_text.pop(canonical_key, None)
-        self._active_run_id.pop(canonical_key, None)
-
-        reply_event = asyncio.Event()
-        self._reply_events[canonical_key] = reply_event
-
+        # Turn-boundary ordering (issue #128 fix): chat.send first, then
+        # install per-turn state once runId is known. Mirrors the
+        # _stream_turn_locked ordering so stale trailer events from a
+        # prior turn cannot leak into this turn's reply waiter.
         idempotency_key = str(uuid.uuid4())
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
-            self._reply_events.pop(canonical_key, None)
             raise ChatRelayError("TIMEOUT", "Turn deadline expired before chat.send")
         try:
             ack = await self._rpc(
@@ -275,26 +284,30 @@ class ChatRelay:
                 timeout=remaining,
             )
         except ChatRelayError:
-            self._reply_events.pop(canonical_key, None)
             raise
         except Exception as exc:
-            self._reply_events.pop(canonical_key, None)
             raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
 
         run_id = ""
         if isinstance(ack, dict):
             run_id = str(ack.get("runId", "") or "")
+
+        # Atomic state install — no await between these lines, so events
+        # cannot arrive into a half-installed state.
+        self._last_assistant_text.pop(canonical_key, None)
+        self._terminal_assistant_text.pop(canonical_key, None)
         if run_id:
             self._active_run_id[canonical_key] = run_id
+        else:
+            self._active_run_id.pop(canonical_key, None)
+        reply_event = asyncio.Event()
+        self._reply_events[canonical_key] = reply_event
 
-        # Fast-path: a TERMINAL event already arrived between subscribe and
-        # ack. Only checks the terminal-text dict; a partial delta in
-        # _last_assistant_text MUST NOT short-circuit here or we'd return
-        # a truncated reply (Codex review catch).
-        reply = self._terminal_assistant_text.get(canonical_key, "")
-        if reply:
-            self._reply_events.pop(canonical_key, None)
-            return reply
+        # Note: chat.send ack now precedes state install (#128), so there
+        # is no longer a pre-ack fast-path — any terminal event that may
+        # have raced past sessions.create/subscribe is filtered by the
+        # runId guard in handle_event, and the wait-on-reply_event path
+        # below handles the normal case.
 
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining > 0:
@@ -579,14 +592,26 @@ class ChatRelay:
             return
 
         active_run = self._active_run_id.get(session_key)
-        if active_run and event_run_id and event_run_id != active_run:
-            _LOG.debug(
-                "Ignoring stale event for %s: event runId=%s, active=%s",
-                session_key,
-                event_run_id,
-                active_run,
-            )
-            return
+        if active_run:
+            # An active run is tracked. Reject events whose runId
+            # mismatches. For chat-family events (which always carry a
+            # runId in protocol v4), an empty runId also means stale —
+            # a turn-N trailer arriving after turn-(N+1) started (issue
+            # #128). session.message events may legitimately lack runId
+            # (non-streaming transcript surface), so empty runId is
+            # accepted only on that family.
+            is_chat_family = isinstance(event, str) and event.startswith("chat")
+            mismatched = bool(event_run_id) and event_run_id != active_run
+            stale_chat = is_chat_family and not event_run_id
+            if mismatched or stale_chat:
+                _LOG.debug(
+                    "Ignoring stale event for %s: event=%r runId=%r, active=%r",
+                    session_key,
+                    event,
+                    event_run_id,
+                    active_run,
+                )
+                return
 
         self._last_assistant_text[session_key] = text
         state = payload.get("state")
@@ -615,6 +640,22 @@ class ChatRelay:
                 # then close.
                 already = self._stream_yielded_chars.get(session_key, 0)
                 tail = text[already:] if len(text) > already else ""
+                # Issue #128 diagnostic: if a chat-family terminal arrives
+                # with zero deltas already yielded and substantial text,
+                # the gateway promised streaming but emitted only a final.
+                # Log loudly so we can detect this pattern in production.
+                # session.message terminals legitimately carry full text
+                # without deltas (non-streaming surface), so don't warn on
+                # those.
+                if is_terminal_chat and already == 0 and len(tail) > 0:
+                    _LOG.warning(
+                        "[relay-diag] chat terminal arrived with no deltas "
+                        "for %s (runId=%r, text_len=%d); gateway streaming "
+                        "may be degraded — full text yielded as single chunk",
+                        session_key,
+                        event_run_id,
+                        len(tail),
+                    )
                 if tail:
                     self._stream_yielded_chars[session_key] = self._stream_yielded_chars.get(
                         session_key, 0

@@ -1,5 +1,10 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.19b2 (2026-06-20) — Assist follow-up streaming fix
+
+### Fixes
+- **#128 — Assist follow-up turns now stream deltas correctly.** After 2026.6.19b1 shipped streaming, turn 1 of an HA Assist conversation streamed token-by-token but turn 2 (a follow-up like "that was perfect") dumped the full reply as one chunk and sometimes appeared to echo prior-turn text. Root cause: `ChatRelay._stream_turn_locked` installed the per-turn delta queue and cleared the prior `_active_run_id` BEFORE awaiting `chat.send`. During that await window, late trailer events from the prior turn (with the prior `runId`, or no `runId`) passed the in-progress-turn guard, landed in turn N+1's queue, and triggered the terminal-without-deltas single-chunk fallback. The fix: send `chat.send` first, capture the new `runId` from the ack, then install per-turn state atomically (no `await` between). The receive-side `runId` filter is also tightened so empty-`runId` chat-family events are treated as stale when an active run is tracked, and a `chat` terminal arriving without preceding deltas now logs a `[relay-diag]` warning so the degradation is visible. Mirror fix applied to the non-streaming `relay_turn` path. New regression tests: `test_turn_boundary_stale_event_does_not_leak_into_next_turn` and `test_stream_turn_two_turns_both_stream_deltas`.
+
 ## 2026.6.19b1 (2026-06-20) — HA Assist streaming + beta promotion
 
 ### Features
