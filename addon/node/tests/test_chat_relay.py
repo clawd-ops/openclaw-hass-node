@@ -1325,8 +1325,8 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
     conv_id = "01KVHTWOTURNSTREAM"
     canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
-    chunks_t1: list[str] = []
-    chunks_t2: list[str] = []
+    chunks_t1: list[str | StreamKeepalive] = []
+    chunks_t2: list[str | StreamKeepalive] = []
 
     async def _drive_t1() -> None:
         await asyncio.sleep(0.01)
@@ -1435,7 +1435,7 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
     # Turn-2 must stream as deltas (not a single dumped chunk) and must
     # NOT contain the stale turn-1 leak text.
     assert chunks_t2 == ["Great", "!"], chunks_t2
-    assert "STALE LEAK" not in "".join(chunks_t2)
+    assert "STALE LEAK" not in "".join(c for c in chunks_t2 if isinstance(c, str))
 
 
 @pytest.mark.asyncio
@@ -1666,7 +1666,7 @@ async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> 
     # consumer present, no terminal captured yet, no same-run event yet.
     relay._active_run_id[key] = "run-t2"
     relay._seen_same_run_event[key] = False
-    queue: asyncio.Queue[str | None] = asyncio.Queue()
+    queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
     relay._delta_queues[key] = queue
     relay._stream_yielded_chars[key] = 0
 
