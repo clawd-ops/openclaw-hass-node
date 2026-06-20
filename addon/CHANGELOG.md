@@ -1,5 +1,13 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.8a13 (2026-06-20)
+
+### Bug fixes
+- **#109 — `SUPERVISOR_TOKEN` now actually injected (#116).** The real root cause: `run.sh` used `#!/usr/bin/env sh`, which bypasses the s6-overlay `with-contenv` wrapper that exposes Supervisor's injected env to the script. `hassio_api`/`homeassistant_api` flags set the token in the container env but `with-contenv` is what brings it through to the entrypoint. Shebang changed to `#!/usr/bin/with-contenv sh`. After this release, `ha.list_states` and the rest of `ha.*` work out of the box on a clean install — no long-lived-token workaround needed. Added a startup log line `[run.sh] SUPERVISOR_TOKEN injected (len=…)` or a stderr WARNING when missing, so any future regression of this class is visible at first glance in the addon log.
+
+### Docs
+- Standalone-Docker references in README, INSTALL, and PACKAGING rewritten to call out that the Docker image is HA-only during alpha (the with-contenv shebang is only available in the HA base-python image). Dev-host standalone (`python -m openclaw_node`) is unaffected.
+
 ## 2026.6.8a12 (2026-06-19)
 
 ### Bug fixes
