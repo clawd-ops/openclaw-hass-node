@@ -1,6 +1,6 @@
 ---
 name: OpenClaw Node
-version: "2026.6.20b3"
+version: "2026.6.20b4"
 slug: openclaw_hass_node
 description: >
   OpenClaw gateway peripheral for Home Assistant (beta). Connects this HA

@@ -1,5 +1,15 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b4 (2026-06-20) — Tier A Supervisor access fix (hassio_role: manager) + pairing retry-after
+
+### Fixes
+- **Tier A addon commands now actually reach Supervisor (#138).** b3 shipped `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, and `ha.addon_documentation` but Supervisor returned `403: Forbidden` to all of them in production. Root cause: the addon was running with the default Supervisor role, which only grants access to `/info`. The Tier A endpoints under `/addons/<slug>/...` require the `manager` role. `addon/config.yaml` now sets `hassio_api: true` + `hassio_role: manager`. `manager` is narrower than `admin` and covers addon-management endpoints without granting host or core mutation surface. Lifecycle mutations (Tier B start/stop/restart) still require a separate `OPENCLAW_ADMIN_TOKEN` gate.
+- **Pairing rate-limit responses now surface `retry_at_utc`.** `PairingError` propagates `retry_after_ms` from the gateway and the WS layer formats an ISO-8601 UTC timestamp so operators can see when the next attempt will be accepted instead of guessing from a bare millisecond count. No behaviour change on success paths.
+
+### Docs
+- `docs/PACKAGING.md` and `docs/PLAN.md` updated to describe the new role requirement.
+- `docs/TODO.md` added as the canonical operational punch list (PR #139); supersedes the three handoff docs and the workspace mirror.
+
 ## 2026.6.20b3 (2026-06-20) — Tier A read-only addon command surface + post-ack streaming race close
 
 ### Features
