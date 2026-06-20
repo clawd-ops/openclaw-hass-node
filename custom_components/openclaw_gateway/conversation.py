@@ -22,9 +22,26 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_API_TOKEN, CONF_SOCKET_URL, CONVERSATION_ENDPOINT, DOMAIN
+from .const import CONF_API_TOKEN, CONF_SOCKET_URL, DOMAIN
 
 _STREAM_ENDPOINT: Final[str] = "/v1/conversation/stream"
+
+
+class _StreamErrorFrame(Exception):
+    """Raised from the NDJSON adapter when the node sends an error frame.
+
+    Raising mid-stream prevents HA's ``chat_log.async_add_delta_content_stream``
+    from committing the partial assistant content it has already buffered as
+    a successful turn (Codex review #126 catch: returning normally would
+    finalize the partial reply, then the outer handler would append the
+    error as a second assistant message). The outer ``try/except`` catches
+    this and falls through to the single error-only assistant content add.
+    """
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _REQUEST_TIMEOUT_S: Final[float] = 35.0
@@ -173,11 +190,10 @@ class OpenClawConversationEntity(ConversationEntity):
                 # `{"done": true}` cleanly closes the iterator;
                 # `{"error": "<code>"}` raises so the user sees the cause.
                 first_delta = True
-                stream_error: str | None = None
                 collected: list[str] = []
 
                 async def _stream() -> AsyncIterator[dict[str, Any]]:
-                    nonlocal first_delta, stream_error
+                    nonlocal first_delta
                     async for raw_line in response.content:
                         line = raw_line.strip()
                         if not line:
@@ -199,25 +215,31 @@ class OpenClawConversationEntity(ConversationEntity):
                             else:
                                 yield {"content": delta_text}
                         elif frame.get("error"):
-                            stream_error = str(frame["error"])
-                            return
+                            # Raise so HA's chat_log does NOT finalize the
+                            # partial reply as a successful turn. The outer
+                            # except converts this into a single error
+                            # assistant content add.
+                            raise _StreamErrorFrame(str(frame["error"]))
                         elif frame.get("done"):
                             return
 
-                async for _msg in chat_log.async_add_delta_content_stream(
-                    user_input.agent_id, _stream()
-                ):
-                    # Consume so the generator runs to completion. The
-                    # accumulated content is already attached to the chat
-                    # log by HA — we just need to drive the stream.
-                    pass
+                try:
+                    async for _msg in chat_log.async_add_delta_content_stream(
+                        user_input.agent_id, _stream()
+                    ):
+                        # Consume so the generator runs to completion. The
+                        # accumulated content is already attached to the chat
+                        # log by HA — we just need to drive the stream.
+                        pass
+                except _StreamErrorFrame as exc:
+                    speech = f"OpenClaw Node stream error: {exc.code}"
+                else:
+                    speech = ""
 
-                if stream_error:
-                    speech = f"OpenClaw Node stream error: {stream_error}"
-                    # Stream error — the content was NOT attached to the
-                    # chat log via the stream (the generator returned
-                    # before yielding the final delta). Fall through to
-                    # the trailing async_add_assistant_content_without_tools.
+                if speech:
+                    # Stream error — content was NOT finalized by HA. Fall
+                    # through to the trailing async_add_assistant_content_without_tools.
+                    pass
                 elif collected:
                     # Streaming success — HA already attached the content
                     # to the chat log via the stream. Build the intent

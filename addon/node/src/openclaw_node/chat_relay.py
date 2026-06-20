@@ -90,9 +90,14 @@ class ChatRelay:
         self._reply_events: dict[str, asyncio.Event] = {}  # canonical keys
         # Per-session async queue used by stream_turn(). Each delta event
         # pushes a non-empty str; the terminal event pushes None as a
-        # sentinel to close the iterator. None outside a stream_turn means
-        # there is no active streaming consumer for this session.
-        self._delta_queues: dict[str, asyncio.Queue[str | None]] = {}  # canonical keys
+        # clean-close sentinel; a disconnect pushes a ChatRelayError so
+        # the consumer can distinguish a successful end-of-stream from a
+        # mid-turn gateway disconnect (Codex review #126 catch — without
+        # this an in-flight stream would silently emit `{"done":true}`
+        # to HA instead of an error frame).
+        self._delta_queues: dict[
+            str, asyncio.Queue[str | None | ChatRelayError]
+        ] = {}  # canonical keys
         # Per-session count of characters already yielded to the active
         # stream consumer. Used at the terminal event to compute any tail
         # that wasn't covered by deltas (or to yield the full message text
@@ -151,7 +156,7 @@ class ChatRelay:
         self._terminal_assistant_text.pop(canonical_key, None)
         self._active_run_id.pop(canonical_key, None)
         self._stream_yielded_chars[canonical_key] = 0
-        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
 
         idempotency_key = str(uuid.uuid4())
@@ -192,6 +197,8 @@ class ChatRelay:
                         item = queue.get_nowait()
                         if item is None:
                             return
+                        if isinstance(item, ChatRelayError):
+                            raise item
                         yield item
                     return
                 try:
@@ -201,6 +208,8 @@ class ChatRelay:
                     return
                 if item is None:
                     return  # terminal sentinel
+                if isinstance(item, ChatRelayError):
+                    raise item  # disconnect / fatal-stream sentinel
                 yield item
         finally:
             self._delta_queues.pop(canonical_key, None)
@@ -639,10 +648,13 @@ class ChatRelay:
         self._subscribed.clear()
         self._last_assistant_text.clear()
         self._terminal_assistant_text.clear()
-        # Close any active stream consumers with a sentinel so their
-        # generator exits cleanly instead of hanging forever.
+        # Close any active stream consumers with a DISCONNECTED error
+        # sentinel — not None — so the stream consumer raises rather
+        # than falling through to a clean `{"done":true}` frame (Codex
+        # review #126 catch: a mid-turn gateway disconnect was being
+        # masked as a successful completed turn).
         for q in self._delta_queues.values():
-            q.put_nowait(None)
+            q.put_nowait(ChatRelayError("DISCONNECTED", "Gateway connection lost"))
         self._delta_queues.clear()
         self._stream_yielded_chars.clear()
         for evt in self._reply_events.values():

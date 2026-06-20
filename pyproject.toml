@@ -69,9 +69,14 @@ show_missing = true
 # The shipped slice targets 100% per docs/QUALITY.md; __main__ bootstrap and
 # the socket serve-loop are pragma-excluded as they are not unit-testable.
 #
-# Temporarily 94 (was 95) to land the streaming Assist refactor — the new
-# streaming branches in chat_relay/http_api have several uncovered error
-# paths. Raise back to 95 in the follow-up that adds those tests (#126).
+# Temporarily 94 (was 95) to land the streaming Assist refactor in
+# PR #126. The new streaming branches in chat_relay / http_api have
+# several uncovered error paths (mid-stream disconnect surfacing as
+# DISCONNECTED, NDJSON write failures, partial-frame parsing). The
+# disconnect → DISCONNECTED path IS covered (Codex review catch on
+# #126); the remaining gaps are NDJSON-write and timeout-during-write
+# paths. Follow-up issue will add those targeted tests and raise the
+# gate back to 95.
 fail_under = 94
 exclude_lines = [
     "pragma: no cover",

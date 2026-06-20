@@ -471,8 +471,14 @@ async def test_relay_turn_chat_send_generic_exception_becomes_relay_failed() -> 
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_reset_closes_iterator() -> None:
-    """reset() must push the sentinel into any active stream queues."""
+async def test_stream_turn_reset_raises_disconnected() -> None:
+    """reset() mid-stream must raise DISCONNECTED, not finish cleanly.
+
+    A clean iterator close would let the http_api layer emit
+    ``{"done": true}``, which the HACS shim treats as a successful turn —
+    so a gateway disconnect would silently commit the partial reply as a
+    finished assistant message. Reset must surface as an error.
+    """
     sender = FakeSender()
     relay = ChatRelay(sender.send)
 
@@ -509,14 +515,20 @@ async def test_stream_turn_reset_closes_iterator() -> None:
         relay.reset()
 
     chunks: list[str] = []
+    raised: list[ChatRelayError] = []
 
     async def _consume() -> None:
-        async for chunk in relay.stream_turn(conv_id, "hi"):
-            chunks.append(chunk)
+        try:
+            async for chunk in relay.stream_turn(conv_id, "hi"):
+                chunks.append(chunk)
+        except ChatRelayError as exc:
+            raised.append(exc)
 
     await asyncio.gather(_consume(), _drive())
 
     assert chunks == ["partial"]
+    assert len(raised) == 1
+    assert raised[0].code == "DISCONNECTED"
 
 
 @pytest.mark.asyncio
