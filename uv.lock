@@ -857,7 +857,7 @@ wheels = [
 
 [[package]]
 name = "openclaw-node"
-version = "2026.6.8a13"
+version = "2026.6.8a14"
 source = { editable = "addon/node" }
 dependencies = [
     { name = "aiohttp" },
