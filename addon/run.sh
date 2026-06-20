@@ -1,7 +1,17 @@
-#!/usr/bin/env sh
+#!/usr/bin/with-contenv sh
 # Entrypoint for the HA add-on. Reads options from /data/options.json using
 # Python (already present in the image) and exports them before launching the
 # node process.
+#
+# The `#!/usr/bin/with-contenv sh` shebang (vs the previous `#!/usr/bin/env sh`)
+# is what makes Supervisor's injected env vars — most importantly
+# SUPERVISOR_TOKEN — visible to this script. Without with-contenv the s6
+# container-environment overlay isn't applied, and `os.environ.get("SUPERVISOR_TOKEN")`
+# inside the Python process returns None, surfacing as HA_NOT_CONFIGURED on
+# every ha.* invoke (Issue #109; verified 2026-06-19 fix). The
+# `hassio_api`/`homeassistant_api` flags in config.yaml are necessary but
+# not sufficient — Supervisor only sets the env, it's the entrypoint
+# shebang that brings it through to user code.
 
 set -eu
 
@@ -57,6 +67,16 @@ for key, value in values.items():
     print(f"export {key}={shlex.quote(str(value))}")
 PY
 )"
+fi
+
+# Surface Supervisor-injection status so future regressions of Issue #109
+# (or a different `with-contenv` failure mode) are visible at first glance
+# in the addon log without leaking the token value itself.
+if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+  echo "[run.sh] SUPERVISOR_TOKEN injected (len=${#SUPERVISOR_TOKEN})"
+else
+  echo "[run.sh] WARNING: SUPERVISOR_TOKEN NOT set — ha.* calls will fail HA_NOT_CONFIGURED" \
+       "unless hass_token+hass_url are configured. Check the with-contenv shebang." >&2
 fi
 
 exec python -m openclaw_node

@@ -113,25 +113,22 @@ The Dockerfile uses Home Assistant's per-arch Python base images
 (e.g. `ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.20`),
 set via `BUILD_FROM` in `build.yaml`. Supervisor requires these HA
 base images; a bare `python:3.13-alpine` is silently ignored by
-Supervisor and causes a `pip: not found` failure. The Dockerfile
-default matches the amd64 variant for standalone Docker builds.
+Supervisor and causes a `pip: not found` failure.
 
-## Standalone Docker
+The HA base image is also required by `addon/run.sh`, which uses
+`#!/usr/bin/with-contenv sh` to pick up Supervisor's injected env
+(notably `SUPERVISOR_TOKEN` — see Issue #109). Bare Python images
+don't ship s6-overlay / `with-contenv` and the addon won't start.
 
-```bash
-docker build -t openclaw-hass-node:dev addon/
+## Standalone Docker (not supported in alpha)
 
-docker run -d --name openclaw-hass-node \
-  -e HASS_URL=http://homeassistant.local:8123 \
-  -e HASS_TOKEN=... \
-  -e GATEWAY_URL=wss://gateway.example.com/ws \
-  -e PAIRING_TOKEN=... \
-  -e OPENCLAW_LOCAL_API_TOKEN=... \
-  -v openclaw-data:/data \
-  openclaw-hass-node:dev
-```
+Running the Docker image outside HA Supervisor is **not a supported
+install path** while the project is in alpha, for the with-contenv
+reason above. Standalone-mode detection in `__main__.py` is kept so the
+node can run directly on the dev host (`python -m openclaw_node` with
+`HASS_URL` + `HASS_TOKEN`), but the image itself is HA-only.
 
-Entrypoint detects mode:
+Entrypoint detects mode for the standalone dev-host path:
 - `SUPERVISOR_TOKEN` present -> add-on (app) mode, talks to
   `http://supervisor/` and `http://homeassistant/`.
 - Else -> standalone, uses `HASS_URL` + `HASS_TOKEN`.

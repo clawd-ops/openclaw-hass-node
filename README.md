@@ -58,10 +58,12 @@ gateway side. Short version:
    flow at the add-on (app) socket.
 5. Pick it as your HA Assist conversation agent.
 
-The same image also runs as a plain Docker container without Home
-Assistant Supervisor — see
-**[Standalone Docker](docs/INSTALL.md#standalone-docker-without-home-assistant-supervisor)**
-in INSTALL.md.
+> Standalone Docker (without HA Supervisor) is **not a supported install
+> path while the project is in alpha**. The runtime entrypoint depends on
+> the HA base-python image's s6-overlay `with-contenv` wrapper to pick up
+> Supervisor's injected env (see Issue #109). Standalone-mode code in
+> `__main__.py` still exists for testing on the dev host directly, but
+> the Docker image is HA-only.
 
 ## Status
 
