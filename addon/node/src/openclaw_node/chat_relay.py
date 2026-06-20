@@ -257,34 +257,31 @@ class ChatRelay:
                 "idempotencyKey": idempotency_key,
             },
         }
+        ack_ok = False
         try:
-            await self._send(frame)
-        except Exception as exc:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=True)
-            raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
-        try:
-            async with asyncio.timeout(remaining):
-                ack = await future
-        except TimeoutError:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=True)
-            raise ChatRelayError("TIMEOUT", "chat.send timed out") from None
-        except ChatRelayError:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=True)
-            raise
-        except Exception as exc:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=True)
-            raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+            try:
+                await self._send(frame)
+            except Exception as exc:
+                raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+            try:
+                async with asyncio.timeout(remaining):
+                    ack = await future
+            except TimeoutError:
+                raise ChatRelayError("TIMEOUT", "chat.send timed out") from None
+            except ChatRelayError:
+                raise
+            except Exception as exc:
+                raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+            ack_ok = True
         finally:
+            # Always release the per-RPC bookkeeping. On any exception
+            # (including asyncio.CancelledError) tear down per-turn state
+            # so a cancelled or failed turn never strands the
+            # _PENDING_RUN_ID sentinel, queue, or reply_event behind.
             self._pending.pop(req_id, None)
             self._chat_send_canonical.pop(req_id, None)
+            if not ack_ok:
+                self._cleanup_pending_turn(canonical_key, stream=True)
 
         run_id = ""
         if isinstance(ack, dict):
@@ -396,34 +393,29 @@ class ChatRelay:
                 "idempotencyKey": idempotency_key,
             },
         }
+        ack_ok = False
         try:
-            await self._send(frame)
-        except Exception as exc:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=False)
-            raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
-        try:
-            async with asyncio.timeout(remaining):
-                ack = await future
-        except TimeoutError:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=False)
-            raise ChatRelayError("TIMEOUT", "chat.send timed out") from None
-        except ChatRelayError:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=False)
-            raise
-        except Exception as exc:
-            self._pending.pop(req_id, None)
-            self._chat_send_canonical.pop(req_id, None)
-            self._cleanup_pending_turn(canonical_key, stream=False)
-            raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+            try:
+                await self._send(frame)
+            except Exception as exc:
+                raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+            try:
+                async with asyncio.timeout(remaining):
+                    ack = await future
+            except TimeoutError:
+                raise ChatRelayError("TIMEOUT", "chat.send timed out") from None
+            except ChatRelayError:
+                raise
+            except Exception as exc:
+                raise ChatRelayError("RELAY_FAILED", str(exc)) from exc
+            ack_ok = True
         finally:
+            # Catches asyncio.CancelledError too — sentinel/reply_event
+            # cannot strand across cancellation.
             self._pending.pop(req_id, None)
             self._chat_send_canonical.pop(req_id, None)
+            if not ack_ok:
+                self._cleanup_pending_turn(canonical_key, stream=False)
 
         run_id = ""
         if isinstance(ack, dict):
@@ -759,14 +751,22 @@ class ChatRelay:
             # been replaced (so we never accept a runId-less event into
             # the pending-ack window).
             is_chat_family = isinstance(event, str) and event.startswith("chat")
+            is_session_msg = event == "session.message"
             mismatched = bool(event_run_id) and event_run_id != active_run
             stale_chat = is_chat_family and not event_run_id
             stale_pending = active_run == _PENDING_RUN_ID and not event_run_id
-            # Note: a session.message without runId is intentionally
-            # accepted once the sentinel has been replaced — the gateway
-            # sometimes omits runId on transcript-only terminals and
-            # #118 relies on capturing them.
-            if mismatched or stale_chat or stale_pending:
+            # session.message without runId is accepted ONLY when no
+            # terminal has been captured yet for this turn (#118: the
+            # gateway sometimes omits runId on the transcript-only
+            # terminal). Once we have a terminal, any further runId-less
+            # session.message is treated as a stale trailer from the
+            # prior turn and dropped (Codex review #128 follow-up).
+            stale_repeat_session = (
+                is_session_msg
+                and not event_run_id
+                and bool(self._terminal_assistant_text.get(session_key))
+            )
+            if mismatched or stale_chat or stale_pending or stale_repeat_session:
                 _LOG.debug(
                     "Ignoring stale event for %s: event=%r runId=%r, active=%r",
                     session_key,

@@ -1446,6 +1446,80 @@ async def test_chat_send_timeout_cleans_pending_sentinel(
 
 
 @pytest.mark.asyncio
+async def test_relay_turn_cancelled_during_chat_send_cleans_sentinel() -> None:
+    """#128 Codex follow-up: if the task is cancelled while awaiting the
+    chat.send ack, the pending-run sentinel + reply_event must not strand
+    behind, or all future events for the session would be dropped."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "conv-cancel"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _respond_partial() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        # No chat.send ack — caller will be cancelled.
+
+    drive = asyncio.create_task(_respond_partial())
+    turn_task = asyncio.create_task(relay.relay_turn(conv_id, "hi"))
+
+    # Wait until chat.send is in flight, then cancel.
+    for _ in range(50):
+        await asyncio.sleep(0.005)
+        if len(sender.frames) >= 3:
+            break
+    turn_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await turn_task
+    await drive
+
+    canonical = relay._canonical_by_raw.get(session_key, session_key)
+    assert canonical not in relay._active_run_id, (
+        "pending-run sentinel must be cleaned up on cancellation"
+    )
+    assert canonical not in relay._reply_events
+    assert not relay._pending
+    assert not relay._chat_send_canonical
+
+
+@pytest.mark.asyncio
+async def test_session_message_without_run_id_after_terminal_is_filtered() -> None:
+    """#128 Codex follow-up: once a terminal has been captured for the
+    current turn, a follow-up session.message WITHOUT runId is treated
+    as a stale trailer from the prior turn and dropped, not allowed to
+    overwrite the captured reply or re-fire the reply event."""
+    relay = ChatRelay(FakeSender().send)
+    key = "agent:clawd:ha-assist:session-trailer"
+
+    # Simulate post-ack state: real active_run, reply_event installed,
+    # terminal already captured for this turn.
+    relay._active_run_id[key] = "run-current"
+    relay._reply_events[key] = asyncio.Event()
+    relay._terminal_assistant_text[key] = "current reply"
+    relay._last_assistant_text[key] = "current reply"
+
+    # A late runId-less session.message from the prior turn arrives.
+    relay.handle_event(
+        {
+            "type": "event",
+            "event": "session.message",
+            "payload": {
+                "sessionKey": key,
+                "role": "assistant",
+                "message": "STALE PRIOR TURN TEXT",
+            },
+        }
+    )
+
+    # Captured terminal must be untouched and reply_event must NOT fire.
+    assert relay._terminal_assistant_text[key] == "current reply"
+    assert not relay._reply_events[key].is_set()
+
+
+@pytest.mark.asyncio
 async def test_handle_response_chat_send_ack_applies_run_id_synchronously() -> None:
     """#128 core invariant: when the chat.send ack carries a runId,
     handle_response sets _active_run_id BEFORE returning so any
