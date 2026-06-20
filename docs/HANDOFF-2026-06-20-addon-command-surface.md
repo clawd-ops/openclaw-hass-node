@@ -56,6 +56,21 @@ Several legitimate Tier A use cases want to *see* addon options (e.g., "what has
 
 Decide before implementing `ha.addon_info`.
 
+## Gateway allowlist sync (REQUIRED, easy to forget)
+
+Every new node command must be added to `nodes.allowCommands` in the OpenClaw gateway config (Rob's `lonestarchief` repo on `gitea.landry.me` — NOT home-ops). Without that entry, the command is registered on the node but the gateway will refuse to dispatch it — the tool effectively does not exist for callers.
+
+Current outstanding adds for that allowlist:
+
+- `ha.addon_logs` — **PR #132 merged but the allowCommands entry is NOT yet added.** Tool currently unreachable from gateway. Highest-priority follow-on.
+- `ha.list_addons` — add together with the merge of this PR.
+
+Tier A follow-ons (`ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) each need a paired allowCommands entry as they ship.
+
+Tier B (`ha.addon_start`/`stop`/`restart`) likely belongs on a **separate** node-config admin allowlist if/when one is introduced, not on `nodes.allowCommands` alongside the read-only surface — pin down before implementing.
+
+Also: each new command must be added to `docs/COMMAND-SURFACE.md` in this repo (the canonical command catalog). Doc + allowlist + code go together; PRs that miss one of the three should be flagged in review.
+
 ## Process notes for the next session
 
 - **Codex review path.** Use `sessions_spawn` with `model: openai/gpt-5.3-codex`. Do NOT use `codex exec` — Rob disparaged that 2026-06-20 and the CLI has been OOM-killing on long diffs anyway.
