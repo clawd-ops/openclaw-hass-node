@@ -503,7 +503,8 @@ def _valid_addon_slug(slug: str) -> bool:
 
     Supervisor slugs are documented as lowercase ``[a-z0-9_-]``. ``str.isalnum``
     accepts uppercase ASCII and arbitrary Unicode letters/digits, which would
-    let an attacker craft a slug like ``Self`` or ``addon‮`` that passes
+    let an attacker craft a slug like ``Self`` or one containing an embedded
+    bidirectional control char (e.g. U+202E RIGHT-TO-LEFT OVERRIDE) that passes
     validation but is not a real slug — and could in theory be used to probe
     Supervisor path handling. We enforce the documented grammar with a regex.
     The literal ``"self"`` is the only allowed alias.
