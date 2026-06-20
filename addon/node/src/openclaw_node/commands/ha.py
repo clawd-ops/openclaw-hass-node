@@ -31,6 +31,7 @@ Commands in this module:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Final
 
 from openclaw_node.ha_client import (
@@ -494,11 +495,22 @@ _ADDON_LOGS_MAX_LINES: Final[int] = 5000
 _ADDON_LOGS_MAX_BYTES: Final[int] = 1_048_576
 
 
+_ADDON_SLUG_RE: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
 def _valid_addon_slug(slug: str) -> bool:
-    """Accept Supervisor add-on slugs: lowercase alnum, underscore, dash; plus 'self'."""
+    """Accept Supervisor add-on slugs: ASCII lowercase ``[a-z0-9_-]`` only.
+
+    Supervisor slugs are documented as lowercase ``[a-z0-9_-]``. ``str.isalnum``
+    accepts uppercase ASCII and arbitrary Unicode letters/digits, which would
+    let an attacker craft a slug like ``Self`` or ``addon‮`` that passes
+    validation but is not a real slug — and could in theory be used to probe
+    Supervisor path handling. We enforce the documented grammar with a regex.
+    The literal ``"self"`` is the only allowed alias.
+    """
     if not slug or len(slug) > _ADDON_SLUG_MAX_LEN:
         return False
-    return all(c.isalnum() or c in ("_", "-") for c in slug)
+    return _ADDON_SLUG_RE.match(slug) is not None
 
 
 async def handle_ha_addon_logs(params: dict[str, Any]) -> dict[str, Any]:
@@ -554,8 +566,11 @@ _ADDON_FIELDS: Final[tuple[str, ...]] = (
     "version",
     "version_latest",
     "update_available",
-    "repository",
 )
+# Note: Supervisor's "repository" field is the addon source — for community/
+# private addons that is a repo URL which can reveal an operator-private
+# hostname or path. Dropped from the read-only surface; if a future caller
+# truly needs source attribution, normalise to a label first.
 
 
 async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
@@ -564,8 +579,10 @@ async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
     Hits ``GET http://supervisor/addons``. Read-only by construction. Required
     discovery path for :func:`handle_ha_addon_logs` — callers can't fetch logs
     for a slug they can't see. Only a fixed, non-sensitive subset of fields is
-    returned (slug, name, state, version, version_latest, update_available,
-    repository); the full Supervisor response is dropped.
+    returned (slug, name, state, version, version_latest, update_available);
+    the full Supervisor response is dropped. ``repository`` is deliberately
+    omitted because for community/private addons it is a repo URL that can
+    reveal an operator-private hostname.
 
     Returns:
         ``{ok: True, count, addons}`` with ``addons`` as a list of dicts, or an
@@ -616,10 +633,16 @@ async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
 #   - "discovery" / "services" / "webui" — internal service-discovery wiring.
 #   - "long_description" — generally safe but unbounded; included summary only.
 #
-# Kept fields are addon-metadata that are either public (slug/name/version/state/
-# repository — also visible in the public addon registry) or shape-only (boot,
-# startup, stage, arch, machine, update_available, ingress, ingress_port) and
-# don't depend on operator-private configuration.
+#   - "repository"     : addon source. "core"/"local" are fine but a community
+#                        or private addon stores a repo URL here which can leak
+#                        an operator-private hostname. Dropped entirely rather
+#                        than allowlisting only the well-known values, because
+#                        the well-known set drifts with Supervisor releases.
+#
+# Kept fields are addon-metadata that are either public (slug/name/version/state
+# also visible in the public addon registry) or shape-only (boot, startup,
+# stage, arch, machine, update_available, ingress, ingress_port) and don't
+# depend on operator-private configuration.
 _ADDON_INFO_FIELDS: Final[tuple[str, ...]] = (
     "slug",
     "name",
@@ -628,7 +651,6 @@ _ADDON_INFO_FIELDS: Final[tuple[str, ...]] = (
     "version",
     "version_latest",
     "update_available",
-    "repository",
     "boot",
     "startup",
     "stage",

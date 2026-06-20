@@ -814,6 +814,7 @@ async def test_list_addons_happy_path() -> None:
     assert first["state"] == "started"
     assert "options" not in first
     assert "boot" not in first
+    assert "repository" not in first
     second = result["addons"][1]
     assert second["slug"] == "core_mosquitto"
     assert second["version"] is None
@@ -867,7 +868,23 @@ async def test_addon_info_missing_slug() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
-@pytest.mark.parametrize("slug", ["bad slug", "../etc", "with/slash", "a" * 200])
+@pytest.mark.parametrize(
+    "slug",
+    [
+        "bad slug",
+        "../etc",
+        "with/slash",
+        "a" * 200,
+        # Slug grammar must reject uppercase and non-ASCII alnum that
+        # str.isalnum() would otherwise accept.
+        "Self",
+        "CORE_MOSQUITTO",
+        "addonÿ",
+        "addón",
+        "ＡＢＣ",  # noqa: RUF001 - fullwidth chars are exactly the attack we reject
+        "-leading-dash",
+    ],
+)
 async def test_addon_info_invalid_slug(slug: str) -> None:
     result = await handle_ha_addon_info({"slug": slug})
     assert result["error"] == "INVALID_PARAM"
@@ -922,6 +939,7 @@ async def test_addon_info_drops_options_and_schema() -> None:
         "hassio_api",
         "privileged",
         "audio",
+        "repository",
     ):
         assert forbidden not in info, (
             f"{forbidden!r} leaked into ha.addon_info output — see _ADDON_INFO_FIELDS"
