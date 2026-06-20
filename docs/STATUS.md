@@ -1,10 +1,10 @@
 # Status
 
-> **Alpha.** Pair / connect / tool invokes work. **Assist relay is broken**
-> — the P5.12 ChatRelay was built on a faulty premise (see #82). Tracking
-> the dual-connection refactor under **P5.13** (#84). Publishing
-> infrastructure is incomplete and breaking changes between versions are
-> expected.
+> **Beta.** Pair, connect, tool invokes, and HA Assist conversation all
+> work end-to-end. P5.13 dual-WS shipped, the canonical-sessionKey +
+> terminal-event reply fixes (#118) landed, and 2026.6.19b1 promoted the
+> relay to streaming token deltas. Publishing infrastructure is still
+> settling and pre-1.0 breaking changes are still possible.
 
 > **Update this file at every meaningful state change.** It is the
 > single thing that tells future-Clawd "where am I". If `PLAN.md` and
@@ -26,10 +26,10 @@ token and connects as `operator` for chat.
 `role: node` socket keeps serving node-side invokes; a new `role: operator`
 socket carries ChatRelay's `chat.send` + `sessions.messages.subscribe`.
 Pair the device as dual-role using the `PAIRING_SETUP_BOOTSTRAP_PROFILE`
-the QR flow uses for phones. No back-compat migration (alpha rule);
+the QR flow uses for phones. No back-compat migration (pre-1.0 rule);
 existing single-role devices remove + re-add.
 
-Currently on **2026.6.8a7** (alpha; P5.13 dual-WS landed in PR #86).
+Currently on **2026.6.19b1** (beta; HA Assist streaming relay).
 Version is enforced by
 `test_version_sync.py` across `pyproject.toml`, `addon/config.yaml`,
 `addon/build.yaml`, `manifest.json`, and the source-literal fallback in
@@ -48,7 +48,7 @@ Version is enforced by
   PAIRING_REQUIRED / AUTH_TOKEN_MISMATCH self-heal. All frames shaped
   per the canonical SDK schema at
   `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts`
-  (canonical-only — no legacy-shape fallbacks per alpha policy).
+  (canonical-only — no legacy-shape fallbacks per pre-1.0 policy).
 - Local HTTP API is fail-closed: when `local_api_token` is unset every
   non-public path returns `401 NO_TOKEN_CONFIGURED`; when set, every
   non-public path requires `Authorization: Bearer <token>` (compared

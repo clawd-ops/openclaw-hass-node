@@ -120,10 +120,10 @@ The HA base image is also required by `addon/run.sh`, which uses
 (notably `SUPERVISOR_TOKEN` — see Issue #109). Bare Python images
 don't ship s6-overlay / `with-contenv` and the addon won't start.
 
-## Standalone Docker (not supported in alpha)
+## Standalone Docker (not supported during beta)
 
 Running the Docker image outside HA Supervisor is **not a supported
-install path** while the project is in alpha, for the with-contenv
+install path** during the pre-1.0 beta, for the with-contenv
 reason above. Standalone-mode detection in `__main__.py` is kept so the
 node can run directly on the dev host (`python -m openclaw_node` with
 `HASS_URL` + `HASS_TOKEN`), but the image itself is HA-only.
@@ -135,8 +135,9 @@ Entrypoint detects mode for the standalone dev-host path:
 
 ## Versioning
 
-PEP 440 date-based: `YYYY.M.Da<N>` during alpha (e.g. `2026.6.8a1`).
-Post-beta: `YYYY.M.PATCH`. Version is enforced by
+PEP 440 date-based: `YYYY.M.Db<N>` during beta (e.g. `2026.6.19b1`);
+`YYYY.M.Da<N>` was used during the alpha track up through `2026.6.8a16`.
+Post-1.0: `YYYY.M.PATCH`. Version is enforced by
 `test_version_sync.py` across 5 sources: `pyproject.toml`,
 `addon/config.yaml`, `addon/build.yaml` label, `manifest.json`, and
 the source-literal fallback in `__init__.py`.

@@ -1,6 +1,6 @@
 # Command Surface
 
-> **Alpha.** This file documents the **live** command registry in
+> **Beta.** This file documents the **live** command registry in
 > `commands/dispatcher.py`. Commands listed here are registered and
 > working. Planned commands that are not yet implemented are listed
 > separately at the end.
