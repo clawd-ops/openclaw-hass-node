@@ -558,6 +558,15 @@ async def test_supervisor_get_json_bad_body(monkeypatch: pytest.MonkeyPatch) -> 
     assert ei.value.code == "HA_BAD_RESPONSE"
 
 
+async def test_supervisor_get_json_too_large(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    big = "x" * 2048
+    resp = _FakeResp(status=200, content_type="application/json", text_body=big)
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons/self/info", max_bytes=1024)
+    assert ei.value.code == "HA_RESPONSE_TOO_LARGE"
+
+
 async def test_supervisor_get_json_network_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

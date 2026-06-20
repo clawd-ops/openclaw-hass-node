@@ -18,6 +18,7 @@ defaults to ``http://homeassistant`` and a ``HASS_TOKEN`` must be set.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -28,6 +29,7 @@ import aiohttp
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT_S: Final[float] = 10.0
 _SUPERVISOR_TEXT_MAX_BYTES: Final[int] = 1_048_576
+_SUPERVISOR_JSON_MAX_BYTES: Final[int] = 1_048_576
 
 
 class HAClientError(Exception):
@@ -282,7 +284,12 @@ async def supervisor_get_text(
         raise HAClientError("HA_NETWORK", f"Network error contacting Supervisor: {exc}") from exc
 
 
-async def supervisor_get_json(path: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> Any:
+async def supervisor_get_json(
+    path: str,
+    *,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+    max_bytes: int = _SUPERVISOR_JSON_MAX_BYTES,
+) -> Any:
     """GET *path* on the Supervisor REST API and return the decoded JSON body.
 
     Companion to :func:`supervisor_get_text` for endpoints that return JSON
@@ -294,13 +301,18 @@ async def supervisor_get_json(path: str, *, timeout_s: float = _DEFAULT_TIMEOUT_
         path: Path under the Supervisor root, e.g. ``"/addons"``. Must begin
             with ``/``.
         timeout_s: Per-request timeout.
+        max_bytes: Maximum response body bytes to read before raising
+            ``HA_RESPONSE_TOO_LARGE``. Prevents a misbehaving Supervisor (or a
+            field like ``long_description``) from driving the node OOM via an
+            unbounded JSON body.
 
     Returns:
         The decoded JSON body (typically a ``dict`` with a ``result`` field).
 
     Raises:
         HAClientError: ``SUPERVISOR_UNAVAILABLE`` when ``SUPERVISOR_TOKEN`` is
-            not set; otherwise network/HTTP error codes mirroring
+            not set; ``HA_RESPONSE_TOO_LARGE`` if the body exceeds *max_bytes*;
+            otherwise network/HTTP error codes mirroring
             :func:`supervisor_get_text`. ``HA_BAD_RESPONSE`` if the body is not
             valid JSON.
     """
@@ -325,9 +337,17 @@ async def supervisor_get_json(path: str, *, timeout_s: float = _DEFAULT_TIMEOUT_
             if resp.status >= 400:
                 body = (await resp.text())[:512]
                 raise HAClientError("HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body}")
+            buf = bytearray()
+            async for chunk in resp.content.iter_chunked(65_536):
+                buf.extend(chunk)
+                if len(buf) > max_bytes:
+                    raise HAClientError(
+                        "HA_RESPONSE_TOO_LARGE",
+                        f"Supervisor response for {path} exceeded {max_bytes} bytes",
+                    )
             try:
-                return await resp.json()
-            except (ValueError, aiohttp.ContentTypeError) as exc:
+                return json.loads(buf.decode("utf-8"))
+            except (ValueError, UnicodeDecodeError) as exc:
                 raise HAClientError(
                     "HA_BAD_RESPONSE", f"Supervisor returned non-JSON body for {path}"
                 ) from exc

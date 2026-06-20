@@ -61,8 +61,8 @@ mode). Path traversal and symlink escape are blocked by `safe_fd.py`.
 | `ha.list_automations`     | `include_traces?`; filters to `automation.` prefix |
 | `ha.check_config`         | Validates HA core config before reload |
 | `ha.addon_logs`           | `slug`, `lines?` (1–5000, default 200); Supervisor add-on logs, read-only; trims from a bounded 1 MiB trailing byte window |
-| `ha.list_addons`          | List Supervisor add-ons (slug, name, state, version, version_latest, update_available, repository), read-only |
-| `ha.addon_info`           | `slug`; per-addon metadata (slug, name, state, description, version, version_latest, update_available, repository, boot, startup, stage, arch, machine, ingress, ingress_port). **`options` (current option VALUES) and `schema` (option field NAMES) are dropped at the boundary** — option values are secrets and even schema field names can reveal which integrations are configured. Read-only |
+| `ha.list_addons`          | List Supervisor add-ons (slug, name, state, version, version_latest, update_available), read-only. `repository` is dropped because for community/private addons it holds an operator-private repo URL |
+| `ha.addon_info`           | `slug`; per-addon metadata (slug, name, state, description, version, version_latest, update_available, boot, startup, stage, arch, machine, ingress, ingress_port). **`options` (current option VALUES), `schema` (option field NAMES), and `repository` are dropped at the boundary** — option values are secrets, schema field names can reveal which integrations are configured, and `repository` for non-core addons can leak an operator-private hostname. Supervisor response body is also capped at 1 MiB before parsing. Read-only |
 | `ha.addon_stats`          | `slug`; allowlisted utilisation metrics (cpu_percent, memory_usage/limit/percent, network_rx/tx, blk_read/write). Read-only |
 | `ha.addon_changelog`      | `slug`; addon changelog markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_documentation`  | `slug`; addon documentation markdown, bounded 1 MiB trailing window. Read-only |
