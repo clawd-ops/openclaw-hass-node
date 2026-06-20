@@ -1,5 +1,15 @@
 # Install
 
+> 🕷️ **With great power comes great responsibility.** This add-on hands
+> an AI agent a direct line into your Home Assistant — entities, services,
+> `/config` files, addon logs, and (gated behind `OPENCLAW_ADMIN_TOKEN`)
+> shell + config reload. We harden every surface we can, but a misbehaving
+> or jailbroken agent can still wipe automations, brick an addon, or leak
+> secrets. If your agent torches the box, that is on you and your agent —
+> not on this project. **Back up `/config` before pairing.** Use a
+> least-privilege agent. See the [README disclaimer](../README.md) for the
+> full version of this warning.
+
 > ⚠️ **Beta.** Pair, connect, tool invokes, and HA Assist conversation
 > all work end-to-end (P5.13 dual-WS, streaming token deltas as of
 > 2026.6.19b1). The integration appears as a conversation agent in HA's
