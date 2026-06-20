@@ -255,7 +255,13 @@ def build_runtime(
         runtime=runtime,
         role="operator",
         scopes=_OPERATOR_SCOPES,
-        caps=[],
+        # `tool-events` opts this connection in to the gateway's per-tool
+        # `agent` / `session.tool` broadcasts (see
+        # `/app/dist/server-chat-DVXWYmKw.js:889,903` and the capability
+        # check at `/app/dist/agent-DnsoYp5b.js:1684`). The relay uses
+        # this to surface tool names in HA Assist's slow-turn progress
+        # delta instead of the generic "Working on it..." placeholder.
+        caps=["tool-events"],
         commands=[],
         chat_relay_enabled=True,
         invoke_dispatch_enabled=False,

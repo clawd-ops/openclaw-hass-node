@@ -698,6 +698,160 @@ async def test_stream_turn_no_keepalive_on_fast_turn(
 
 
 @pytest.mark.asyncio
+async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TODO item 2: when the operator client advertises ``tool-events`` the
+    gateway broadcasts ``agent``/``session.tool`` events with
+    ``stream='tool'`` and ``data.name`` / ``data.phase``. The relay
+    captures the active tool name and uses it in the visible slow-turn
+    progress delta instead of the generic placeholder.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_TOOL_PROGRESS"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-tool"}))
+        # Gateway emits a tool-start event BEFORE the silence window
+        # closes — the relay records the tool name for the visible
+        # keepalive emit.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "agent",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "stream": "tool",
+                    "runId": "run-tool",
+                    "data": {"name": "weather", "phase": "start"},
+                },
+            }
+        )
+        await asyncio.sleep(0.20)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "Sunny",
+                    "runId": "run-tool",
+                    "message": {"role": "assistant", "content": "Sunny"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-tool",
+                    "message": {"role": "assistant", "content": "Sunny"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "what's the weather"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    assert "🔧 Calling weather...\n\n" in chunks, (
+        f"expected tool-specific progress delta, got: {chunks!r}"
+    )
+    assert "Working on it...\n\n" not in chunks, (
+        f"generic placeholder should be suppressed when tool name available: {chunks!r}"
+    )
+    assert "Sunny" in chunks, f"real reply lost: {chunks!r}"
+
+
+@pytest.mark.asyncio
+async def test_handle_event_tool_start_and_end_update_active_tool() -> None:
+    """Direct test on the per-session active tool tracking. ``start``
+    sets the name; ``end`` clears it. ``stream`` other than ``"tool"``
+    is ignored.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_active_tool"
+    relay._canonical_by_raw[s_k] = s_k
+
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "weather", "phase": "start"},
+            },
+        }
+    )
+    assert relay._active_tool[s_k] == "weather"
+
+    relay.handle_event(
+        {
+            "event": "session.tool",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "calendar", "phase": "start"},
+            },
+        }
+    )
+    assert relay._active_tool[s_k] == "calendar"
+
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "tool",
+                "data": {"name": "calendar", "phase": "end"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+    # stream != "tool" must be ignored.
+    relay.handle_event(
+        {
+            "event": "agent",
+            "payload": {
+                "sessionKey": s_k,
+                "stream": "text",
+                "data": {"name": "ignored", "phase": "start"},
+            },
+        }
+    )
+    assert s_k not in relay._active_tool
+
+
+@pytest.mark.asyncio
 async def test_relay_turn_delta_before_ack_does_not_truncate() -> None:
     """Codex review catch on #118 part 2: a partial delta arriving BEFORE
     the chat.send ack lands must not short-circuit the fast-path return.

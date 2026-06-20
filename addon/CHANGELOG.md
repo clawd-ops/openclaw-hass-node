@@ -1,5 +1,10 @@
 # OpenClaw Node Add-on Changelog
 
+## Unreleased
+
+### Features
+- **Slow-turn progress now names the tool being called (TODO #2).** The operator-role WS handshake now advertises the `tool-events` capability, which opts this connection in to the gateway's per-tool `agent`/`session.tool` broadcasts (`/app/dist/server-chat-DVXWYmKw.js:889,903`; cap check at `/app/dist/agent-DnsoYp5b.js:1684`). `ChatRelay` records the most recent tool name per session from those events and uses it in the visible slow-turn keepalive delta (`f"🔧 Calling {tool_name}...\n\n"`) instead of the generic `Working on it...` placeholder. Falls back to the generic placeholder when no tool has started — e.g. the model is just thinking. The 8s silence threshold still gates visibility so fast turns stay quiet; multi-tool turns currently only label the FIRST visible delta (the one that fires at the 8s mark). New regression tests: `test_stream_turn_uses_tool_name_in_silent_gap_progress`, `test_handle_event_tool_start_and_end_update_active_tool`. The HACS shim is unchanged — the tool-named delta uses the same `{"delta": "..."}` frame format and is appended to the saved assistant reply the same way the prior placeholder was.
+
 ## 2026.6.20b4 (2026-06-20) — Tier A Supervisor access fix (hassio_role: manager) + pairing retry-after
 
 ### Fixes
