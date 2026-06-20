@@ -33,6 +33,7 @@ import os
 import time
 import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final
 
@@ -44,7 +45,7 @@ from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.identity import DeviceIdentity
-from openclaw_node.pairing import PairingMachine, PairingState
+from openclaw_node.pairing import PairingError, PairingMachine, PairingState
 
 if TYPE_CHECKING:
     from openclaw_node.http_api import NodeRuntime
@@ -90,6 +91,10 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.check_config",
     "ha.addon_logs",
     "ha.list_addons",
+    "ha.addon_info",
+    "ha.addon_stats",
+    "ha.addon_changelog",
+    "ha.addon_documentation",
 ]
 # The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
 # in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.
@@ -153,6 +158,26 @@ def _decode_error_message(raw: Any) -> str:
     if details:
         parts.append(f"details={details!r}")
     return " | ".join(parts)
+
+
+def _decode_error_retry_after_ms(raw: Any) -> float | None:
+    """Return gateway-provided retry delay from a ResponseFrame.error object."""
+    if not isinstance(raw, dict):
+        return None
+    retry_after_ms = raw.get("retryAfterMs")
+    if retry_after_ms is None:
+        details = raw.get("details")
+        retry_after_ms = details.get("retryAfterMs") if isinstance(details, dict) else None
+    if not isinstance(retry_after_ms, int | float) or retry_after_ms < 0:
+        return None
+    return float(retry_after_ms)
+
+
+def _format_retry_at_utc(delay_s: float, *, now: datetime | None = None) -> str:
+    """Return the UTC wall-clock time when a reconnect will be attempted."""
+    base = now or datetime.now(UTC)
+    retry_at = base + timedelta(seconds=max(0.0, delay_s))
+    return retry_at.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 class InvalidInvokeParamsError(ValueError):
@@ -319,10 +344,12 @@ class GatewayClient:
                 await self._connect_and_loop()
             except Exception as exc:
                 delay = self._next_reconnect_delay(exc)
+                retry_at = _format_retry_at_utc(delay)
                 _LOG.error(
-                    "Gateway connection lost: %s - reconnecting in %.0fs",
+                    "Gateway connection lost: %s - reconnecting in %.1fs (retry at %s)",
                     exc,
                     delay,
+                    retry_at,
                 )
                 self._maybe_drop_invalid_device_token(exc)
                 self._pairing.on_reconnect()
@@ -341,6 +368,10 @@ class GatewayClient:
         rate-limit window with retries. On a successful connect the caller
         resets the backoff to zero.
         """
+        if isinstance(exc, PairingError) and exc.retry_after_ms is not None:
+            self._rate_limited_delay_s = 0.0
+            return exc.retry_after_ms / 1000.0
+
         haystack = repr(exc)
         is_rate_limited = "AUTH_RATE_LIMITED" in haystack or "wait_then_retry" in haystack
         if not is_rate_limited:
@@ -613,8 +644,13 @@ class GatewayClient:
         error_raw = msg.get("error")
         error: str | None = None if ok else _decode_error_code(error_raw)
         error_message: str = "" if ok else _decode_error_message(error_raw)
+        retry_after_ms: float | None = None if ok else _decode_error_retry_after_ms(error_raw)
         self._pairing.on_connect_response(
-            ok=ok, payload=payload, error=error, error_message=error_message
+            ok=ok,
+            payload=payload,
+            error=error,
+            error_message=error_message,
+            retry_after_ms=retry_after_ms,
         )
         self._notify_pairing_state()
         if ok:

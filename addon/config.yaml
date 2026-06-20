@@ -22,13 +22,13 @@ init: false
 # with no token until hassio_api was set — whether Supervisor bug or
 # manifest interaction, enabling hassio_api is the dependable fix.
 #
-# We do NOT set `hassio_role` here. Default role grants access to all
-# Supervisor `info` endpoints (host info, version, network info, etc.)
-# but NOT addons/backup/host mutation. The shipped node code does not
-# call Supervisor REST at all today; the token is requested solely for
-# the Core API path under homeassistant_api below. If we ever start
-# calling Supervisor lifecycle endpoints, re-evaluate the role.
+# The Tier A add-on command surface reads Supervisor add-on endpoints such
+# as /addons, /addons/<slug>/logs, /info, /stats, /changelog, and
+# /documentation. The default role returns 403 for those endpoints, while
+# manager is narrower than admin and covers add-on management surfaces.
+# Do not add lifecycle mutation commands without a separate admin gate.
 hassio_api: true
+hassio_role: manager
 # homeassistant_api: enables HA Core API access at
 # http://supervisor/core/api with SUPERVISOR_TOKEN. Used by `ha_client`
 # and `commands/ha` to proxy HA Core/WS calls.
