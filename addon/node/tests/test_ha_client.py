@@ -537,6 +537,14 @@ async def test_supervisor_get_json_404(monkeypatch: pytest.MonkeyPatch) -> None:
     assert ei.value.code == "HA_NOT_FOUND"
 
 
+async def test_supervisor_get_json_500(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(status=500, body={"result": "error"}, content_type="application/json")
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_json("/addons")
+    assert ei.value.code == "HA_HTTP_ERROR"
+
+
 async def test_supervisor_get_json_bad_body(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
 
