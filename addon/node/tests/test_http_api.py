@@ -362,6 +362,66 @@ async def test_assist_turn_stream_yields_ndjson_deltas(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_assist_turn_stream_emits_keepalive_frames(tmp_path: Path) -> None:
+    """A StreamKeepalive sentinel yielded by the relay is translated to a
+    `{"keepalive": true}` NDJSON frame on the wire — separate from
+    `{"delta": ...}` so the HA shim can skip it when accumulating the
+    assistant message text.
+    """
+    from openclaw_node.chat_relay import ChatRelay, StreamKeepalive
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> Any:
+        yield StreamKeepalive()
+        yield "Hello"
+        yield StreamKeepalive()
+        yield " world!"
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation/stream",
+            json={"text": "long question", "conversation_id": "conv-keepalive"},
+        )
+        assert response.status == 200
+        body = await response.text()
+    finally:
+        await tc.close()
+
+    lines = [json.loads(line) for line in body.strip().split("\n") if line]
+    assert lines == [
+        {"keepalive": True},
+        {"delta": "Hello"},
+        {"keepalive": True},
+        {"delta": " world!"},
+        {"done": True},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_assist_turn_stream_error_frame_on_relay_error(tmp_path: Path) -> None:
     """A ChatRelayError mid-stream surfaces as an `{"error": "<code>"}` frame."""
     from openclaw_node.chat_relay import ChatRelay, ChatRelayError

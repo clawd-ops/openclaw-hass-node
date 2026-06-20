@@ -49,10 +49,10 @@ commands.
   it persists a long-lived device token in `/data/openclaw/` and
   reuses it on every restart, so you only paste the pairing token
   once.
-- Serves the 28 commands the agent uses:
-  - `ha.*` (13 commands): list states, get state, list devices, list
+- Serves the 30 commands the agent uses:
+  - `ha.*` (15 commands): list states, get state, list devices, list
     entity registry, list areas, list services, call service, turn
-    lights on/off, logbook, history.
+    lights on/off, logbook, history, list add-ons, add-on logs.
   - `fs.*` (11 commands): list directory, read file, write file,
     stat, glob, etc. Scoped to the maps the add-on (app) is granted
     (`config:rw`, `share:rw`, `ssl:rw`, `addons:rw`, `media:rw`,

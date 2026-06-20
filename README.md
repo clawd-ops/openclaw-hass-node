@@ -85,7 +85,7 @@ gateway side. Short version:
 
 ## Status
 
-- **Node command surface**: complete (28 commands: `ha.*` × 13, `fs.*`
+- **Node command surface**: complete (30 commands: `ha.*` × 15, `fs.*`
   × 11, `system.*` × 2, `ping`).
 - **Pairing + connect**: works end-to-end with device-token persistence.
 - **Conversation relay (`/v1/conversation` → OpenClaw chat surface)**:

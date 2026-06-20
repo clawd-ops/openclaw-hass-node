@@ -44,7 +44,7 @@ class _StreamErrorFrame(Exception):
 
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
-_REQUEST_TIMEOUT_S: Final[float] = 35.0
+_REQUEST_SOCK_READ_TIMEOUT_S: Final[float] = 45.0
 
 
 async def async_setup_entry(
@@ -127,7 +127,7 @@ class OpenClawConversationEntity(ConversationEntity):
         socket_url = str(self._entry.data[CONF_SOCKET_URL]).rstrip("/")
         url = f"{socket_url}{_STREAM_ENDPOINT}"
         session = async_get_clientsession(self.hass)
-        timeout = aiohttp.ClientTimeout(total=_REQUEST_TIMEOUT_S)
+        timeout = aiohttp.ClientTimeout(total=None, sock_read=_REQUEST_SOCK_READ_TIMEOUT_S)
         headers: dict[str, str] = {"Accept": "application/x-ndjson"}
         api_token = str(self._entry.data.get(CONF_API_TOKEN, "") or "")
         if api_token:
@@ -204,6 +204,16 @@ class OpenClawConversationEntity(ConversationEntity):
                             continue
                         if not isinstance(frame, dict):
                             continue
+                        if frame.get("keepalive") is True and "delta" not in frame:
+                            # Transport-only frame from the node — its
+                            # only purpose is to reset HA's NDJSON
+                            # read timer on slow tool-heavy turns. The
+                            # frame is intentionally NOT yielded into
+                            # chat_log so it never appears in the
+                            # saved assistant message. Reading the
+                            # line is sufficient: the network bytes
+                            # arrived and HA's read timer reset.
+                            continue
                         if "delta" in frame:
                             delta_text = str(frame.get("delta") or "")
                             if not delta_text:
@@ -256,10 +266,14 @@ class OpenClawConversationEntity(ConversationEntity):
                 else:
                     speech = "OpenClaw Node returned no response."
         except TimeoutError:
-            _LOG.warning("OpenClaw Node timed out at %s after %ss", url, _REQUEST_TIMEOUT_S)
+            _LOG.warning(
+                "OpenClaw Node stream went quiet at %s for %ss",
+                url,
+                _REQUEST_SOCK_READ_TIMEOUT_S,
+            )
             speech = (
                 "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
-                f"did not respond within {int(_REQUEST_TIMEOUT_S)} seconds."
+                f"stream went quiet for {int(_REQUEST_SOCK_READ_TIMEOUT_S)} seconds."
             )
         except aiohttp.ClientError as exc:
             _LOG.warning("OpenClaw Node network error at %s: %s", url, exc)

@@ -53,7 +53,8 @@ its allowlist. The HA node ships 28 commands across `ha.*`, `fs.*`,
         "ha.list_areas", "ha.list_devices", "ha.list_services",
         "ha.list_entity_registry", "ha.logbook", "ha.history",
         "ha.reload_config", "ha.light_turn_on", "ha.light_turn_off",
-        "ha.list_automations", "ha.check_config"
+        "ha.list_automations", "ha.check_config",
+        "ha.addon_logs", "ha.list_addons"
       ]
     }
   }
