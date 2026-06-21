@@ -274,3 +274,42 @@ legitimate fast turn. Don't add it.
 If "no follow-on response" reports get reliable, the right fix is
 gateway-side: defer `broadcastChatFinal` until any pending toolResult
 + its assistant continuation settle for the same `runId`.
+
+## Use GPT-5.5 for checks, not just for code review
+
+Standing instruction from Rob 2026-06-20. The cross-agent review hard
+rule (Anthropic plans/drives, Codex/GPT-5.5 reviews/catches) is the
+floor, not the ceiling. Empower a fresh GPT-5.5 subagent for any
+**verification step** where an independent second pass adds value, not
+just for the pre-merge code review.
+
+What that looks like in practice:
+
+- **Pre-merge code review** — still required for every non-trivial
+  diff (see `feedback_codex_reviews_use_cli` in the workspace memory).
+- **Plan agent for fan-out investigations** — when a TODO item touches
+  multiple subsystems (e.g. addon + gateway + shim), dispatch a Plan
+  subagent (sonnet-4-6 or gpt-5.5) with a file-path-anchored prompt
+  and a sharp output spec (< 800 words, no code, file:line evidence).
+  Used for #4/#9/#10 and #2 — both produced concrete merge plans that
+  avoided dead-end implementations.
+- **Post-merge verification** — when a release lands and the next step
+  is "test it in production", consider spawning a GPT-5.5 subagent to
+  drive the verification (invoke the new command surface, check the
+  log shape, diff against expected output) instead of doing it
+  in-context. Frees the main session for the next task.
+- **Diff-shaped questions** — "is this still true?", "did we actually
+  close X?", "does this match the canonical schema?" — these are
+  perfect for a quick subagent dispatch with the file-path hand-off.
+
+When dispatching, give the subagent:
+
+1. The concrete question or task, in one sentence.
+2. The file paths it should read.
+3. The output shape you want (verdict + evidence pointer; not a
+   narrative).
+4. A word cap on the response.
+
+The subagent doesn't see your conversation history. Treat it like a
+colleague who just walked into the room — brief them tight or get
+generic work back.
