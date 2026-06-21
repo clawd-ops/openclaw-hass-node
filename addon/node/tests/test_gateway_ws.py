@@ -994,6 +994,48 @@ async def test_event_loop_routes_session_message_to_relay() -> None:
     assert relay._last_assistant_text.get("ha-assist:conv-1") == "Hello from the agent!"
 
 
+async def test_event_loop_routes_agent_tool_event_to_relay() -> None:
+    """`agent` events (tool-event payloads when controlUiVisible=false)
+    are forwarded to the ChatRelay. The event-name allowlist must
+    include `agent` in addition to `session.*` and `chat*` for HA
+    Assist's tool-named slow-turn progress to work end-to-end.
+    """
+    from openclaw_node.chat_relay import ChatRelay
+
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    relay = ChatRelay(AsyncMock())
+    s_k = "agent:clawd:ha-assist:01kvh_agent_tool_event"
+    relay._canonical_by_raw[s_k] = s_k
+
+    messages = [
+        json.dumps(
+            {
+                "type": "event",
+                "event": "agent",
+                "payload": {
+                    "sessionKey": s_k,
+                    "stream": "tool",
+                    "data": {"name": "weather", "phase": "start"},
+                },
+            }
+        ),
+    ]
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        for m in messages:
+            yield m
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    await client._event_loop(ws, relay)
+
+    assert relay._active_tool.get(s_k) == "weather", (
+        "agent event with stream=tool must reach ChatRelay so the tool-named "
+        "slow-turn progress delta can fire"
+    )
+
+
 async def test_event_loop_routes_response_to_relay() -> None:
     """RPC responses are forwarded to the ChatRelay's pending futures."""
     import asyncio

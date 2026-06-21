@@ -1093,8 +1093,22 @@ class GatewayClient:
                 elif (
                     relay is not None
                     and isinstance(event, str)
-                    and (event.startswith("session.") or event.startswith("chat"))
+                    and (
+                        event.startswith("session.") or event.startswith("chat") or event == "agent"
+                    )
                 ):
+                    # `agent` events carry per-tool payloads
+                    # (`stream='tool'`, `data.name`, `data.phase`) when
+                    # the operator client advertises the `tool-events`
+                    # capability AND `controlUiVisible` is false. For HA
+                    # Assist (always controlUiVisible=false), the
+                    # gateway routes tool events to session-message
+                    # subscribers under the `agent` event name (see
+                    # `sendAgentPayload` non-control-ui branch at
+                    # `/app/dist/server-chat-DVXWYmKw.js:713-721`).
+                    # Without this branch tool events never reach
+                    # ChatRelay.handle_event and the tool-named
+                    # slow-turn progress delta never fires.
                     relay.handle_event(msg)
 
     async def _handle_invoke(
