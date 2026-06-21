@@ -341,3 +341,35 @@ and you do NOT also create a GitHub release for it, the addon is not
 released. Don't tell Rob to "Update" — he won't see anything to update
 to. Either tag immediately after merge, or update the addon manually
 via Rebuild and tell him so.
+
+## "User-facing docs" includes more than `docs/` and `README.md`
+
+The 2026-06-20 doc-cleanup sweep stripped phase IDs (`P5.13`, `P3.x`,
+etc.) from everything in `docs/` and `README.md` — but missed
+`addon/config.yaml`'s `description:` block, which is the text HA
+Supervisor renders in the addon list and detail page. Caught by Rob
+post-merge. Both the planner subagent and the post-merge verifier
+restricted their scope to `docs/` and the top-level README.
+
+Before treating a doc sweep as complete, scan ALL of these for the
+same staleness patterns:
+
+- `README.md` and everything under `docs/` (the obvious ones)
+- `addon/config.yaml` — `description:` field; rendered by Supervisor
+- `addon/build.yaml` labels (rarely user-visible but worth a glance)
+- `custom_components/openclaw_gateway/manifest.json` — `name` field;
+  shown in HA Integrations list. (As of 2026-06-20 the manifest reads
+  "OpenClaw Gateway"; HACS reads "OpenClaw Gateway (Beta)" from
+  `hacs.json`. Mild inconsistency, intentionally left.)
+- `custom_components/openclaw_gateway/strings.json` — config-flow UI
+  copy shown during integration setup
+- `hacs.json` — `name` field; shown in HACS catalog
+- GitHub repo description (`gh repo view ... --json description`)
+
+Grep recipe for the next sweep:
+
+```sh
+grep -rn -E "\bP[3-6]\.[0-9]+\b" \
+  README.md docs/ addon/config.yaml addon/build.yaml \
+  custom_components/ hacs.json
+```
