@@ -1,5 +1,10 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b6 (2026-06-21) — Re-dispatch `agent` events from gateway WS loop
+
+### Fixes
+- **`agent` events now reach `ChatRelay` (PR #147).** b5 advertised the `tool-events` capability and added per-tool labelling in `ChatRelay.handle_event`, but the gateway WS event loop's dispatch allowlist did not include the `agent` event kind, so the addon silently discarded every tool-progress frame before it ever reached the relay. Slow-turn deltas continued to show the generic `Working on it...` placeholder instead of the tool name. The dispatch filter now includes `agent` alongside the existing `session.*` / `chat*` paths; non-tool `agent` shapes are safe because `ChatRelay.handle_event` only mutates `_active_tool` when `payload.stream == "tool"` and no-ops otherwise. New regression test exercises `_event_loop`'s event-name filter end-to-end with an `agent` frame fed through the websocket iterator (the b5 tests stubbed `handle_event` directly, which is what missed this).
+
 ## 2026.6.20b5 (2026-06-20) — Tool-named slow-turn progress + tool-event stale-trailer filter
 
 ### Features
