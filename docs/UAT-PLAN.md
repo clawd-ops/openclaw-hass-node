@@ -4,12 +4,12 @@
 > result you should see. If anything diverges, paste the diff into
 > the channel and Clawd will dig in.
 >
-> **State as of the current beta (`2026.6.19b1`):** install, pair,
+> **State as of the current beta (`2026.6.20b6`):** install, pair,
 > connect, gateway-side tool invokes, and Assist conversation relay
-> (P5.13 dual-WS, now streaming token deltas) all work end-to-end.
-> Local HTTP API is fail-closed (a token is required); HACS shim probes
-> for the local API at config-flow time. The proposal/write flow is
-> still planned.
+> (dual websocket pair, streaming token deltas, tool-named progress)
+> all work end-to-end. Local HTTP API is fail-closed (a token is
+> required); HACS shim probes for the local API at config-flow time.
+> The proposal/write flow is still planned.
 
 ## Phase A — Install
 
@@ -105,7 +105,7 @@ successful pairing.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 28 (ha.*, fs.*, system.*, ping)
+#         Commands: list of 35 (ha.*, fs.*, system.*, ping)
 ```
 
 ## Phase C — Tool invokes through the gateway *(working)*
@@ -175,15 +175,14 @@ behind the proposal/agent-bridge flow.
   breaking change. Expect the proposal body to cite the
   breaking-change entry and include a functional fix.
 
-## Phase E — Assist conversation agent *(live — P5.13)*
+## Phase E — Assist conversation agent *(live)*
 
-P5.13 dual-WS shipped over PRs #86 + #87 + #89: the node now opens
-parallel node-role and operator-role gateway connections, the
-operator-role connection owns the ChatRelay (`chat.send` +
-`sessions.messages.subscribe`), and selecting the OpenClaw Gateway
-shim as your Assist conversation agent streams real responses back
-through the gateway. Pair the device with a dual-role profile via
-`openclaw qr`.
+The node opens parallel node-role and operator-role gateway
+connections; the operator-role connection owns the conversation relay
+(`chat.send` + `sessions.messages.subscribe`), and selecting the
+OpenClaw Gateway shim as your Assist conversation agent streams real
+responses back through the gateway. Pair the device with a dual-role
+profile via `openclaw qr`.
 
 ### E1. Set Clawd as your Assist conversation agent in
    **Settings → Voice Assistants**.
@@ -198,6 +197,15 @@ through the gateway. Pair the device with a dual-role profile via
 - "Turn on the kitchen light." Should call back into the same node's
   `ha.call_service` via the proposal flow (since light writes are
   protected).
+
+### E4. Tool-named progress lines.
+
+- Ask Assist a prompt that requires a tool call, e.g. "what's the
+  weather?" While the agent is still thinking, the conversation
+  surface should show a progress line naming the tool, e.g.
+  `🔧 Calling weather...` (or whichever tool the agent picks). The
+  progress line is replaced by the final answer when the turn
+  completes.
 
 ## Phase F — Cross-validation evidence
 

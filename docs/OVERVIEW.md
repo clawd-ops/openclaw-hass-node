@@ -1,9 +1,9 @@
 # What is openclaw-hass-node?
 
 > ⚠️ **Beta.** The node command surface and the HA Assist
-> conversation relay (P5.13 dual-WS, streaming token deltas as of
-> 2026.6.19b1) are working end-to-end (pair, connect, invoke,
-> ChatRelay). Publishing infrastructure is still settling and pre-1.0
+> conversation relay (dual websocket pair, streaming token deltas,
+> tool-named progress) are working end-to-end on the current beta
+> track. Publishing infrastructure is still settling and pre-1.0
 > breaking changes are still possible. Track [`STATUS.md`](STATUS.md)
 > for the road to 1.0.
 
@@ -49,14 +49,18 @@ commands.
   it persists a long-lived device token in `/data/openclaw/` and
   reuses it on every restart, so you only paste the pairing token
   once.
-- Serves the 30 commands the agent uses:
-  - `ha.*` (15 commands): list states, get state, list devices, list
+- Serves the 35 commands the agent uses:
+  - `ha.*` (21 commands): list states, get state, list devices, list
     entity registry, list areas, list services, call service, turn
-    lights on/off, logbook, history, list add-ons, add-on logs.
+    lights on/off, logbook, history, list automations, check config,
+    reload config, and the Tier A read-only addon surface (list
+    addons, addon info, addon stats, addon logs, addon changelog,
+    addon documentation).
   - `fs.*` (11 commands): list directory, read file, write file,
     stat, glob, etc. Scoped to the maps the add-on (app) is granted
-    (`config:rw`, `share:rw`, `ssl:rw`, `addons:rw`, `media:rw`,
-    `backup:rw`).
+    (`config:rw`, `share:rw`, `media:rw`). Other roots (`ssl`,
+    `addons`, `backup`) are intentionally not mapped — re-add only
+    when a shipped feature needs them.
   - `system.*` (2 commands): `system.run` (admin-token-gated shell
     invocation) and `system.which` (locate executables on PATH).
   - `ping`: liveness check.
@@ -186,7 +190,7 @@ not Assist), the top half of that flow is skipped: the gateway sends
   `gateway.nodes.allowCommands`. Removing a command from that list
   and restarting the gateway disables it everywhere.
 - **HA Supervisor isolation.** The add-on (app) runs in its own container
-  with explicit filesystem maps. Removing a map (e.g. `backup:rw`)
+  with explicit filesystem maps. Removing a map (e.g. `media:rw`)
   immediately removes the add-on (app)'s access to that area.
 - **No agent reasoning happens here.** This node is purely an
   executor. Prompts, tool-choice, model selection, and policy all

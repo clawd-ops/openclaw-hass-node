@@ -1,509 +1,100 @@
 # Status
 
-> **Beta.** Pair, connect, tool invokes, and HA Assist conversation all
-> work end-to-end. P5.13 dual-WS shipped, the canonical-sessionKey +
-> terminal-event reply fixes (#118) landed, and 2026.6.19b1 promoted the
-> relay to streaming token deltas. Publishing infrastructure is still
-> settling and pre-1.0 breaking changes are still possible.
+> **Beta.** Pair, connect, tool invokes, and HA Assist conversation
+> all work end-to-end on the current beta track. Publishing
+> infrastructure is still settling and pre-1.0 breaking changes are
+> still possible.
 
 > **Update this file at every meaningful state change.** It is the
-> single thing that tells future-Clawd "where am I". If `PLAN.md` and
-> `STATUS.md` disagree, fix whichever is wrong before continuing.
+> single thing that tells a future maintainer "where am I". If
+> `PLAN.md` and `STATUS.md` disagree, fix whichever is wrong before
+> continuing.
 
-## Where we are (2026-06-08 PM)
+## Where we are
 
-**EYES AND HANDS WORK. MOUTH DOES NOT.** `openclaw nodes invoke --node hass
---command ping` round-trips cleanly. Tool invokes (28 commands across
-`fs.*`, `system.*`, `ha.*`, `ping`) work end-to-end. **But Assist
-conversation does NOT work** — first real Assist turn returned HTTP 502
-with `INVALID_REQUEST unauthorized role: node` (#82). The P5.12 ChatRelay
-was designed to call `chat.send` from a `role: node` connection, which the
-gateway hard-rejects (chat.send is `operator.write` scope; binary role
-check). The phone works because it pairs dual-role via QR / bootstrap
-token and connects as `operator` for chat.
+Currently on **2026.6.20b6** (beta). The node ships:
 
-**Path forward — P5.13 (#84):** dual WS connection in the node. Existing
-`role: node` socket keeps serving node-side invokes; a new `role: operator`
-socket carries ChatRelay's `chat.send` + `sessions.messages.subscribe`.
-Pair the device as dual-role using the `PAIRING_SETUP_BOOTSTRAP_PROFILE`
-the QR flow uses for phones. No back-compat migration (pre-1.0 rule);
-existing single-role devices remove + re-add.
+- **Dual websocket pair.** One `role: node` connection for
+  `node.invoke.*`, one `role: operator` connection for the
+  conversation relay (`chat.send` + `sessions.messages.subscribe`).
+  Independent reconnect loops; one connection failing doesn't take
+  the other down. Device is paired as dual-role via the
+  `openclaw qr` bootstrap-token flow.
+- **HA Assist streams.** Conversation turns route HA Assist → HACS
+  shim → node's `/v1/conversation` → operator-role WS → agent
+  session, with token-delta streaming back into HA. Mid-turn
+  tool-named progress lines (e.g. `🔧 Calling weather...`) surface
+  in the conversation UI while the agent is still working.
+- **35 commands** registered in the dispatcher:
+  - `ha.*` (21): list/get states, call service, list areas/devices/
+    services/entity-registry, logbook, history, reload config,
+    light turn on/off, list automations, check config, and the
+    Tier A read-only addon surface (`list_addons`, `addon_info`,
+    `addon_stats`, `addon_logs`, `addon_changelog`,
+    `addon_documentation`).
+  - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
+    move/delete, patch.
+  - `system.*` (2): `system.run` (admin-token-gated), `system.which`
+    (basename-only lookup).
+  - `ping`.
+- **Local HTTP API is fail-closed.** When `local_api_token` is unset
+  every non-public path returns `401 NO_TOKEN_CONFIGURED`; when set,
+  every non-public path requires `Authorization: Bearer <token>`
+  (compared with `hmac.compare_digest`). Public paths are `/health`,
+  `/v1/health`, `/v1/conversation/info` (HA addon probes + shim
+  config-flow discovery). No host port mapping; the API is only
+  reachable inside the Supervisor add-on network by default.
+- **HTTP command surface is allowlisted** to `ping` and
+  `system.which` as defense in depth — the bearer token gates
+  access, the allowlist gates blast radius. The full surface
+  remains available over the gateway WS path under operator
+  authorization.
+- **Secret files** (`node-key.json`, `device-token`) written at
+  mode `0o600` with `O_NOFOLLOW`. Path-validated unlink before
+  token reset.
+- **Tests pass with branch coverage gated at 95%**; all CI gates
+  green (ruff check + format, mypy strict, pytest coverage,
+  bandit, pip-audit, addon-build).
 
-Currently on **2026.6.19b1** (beta; HA Assist streaming relay).
-Version is enforced by
-`test_version_sync.py` across `pyproject.toml`, `addon/config.yaml`,
-`addon/build.yaml`, `manifest.json`, and the source-literal fallback in
-`__init__.py`.
+## Known broken / open
 
-**Install-ready surface:**
+- The proposal-gated write path (agent-bridge integration for
+  `fs.write` / `fs.patch` / `ha.config.*`) is implemented in the node
+  but not yet wired through the agent-bridge UI. Tracked as the next
+  major milestone.
+- HACS brands PR is still open; the integration shows the default
+  HACS icon, not the OpenClaw one.
+- Publishing pipeline is manual. There is no GHCR-published per-arch
+  image yet; Supervisor builds locally on-device. Cutting a release
+  is a manual `git tag` + `gh release create` — see
+  [`RELEASE.md`](RELEASE.md) for the operational procedure.
 
-- Node command surface complete: `fs.*` (11), `system.*` (2), `ha.*`
-  (13), `ping`. All 28 surface on the gateway after pair-approval (via
-  `openclaw nodes approve`, NOT `openclaw devices approve` — both
-  queues need to be approved, see LESSONS).
-- HACS shim wired: `custom_components/openclaw_gateway/` exposes a
-  `ConversationEntity` that POSTs to the node's `/v1/conversation`.
-- Gateway WS client: Ed25519 handshake, pairing, reconnect loop,
-  `node.invoke` dispatcher, device_token persistence with NOT_PAIRED /
-  PAIRING_REQUIRED / AUTH_TOKEN_MISMATCH self-heal. All frames shaped
-  per the canonical SDK schema at
-  `/app/node_modules/openclaw/dist/plugin-sdk/packages/gateway-protocol/src/schema/protocol-schemas.d.ts`
-  (canonical-only — no legacy-shape fallbacks per pre-1.0 policy).
-- Local HTTP API is fail-closed: when `local_api_token` is unset every
-  non-public path returns `401 NO_TOKEN_CONFIGURED`; when set, every
-  non-public path requires `Authorization: Bearer <token>` (compared
-  with `hmac.compare_digest`). Public paths are `/health`, `/v1/health`,
-  `/v1/conversation/info` (HA add-on probes + shim config-flow
-  discovery). Host port mapping removed from the add-on config so the
-  API is only reachable inside the Supervisor add-on network by default.
-- `/v1/commands/{command}` is allowlisted (defense-in-depth — token
-  gates *access*, allowlist gates *blast radius*). Only `ping` and
-  `system.which` are callable over HTTP; anything else returns
-  `404 UNKNOWN_COMMAND`. The full surface remains available over the
-  gateway WS path under operator authorization.
-- HACS shim probes the local API at config-flow time
-  (`openclaw-hass-node`, `a0d7b954-openclaw-hass-node`,
-  `openclaw_hass_node`, `localhost`, `homeassistant.local`) and
-  pre-fills the form with the first one that answers
-  `/v1/conversation/info`; falls back to the original hard-coded
-  default.
-- Gateway `node.pending.pull` drains the canonical `hasMore` flag in a
-  bounded loop (max 20 iterations × 50 items = 1000 items per connect)
-  so a large invoke backlog is fully drained before the event loop
-  starts.
-- Secret files (`node-key.json`, `device-token`) written at mode
-  `0o600` with `O_NOFOLLOW` so a planted symlink can't redirect the
-  write. Path-validated unlink before token reset.
-- Tests pass with branch coverage gated at 95%, all CI gates green.
+## Next concrete steps (in order)
 
-**One hole open: ChatRelay broken — tracked under P5.13 (#84).**
+1. **Proposal-gated writes** — wire `fs.write` / `fs.patch` /
+   `ha.config.*` through the agent-bridge UI so the write surface
+   matches the read surface.
+2. **MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
+   against OpenClaw logs. When it prints `RETIREMENT_READY`, drop
+   the `homeassistant` + `homeassistant-readonly` MCP server entries
+   from gateway config in one PR.
+3. **Publishing.** Add-on (App) repo metadata, HACS index entry,
+   release workflow for GHCR-published per-arch images (lets us put
+   the `image:` key back in `config.yaml` and skip the on-device
+   build).
 
-**Recently closed:**
-
-- **P5.12 — ChatRelay (2026-06-08).** ⚠️ **Shipped but architecturally
-  wrong.** Built on the assumption that a `role: node` connection could
-  call `chat.send`; the gateway hard-rejects this (chat.send is
-  `operator.write` scope, role check is binary). Verified by the first
-  real Assist turn returning `INVALID_REQUEST unauthorized role: node`
-  (#82). The relay's session/event/concurrency machinery is sound and
-  will be reused under P5.13; the auth/connection layer needs a dual-WS
-  refactor. PR #72 stays in tree as the relay implementation; P5.13
-  swaps the transport underneath it.
-
-- **2026.6.8a6 (#83).** Surface node-side error code + body in the HA
-  shim's Assist speech instead of bare HTTP status. Without this fix
-  the 502 above would have been opaque.
-
-- **P-INSTALL — HA credentials option fallback (2026-06-08).** Added
-  optional `hass_url` + `hass_token` add-on options. `run.sh` exports
-  them to `HASS_URL`/`HASS_TOKEN` only when the user filled them in
-  (no clobber of valid Supervisor-injected setups). `ha_client.py`
-  already had the env fallback wired. Path: addon/config.yaml,
-  addon/run.sh, docs/INSTALL.md. Option (b) shipped (the more portable
-  fix); the upstream "why isn't Supervisor injecting?" question is
-  parked, since the credential gap is solved either way.
-
-**Install push 2026-06-06/07/08 — 17 PRs (#29–#45) shipped:**
-
-| PR | Fix |
-| --- | --- |
-| #29 | drop unpublished GHCR image: from config.yaml |
-| #30 | move `node/` into `addon/node/` so Supervisor's build context resolves COPY paths |
-| #31 | use HA python-on-Alpine base (`ghcr.io/home-assistant/{arch}-base-python:3.13-alpine3.20`) |
-| #32 | `client.id = "node-host"` (was rejected enum value) |
-| #33 | include `deviceFamily` in connect.client (for v3 signature reconstruct) |
-| #34 | thread `pairing_token` into GatewayClient construction |
-| #35 | persist gateway-issued `device_token`, prefer over pairing_token |
-| #36 | `displayName` from `node_name` config |
-| #37 | restructure docs: user-facing README, INSTALL.md, LESSONS.md |
-| #38 | self-heal on NOT_PAIRED / PAIRING_REQUIRED |
-| #39 | transparent icons + shim entry title from socket host |
-| #40 | `/data`-writable fallback for addon-mode detection + bump `__version__` |
-| #41 | self-heal also on AUTH_TOKEN_MISMATCH / token_mismatch |
-| #42 | docs: two-pair-queue + reloadKind=restart lessons |
-| #43 | `node.invoke.result` uses `id` not `invokeId` |
-| #44 | canonical `node.invoke.result` shape `{id, nodeId, ok, payload, error}` + drop `limit` from `node.pending.pull` |
-| #45 | error as `{code, message}` object, ack as `{ids: [...]}`, point at SDK schema as canonical source |
-
-Every gotcha lives in [`docs/LESSONS.md`](LESSONS.md). User-facing
-install walkthrough in [`docs/INSTALL.md`](INSTALL.md) including the
-**required** `gateway.nodes.allowCommands` patch on the OpenClaw side
-and the dual-queue approval flow.
-
-**Architecture, current — P5.13 (decided 2026-06-08):** the node
-maintains **two** gateway WS connections:
-
-1. **`role: node`** — serves `node.invoke.*`, `node.event`, etc. as
-   today. Survives ChatRelay outages.
-2. **`role: operator`** — dedicated to ChatRelay. Calls `chat.send` to
-   inject the Assist turn into an agent session and
-   `sessions.messages.subscribe` to receive the reply.
-
-The device is paired as dual-role `[node, operator]` using the
-`PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow), which grants
-operator scopes `approvals, read, talk.secrets, write`. The session is
-keyed by HA's `conversation_id` for multi-turn threading. The agent
-(Clawd) uses `ha.*` tools via the existing `node.invoke` path on the
-node connection — no changes there.
-
-**Why the original P5.12 design failed:** gateway role policy is binary
-per-method (`isCoreNodeGatewayMethod` ? `role === 'node'` : `role ===
-'operator'`). A node-role connection literally cannot call any
-operator-scope method, regardless of scopes advertised. The phone
-client appeared to work as "a single connection that does both" — in
-fact it pairs dual-role and opens an operator connection for chat.
-Full root-cause investigation in #82; refactor design + acceptance in
-#84. Original P5.12 wrong-direction post-mortem still in
-`docs/RESEARCH-OPENCLAW-INTEGRATION.md`.
-
-**Next concrete steps (in order):**
-
-1. **E2E validation** — Rob tests the full Assist pipeline on his HA
-   instance: HA voice/text → shim → node → gateway → Clawd → ha.* tools
-   → reply. Any runtime issues surface here.
-2. **Polish / hardening** — visible misses worth fixing before any
-   real users land:
-   - `node.pending.pull` warning on every connect is cosmetic noise
-     (gateway returns `ok: false` with null error); silence or drop.
-   - HACS brands PR so the integration list shows the OC icon.
-   - The `_PENDING_PULL_LIMIT` constant is dead after #44; remove.
-3. **P6.2 — MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
-   against OpenClaw logs. When it prints `RETIREMENT_READY`, drop the
-   `homeassistant` + `homeassistant-readonly` MCP server entries from
-   gateway config in one PR.
-4. **P7 — publish.** Add-on (App) repo metadata, HACS index entry, release
-   workflow for GHCR-published per-arch images (lets us put the
-   `image:` key back in config.yaml and skip the on-device build).
-
-**What was wrong, kept here so future-me doesn't repeat it:**
-
-P5.2–P5.10 built a parallel Python WS gateway (`gateway/` workspace)
-with its own `Brain`, Anthropic + OpenAI providers, a fake
-`node.conversation.request` event type, an `InvokeDispatcher`, and an
-Ed25519 server-side handshake. **All of it was wrong** — Clawd is
-OpenClaw, the brain *is* me, and the existing gateway's `chat.*`
-surface already does this work. P5.11 deleted all of it
-(-4001 / +209 lines). See `docs/RESEARCH-OPENCLAW-INTEGRATION.md`
-for the post-mortem. Upstream OpenClaw doc gap that misled me is
-recorded in
-`workspace/runtime-audits/2026-06-06-openclaw-node-conversation-relay-doc-gap.md`.
-
-## Discoverability / sponsorship — pre-beta TODOs
+## Discoverability / sponsorship
 
 - **Funding links.** `.github/FUNDING.yml` and README both live.
-  BMC (`buymeacoffee.com/roblandry`) is active now. GitHub Sponsors
-  for `roblandry` is staged in FUNDING.yml but waiting on GH staff
-  approval (profile shown as Pending 2026-06-08). Cross-account is
-  fine: FUNDING.yml names who gets sponsored, not who owns the
-  repo, so a `clawd-ops/*` repo can fund a personal account
-  directly. The Sponsor button on the repo page will start working
-  the moment GitHub approves the profile.
-- **Stars badge.** Added (social-style shields.io badge pointing at
-  `/stargazers`). Surfaces popularity as the project takes off.
+  BMC (`buymeacoffee.com/roblandry`) is active.
+- **Stars badge.** Added (shields.io social-style badge pointing at
+  `/stargazers`).
 - **Other badges to consider once published:** HACS default badge
   (after HACS index PR lands), CI status, release version, license.
 
-## Doc debt — end-to-end user documentation
-
-Per Rob (2026-06-08): before P7 ships, the repo needs comprehensive
-docs so a fresh user can understand the project without reading code
-or asking. Build incrementally as we work, not in one pass. Required
-coverage:
-
-- **What it is + why** — one-paragraph elevator pitch, then a
-  "what this gives you" feature list (28 commands, 13 ha tools, Assist
-  conversation surface, etc).
-- **Architecture diagram** — HA ↔ addon (node-host) ↔ gateway ↔ Clawd,
-  including the dual pair queues (`devices` for auth, `nodes` for
-  commands) and the device-token persistence/self-heal loop.
-- **Security model** — what the addon can do (Supervisor admin,
-  filesystem maps, shell), how the WSS handshake is authenticated
-  (Ed25519 v3 signed payload), where the device token lives, what an
-  attacker on the LAN can and cannot do, what `allowCommands` gates.
-- **Install + pair** — already in `docs/INSTALL.md`; keep it
-  user-friendly.
-- **Operating** — log format (see invoke ▶/◀ lines), version-bump
-  flow (HA Update vs Uninstall/Reinstall and what each preserves),
-  how to rotate the pairing token, how to revoke a node.
-- **Troubleshooting** — extend the existing table as new failure
-  modes show up; cross-link to `docs/LESSONS.md` for the postmortem
-  detail.
-- **Command + tool reference** — full list of the 28 commands and
-  13 ha.* tools, each with arg shape and example invoke.
-- **Contributing / version-bump rules** — already in
-  `docs/CONTRIBUTING.md`; verify it stays current.
-
-Tracking marker: when each section lands, link it from `README.md`
-so the user-facing entry point is a complete table of contents, not
-a stub.
-
-## Current phase
-
-**P5.12 complete (2026.6.8a1).** Full pipeline wired: node command surface + Assist conversation relay. Next: E2E validation, polish, then P6.2 MCP cutover.
-
-P2 merged on 2026-06-06 (`2c83bfd`, PR #2) via human override.
-P3.1 merged on 2026-06-06 (`3542bdd`, PR #3) after Codex cross-review
-returned APPROVE-WITH-NITS on re-review #3 via the CLI workaround (see
-`docs/PROCESS.md` "Codex CLI fallback"). v1 was BLOCK (10 findings),
-v2 REQUEST-CHANGES (NUL-bypass HIGH), v3 APPROVE-WITH-NITS.
-P3.2.1 merged on 2026-06-06 (`13687a5`, PR #4) after Codex cross-review:
-v1 REQUEST-CHANGES (7 findings), v2 APPROVE (all 8 items resolved). Fixes:
-parent-dir fsync for crash-durability, datetime-based `at=` comparison,
-ValueError/TypeError catch in `from_json`, cap raised 200→250, docs for
-concurrency model, orphan behavior, and case-sensitive FS assumption.
-P3.2.2 merged on 2026-06-06 (`bd9ab2a`, PR #5) after Codex cross-review:
-v1 REQUEST-CHANGES (2 HIGH + 1 MEDIUM), v2 APPROVE. Fixes: protected-root
-gate is now unconditional (agent_bridge=False cannot bypass), post-resolution
-symlink/traversal check added, _coerce() treats 64-char hex as sha256 before
-int() coercion. 224 tests, 97.29% branch coverage.
-P3.2.5 merged on 2026-06-06 (`9c4371f`, PR #8) after Codex cross-review:
-v1 APPROVE (micro-prompt: no shell=True, compare_digest for token, MAX_OUTPUT
-bounds output, fail-closed admin gate). Pre-emptively fixed timing attack
-(hmac.compare_digest) before review. 322 tests total, 40 in test_system_run.py.
-P3.2.4 merged on 2026-06-06 (`d2c0eb3`, PR #7) after Codex cross-review:
-v1 APPROVE-WITH-NITS (PATCH_FAILED leaked raw stderr to wire; add subprocess
-shape test). Fixed: _LOG.error + generic wire message; test_run_patch_subprocess_
-command_shape verifies --output, input=encode, no shell. v2 APPROVE. 283 tests,
-100% branch coverage on fs_patch.py.
-P3.2.3 merged on 2026-06-06 (`2309510`, PR #6) after Codex cross-review:
-v1 REQUEST-CHANGES (4 findings: shutil.move non-atomic, EXDEV not mapped,
-send2trash error-propagation gap, post-resolution patch target wrong),
-v2 APPROVE (micro-targeted prompt to avoid OOM). Fixes: _move_file() helper
-using os.replace only (no copy-then-unlink fallback), errno.EXDEV → CROSS_DEVICE,
-send2trash non-ImportError propagation test, post-resolution tests patch
-fs_write.resolve_safe. 262 tests, 100% branch coverage on fs_move_delete.py.
-
-## Last completed
-
-- 2026-06-05 — Project bootstrapped at `~/.openclaw/projects/openclaw-hass-node/`.
-- 2026-06-05 — `PLAN.md`, `STATUS.md`, `COMMAND-SURFACE.md`, `PACKAGING.md` drafted.
-- 2026-06-05 — Repo pushed: https://github.com/clawd-ops/openclaw-hass-node
-- 2026-06-05 — Issue #1 first round folded in.
-- 2026-06-05 — New docs: `HA-CONFIG-EDITING.md`, `PROCESS.md`.
-- 2026-06-05 — Issue #1 second round (Rob): backup model rewritten,
-  HA-native edits hardened, breaking-change verification made
-  mandatory. Resulting changes:
-  - `PLAN.md` §1b rewritten: per-file content-addressed backup store
-    in `/share/openclaw-backups/`. No git, no per-change Supervisor
-    snapshots, no `.bak` sidecars.
-  - `PLAN.md` §2b hardened: HA-native APIs are the default; `fs.patch`
-    is the exception (yaml-only / custom things / blueprints).
-    `.storage/` is read-only at the command dispatcher; writes require
-    explicit `unsafe_storage=true` plus user-accepted proposal.
-  - `PLAN.md` §2c expanded: `docs.breaking_changes` command,
-    mandatory pre-change verification, cross-validated by Codex.
-  - `HA-CONFIG-EDITING.md` rewritten around the HA-native-first rule
-    and the per-domain API map.
-  - New `BACKUPS.md` covers the per-file store format, retention,
-    restore flow, and DR.
-- 2026-06-06 — P3.1 read-only fs/system PR opened:
-  clawd-ops/openclaw-hass-node#3.
-- 2026-06-06 — P3.1 MERGED (`3542bdd`). Codex cross-review iterated v1→v3
-  via the CLI workaround; landed APPROVE-WITH-NITS. 135 tests, 96.26%
-  branch coverage. One non-blocking nit: trailing-slash on regular file
-  opens it (not an access bypass; tighten when convenient).
-
-> **Historical (deleted).** P5.2-P5.8 below describe a `gateway/`
-> workspace and `ConversationDispatcher` that were deleted in P5.11.
-> The correct architecture uses the existing OpenClaw gateway's
-> `chat.send` surface. These entries are kept for audit trail only.
-
-P5.8 merged on 2026-06-06 (`948cb57`, PR #22) after Codex cross-review:
-v1 APPROVE. Gateway is now deployable: `python -m openclaw_gateway` boots
-via config.load_config (env-driven), persistent DeviceRegistry, serve_forever.
-DeviceRegistry gains optional persist_path that loads on construction and
-writes atomically via tempfile.replace after every register/approve/revoke.
-Malformed entries skipped with log. 505 tests, 96.92% coverage. README
-rewritten for current state.
-
-P5.7 merged on 2026-06-06 (`db95a95`, PR #21) after Codex cross-review:
-v1 APPROVE. GatewayServer handshake now verifies the Ed25519 signature over
-the v3 payload (constants kept in sync with node identity.py). New auth.py
-codes: AUTH_MISSING_FIELD, AUTH_NONCE_MISMATCH, AUTH_TIME_SKEW (5min),
-AUTH_BAD_SIGNED_AT, AUTH_BAD_SCOPES, AUTH_BAD_ENCODING, AUTH_BAD_SIGNATURE,
-AUTH_BAD_PUBLIC_KEY, AUTH_KEY_CHANGED. DeviceRegistry holds PENDING/PAIRED
-state, issues 32-byte urlsafe tokens via secrets.token_urlsafe, idempotent
-on re-approval so reconnects keep the same token. auto_approve flag drives
-trial-mode (pair on first connect) vs production (PAIRING_REQUIRED until
-operator calls approve_device). 494 tests, 96.86% coverage.
-
-P5.6 merged on 2026-06-06 (`8548d5c`, PR #20) after Codex cross-review:
-v1 APPROVE. GatewayServer (trial mode, no Ed25519 verify yet) + InvokeDispatcher
-(gateway mirror of ConversationDispatcher). E2E flow: HA Assist → shim →
-node /v1/conversation → ConversationDispatcher → node.conversation.request →
-GatewayServer → Brain → tool calls → node.invoke.request → node ha.* handler
-→ node.invoke.result → tool_result → brain text → node.conversation.result
-→ speech. Brain stops re-wrapping its own BrainError. 470 tests, 96.94%
-branch coverage on both packages.
-
-P5.5 merged on 2026-06-06 (`72c3a9b`, PR #19) after Codex cross-review:
-v1 APPROVE. New `gateway/` uv workspace member with Claude-backed Brain
-(claude-opus-4-7 default, configurable; injectable invoke callback; tool-use
-loop bounded at 12 rounds; codes MODEL_CALL_FAILED, PROTOCOL_ERROR,
-TOOL_LOOP_OVERRUN) and Anthropic-shaped tool catalog for the 13 ha.*
-commands (parity asserted against the node registry). CI updated to lint/
-typecheck/test/bandit the gateway alongside the node. 454 tests, 97.66%
-coverage. Per Rob: code lives in this repo until/unless we split it out.
-
-P5.4 merged on 2026-06-06 (`d797430`, PR #17) after Codex cross-review:
-v1 APPROVE. Wires ConversationDispatcher into GatewayClient: takes optional
-runtime=NodeRuntime, on connect creates dispatcher (sends node.conversation.request
-frames over the WS) and installs forward as runtime.conversation_forwarder
-+ flips gateway_connected=True; _event_loop routes node.conversation.result
-events to handle_result; on disconnect/exit cancel_all() fails in-flight callers
-with DISCONNECTED. 442 tests, 97% coverage. NodeRuntime TYPE_CHECKING-only
-import avoids cycle with http_api.
-
-P5.3 merged on 2026-06-06 (`26ceb46`, PR #16) after Codex cross-review:
-v1 APPROVE. New module `conversation_dispatcher.py` with ConversationDispatcher
-that correlates conversation request/result frames via asyncio Futures. forward()
-generates UUID, sends via injected callback, awaits matching future with timeout;
-handle_result completes by id; cancel_all rejects all pending on disconnect.
-Codes: TIMEOUT, SEND_FAILED, DISCONNECTED. 8 tests in test_conversation_dispatcher.py.
-
-P5.2 merged on 2026-06-06 (`f4dc8a9`, PR #15) after Codex cross-review:
-v1 APPROVE. NodeRuntime gains conversation_forwarder hook and gateway_connected
-flag; assist_turn routes through forwarder with 30s asyncio.timeout, degrades
-exceptions to stable speech (logs detail). New GET /v1/conversation/info returns
-version + pairing + forwarder_registered for shim diagnostics. 5 new tests,
-http_api.py back to 100% coverage.
-
-P5.1 merged on 2026-06-06 (`3edef73`, PR #14) after Codex cross-review:
-v1 APPROVE. Tightened Assist shim error handling in custom_components/
-openclaw_gateway/conversation.py: specific exception types (TimeoutError,
-aiohttp.ClientError, ValueError/TypeError) replace bare `except Exception`,
-no raw exc detail in user-facing speech, aiohttp.ClientTimeout instead of int.
-
-P4.5 merged on 2026-06-06 (`4a72fef`, PR #13) after Codex cross-review:
-v1 APPROVE. Delivered: ha.list_automations (filter on automation. prefix,
-optional include_traces fetches WS trace/list per automation with graceful
-degradation on failure), ha.check_config (POST /api/config/core/check_config,
-pre-reload yaml validation). 422 tests, 97% coverage. ha.* read surface
-from COMMAND-SURFACE.md fully covered.
-
-P4.4 merged on 2026-06-06 (`d1a4faf`, PR #12) after Codex cross-review:
-v1 APPROVE. Delivered: ha.light_turn_on + ha.light_turn_off with shared
-_build_light_target() validator (entity/area/device, entity_id accepts str or
-list). 410 tests, 97% coverage. All 9 mcp__homeassistant__* tools now ported.
-
-P4.3 merged on 2026-06-06 (`dadcb21`, PR #11) after Codex cross-review:
-v1 APPROVE (3-grep: compare_digest, no subprocess, HA error codes present).
-Delivered: ha.logbook (REST), ha.history (REST, flag params), ha.reload_config
-(POST, hmac.compare_digest admin gate, fail-closed). 397 tests, 97% coverage.
-
-P4.2 merged on 2026-06-06 (`a4e4811`, PR #10) after Codex cross-review:
-v1 APPROVE (lean 3-grep prompt). Delivered: ha_ws_call() WS helper (auth
-handshake, url scheme conversion, HAClientError mapping), ha.list_areas /
-ha.list_devices / ha.list_entity_registry (WS), ha.list_services (REST).
-378 tests, 97% coverage.
-
-P4.1 merged on 2026-06-06 (`60d2d4f`, PR #9) after Codex cross-review:
-v1 OOM (exit 137 on full file read), v2 REJECT (grep targeted ha.py only for
-codes defined in ha_client.py — false negative), v3 APPROVE (corrected grep
-across both files). Delivered: ha_client.py (aiohttp REST wrapper, env-driven,
-HAClientError), ha.py (list_states/get_state/call_service), async-aware
-dispatcher (dispatch_async + AsyncHandlerError), 358 tests, 97.67% coverage.
-
-## Architectural note (2026-06-06, post-correction)
-
-The brain *is* Clawd in OpenClaw. The HA node is a **standard OpenClaw
-node** (Gateway Protocol, `role: "node"`) and relays HA Assist turns
-into an agent session using the **existing chat surface** —
-`chat.send` + `sessions.messages.subscribe`. There is no parallel
-gateway, no invented `node.conversation.*` event types, no TypeScript
-plugin work needed.
-
-P5.11 (this PR) deletes the wrong-direction code: the `gateway/`
-workspace, the `ConversationDispatcher` invention, the
-`conversation_forwarder` hook, and all the runtime-hook wiring on the
-gateway WS client. What stays: node command surface (ha.*, fs.*,
-system.*), HACS shim, Ed25519 handshake, pairing flow, /v1/conversation
-endpoint shape — all were correct.
-
-Real implementation of the chat-surface relay is documented in
-`docs/RESEARCH-OPENCLAW-INTEGRATION.md` and queued as P5.12.
-
-## Current task
-
-**E2E validation.** P5.12 ChatRelay is merged. The full pipeline is
-wired: HA Assist → shim → node → gateway → agent → ha.* tools → reply.
-Next step is Rob's live E2E test on his HA instance, then polish and
-P6.2 MCP cutover.
-
-## Codex review status
-
-PR #3 cross-review returned BLOCK with 10 findings. Fix mapping:
-
-- BLOCKER `system.which` executed caller-resolved binaries: fixed by
-  `4bd79f3` (`system.which` is lookup-only, basename-only, no version
-  probe).
-- HIGH safe path TOCTOU in downstream fs ops: fixed by `576226e` and
-  `05f76a2` (fd-rooted `safe_fd.open_safe_fd`, fd-based read/stat/list/glob).
-- HIGH `fs.read` size race: fixed by `576226e` (bounded `os.read` of
-  `max_bytes + 1` from the opened fd).
-- MED `fs.list` unbounded sort: fixed by `05f76a2` (streaming
-  `scandir` with bounded collection before sort).
-- MED `fs.glob` unbounded traversal and bad pattern handling: fixed by
-  `05f76a2` (`BAD_PATTERN`, fd-rooted bounded walker, hidden filter during walk).
-- MED gateway connect advertised wrong commands: fixed by `add3150`
-  (advertises exactly `ping`, `fs.*`, `system.which`).
-- MED gateway generic command error leaked exception text: fixed by
-  `add3150` (generic wire error, full exception only in logs).
-- LOW `OUT_OF_BOUNDS` leaked resolved paths: fixed by `add3150`
-  (generic exception string and fs wire messages).
-- LOW bind mount policy ambiguity: fixed by docs commit for this status
-  update (operator-configured bind mounts under allowed roots are trusted).
-- LOW test gaps: fixed across `4bd79f3`, `576226e`, `05f76a2`, and
-  `add3150`.
-
-## Last P2 completed milestones
-
-- P2.1 — Repo scaffolding: `pyproject.toml` (uv workspace),
-  `addon/Dockerfile` + `config.yaml`, `custom_components/openclaw_gateway/`
-  stub, GitHub Actions workflow.
-- P2.2 — Node entrypoint that detects add-on (app) vs standalone mode and
-  opens the gateway WS connection.
-- P2.3 — Pairing handshake against the gateway, Ed25519 device identity,
-  key persistence under `/data/openclaw/node-key.json`.
-- P2.4 — `ping` command end-to-end, command dispatcher, gateway
-  invoke/result loop.
-
-## P2 additional scope delivered
-
-- `http_api.py` — local aiohttp HTTP server (port 8099) with `/health`,
-  `/commands/ping`, `/v1/commands/{cmd}`, `/ha/snapshot` (read-only HA
-  REST proxy), and `/v1/conversation` (Assist placeholder).
-- 57 tests, 99.76% branch coverage.
-
-## Next step
-
-Begin P3.2 — proposal-gated writes (`fs.write`, `fs.patch`, `fs.append`)
-backed by per-file content-addressed backup store, plus `system.run`
-behind the `operator.admin` scope. Cross-review continues to run via the
-Codex CLI fallback until OpenClaw's openai/* routing regression is
-resolved (see [memory: project_codex_oauth_regression_2026_06_06]).
-
-## Completed P1 research
-
-- **P1.1 (2026-06-05) — Conversation agent registration.** Verdict:
-  **Plan A not viable, Plan B required.** HA's conversation registration
-  (`async_set_agent` / `ConversationEntity`) is in-process Python only;
-  there is no WS/REST/Supervisor path that lets an external process
-  register an agent. All precedent ships as `custom_components/`.
-  Decision: ship a thin ~150 LOC `custom_components/openclaw_gateway/`
-  HACS shim alongside the add-on (app), whose sole job is to register a
-  `ConversationEntity` that forwards turns to the add-on (app)'s local
-  socket. Full citations in `docs/RESEARCH-CONVERSATION-AGENT.md`.
-- **P1.2 (2026-06-05) — agent-bridge connectivity.** Verdict:
-  **Gateway brokers.** Node speaks only the gateway WS protocol; emits
-  `node.propose` over its existing WS connection and the gateway
-  translates to agent-bridge MCP calls. Keeps the node dumb, single
-  auth path, one audit trail. See
-  `docs/RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`.
-
 ## Open blockers
 
-None. Awaiting Rob's E2E validation on live HA instance.
+None. The pipeline is live; remaining work is incremental.
 
 ## Decision log
 
@@ -531,22 +122,28 @@ None. Awaiting Rob's E2E validation on live HA instance.
 - 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
   thin `custom_components/openclaw_gateway/` HACS shim. Plan A
   (add-on (app) alone) confirmed not viable; see
-  `RESEARCH-CONVERSATION-AGENT.md`. (Clawd, P1.1)
+  `RESEARCH-CONVERSATION-AGENT.md`. (Clawd)
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
   gateway WS protocol; does not connect to agent-bridge directly. See
-  `RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd, P1.2)
+  `RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd)
 - 2026-06-05 — Language: Python 3.13+ for node and shim. Quality
   gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
-  (`ruff` D-rules + `pydoclint`), 100 % branch coverage via pytest,
-  `ruff` lint/format, `bandit`, `pip-audit`. All gated in GitHub
-  Actions. See `QUALITY.md`. (Rob, issue #1 round 3)
+  (`ruff` D-rules + `pydoclint`), branch coverage gated at 95% via
+  pytest, `ruff` lint/format, `bandit`, `pip-audit`. All gated in
+  GitHub Actions. See `QUALITY.md`. (Rob, issue #1 round 3)
 - 2026-06-05 — MCP retirement: node must demonstrably handle every
   call surface the existing MCP servers serve, across every agent
   that uses them, before retirement. Trigger: zero unhandled
   `mcp__homeassistant*` calls for 7 days *and* a written migration
   inventory. No calendar-based default. Cutover is one PR.
-  (Rob, P1.3)
+  (Rob)
 - 2026-06-05 — Versioning: date-based `YYYY.M.PATCH` matching the HA
   release the node is tested against (e.g. `2026.6.0`). Patch
   increments for fixes within a HA release. (Clawd recommendation,
-  Rob "ok either way", P1.4)
+  Rob "ok either way")
+- 2026-06-08 — Conversation relay runs on two parallel gateway WS
+  connections (`role: node` for invokes, `role: operator` for chat),
+  not a single node-role connection. Gateway role policy is binary
+  per-method; `chat.send` is operator-scope. Device paired as
+  dual-role via the `openclaw qr` bootstrap-token flow. (Clawd, after
+  the single-connection ChatRelay failed verification.)

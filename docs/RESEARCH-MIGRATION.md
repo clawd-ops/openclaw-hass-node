@@ -44,6 +44,24 @@ All 9 mutating + read tools are covered by the node command surface.
 Identical surface to `mcp__homeassistant__*` but read-only. All 9 are
 covered by the same node commands (since read commands never mutate).
 
+## Tier A read-only addon surface (node-only, no MCP equivalent)
+
+The node ships six Supervisor add-on commands that have no
+`mcp__homeassistant*` counterpart — they read Supervisor add-on
+endpoints (`/addons`, `/addons/<slug>/info`, `/stats`, `/logs`,
+`/changelog`, `/documentation`) that the MCP servers never exposed.
+Listed here so the surface is documented in one place; they don't
+gate MCP retirement.
+
+| Node command              | Notes                                                  |
+| ------------------------- | ------------------------------------------------------ |
+| `ha.list_addons`          | All installed add-ons; `repository` dropped at boundary |
+| `ha.addon_info`           | Per-addon metadata; `options`/`schema`/`repository` dropped |
+| `ha.addon_stats`          | Allowlisted utilisation metrics                        |
+| `ha.addon_logs`           | Bounded 1 MiB trailing window                          |
+| `ha.addon_changelog`      | Bounded 1 MiB trailing window                          |
+| `ha.addon_documentation`  | Bounded 1 MiB trailing window                          |
+
 ## `mcp__openclaw__*` (35 tools)
 
 The OpenClaw MCP tools are gateway-internal, **not** routed through the

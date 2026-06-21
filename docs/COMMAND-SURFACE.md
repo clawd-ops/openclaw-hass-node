@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 31 commands are registered.
+OpenClaw conventions where they exist. 35 commands are registered.
 
 ## `ping` — liveness
 
@@ -80,6 +80,6 @@ They will be registered in the dispatcher as each phase ships.
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,
   snapshots).
 - **`assist.*`** — conversation relay commands. Superseded by the
-  P5.13 dual-WS ChatRelay (shipped 2026-06-08), which uses
-  `chat.send` + `sessions.messages.subscribe` over the operator-role
-  gateway connection instead of custom command types.
+  shipped dual-websocket relay, which uses `chat.send` +
+  `sessions.messages.subscribe` over the operator-role gateway
+  connection instead of custom command types.

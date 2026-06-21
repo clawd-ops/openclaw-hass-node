@@ -1,5 +1,11 @@
 # Research: agent-bridge connectivity from the node
 
+> **Historical snapshot.** Captures the decision and reasoning at the
+> time the research was run; the verdict still stands but the
+> surrounding architecture has moved on. Cross-check against
+> `STATUS.md` / `PLAN.md` before treating any specific detail as
+> current.
+
 **Question.** Does the node connect to agent-bridge directly, or does
 the gateway broker proposals on the node's behalf?
 
