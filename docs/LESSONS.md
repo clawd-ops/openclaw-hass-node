@@ -313,3 +313,31 @@ When dispatching, give the subagent:
 The subagent doesn't see your conversation history. Treat it like a
 colleague who just walked into the room — brief them tight or get
 generic work back.
+
+## "Release PR merged" ≠ "release cut"
+
+Caught 2026-06-20 after I bumped version strings through b3 → b4 → b5
+in three separate PRs and assured Rob he could "Update" the addon
+through HA — but HA Supervisor reads from published GitHub releases,
+not from main, so no Update prompt ever appeared. Rebuild from the
+add-on UI was the only working path.
+
+Until the version-bump Action described in `docs/RELEASE.md` lands
+(it's still proposed-not-implemented), every release PR merge MUST
+be followed by an explicit tag + GitHub release:
+
+```sh
+SHA=$(git rev-parse main)                # or the merge commit
+gh tag v2026.6.20bN $SHA
+git push origin v2026.6.20bN
+gh release create v2026.6.20bN \
+  --title "2026.6.20bN — <line from CHANGELOG>" \
+  --prerelease \
+  --notes "<short body; link to full CHANGELOG>"
+```
+
+Future-Clawd: if you bump versions in a PR titled `release: <version>`
+and you do NOT also create a GitHub release for it, the addon is not
+released. Don't tell Rob to "Update" — he won't see anything to update
+to. Either tag immediately after merge, or update the addon manually
+via Rebuild and tell him so.
