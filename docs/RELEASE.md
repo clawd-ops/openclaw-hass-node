@@ -322,15 +322,47 @@ Merging a release PR ("bump version strings to X") does **not** cut a
 release on its own. HA Supervisor's "Update" prompt reads from
 published GitHub releases, not from `main`, so the version bump on
 `main` is invisible to end users until a tag + GitHub release exist
-for it. Until the release-please workflow above ships, every release
-PR merge MUST be followed by an explicit tag + GitHub release:
+for it.
+
+### Step 1: bump the five version files (one command)
+
+The version literal lives in five files:
+
+- `addon/config.yaml`
+- `addon/build.yaml`
+- `addon/node/pyproject.toml`
+- `addon/node/src/openclaw_node/__init__.py`
+- `custom_components/openclaw_gateway/manifest.json`
+
+Hand-editing them is how drift happens (PR #148 bumped only
+`addon/config.yaml`, the other four stayed on the prior version).
+Use the bump script instead — it touches all five from one input:
 
 ```sh
-SHA=$(git rev-parse main)                # or the merge commit
-git tag v2026.6.20b6 $SHA
-git push origin v2026.6.20b6
-gh release create v2026.6.20b6 \
-  --title "2026.6.20b6 — <line from CHANGELOG>" \
+scripts/bump-version.py 2026.6.20b7
+```
+
+The script enforces a PEP 440 shape and exits non-zero if the regex
+can't find the literal in any file (so a renamed key surfaces loudly
+instead of silently skipping). Verify with:
+
+```sh
+scripts/bump-version.py --check 2026.6.20b7
+```
+
+### Step 2: open + merge the release PR
+
+Title it `release: 2026.6.20b7 — <one-line summary>`. Body should be
+a short paragraph plus the changelog excerpt.
+
+### Step 3: tag + cut the GitHub release
+
+```sh
+SHA=$(git rev-parse main)
+git tag v2026.6.20b7 $SHA
+git push origin v2026.6.20b7
+gh release create v2026.6.20b7 \
+  --title "2026.6.20b7 — <line from CHANGELOG>" \
   --prerelease \
   --notes "<short body; link to full CHANGELOG>"
 ```
