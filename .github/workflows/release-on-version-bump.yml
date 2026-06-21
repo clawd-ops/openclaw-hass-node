@@ -1,0 +1,134 @@
+name: Auto-cut release on version bump
+
+# Runs after every push to main. If the current synced version literal
+# does not yet have a matching `v<version>` git tag, this job creates the
+# tag and a GitHub release with notes extracted from `addon/CHANGELOG.md`.
+# Idempotent: if the tag exists, the job no-ops.
+#
+# Background: HA Supervisor's Update prompt reads from published GitHub
+# releases, not from main. Before this workflow, every `release:` PR
+# merge had to be followed by a manual `git tag` + `gh release create`,
+# which got forgotten more than once (LESSONS.md → "Release PR merged ≠
+# release cut"). This closes that gap.
+#
+# Versions on the alpha (`aN`) / beta (`bN`) / rc (`rcN`) tracks are
+# cut as prereleases. Final releases (`1.0.0`, `2026.7.0`) are full
+# releases.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "addon/config.yaml"
+      - "addon/build.yaml"
+      - "addon/node/pyproject.toml"
+      - "addon/node/src/openclaw_node/__init__.py"
+      - "custom_components/openclaw_gateway/manifest.json"
+      - ".github/workflows/release-on-version-bump.yml"
+
+jobs:
+  cut-release:
+    name: Cut release if version bumped
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Read current synced version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION=$(scripts/bump-version.py --get)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" =~ (a|b|rc|\.dev)[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Current synced version: $VERSION"
+      - name: Skip if tag already exists
+        id: tag_check
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag $TAG does not exist — will cut release."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Extract changelog section for this version
+        if: steps.tag_check.outputs.skip == 'false'
+        id: notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Match a heading line like:
+          #   ## 2026.6.20b6 (2026-06-20) — short title
+          # and print everything until the next "## " heading.
+          NOTES_FILE=$(mktemp)
+          awk -v ver="$VERSION" '
+            BEGIN { in_section = 0 }
+            /^## / {
+              if (in_section) exit
+              if ($0 ~ "^## " ver "( |$)") { in_section = 1; next }
+            }
+            in_section { print }
+          ' addon/CHANGELOG.md > "$NOTES_FILE"
+          if [[ ! -s "$NOTES_FILE" ]]; then
+            echo "No CHANGELOG section found for $VERSION — using a stub." >&2
+            printf '%s\n' \
+              "Release $VERSION." \
+              "" \
+              "Full changelog: https://github.com/${{ github.repository }}/blob/main/addon/CHANGELOG.md" \
+              > "$NOTES_FILE"
+          fi
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+      - name: Tag the release commit
+        if: steps.tag_check.outputs.skip == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "clawd-ops[bot]"
+          git config user.email "clawd-ops@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+      - name: Cut GitHub release
+        if: steps.tag_check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+          NOTES_FILE: ${{ steps.notes.outputs.notes_file }}
+        run: |
+          set -euo pipefail
+          # Extract the title line from CHANGELOG ("## VERSION (date) — title")
+          TITLE=$(awk -v ver="$VERSION" '
+            $0 ~ "^## " ver "( |$)" {
+              sub("^## ", "")
+              print
+              exit
+            }
+          ' addon/CHANGELOG.md)
+          if [[ -z "$TITLE" ]]; then
+            TITLE="$VERSION"
+          fi
+          PRE_FLAG=""
+          if [[ "$PRERELEASE" == "true" ]]; then
+            PRE_FLAG="--prerelease"
+          fi
+          gh release create "$TAG" \
+            --title "$TITLE" \
+            $PRE_FLAG \
+            --notes-file "$NOTES_FILE"

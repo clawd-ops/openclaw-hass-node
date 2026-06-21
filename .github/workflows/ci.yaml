@@ -70,3 +70,15 @@ jobs:
       - name: Docker build smoke (amd64)
         # Build context is addon/ — matches what Supervisor uses on-device.
         run: docker build addon
+
+  version-sync:
+    name: Version Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify all five version files agree
+        run: scripts/bump-version.py --check

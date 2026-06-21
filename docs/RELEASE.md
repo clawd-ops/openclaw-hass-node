@@ -316,15 +316,12 @@ already serves the same purpose for the audience that cares.
   and we ship `2026.6.20b7` with a regression, the fix is `b8` not
   `b7.1`. This keeps the release pipeline single-tracked.
 
-## Manual release procedure (until the Action lands)
+## Release procedure (automated)
 
-Merging a release PR ("bump version strings to X") does **not** cut a
-release on its own. HA Supervisor's "Update" prompt reads from
-published GitHub releases, not from `main`, so the version bump on
-`main` is invisible to end users until a tag + GitHub release exist
-for it.
+Cutting a release is now a two-step flow. CI handles tagging + the
+GitHub release automatically when the version bump lands on `main`.
 
-### Step 1: bump the five version files (one command)
+### Step 1: bump the five version files
 
 The version literal lives in five files:
 
@@ -334,28 +331,59 @@ The version literal lives in five files:
 - `addon/node/src/openclaw_node/__init__.py`
 - `custom_components/openclaw_gateway/manifest.json`
 
-Hand-editing them is how drift happens (PR #148 bumped only
-`addon/config.yaml`, the other four stayed on the prior version).
-Use the bump script instead — it touches all five from one input:
+Hand-editing them is how drift happens. Use the script:
 
 ```sh
 scripts/bump-version.py 2026.6.20b7
 ```
 
-The script enforces a PEP 440 shape and exits non-zero if the regex
-can't find the literal in any file (so a renamed key surfaces loudly
-instead of silently skipping). Verify with:
+It enforces a PEP 440 shape and exits non-zero if any regex misses
+(so a renamed key surfaces loudly instead of silently skipping).
+
+Verify locally:
 
 ```sh
-scripts/bump-version.py --check 2026.6.20b7
+scripts/bump-version.py --check          # confirm sources agree
+scripts/bump-version.py --get            # print the current version
 ```
 
-### Step 2: open + merge the release PR
+The CI `Version Sync` job runs `--check` on every PR — drift fails
+the gate, you can't merge inconsistent versions.
 
-Title it `release: 2026.6.20b7 — <one-line summary>`. Body should be
-a short paragraph plus the changelog excerpt.
+### Step 2: add the CHANGELOG entry, open + merge the release PR
 
-### Step 3: tag + cut the GitHub release
+Add a section to `addon/CHANGELOG.md` for the new version. The
+heading format matters because the release workflow extracts notes
+from it:
+
+```md
+## 2026.6.20b7 (2026-06-20) — short one-line title
+
+### Features
+- ...
+
+### Fixes
+- ...
+```
+
+PR title: `release: 2026.6.20b7 — <one-line summary>`. Merge it.
+
+### Step 3: CI cuts the release
+
+`.github/workflows/release-on-version-bump.yml` triggers on push to
+`main` when any of the five version files changes. It:
+
+1. Reads the current synced version via `scripts/bump-version.py --get`.
+2. Skips if a matching `v<version>` git tag already exists (idempotent).
+3. Extracts the CHANGELOG section for that version.
+4. Creates the tag and a GitHub release with those notes. Versions
+   carrying a PEP 440 prerelease marker (`aN`/`bN`/`rcN`/`.devN`) are
+   cut as prereleases; final releases are full.
+
+If the workflow fails or you need to cut a release out-of-band, the
+manual recipe still works — see the next section.
+
+### Manual fallback (when the workflow is down)
 
 ```sh
 SHA=$(git rev-parse main)
@@ -366,11 +394,6 @@ gh release create v2026.6.20b7 \
   --prerelease \
   --notes "<short body; link to full CHANGELOG>"
 ```
-
-If you bump versions in a PR titled `release: <version>` and you do
-NOT also create a GitHub release for it, the addon is not released.
-Either tag immediately after merge, or update the addon manually via
-Rebuild and tell users that's the path.
 
 ## What this replaces
 
