@@ -31,6 +31,10 @@ deleted in PR #150, workspace-side originals remain on disk):
 - PR #140 — release 2026.6.20b4: Tier A Supervisor access fix + pairing retry-after. Merged 2026-06-20.
 - Runtime: node re-paired in operator role (dual-WS pairing).
 - Runtime: `paired.json` for live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified working end-to-end (closes item 14). Lesson captured in `docs/LESSONS.md`.
+- PR #143/#147/#149 + b5/b6 release — tool-named slow-turn progress (`🔧 Calling Bash...`) live on HA Assist. Closes item #2.
+- PR #150/#151/#153/#154 — doc cleanup sweep + user-facing surface lesson. Closes item #6.
+- PR #155 — `scripts/bump-version.py` (one command bumps all five version files); HACS "(Beta)" dropped.
+- PR #156 — `release-on-version-bump.yml` workflow auto-tags + cuts GitHub releases when version files change on main; Version Sync CI job gates against drift on PRs.
 
 ---
 
@@ -43,10 +47,10 @@ deleted in PR #150, workspace-side originals remain on disk):
 - Highest leverage; cross-links to 5, 9, 11.
 
 ### 2. Real per-tool progress events
-- Status: IN REVIEW (PR #143)
-- Operator client now advertises the `tool-events` capability at handshake; ChatRelay records active tool from `agent`/`session.tool` events and uses the name in the visible 8s slow-turn delta (`🔧 Calling weather...` instead of `Working on it...`). Falls back to generic placeholder when no tool active.
-- Out of scope this round: multi-tool turns only label the first visible delta. Considered for v2 with proper ephemeral status frames + HACS shim change.
-- Cross-link: item 8 still open — empty waits without tool calls remain a separate prompt-side concern.
+- Status: CLOSED 2026-06-20 (verified end-to-end on b6)
+- PRs #143 (tool capture + relay branch) → #147 (forward `agent` events through the WS dispatch filter) → #149 sync → b6 release. Rob's screenshot confirmed `🔧 Calling Bash...` mid-stream on a tool-heavy HA Assist turn.
+- Out of scope this round: multi-tool turns only label the first visible delta. Considered for a v2 with proper ephemeral status frames + HACS shim change.
+- Cross-link: item 8 partially addressed — when the model fakes a wait without a tool call, the user now sees the generic `Working on it...` instead of a tool name, which is a visible tell. Root-cause fix is still prompt-side.
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
@@ -63,9 +67,8 @@ deleted in PR #150, workspace-side originals remain on disk):
 - Streaming work shipped through b4 (b1 streaming, b2 keepalive, b3 stale-trailer race, b4 hassio_role) addresses the most likely transport-level causes. Item #1 (user identity) still tracks the per-user authz story that was the original trigger.
 
 ### 6. Doc cleanup sweep (pre-1.0 hygiene)
-- Status: OPEN
-- README, STATUS, docs across openclaw-hass-node and sibling repos brought current to actual state before first real cut.
-- STATUS.md currently still labelled "Where we are (2026-06-08 PM)" — bring forward to b3 reality (dual WS shipped, streaming live, Tier A addon surface, hassio_role fix).
+- Status: CLOSED 2026-06-20
+- PR #150 (sweep, 17 files), #151 (command-count off-by-one fix), #153 (addon/config.yaml description), #154 (LESSONS user-facing surface inventory). Phase IDs and PR numbers stripped from user-facing prose. STATUS.md rewritten. RELEASE.md gained the manual procedure (later automated by PR #156). HACS title aligned with the integration manifest (PR #155).
 
 ### 7. Issue triage automation
 - Status: OPEN (design)
@@ -73,10 +76,10 @@ deleted in PR #150, workspace-side originals remain on disk):
 - Shares ingress with item 13 (github-bridge).
 
 ### 8. Prompt guard: no faked waiting/working
-- Status: OPEN
-- Finding: model emitted `"Timer's running. Waiting."` as final text, `stopReason=stop`, no tool calls, 15s turn. Need system-prompt rule: any claim of waiting/timing/working REQUIRES an active tool call.
-- Evidence: `/home/openclaw/.openclaw/agents/clawd/sessions/ac3a8fd9-f5e1-4065-ba33-b255fabcddd4.jsonl` 09:52:11–09:52:26 UTC.
-- Pairs with item 2.
+- Status: CLOSED 2026-06-20 (out-of-repo; partial mitigation in-repo)
+- The fix is a system-prompt rule on the agent side (Clawd's prompt), not in `openclaw-hass-node`. The model emitting "Timer's running. Waiting." with no tool call is the agent runtime's responsibility — this repo is just the transport.
+- Partial in-repo mitigation shipped with item #2: tool-named progress (`🔧 Calling X...`) means a faked wait is now visible as either silence or a generic placeholder rather than the same UX as a real tool turn. If a faked wait recurs, the symptom is now diagnosable from HA Assist alone.
+- Action if it reproduces: file an issue against the Clawd agent system prompt, not this repo.
 
 ### 9. Cross-session subscriber bleed
 - Status: CLOSED 2026-06-20 (addon-defended; gateway leak documented, not actionable from this repo)
@@ -134,16 +137,18 @@ deleted in PR #150, workspace-side originals remain on disk):
 
 ## Stale claims to strike
 
-- MEMORY.md `project_hass_node_supervisor_token` / `hass-node-supervisor-token` loop wording: "SUPERVISOR_TOKEN not being injected" — STALE as of 2026-06-20. Token works via `HASS_TOKEN` env in gateway pod against `$HASS_URL/api/hassio/addons/<slug>/logs`. See item 18.
-- STATUS.md header "Where we are (2026-06-08 PM)" — out of date. Dual-WS (PR #86), streaming (b1/b2/b3), Tier A addon surface, hassio_role manager all shipped after that date. Item 6 owns the rewrite.
-- STATUS.md "Currently on 2026.6.19b1" — current is 2026.6.20b3 (PR #137).
-- "Strip alpha wording" framed as actively broken — verified largely DONE; only app/UI surface verification remains (item 3).
+All cleared 2026-06-20. Kept here as a marker that they were addressed:
 
----
+- ~~MEMORY.md SUPERVISOR_TOKEN-not-injected loop~~ — removed from `~/.openclaw/proactivity/open-loops.md` in PR #141.
+- ~~STATUS.md "Where we are (2026-06-08 PM)" header~~ — rewritten in PR #150.
+- ~~STATUS.md "Currently on 2026.6.19b1"~~ — updated to b6 in PR #150.
+- ~~"Strip alpha wording" framed as broken~~ — closed under item #3.
 
 ## Unconfirmed (need outside evidence)
 
-- Item 14: gateway `nodes.allowCommands` sync for the six Tier A commands. Operator gateway-config repo is private and not reachable from this pod. Evidence needed: `grep ha.addon_ <gateway-config-repo>/...` or operator confirmation.
-- Item 4: whether #129's merged code actually closes the post-ack runId-less `session.message` window, or whether the race the prior review flagged is still live. Evidence needed: re-read of the merged relay code paths + a targeted test.
-- Item 5: whether Ash's device issue is fixed by b2/b3 streaming work or still reproducible. Evidence needed: live test on her device.
-- Item 10: gateway-side stream-finalization rule. Evidence needed: read of gateway streaming finalizer to confirm the wait-for-post-toolResult condition.
+All four items from the original audit have since been confirmed or resolved:
+
+- ~~Item 14: gateway `allowCommands` sync~~ — verified end-to-end after the `paired.json` cache refresh; all six Tier A commands work (LESSONS captures the cache behaviour).
+- ~~Item 4: stale-trailer race~~ — closed as documented (streaming variant fixed in b3; non-streaming variant structurally accepted).
+- ~~Item 5: Ash device issue~~ — closed per Rob.
+- ~~Item 10: gateway stream finalization~~ — closed as gateway-side, not actionable from this repo.
