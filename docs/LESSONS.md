@@ -373,3 +373,26 @@ grep -rn -E "\bP[3-6]\.[0-9]+\b" \
   README.md docs/ addon/config.yaml addon/build.yaml \
   custom_components/ hacs.json
 ```
+
+## Cross-agent code review applies to CI / scripts / workflows too
+
+Caught 2026-06-20 by Rob: PRs #155 (`scripts/bump-version.py` +
+`hacs.json` rename) and #156 (`.github/workflows/release-on-version-bump.yml`
++ Version Sync CI job) merged without a GPT-5.5 review pass. Both were
+real code — a Python script with regex-driven find/replace logic, plus
+a GitHub Actions workflow that mutates main (tags + releases). I
+treated them like docs because the diff sat outside `addon/node/src/`.
+
+The HARD RULE in MEMORY.md / `feedback_codex_reviews_use_cli` covers
+**any** non-trivial code change in clawd-ops/* repos — not just the
+addon source tree. CI workflows are especially review-worthy because
+their failure modes are silent until production: a bad regex in a
+`paths:` filter, a missing `permissions:` scope, an off-by-one in awk
+extraction — these don't surface in unit tests.
+
+Future-Clawd: before claiming a code PR is ready to merge, ask
+yourself "does this change touch any of: Python under `addon/`,
+GitHub Actions YAML, shell/Python scripts under `scripts/`, Docker /
+build config, packaging metadata?" If yes → spawn the GPT-5.5 review
+pass. Docs-only direct-merge is for `.md` (and the equivalent
+README/STATUS/HANDOFF surface), not for anything executable.
