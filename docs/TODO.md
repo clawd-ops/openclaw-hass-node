@@ -14,6 +14,8 @@ deleted in PR #150, workspace-side originals remain on disk):
 
 `docs/STATUS.md` and `docs/PLAN.md` remain as architecture/release docs; this file is the operational punch list.
 
+Item numbers are stable identifiers (PR descriptions reference them); they are not a priority order. Open items are listed first, then closed items.
+
 ---
 
 ## Recently done (this session, ascending PR order)
@@ -63,6 +65,39 @@ Runtime events (not PRs):
 - Evidence: streaming-followups handoff item 1; addon log 06:00:58 EDT cross-session bleed (see item 9).
 - Highest leverage; cross-links to 5, 9, 11.
 
+### 7. Issue triage automation
+- Status: OPEN (design)
+- Read-only triage first; write actions (label, comment, close) behind allowlist. Hard stop before close/merge without Rob's explicit approval.
+- Shares ingress with item 13 (github-bridge).
+
+### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
+- Status: IN PROGRESS
+- Tier A read-only commands shipped (PRs #132, #134, #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`.
+- Remaining:
+  - Subagent-side allowlist enforcement at node (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
+  - Tier B lifecycle (`addon_start`/`stop`/`restart`) admin-gated via `OPENCLAW_ADMIN_TOKEN` + per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`). Separate PR with its own allowlist surface.
+  - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
+- See addon-command-surface handoff for tiering rules.
+
+### 12. Generated docs site for node command surface + protocols
+- Status: DEFERRED
+- GitHub Pages or similar once Tier A and #11 subagent allowlist land. Scope: command catalog, tier-A/B/C policy, role/identity model, addon ↔ gateway architecture diagram.
+
+### 13. Proactive GitHub event notifications to Clawd
+- Status: OPEN (design)
+- Webhook bridge GitHub → OpenClaw (likely `oc-hooks.landry.me/plugins/github-bridge`, following pocket/linear/agentmail pattern). Events: PR opened/synchronized/closed, check_suite completed, pull_request_review submitted, issues opened/labeled.
+- Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on Rob's gateway-flip approval.
+
+### 17. Open GitHub issues (not otherwise tracked above)
+- Status: OPEN
+- #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles.
+- #78 — Auto-bootstrap API token between node and integration (enhancement).
+- #1 — Direction (catch-all, leave for Rob).
+
+---
+
+## Closed items
+
 ### 2. Real per-tool progress events
 - Status: CLOSED 2026-06-20 (verified end-to-end on b6)
 - PRs #143 (tool capture + relay branch) → #147 (forward `agent` events through the WS dispatch filter) → #149 sync → b6 release. Rob's screenshot confirmed `🔧 Calling Bash...` mid-stream on a tool-heavy HA Assist turn.
@@ -85,12 +120,7 @@ Runtime events (not PRs):
 
 ### 6. Doc cleanup sweep (pre-1.0 hygiene)
 - Status: CLOSED 2026-06-20
-- PR #150 (sweep, 17 files), #151 (command-count off-by-one fix), #153 (addon/config.yaml description), #154 (LESSONS user-facing surface inventory). Phase IDs and PR numbers stripped from user-facing prose. STATUS.md rewritten. RELEASE.md gained the manual procedure (later automated by PR #156). HACS title aligned with the integration manifest (PR #155).
-
-### 7. Issue triage automation
-- Status: OPEN (design)
-- Read-only triage first; write actions (label, comment, close) behind allowlist. Hard stop before close/merge without Rob's explicit approval.
-- Shares ingress with item 13 (github-bridge).
+- PR #150 (sweep, 17 files), #151 (command-count off-by-one fix), #152 (post-review follow-up: handoff status + mapped roots), #153 (addon/config.yaml description), #154 (LESSONS user-facing surface inventory). Phase IDs and PR numbers stripped from user-facing prose. STATUS.md rewritten. RELEASE.md gained the manual procedure (later automated by PR #156). HACS title aligned with the integration manifest (PR #155).
 
 ### 8. Prompt guard: no faked waiting/working
 - Status: CLOSED 2026-06-20 (out-of-repo; partial mitigation in-repo)
@@ -110,24 +140,6 @@ Runtime events (not PRs):
 - Addon band-aid considered (treat first `final` as soft, wait 1-2s for a real assistant `session.message` post-toolResult before closing the stream). Rejected: would change stream contract semantics and delay every legitimate fast turn. Plan agent explicitly recommended against.
 - Recommendation: do nothing in this repo. If users hit "no follow-on response" reliably, revisit with a gateway-side change to defer `broadcastChatFinal` until pending toolResults + their assistant continuations settle for the same `runId`.
 
-### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
-- Status: IN PROGRESS
-- Tier A read-only commands shipped (PRs #132, #134, #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`.
-- Remaining:
-  - Subagent-side allowlist enforcement at node (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
-  - Tier B lifecycle (`addon_start`/`stop`/`restart`) admin-gated via `OPENCLAW_ADMIN_TOKEN` + per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`). Separate PR with its own allowlist surface.
-  - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
-- See addon-command-surface handoff for tiering rules.
-
-### 12. Generated docs site for node command surface + protocols
-- Status: DEFERRED
-- GitHub Pages or similar once Tier A and #11 subagent allowlist land. Scope: command catalog, tier-A/B/C policy, role/identity model, addon ↔ gateway architecture diagram.
-
-### 13. Proactive GitHub event notifications to Clawd
-- Status: OPEN (design)
-- Webhook bridge GitHub → OpenClaw (likely `oc-hooks.landry.me/plugins/github-bridge`, following pocket/linear/agentmail pattern). Events: PR opened/synchronized/closed, check_suite completed, pull_request_review submitted, issues opened/labeled.
-- Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on Rob's gateway-flip approval.
-
 ### 14. Gateway allowCommands sync for new node commands
 - Status: CLOSED 2026-06-20
 - All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
@@ -139,12 +151,6 @@ Runtime events (not PRs):
 ### 16. Q2 — `pairing_token` addon option: remove or keep
 - Status: CLOSED 2026-06-20 (keep as-is)
 - After PR #93 accepted the `openclaw qr` setup-code envelope as a valid `pairing_token` value, the option is the canonical on-boarding path: the user pastes the setup code into the addon Configuration UI on first install, the node normalises it (`addon/node/src/openclaw_node/config.py:24-56`), pairs, and the gateway issues a real device token. No alternative bootstrap UI exists, so removing it would block first-install. Keep.
-
-### 17. Open GitHub issues (not otherwise tracked above)
-- Status: OPEN
-- #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles.
-- #78 — Auto-bootstrap API token between node and integration (enhancement).
-- #1 — Direction (catch-all, leave for Rob).
 
 ### 18. SUPERVISOR_TOKEN injection loop (`hass-node-supervisor-token` in open-loops.md)
 - Status: CLOSED 2026-06-20
