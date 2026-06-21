@@ -8,6 +8,12 @@
 Commands the node exposes via `node.invoke`. Group prefixes match
 OpenClaw conventions where they exist. 34 commands are registered.
 
+Addon-management commands are tiered by blast radius. Tier A
+(read-only) is on the subagent allowlist; Tier B (lifecycle) is
+admin-gated; Tier C (install / uninstall / update / rebuild) is
+explicitly out of scope. Full policy + constraints in
+[`docs/COMMAND-TIERS.md`](./COMMAND-TIERS.md).
+
 ## `ping` — liveness
 
 | Command | Args        | Notes  |
