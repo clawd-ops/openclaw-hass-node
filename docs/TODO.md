@@ -4,9 +4,10 @@ Single source of truth. Edit this file to update task state; do not maintain par
 
 First written: 2026-06-20.
 
-Supersedes (kept on disk for provenance, do not treat as live):
-- `docs/HANDOFF-2026-06-20-streaming-followups.md`
-- `docs/HANDOFF-2026-06-20-addon-command-surface.md`
+Supersedes (historical reference only; the in-repo handoff files were
+deleted in PR #150, workspace-side originals remain on disk):
+- `docs/HANDOFF-2026-06-20-streaming-followups.md` (deleted)
+- `docs/HANDOFF-2026-06-20-addon-command-surface.md` (deleted)
 - `docs/QUESTIONS-FOR-ROB.md` (Q1/Q2 carried below)
 - `~/.openclaw/workspace/handoffs/2026-06-20-ha-assist-followups.md`
 - `~/.openclaw/workspace/handoffs/2026-06-20-MASTER-todo.md` (this file's original location)

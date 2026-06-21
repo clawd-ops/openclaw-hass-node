@@ -31,9 +31,10 @@ OpenClaw conventions where they exist. 34 commands are registered.
 | `fs.diff`     | `path`, `version?`                  | Diff against backup version |
 
 All filesystem commands are scoped to the add-on's allowed roots
-(`/config`, `/share`, `/ssl`, `/addons`, `/media`, `/backup` in
-add-on mode; configurable via `OPENCLAW_ALLOWED_ROOTS` in standalone
-mode). Path traversal and symlink escape are blocked by `safe_fd.py`.
+(`/config`, `/share`, `/media` in add-on mode, matching the `map:`
+entries in `addon/config.yaml`; configurable via `OPENCLAW_ALLOWED_ROOTS`
+in standalone mode). Path traversal and symlink escape are blocked by
+`safe_fd.py`.
 
 ## `system.*` — shell (2 commands)
 
