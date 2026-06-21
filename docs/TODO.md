@@ -42,10 +42,10 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - Highest leverage; cross-links to 5, 9, 11.
 
 ### 2. Real per-tool progress events
-- Status: OPEN
-- 2026.6.19b2 keep-alive only emits a generic `Working on it...` placeholder after ~8s. Need per-tool labels via a proper gateway/node event contract (which tool, what it's doing).
-- Pairs with item 8 (placeholder hides model misbehavior).
-- Evidence: PR #130; streaming-followups handoff item 2.
+- Status: IN REVIEW (PR #143)
+- Operator client now advertises the `tool-events` capability at handshake; ChatRelay records active tool from `agent`/`session.tool` events and uses the name in the visible 8s slow-turn delta (`🔧 Calling weather...` instead of `Working on it...`). Falls back to generic placeholder when no tool active.
+- Out of scope this round: multi-tool turns only label the first visible delta. Considered for v2 with proper ephemeral status frames + HACS shim change.
+- Cross-link: item 8 still open — empty waits without tool calls remain a separate prompt-side concern.
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
@@ -58,8 +58,8 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - Recommendation: do not extend the gate. If a non-streaming stale-trailer bug actually manifests in production, revisit with timing-based heuristics or wait for a gateway-side runId-tagging fix.
 
 ### 5. HA Assist not responding on Ash's device
-- Status: OPEN
-- 2026.6.19b2 keep-alive may not cover it. Revisit after streaming validation; likely tied to items 1 and/or 9.
+- Status: CLOSED 2026-06-20 (per Rob)
+- Streaming work shipped through b4 (b1 streaming, b2 keepalive, b3 stale-trailer race, b4 hassio_role) addresses the most likely transport-level causes. Item #1 (user identity) still tracks the per-user authz story that was the original trigger.
 
 ### 6. Doc cleanup sweep (pre-1.0 hygiene)
 - Status: OPEN
@@ -112,14 +112,12 @@ Supersedes (kept on disk for provenance, do not treat as live):
 - All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
 
 ### 15. Q1 — HACS shim default hostname hash
-- Status: OPEN (low risk)
-- `custom_components/openclaw_gateway/const.py` default URL uses `http://a0d7b954-openclaw-hass-node:8099`. Hash unverified offline.
-- Action: during UAT, read actual hostname from HA → Settings → Add-ons → OpenClaw Node → Network. Update if different.
-- May be partially mooted by PR #94 (shim queries Supervisor for hostname).
+- Status: CLOSED 2026-06-20 (mooted by PR #94)
+- PR #94 (merged 2026-06-08) added `_supervisor_addon_hostname` in `custom_components/openclaw_gateway/config_flow.py:50-90` — the shim asks HA's `hassio` integration for the addon's real hostname at config-flow time. The hardcoded `a0d7b954-openclaw-hass-node` in `const.py:14` is now only a last-resort fallback, not the canonical path. Worst case the user edits the URL once during config flow.
 
 ### 16. Q2 — `pairing_token` addon option: remove or keep
-- Status: OPEN
-- Recommendation in QUESTIONS-FOR-ROB.md was REMOVE for honesty. Bootstrap-token flow has since been accepted (PR #93). Decide whether to keep as-is, rename, or remove now that the path is real.
+- Status: CLOSED 2026-06-20 (keep as-is)
+- After PR #93 accepted the `openclaw qr` setup-code envelope as a valid `pairing_token` value, the option is the canonical on-boarding path: the user pastes the setup code into the addon Configuration UI on first install, the node normalises it (`addon/node/src/openclaw_node/config.py:24-56`), pairs, and the gateway issues a real device token. No alternative bootstrap UI exists, so removing it would block first-install. Keep.
 
 ### 17. Open GitHub issues (not otherwise tracked above)
 - Status: OPEN
