@@ -36,7 +36,7 @@ then the **HACS shim**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node ships 35 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node ships 34 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
 `gateway.nodes.allowCommands`:
 
@@ -202,7 +202,7 @@ first successful pairing** — it's consumed.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 35
+#         Commands: list of 34
 ```
 
 Or round-trip a command directly from the gateway side:
