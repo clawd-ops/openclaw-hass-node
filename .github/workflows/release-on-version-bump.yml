@@ -80,7 +80,8 @@ jobs:
             BEGIN { in_section = 0 }
             /^## / {
               if (in_section) exit
-              if ($0 ~ "^## " ver "( |$)") { in_section = 1; next }
+              split($0, heading, " ")
+              if (heading[2] == ver) { in_section = 1; next }
             }
             in_section { print }
           ' addon/CHANGELOG.md > "$NOTES_FILE"
@@ -115,7 +116,9 @@ jobs:
           set -euo pipefail
           # Extract the title line from CHANGELOG ("## VERSION (date) — title")
           TITLE=$(awk -v ver="$VERSION" '
-            $0 ~ "^## " ver "( |$)" {
+            /^## / {
+              split($0, heading, " ")
+              if (heading[2] != ver) next
               sub("^## ", "")
               print
               exit

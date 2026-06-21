@@ -28,7 +28,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-_PEP440_RE = re.compile(r"^\d{4}\.\d+\.\d+(?:[abr]c?\d+|\.dev\d+)?$")
+_PEP440_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 
 
 @dataclass(frozen=True)
