@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 35 commands are registered.
+OpenClaw conventions where they exist. 34 commands are registered.
 
 ## `ping` — liveness
 
@@ -42,7 +42,7 @@ mode). Path traversal and symlink escape are blocked by `safe_fd.py`.
 | `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (21 commands)
+## `ha.*` — Home Assistant control (20 commands)
 
 | Command                   | Args / Notes                           |
 |---------------------------|----------------------------------------|

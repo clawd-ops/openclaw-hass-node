@@ -45,13 +45,13 @@ openclaw-hass-node/
 │       │   ├── safe_fd.py           # TOCTOU-safe fd primitives
 │       │   ├── backup_store.py      # Content-addressed backup store
 │       │   └── commands/
-│       │       ├── dispatcher.py    # Command registry (35 commands)
+│       │       ├── dispatcher.py    # Command registry (34 commands)
 │       │       ├── ping.py
 │       │       ├── fs.py            # fs.read/list/stat/glob
 │       │       ├── fs_write.py      # fs.write/restore/history/diff
 │       │       ├── fs_patch.py      # fs.patch
 │       │       ├── fs_move_delete.py # fs.move/delete
-│       │       ├── ha.py            # 21 ha.* commands
+│       │       ├── ha.py            # 20 ha.* commands
 │       │       ├── system.py        # system.which
 │       │       └── system_run.py    # system.run (admin-gated)
 │       └── tests/
