@@ -153,11 +153,29 @@ def main() -> int:
         action="store_true",
         help="Don't write; verify all sources carry the same version.",
     )
+    parser.add_argument(
+        "--get",
+        action="store_true",
+        help="Print the current synced version and exit (or fail on drift).",
+    )
     args = parser.parse_args()
+    if args.get:
+        # Print the bare version to stdout for shell capture
+        # (`VERSION=$(scripts/bump-version.py --get)`). Drift exits non-zero
+        # with the diff on stderr — no stdout output in that case.
+        versions = {s.path.relative_to(REPO_ROOT): _read_current(s) for s in SOURCES}
+        distinct = set(versions.values())
+        if len(distinct) != 1:
+            print("error: version drift across sources:", file=sys.stderr)
+            for path, ver in versions.items():
+                print(f"  {path}: {ver}", file=sys.stderr)
+            return 1
+        print(next(iter(distinct)))
+        return 0
     if args.check:
         return _check(args.version)
     if not args.version:
-        parser.error("version is required unless --check is passed")
+        parser.error("version is required unless --check or --get is passed")
     return _bump(args.version, SOURCES)
 
 
