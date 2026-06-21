@@ -11,11 +11,12 @@
 > full version of this warning.
 
 > ⚠️ **Beta.** Pair, connect, tool invokes, and HA Assist conversation
-> all work end-to-end (P5.13 dual-WS, streaming token deltas as of
-> 2026.6.19b1). The integration appears as a conversation agent in HA's
-> Voice assistants picker and now streams replies in real time instead
-> of buffering the full turn. Pre-1.0 breaking changes are still
-> possible; track [`docs/STATUS.md`](STATUS.md) for the road to 1.0.
+> all work end-to-end on the current beta track (`2026.6.20b6`). The
+> integration appears as a conversation agent in HA's Voice assistants
+> picker, streams replies in real time, and surfaces tool-named
+> progress lines like `🔧 Calling weather...` mid-turn. Pre-1.0
+> breaking changes are still possible; track
+> [`docs/STATUS.md`](STATUS.md) for the road to 1.0.
 
 End-to-end setup to get Home Assistant talking to your OpenClaw gateway.
 Three pieces install in order: **gateway-side config**, then the **HA add-on (app)**,
@@ -35,7 +36,7 @@ then the **HACS shim**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node ships 28 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node ships 35 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
 `gateway.nodes.allowCommands`:
 
@@ -54,7 +55,8 @@ its allowlist. The HA node ships 28 commands across `ha.*`, `fs.*`,
         "ha.list_entity_registry", "ha.logbook", "ha.history",
         "ha.reload_config", "ha.light_turn_on", "ha.light_turn_off",
         "ha.list_automations", "ha.check_config",
-        "ha.addon_logs", "ha.list_addons"
+        "ha.addon_logs", "ha.list_addons", "ha.addon_info",
+        "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation"
       ]
     }
   }
@@ -200,7 +202,7 @@ first successful pairing** — it's consumed.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 28
+#         Commands: list of 35
 ```
 
 Or round-trip a command directly from the gateway side:
@@ -223,9 +225,9 @@ log at ERROR (`COMMAND_ERROR`) with a traceback. If you ran an invoke
 and see nothing in the log, the node didn't receive it — check the
 gateway's pending queue and the WSS connection.
 
-Then ask HA Assist anything. The conversation relay (P5.13 dual-WS)
-forwards Assist turns through the node's operator-role connection into
-an OpenClaw agent session and streams the response back. If you see a
+Then ask HA Assist anything. The conversation relay forwards Assist
+turns through the node's operator-role connection into an OpenClaw
+agent session and streams the response back. If you see a
 timeout, check the node log for connection/auth errors, confirm both
 the node-role and operator-role connections are up (two "connected"
 log lines per connect cycle), and verify the gateway is reachable.
@@ -258,8 +260,7 @@ Supervisor — is **not a supported install path during the pre-1.0
 beta**. The runtime entrypoint (`addon/run.sh`) uses
 `#!/usr/bin/with-contenv sh`, which only resolves inside an HA
 base-python image. Bare `python:3.13-alpine` and other non-HA bases
-will not start (see Issue #109 for the underlying env-injection
-requirement).
+will not start.
 
 The standalone-mode code paths in `__main__.py` and `ha_client.py` are
 preserved for development on the dev host directly (e.g. `python -m

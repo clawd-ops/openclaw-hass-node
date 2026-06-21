@@ -1,4 +1,9 @@
-# OpenClaw Integration (P5.10) — node as conversation relay
+# OpenClaw Integration — node as conversation relay
+
+> **Historical snapshot.** Captures the design pivot to using the
+> existing chat surface for relay. The architecture described here is
+> what shipped; cross-check against `STATUS.md` and `PLAN.md` for the
+> current state.
 
 > **Identity check.** Clawd is OpenClaw. The "brain" answering HA Assist
 > turns is Clawd running in OpenClaw — same agent that handles Discord,

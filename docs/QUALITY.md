@@ -59,14 +59,16 @@ def fs_patch(path: str, patch: str, proposal_id: str) -> PatchResult:
     """
 ```
 
-## Tests — 100 % coverage on shipped code
+## Tests — branch coverage gate at 95 %
 
 - **`pytest`** for everything. `pytest-asyncio` for async paths.
   `pytest-httpx` / `respx` for HA REST mocking. `hypothesis` for
   property tests on the patch + backup engines.
-- **100 % line + branch coverage** on `node/src/` and
+- **≥ 95 % branch coverage** on `node/src/` and
   `custom_components/openclaw_gateway/`. Measured by `coverage.py`
-  with `--branch`. Coverage report is a CI gate.
+  with `--branch`. Coverage report is a CI gate; the live floor
+  enforced today is 95% (we run well above it but the gate is set
+  there so a routine refactor doesn't trip the build).
 - Excluded from coverage requirement: `tests/`, generated
   protobuf/openapi clients, `__main__` bootstrap.
 - Every new module ships with its tests in the same PR; "tests later"
@@ -101,8 +103,8 @@ green:
 4. `test-shim` — pytest with branch coverage on
    `custom_components/openclaw_gateway/`, using
    `pytest-homeassistant-custom-component`.
-5. `coverage-gate` — fails if total coverage on shipped code drops
-   below 100 %.
+5. `coverage-gate` — fails if total branch coverage on shipped code
+   drops below 95 %.
 6. `security` — `bandit`, `pip-audit`.
 7. `docs-build` — markdown lint + dead-link check on `docs/`.
 8. `addon-build` — HA add-on (app) build for `amd64`, `aarch64`, `armv7`

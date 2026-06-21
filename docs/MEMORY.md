@@ -37,21 +37,21 @@ OpenClaw node speaking the existing Gateway Protocol.
 
 ## Status
 
-**Tool surface live; Assist relay broken (2026-06-08 PM).** Invokes
-work end-to-end. The P5.12 ChatRelay (PR #72) shipped but the first
-real Assist turn returned `INVALID_REQUEST unauthorized role: node`
-(#82) because the gateway's role policy is binary and `chat.send` is
-operator-scope. Tracking the dual-connection refactor under **P5.13**
-(#84). See `docs/STATUS.md`.
+**Tool surface and Assist relay both live.** Invokes round-trip
+end-to-end. The conversation relay runs on the dual-websocket
+architecture below: the operator-role connection carries `chat.send`
++ `sessions.messages.subscribe`, the node-role connection carries
+`node.invoke.*`. Currently on the beta track (`2026.6.20b6`). See
+`docs/STATUS.md`.
 
-### P5.12 design decisions (still valid for the relay code itself)
+### Relay design decisions
 
-The session/event/concurrency machinery doesn't change in P5.13 —
-only the transport. Documented in `chat_relay.py` docstring:
+The session/event/concurrency machinery is documented in
+`chat_relay.py` docstring:
 
 1. Fresh session per `conversation_id`
 2. Default agent (gateway-routed)
-3. `chat.send` for full agent pipeline (will route through operator WS in P5.13)
+3. `chat.send` for full agent pipeline (routed through the operator-role websocket)
 4. 30s single monotonic deadline per turn
 5. Dual event family handling (`session.message` + `chat*`)
 6. Content-block array extraction (`[{"type":"text","text":"..."}]`)
@@ -59,27 +59,27 @@ only the transport. Documented in `chat_relay.py` docstring:
 8. `runId`-based event filtering (stale events rejected)
 9. Events only captured when a turn is actively waiting
 
-### Security fix in PR #71
+### HA URL pin
 
-`ha_client._ha_url()` now hard-pins to `http://supervisor/core` when
-`SUPERVISOR_TOKEN` is present. Previously, a user-supplied `HASS_URL`
-would receive the privileged Supervisor token.
+`ha_client._ha_url()` hard-pins to `http://supervisor/core` when
+`SUPERVISOR_TOKEN` is present, so a user-supplied `HASS_URL` never
+receives the privileged Supervisor token.
 
-### Roles / scopes (corrected 2026-06-08)
+### Roles / scopes
 
 The gateway's role policy is **binary per-method**: node-role can only
 call node-scope methods; operator-role can only call operator-scope
 methods. `chat.send` and `sessions.messages.subscribe` are
 `operator.write`, so they require an operator-role connection.
-There is no `node.chat.send`. P5.13 fixes this by running **two
+There is no `node.chat.send`. The node solves this by running **two
 parallel WS connections** (one as `node` for invokes, one as
-`operator` for ChatRelay). Device is paired as dual-role via
-`PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow).
+`operator` for the conversation relay). Device is paired as dual-role
+via `PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow).
 
 ## Repo layout
 
 - **`node/`** — Python add-on (app). Pairs with the gateway via the
-  Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (13 tools)
+  Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (21 tools)
   through `node.invoke`, and runs a local HTTP API on port 8099 for
   health checks + Assist turn relay.
 - **`custom_components/openclaw_gateway/`** — HACS shim. ~150 LOC
@@ -111,11 +111,8 @@ Full detail in `docs/PLAN.md`. Headline rules:
   connection opened as `role: operator`. The existing `role: node`
   connection keeps serving `node.invoke.*`. No parallel gateway, no
   new protocol primitives — only a second connection with a different
-  role. P5.12 attempted the single-connection variant and was
-  disproved by the gateway's binary role policy (#82). See
-  `docs/RESEARCH-OPENCLAW-INTEGRATION.md` for the brain-vs-relay
-  post-mortem; the P5.12 role-policy post-mortem is in
-  `docs/PLAN.md` § Assist conversation agent.
+  role. See `docs/RESEARCH-OPENCLAW-INTEGRATION.md` for the
+  brain-vs-relay post-mortem.
 - **`/config` is proposal-gated** through agent-bridge. Reads and shell
   are direct.
 - **One node per HA instance.**

@@ -1,11 +1,12 @@
 # Release Process
 
-> Status: **proposed, not yet implemented.** The version-sync CI gate
-> from PR #57 keeps the five version strings in lock-step today; the
-> Action described here will automate the bump itself. Implementation
+> Status: **proposed, not yet implemented.** A version-sync CI gate
+> keeps the five version strings in lock-step today; the Action
+> described here will automate the bump itself. Implementation
 > waits until the audit-hardening work is done — but every PR opened
 > in the meantime should already follow the [commit message convention](#commit-messages)
-> so the changelog history is usable when the Action lands.
+> so the changelog history is usable when the Action lands. Until then
+> use the [manual release procedure](#manual-release-procedure-until-the-action-lands).
 
 The project carries the version string in five places (`pyproject.toml`,
 `addon/config.yaml`, `addon/build.yaml`, `__init__.py` fallback,
@@ -22,11 +23,10 @@ careful edits.
 2. **Changelogs are generated, not written.** Every release tag has
    a changelog grouped by intent (features, fixes, breaking changes,
    etc.) derived from the commits that landed since the last tag.
-3. **Pre-release markers are first-class.** The current beta
-   (`2026.6.19b1`) is not an accident of timing; the project lives on
-   `aN`/`bN`/`rcN` until it ships a 1.0 (alpha track ran through
-   `2026.6.8a16`; beta opens at `2026.6.19b1`). The release pipeline
-   has to understand and preserve that.
+3. **Pre-release markers are first-class.** The project is currently
+   on the beta track (`2026.6.20b6` at time of writing); pre-1.0 it
+   lives on `aN`/`bN`/`rcN` markers. The release pipeline has to
+   understand and preserve that.
 4. **No backports, no parallel branches.** `main` is the only branch
    that ships. Hot-fixes are forward-fixes that cut a new release.
 
@@ -113,7 +113,7 @@ right fit here. Why it over the alternatives:
    - Updates a `.release-please-manifest.json` that records the last
      released version.
 4. When the maintainer merges the release PR, the Action creates a
-   GitHub release with the tag (`v2026.6.8a2` or whatever was
+   GitHub release with the tag (`v2026.6.20b6` or whatever was
    chosen), the changelog body, and a tarball attachment.
 5. Optional follow-ups on the release event: publish to PyPI, push
    the add-on image to GHCR, post to the OpenClaw channel.
@@ -157,7 +157,7 @@ Two files in the repo root:
 `.release-please-manifest.json`:
 
 ```json
-{ ".": "2026.6.8a1" }
+{ ".": "2026.6.20b6" }
 ```
 
 For each `extra-files` entry, release-please looks for a
@@ -166,7 +166,7 @@ updates the value next to it. We'd add markers like:
 
 ```yaml
 # addon/config.yaml
-version: "2026.6.8a1"  # x-release-please-version
+version: "2026.6.20b6"  # x-release-please-version
 ```
 
 ```json
@@ -175,7 +175,7 @@ version: "2026.6.8a1"  # x-release-please-version
 // "x-release-please-version" sibling to "version" tells the tool
 // which field to update.
 {
-  "version": "2026.6.8a1"
+  "version": "2026.6.20b6"
 }
 ```
 
@@ -302,35 +302,58 @@ already serves the same purpose for the audience that cares.
 ## Versioning policy
 
 - **Pre-1.0:** the project stays on a single prerelease-channel CalVer
-  (`YYYY.M.Pb<N>` during the current beta track; the earlier alpha
+  (`YYYY.M.Pb<N>` during the current beta track; the prior alpha
   track used `YYYY.M.Pa<N>`). Every release bumps the prerelease
   increment (`b1` → `b2` → `b3` …) unless a breaking change forces a
-  `Y.M.P` rev. Date-based bumps (`2026.6.19b1` → `2026.7.0b1`) happen
+  `Y.M.P` rev. Date-based bumps (`2026.6.20b6` → `2026.7.0b1`) happen
   when there's a deliberate cut, not because the calendar rolled over.
 - **1.0 and beyond:** semver from the same base. Breaking changes
   bump major; new functionality bumps minor; fixes bump patch.
-  Pre-1.0 the project lived first on alphas (`a1` … `a16`) and is now
-  on betas; that full history is preserved in the CHANGELOG.
+  Pre-1.0 the project moved from alphas to betas; that full history
+  is preserved in the CHANGELOG.
 - **Hot-fixes** are forward-fixes off `main`; we don't maintain
-  long-lived release branches. If a stable user is on `2026.6.19b3`
-  and we ship `2026.6.19b4` with a regression, the fix is `b5` not
-  `b4.1`. This keeps the release pipeline single-tracked.
+  long-lived release branches. If a stable user is on `2026.6.20b6`
+  and we ship `2026.6.20b7` with a regression, the fix is `b8` not
+  `b7.1`. This keeps the release pipeline single-tracked.
+
+## Manual release procedure (until the Action lands)
+
+Merging a release PR ("bump version strings to X") does **not** cut a
+release on its own. HA Supervisor's "Update" prompt reads from
+published GitHub releases, not from `main`, so the version bump on
+`main` is invisible to end users until a tag + GitHub release exist
+for it. Until the release-please workflow above ships, every release
+PR merge MUST be followed by an explicit tag + GitHub release:
+
+```sh
+SHA=$(git rev-parse main)                # or the merge commit
+git tag v2026.6.20b6 $SHA
+git push origin v2026.6.20b6
+gh release create v2026.6.20b6 \
+  --title "2026.6.20b6 — <line from CHANGELOG>" \
+  --prerelease \
+  --notes "<short body; link to full CHANGELOG>"
+```
+
+If you bump versions in a PR titled `release: <version>` and you do
+NOT also create a GitHub release for it, the addon is not released.
+Either tag immediately after merge, or update the addon manually via
+Rebuild and tell users that's the path.
 
 ## What this replaces
 
-- The `test_version_sync.py` CI gate from PR #57 stays as the
-  belt-and-braces check: if release-please ever misses a file or a
-  hand-edit slips in, CI catches the drift.
+- The `test_version_sync.py` CI gate stays as the belt-and-braces
+  check: if release-please ever misses a file or a hand-edit slips
+  in, CI catches the drift.
 - Manual version edits are forbidden. If a PR carries a version-file
   edit that isn't from release-please, the reviewer should ask the
   author to remove it.
 
 ## When to implement
 
-Not yet. The audit-hardening work (issues #48 and #49) has 30+ items
-left and is more valuable to land than the release plumbing. Once
-the audit checklists are clean we cut a `2026.X.Ya1` baseline and
-turn on the Action.
+Not yet. The audit-hardening work has items left and is more valuable
+to land than the release plumbing. Once the audit checklists are
+clean we cut a baseline release and turn on the Action.
 
 Until then, **every PR that lands on `main` should already use
 Conventional Commit subjects** so the first auto-generated changelog

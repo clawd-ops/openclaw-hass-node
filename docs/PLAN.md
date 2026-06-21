@@ -374,15 +374,16 @@ Live state in `STATUS.md`. Checkmarks here are an at-a-glance summary.
   - ◑ **P5.12 — ChatRelay implementation (shipped, broken).** Built
     `chat.send` + `sessions.messages.subscribe` on the existing `role:
     node` gateway WS — disproved by first real Assist turn (#82). Code
-    landed (PR #72); auth/transport needs the P5.13 refactor.
-  - ⏭ **P5.13 — Dual WS connection** (#84). Node maintains two
+    landed (PR #72); auth/transport needed the P5.13 refactor.
+  - ✅ **P5.13 — Dual WS connection** (#84). Node maintains two
     parallel gateway WS connections: existing `role: node` for
     invokes, new `role: operator` for ChatRelay's `chat.send` and
     `sessions.messages.subscribe`. Device paired as dual-role via
     `PAIRING_SETUP_BOOTSTRAP_PROFILE` (QR / bootstrap-token flow).
     Independent reconnect loops; one connection failing doesn't take
     the other down. No back-compat migration — existing single-role
-    devices remove + re-add (pre-1.0 rule).
+    devices remove + re-add (pre-1.0 rule). Shipped; the relay
+    streams token deltas and tool-named progress mid-turn.
 - ◑ **P6 — Retire MCP servers** for this HA after the validation
   window. P6.1 (validation harness) shipped; cron it. P6.2 (cutover
   PR) fires only when the harness ever prints `RETIREMENT_READY`.

@@ -45,13 +45,13 @@ openclaw-hass-node/
 │       │   ├── safe_fd.py           # TOCTOU-safe fd primitives
 │       │   ├── backup_store.py      # Content-addressed backup store
 │       │   └── commands/
-│       │       ├── dispatcher.py    # Command registry (28 commands)
+│       │       ├── dispatcher.py    # Command registry (35 commands)
 │       │       ├── ping.py
 │       │       ├── fs.py            # fs.read/list/stat/glob
 │       │       ├── fs_write.py      # fs.write/restore/history/diff
 │       │       ├── fs_patch.py      # fs.patch
 │       │       ├── fs_move_delete.py # fs.move/delete
-│       │       ├── ha.py            # 15 ha.* commands
+│       │       ├── ha.py            # 21 ha.* commands
 │       │       ├── system.py        # system.which
 │       │       └── system_run.py    # system.run (admin-gated)
 │       └── tests/
@@ -72,7 +72,7 @@ Current shipped values (see `addon/config.yaml` for the live file):
 
 ```yaml
 name: OpenClaw Node
-version: "2026.6.8a7"
+version: "2026.6.20b6"
 slug: openclaw_hass_node
 arch: [amd64, aarch64, armv7]
 init: false
@@ -90,8 +90,10 @@ map:
                  # → PROPOSAL_REQUIRED before any write/rename/unlink
   - share:rw    # backups + delete-trash store
   - media:rw    # generic fs.* write root
-# `ssl:ro`, `addons:ro`, `backup:ro` removed — no shipped feature consumes
+# `ssl:ro`, `addons:ro`, `backup:ro` were removed — no shipped feature consumes
 # them and they leak sensitive material via the generic fs.read surface.
+# The live shipped addon map matches what's shown above; the canonical
+# source is `addon/config.yaml`.
 options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
@@ -119,8 +121,8 @@ Supervisor and causes a `pip: not found` failure.
 
 The HA base image is also required by `addon/run.sh`, which uses
 `#!/usr/bin/with-contenv sh` to pick up Supervisor's injected env
-(notably `SUPERVISOR_TOKEN` — see Issue #109). Bare Python images
-don't ship s6-overlay / `with-contenv` and the addon won't start.
+(notably `SUPERVISOR_TOKEN`). Bare Python images don't ship s6-overlay
+/ `with-contenv` and the addon won't start.
 
 ## Standalone Docker (not supported during beta)
 
@@ -137,8 +139,8 @@ Entrypoint detects mode for the standalone dev-host path:
 
 ## Versioning
 
-PEP 440 date-based: `YYYY.M.Db<N>` during beta (e.g. `2026.6.19b1`);
-`YYYY.M.Da<N>` was used during the alpha track up through `2026.6.8a16`.
+PEP 440 date-based: `YYYY.M.Db<N>` during beta (currently on the beta
+track, e.g. `2026.6.20b6`); `YYYY.M.Da<N>` was the prior alpha format.
 Post-1.0: `YYYY.M.PATCH`. Version is enforced by
 `test_version_sync.py` across 5 sources: `pyproject.toml`,
 `addon/config.yaml`, `addon/build.yaml` label, `manifest.json`, and
