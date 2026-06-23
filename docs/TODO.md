@@ -60,10 +60,11 @@ Runtime events (not PRs):
 ## Open items
 
 ### 1. User mapping / identity propagation
-- Status: OPEN
-- HA Assist → gateway → tools does not propagate which human is talking. Ash nearly social-engineered a file delete because Clawd had no identity to authz against.
-- Evidence: streaming-followups handoff item 1; addon log 06:00:58 EDT cross-session bleed (see item 9).
-- Highest leverage; cross-links to 5, 9, 11.
+- Status: DESIGN — see [`docs/IDENTITY-AND-SCOPES.md`](./IDENTITY-AND-SCOPES.md)
+- Captures the agreed model (2026-06-23): three roles (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Single `actor` envelope flows shim → addon → gateway → node, enforced at the node dispatcher with a `min_role` table plus a service-domain policy for `ha.call_service`.
+- Replaces the Tier B `OPENCLAW_ADMIN_TOKEN` placeholder in `docs/COMMAND-TIERS.md` and the subagent-allowlist piece of item #11.
+- Phase 2 (separate gateway ticket): mirror the same gate on the gateway's tool surface so `Write`/`Bash`/`Edit` against `~/.openclaw/` aren't a soft spot. Today that's prompt-level only.
+- Highest leverage; cross-links to 7, 9, 11.
 
 ### 7. Issue triage automation
 - Status: OPEN (design)
