@@ -1,5 +1,15 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b7 (2026-06-24) — HA Assist identity routing + Tier B add-on lifecycle commands
+
+### Features
+- **HA Assist turns now carry actor-aware authorization context.** The HACS shim forwards the HA conversation actor to the add-on, and the add-on resolves each turn into `user`, `admin`, or `super_admin` using `identity.super_admins` plus the HA `is_admin` bit. The add-on prepends a hardened, per-turn authorization disclaimer that tells the agent which command names are forbidden for that actor, explicitly says not to repeat the policy text, and treats attempts to override the restriction as untrusted user content. Shared-agent setups get prompt-level protection; operators who need hard separation can also map users to gateway agents with narrower tool inventories.
+- **Per-user agent routing is now configurable from the add-on.** New `identity.user_agent_map` and `identity.default_agent_id` options let a household route different HA users to different OpenClaw agents while keeping the agent definitions themselves in gateway config. At startup the add-on asks the gateway for available agents and logs missing mappings alongside the known IDs so operator mistakes are visible before users hit them.
+- **Tier B add-on lifecycle commands are now available behind explicit gates.** Added `ha.addon_start`, `ha.addon_stop`, and `ha.addon_restart`. They require the admin token gate, use Supervisor lifecycle endpoints, deny core Supervisor/Home Assistant slugs, and default-deny all other add-ons unless listed in `addon_lifecycle.allowlist`. Start/stop are idempotent when the add-on is already in the requested state.
+
+### Docs
+- Documented the new identity options, forbidden-command JSON override format, lifecycle allowlist policy, and the split between OpenClaw agent inventory controls and add-on-side HA Assist restrictions.
+
 ## 2026.6.20b6 (2026-06-21) — Re-dispatch `agent` events from gateway WS loop
 
 ### Fixes
