@@ -49,13 +49,14 @@ commands.
   it persists a long-lived device token in `/data/openclaw/` and
   reuses it on every restart, so you only paste the pairing token
   once.
-- Serves the 34 commands the agent uses:
-  - `ha.*` (20 commands): list states, get state, list devices, list
+- Serves the 37 commands the agent uses:
+  - `ha.*` (23 commands): list states, get state, list devices, list
     entity registry, list areas, list services, call service, turn
     lights on/off, logbook, history, list automations, check config,
-    reload config, and the Tier A read-only addon surface (list
+    reload config, the Tier A read-only addon surface (list
     addons, addon info, addon stats, addon logs, addon changelog,
-    addon documentation).
+    addon documentation), and Tier B addon lifecycle commands
+    (addon start/stop/restart) behind an admin token and slug allowlist.
   - `fs.*` (11 commands): list directory, read file, write file,
     stat, glob, etc. Scoped to the maps the add-on (app) is granted
     (`config:rw`, `share:rw`, `media:rw`). Other roots (`ssl`,

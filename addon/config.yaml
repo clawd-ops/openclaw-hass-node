@@ -97,6 +97,29 @@ options:
   # Toggle back to false after the node re-pairs successfully - otherwise
   # every restart will wipe again.
   reset_pairing: false
+  identity:
+    # HA user IDs allowed to receive the super_admin prompt context.
+    # HA admins not listed here resolve to admin; everyone else resolves
+    # to user. These are HA user UUIDs, not Discord/OpenClaw identities.
+    super_admins: []
+    # Optional per-HA-user gateway agent routing. The agents themselves are
+    # configured in OpenClaw's gateway config; this addon only picks which
+    # agentId to send on chat.send for each HA user.
+    user_agent_map: {}
+    # Empty preserves today's gateway-default routing.
+    default_agent_id: ""
+    # Advanced prompt-policy patches as JSON. Defaults are generated in code;
+    # use add/remove to adjust a role without replacing the whole default list.
+    # Example: {"user":{"add":["ha.call_service:lock.unlock"],"remove":[]}}
+    forbidden_commands: ""
+  addon_lifecycle:
+    # Tier B lifecycle commands (`ha.addon_start`/stop/restart) default-deny
+    # every slug and require explicit opt-in here plus OPENCLAW_ADMIN_TOKEN.
+    allowlist: []
+    # Always denied in code too: homeassistant, supervisor, and core_*.
+    denylist:
+      - homeassistant
+      - supervisor
 schema:
   gateway_url: url
   pairing_token: password
@@ -113,6 +136,17 @@ schema:
   # reachable via the OPENCLAW_RESET_PAIRING=identity env var for the
   # rare case the UI toggle is not enough.
   reset_pairing: bool?
+  identity:
+    super_admins:
+      - str
+    user_agent_map: dict?
+    default_agent_id: str?
+    forbidden_commands: str?
+  addon_lifecycle:
+    allowlist:
+      - str
+    denylist:
+      - str
 # No `ports:` host-mapping. The local API is only reachable inside the
 # Supervisor add-on network (the HACS shim uses the add-on hostname). A
 # host-mapped port would expose the API to anything on the host network,

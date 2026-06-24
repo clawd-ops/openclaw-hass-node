@@ -25,13 +25,15 @@ Currently on **2026.6.20b6** (beta). The node ships:
   session, with token-delta streaming back into HA. Mid-turn
   tool-named progress lines (e.g. `🔧 Calling weather...`) surface
   in the conversation UI while the agent is still working.
-- **34 commands** registered in the dispatcher:
-  - `ha.*` (20): list/get states, call service, list areas/devices/
+- **37 commands** registered in the dispatcher:
+  - `ha.*` (23): list/get states, call service, list areas/devices/
     services/entity-registry, logbook, history, reload config,
     light turn on/off, list automations, check config, and the
     Tier A read-only addon surface (`list_addons`, `addon_info`,
     `addon_stats`, `addon_logs`, `addon_changelog`,
-    `addon_documentation`).
+    `addon_documentation`) plus Tier B addon lifecycle
+    (`addon_start`, `addon_stop`, `addon_restart`) behind
+    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
   - `system.*` (2): `system.run` (admin-token-gated), `system.which`

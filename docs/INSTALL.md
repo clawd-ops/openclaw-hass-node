@@ -36,7 +36,7 @@ then the **HACS shim**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node ships 34 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node ships 37 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
 `gateway.nodes.allowCommands`:
 
@@ -56,7 +56,8 @@ its allowlist. The HA node ships 34 commands across `ha.*`, `fs.*`,
         "ha.reload_config", "ha.light_turn_on", "ha.light_turn_off",
         "ha.list_automations", "ha.check_config",
         "ha.addon_logs", "ha.list_addons", "ha.addon_info",
-        "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation"
+        "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation",
+        "ha.addon_start", "ha.addon_stop", "ha.addon_restart"
       ]
     }
   }
@@ -143,6 +144,24 @@ stored approved-commands stays empty and you'll have to
      with the scopes your `ha.*` calls need. Required together with
      `hass_url` whenever you fill that in. Generate at HA → Profile →
      Long-Lived Access Tokens. Treated as a password (masked).
+   - `identity` *(optional)*:
+     - `super_admins`: HA user UUIDs that should receive the
+       `super_admin` authorization context.
+     - `user_agent_map`: HA user UUID → OpenClaw `agentId` routing.
+       The agents themselves live in gateway config; the add-on only
+       selects them on `chat.send`.
+     - `default_agent_id`: fallback `agentId`; leave blank to preserve
+       the gateway default.
+     - `forbidden_commands`: advanced per-role `add`/`remove` prompt
+       policy patches as a JSON string.
+     This is prompt-level protection for shared-agent setups. Hard
+     OpenClaw-side permission separation comes from routing a user to an
+     agent whose gateway tool inventory is restricted.
+   - `addon_lifecycle` *(optional)*: Tier B add-on start/stop/restart
+     policy. `allowlist` is default-deny and must include every slug
+     you want lifecycle commands to touch. `homeassistant`,
+     `supervisor`, and `core_*` slugs are always denied even if listed.
+     Calls also require the runtime `OPENCLAW_ADMIN_TOKEN`.
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.

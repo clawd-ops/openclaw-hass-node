@@ -356,6 +356,58 @@ async def supervisor_get_json(
         raise HAClientError("HA_NETWORK", f"Network error contacting Supervisor: {exc}") from exc
 
 
+async def supervisor_post_json(
+    path: str,
+    body: dict[str, Any] | None = None,
+    *,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+    max_bytes: int = _SUPERVISOR_JSON_MAX_BYTES,
+) -> Any:
+    """POST JSON *body* to the Supervisor REST API and return decoded JSON."""
+    token = os.environ.get("SUPERVISOR_TOKEN", "")
+    if not token:
+        raise HAClientError(
+            "SUPERVISOR_UNAVAILABLE",
+            "Supervisor API requires SUPERVISOR_TOKEN; not set in this environment.",
+        )
+    url = f"http://supervisor{path}"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.post(url, headers=headers, json=body) as resp,
+        ):
+            if resp.status == 401:
+                raise HAClientError("HA_AUTH", "Supervisor rejected the token (401)")
+            if resp.status == 404:
+                raise HAClientError("HA_NOT_FOUND", f"Supervisor returned 404 for {path}")
+            if resp.status >= 400:
+                body_text = (await resp.text())[:512]
+                raise HAClientError(
+                    "HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body_text}"
+                )
+            buf = bytearray()
+            async for chunk in resp.content.iter_chunked(65_536):
+                buf.extend(chunk)
+                if len(buf) > max_bytes:
+                    raise HAClientError(
+                        "HA_RESPONSE_TOO_LARGE",
+                        f"Supervisor response for {path} exceeded {max_bytes} bytes",
+                    )
+            if not buf:
+                return {}
+            try:
+                return json.loads(buf.decode("utf-8"))
+            except (ValueError, UnicodeDecodeError) as exc:
+                raise HAClientError(
+                    "HA_BAD_RESPONSE", f"Supervisor returned non-JSON body for {path}"
+                ) from exc
+    except aiohttp.ClientError as exc:
+        _LOG.error("supervisor_post_json network error %s: %s", url, exc)
+        raise HAClientError("HA_NETWORK", f"Network error contacting Supervisor: {exc}") from exc
+
+
 async def _decode(resp: aiohttp.ClientResponse) -> Any:
     if resp.status == 401:
         raise HAClientError("HA_AUTH", "HA rejected the bearer token (401)")

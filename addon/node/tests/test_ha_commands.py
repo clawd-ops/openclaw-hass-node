@@ -12,7 +12,10 @@ from openclaw_node.commands.ha import (
     handle_ha_addon_documentation,
     handle_ha_addon_info,
     handle_ha_addon_logs,
+    handle_ha_addon_restart,
+    handle_ha_addon_start,
     handle_ha_addon_stats,
+    handle_ha_addon_stop,
     handle_ha_call_service,
     handle_ha_check_config,
     handle_ha_get_state,
@@ -1112,3 +1115,107 @@ async def test_addon_documentation_not_found() -> None:
     ):
         result = await handle_ha_addon_documentation({"slug": "self"})
     assert result["error"] == "HA_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# Tier B addon lifecycle
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_start_requires_admin_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+
+    result = await handle_ha_addon_start({"slug": "openclaw_hass_node"})
+
+    assert result["error"] == "PERMISSION_DENIED"
+
+
+async def test_addon_start_requires_allowlisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
+
+    result = await handle_ha_addon_start({"slug": "openclaw_hass_node", "admin_token": "secret"})
+
+    assert result["error"] == "PERMISSION_DENIED"
+    assert "allowlisted" in result["message"]
+
+
+async def test_addon_lifecycle_always_denies_core_slugs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["core_mosquitto"]')
+
+    result = await handle_ha_addon_restart({"slug": "core_mosquitto", "admin_token": "secret"})
+
+    assert result["error"] == "PERMISSION_DENIED"
+    assert "core slug" in result["message"]
+
+
+async def test_addon_start_idempotent_when_already_started(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            return_value={"data": {"state": "started"}},
+        ) as mock_get,
+        patch("openclaw_node.commands.ha.supervisor_post_json") as mock_post,
+    ):
+        result = await handle_ha_addon_start(
+            {"slug": "openclaw_hass_node", "admin_token": "secret"}
+        )
+
+    assert result == {
+        "ok": True,
+        "slug": "openclaw_hass_node",
+        "state": "started",
+        "changed": False,
+    }
+    mock_get.assert_called_once_with("/addons/openclaw_hass_node/info")
+    mock_post.assert_not_called()
+
+
+async def test_addon_stop_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            side_effect=[
+                {"data": {"state": "started"}},
+                {"data": {"state": "stopped"}},
+            ],
+        ),
+        patch("openclaw_node.commands.ha.supervisor_post_json", return_value={}) as mock_post,
+    ):
+        result = await handle_ha_addon_stop({"slug": "openclaw_hass_node", "admin_token": "secret"})
+
+    assert result["ok"] is True
+    assert result["changed"] is True
+    assert result["state"] == "stopped"
+    mock_post.assert_called_once_with("/addons/openclaw_hass_node/stop")
+
+
+async def test_addon_restart_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            side_effect=[
+                {"data": {"state": "started"}},
+                {"data": {"state": "started"}},
+            ],
+        ),
+        patch("openclaw_node.commands.ha.supervisor_post_json", return_value={}) as mock_post,
+    ):
+        result = await handle_ha_addon_restart(
+            {"slug": "openclaw_hass_node", "admin_token": "secret"}
+        )
+
+    assert result["ok"] is True
+    assert result["changed"] is True
+    mock_post.assert_called_once_with("/addons/openclaw_hass_node/restart")

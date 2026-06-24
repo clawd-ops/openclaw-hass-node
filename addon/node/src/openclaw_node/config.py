@@ -11,8 +11,9 @@ import binascii
 import json
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from openclaw_node.safe_path import allowed_roots
 
@@ -63,6 +64,28 @@ _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
 _EMPTY = "".join(())
 
 
+@dataclass(frozen=True)
+class ForbiddenCommandPatch:
+    """Per-role add/remove patch for generated forbidden commands."""
+
+    add: frozenset[str] = field(default_factory=frozenset)
+    remove: frozenset[str] = field(default_factory=frozenset)
+
+
+@dataclass(frozen=True)
+class IdentityConfig:
+    """Addon-side identity and agent-routing options."""
+
+    super_admins: frozenset[str] = field(default_factory=frozenset)
+    user_agent_map: dict[str, str] = field(default_factory=dict)
+    default_agent_id: str = ""
+    forbidden_commands: dict[str, ForbiddenCommandPatch] = field(default_factory=dict)
+    addon_lifecycle_allowlist: frozenset[str] = field(default_factory=frozenset)
+    addon_lifecycle_denylist: frozenset[str] = field(
+        default_factory=lambda: frozenset({"homeassistant", "supervisor"})
+    )
+
+
 def _is_addon_mode() -> bool:
     """Return True when running inside a Home Assistant add-on.
 
@@ -107,6 +130,7 @@ class NodeConfig:
     supervisor_token: str
     data_dir: Path
     local_api_token: str = ""
+    identity: IdentityConfig = field(default_factory=IdentityConfig)
     # One of "none" | "token" | "identity":
     #   "none"     -do nothing on startup (default).
     #   "token"    -wipe device-token only; keep the Ed25519 identity so
@@ -198,6 +222,7 @@ def load_config() -> NodeConfig:
         supervisor_token=supervisor_token,
         data_dir=data_dir,
         local_api_token=os.environ.get("OPENCLAW_LOCAL_API_TOKEN", ""),
+        identity=_parse_identity_config(),
         reset_pairing=_parse_reset_pairing_env("OPENCLAW_RESET_PAIRING"),
     )
 
@@ -237,6 +262,91 @@ def _parse_reset_pairing_env(name: str) -> str:
         raw,
     )
     return "none"
+
+
+def _parse_identity_config() -> IdentityConfig:
+    """Parse identity options from environment variables emitted by run.sh."""
+    return IdentityConfig(
+        super_admins=frozenset(_parse_string_list_env("OPENCLAW_IDENTITY_SUPER_ADMINS")),
+        user_agent_map=_parse_string_map_env("OPENCLAW_IDENTITY_USER_AGENT_MAP"),
+        default_agent_id=os.environ.get("OPENCLAW_IDENTITY_DEFAULT_AGENT_ID", "").strip(),
+        forbidden_commands=_parse_forbidden_patches_env("OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS"),
+        addon_lifecycle_allowlist=frozenset(
+            _parse_string_list_env("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
+        ),
+        addon_lifecycle_denylist=frozenset(
+            _parse_string_list_env(
+                "OPENCLAW_ADDON_LIFECYCLE_DENYLIST",
+                default=("homeassistant", "supervisor"),
+            )
+        ),
+    )
+
+
+def _parse_json_env(name: str) -> Any | None:
+    """Return JSON-decoded env var value, logging and ignoring bad JSON."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        _LOG.warning("%s is not valid JSON; ignoring identity option", name)
+        return None
+
+
+def _parse_string_list_env(name: str, *, default: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """Parse a JSON list or comma-separated env var into cleaned strings."""
+    parsed = _parse_json_env(name)
+    values: list[str] = []
+    if isinstance(parsed, list):
+        values = [str(item).strip() for item in parsed]
+    elif parsed is None:
+        raw = os.environ.get(name, "").strip()
+        if raw:
+            values = [part.strip() for part in raw.split(",")]
+    else:
+        _LOG.warning("%s must be a JSON list of strings; ignoring", name)
+    cleaned = tuple(value for value in values if value)
+    return cleaned or default
+
+
+def _parse_string_map_env(name: str) -> dict[str, str]:
+    """Parse a JSON object env var into a string-to-string map."""
+    parsed = _parse_json_env(name)
+    if parsed is None:
+        return {}
+    if not isinstance(parsed, dict):
+        _LOG.warning("%s must be a JSON object; ignoring", name)
+        return {}
+    result: dict[str, str] = {}
+    for key, value in parsed.items():
+        if isinstance(key, str) and isinstance(value, str) and key.strip() and value.strip():
+            result[key.strip()] = value.strip()
+    return result
+
+
+def _parse_forbidden_patches_env(name: str) -> dict[str, ForbiddenCommandPatch]:
+    """Parse optional per-role forbidden command add/remove patches."""
+    parsed = _parse_json_env(name)
+    if parsed is None:
+        return {}
+    if not isinstance(parsed, dict):
+        _LOG.warning("%s must be a JSON object; ignoring", name)
+        return {}
+    patches: dict[str, ForbiddenCommandPatch] = {}
+    for role, raw_patch in parsed.items():
+        if role not in {"user", "admin", "super_admin"} or not isinstance(raw_patch, dict):
+            continue
+        add = raw_patch.get("add", [])
+        remove = raw_patch.get("remove", [])
+        if not isinstance(add, list) or not isinstance(remove, list):
+            continue
+        patches[role] = ForbiddenCommandPatch(
+            add=frozenset(str(item).strip() for item in add if str(item).strip()),
+            remove=frozenset(str(item).strip() for item in remove if str(item).strip()),
+        )
+    return patches
 
 
 def allowed_roots_for_env() -> tuple[Path, ...]:

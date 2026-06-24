@@ -16,6 +16,7 @@ from openclaw_node.ha_client import (
     ha_ws_call,
     supervisor_get_json,
     supervisor_get_text,
+    supervisor_post_json,
 )
 
 # ---------------------------------------------------------------------------
@@ -183,6 +184,77 @@ async def test_ha_token_addon_fallback_no_token(
         await ha_get("/api/states")
     assert ei.value.code == "HA_NOT_CONFIGURED"
     assert "SUPERVISOR_TOKEN" in ei.value.message
+
+
+# ---------------------------------------------------------------------------
+# supervisor_post_json
+# ---------------------------------------------------------------------------
+
+
+async def test_supervisor_post_json_requires_supervisor_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    with pytest.raises(HAClientError) as ei:
+        await supervisor_post_json("/addons/x/start")
+    assert ei.value.code == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_supervisor_post_json_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-token")
+    resp = _FakeResp(body={"result": "ok"}, text_body='{"result":"ok"}')
+    with _patch_session(resp, post=True) as fake:
+        result = await supervisor_post_json("/addons/x/start", {"a": 1})
+    assert result == {"result": "ok"}
+    fake.return_value.post.assert_called_once()
+
+
+async def test_supervisor_post_json_empty_body_returns_empty_dict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-token")
+    resp = _FakeResp(body={}, text_body="")
+    with _patch_session(resp, post=True):
+        result = await supervisor_post_json("/addons/x/start")
+    assert result == {}
+
+
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [
+        (401, "HA_AUTH"),
+        (404, "HA_NOT_FOUND"),
+        (500, "HA_HTTP_ERROR"),
+    ],
+)
+async def test_supervisor_post_json_http_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    code: str,
+) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-token")
+    resp = _FakeResp(status=status, text_body="boom")
+    with _patch_session(resp, post=True), pytest.raises(HAClientError) as ei:
+        await supervisor_post_json("/addons/x/start")
+    assert ei.value.code == code
+
+
+async def test_supervisor_post_json_response_too_large(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-token")
+    resp = _FakeResp(body={}, text_body='{"too":"large"}')
+    with _patch_session(resp, post=True), pytest.raises(HAClientError) as ei:
+        await supervisor_post_json("/addons/x/start", max_bytes=1)
+    assert ei.value.code == "HA_RESPONSE_TOO_LARGE"
+
+
+async def test_supervisor_post_json_bad_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-token")
+    resp = _FakeResp(body={}, text_body="{not-json")
+    with _patch_session(resp, post=True), pytest.raises(HAClientError) as ei:
+        await supervisor_post_json("/addons/x/start")
+    assert ei.value.code == "HA_BAD_RESPONSE"
 
 
 # ---------------------------------------------------------------------------

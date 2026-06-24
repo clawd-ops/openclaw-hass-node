@@ -259,7 +259,64 @@ async def test_assist_turn_relay_success(tmp_path: Path) -> None:
         assert data["ok"] is True
         assert data["response"] == "Lights turned on!"
         assert data["echo"] == "turn on the lights"
-        mock_relay.relay_turn.assert_awaited_once_with("conv-42", "turn on the lights", "en")
+        mock_relay.relay_turn.assert_awaited_once()
+        args = mock_relay.relay_turn.await_args.args
+        kwargs = mock_relay.relay_turn.await_args.kwargs
+        assert args == ("conv-42", "turn on the lights", "en")
+        assert kwargs["authz"].role == "user"
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
+    """Forwarded HA actor controls the resolved authz policy."""
+    from openclaw_node.chat_relay import ChatRelay
+    from openclaw_node.config import IdentityConfig
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+        identity=IdentityConfig(
+            super_admins=frozenset({"rob-uuid"}),
+            user_agent_map={"rob-uuid": "clawd"},
+            default_agent_id="clawd-household",
+        ),
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.relay_turn = AsyncMock(return_value="Done")
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation",
+            json={
+                "text": "restart addon",
+                "conversation_id": "conv-actor",
+                "actor": {"user_id": "rob-uuid", "is_admin": True},
+            },
+        )
+        assert response.status == 200
+        authz = mock_relay.relay_turn.await_args.kwargs["authz"]
+        assert authz.role == "super_admin"
+        assert authz.agent_id == "clawd"
     finally:
         await tc.close()
 

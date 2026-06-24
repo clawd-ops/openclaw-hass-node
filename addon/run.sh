@@ -35,6 +35,30 @@ values = {
     'NODE_NAME': data.get('node_name') or '',
     'OPENCLAW_LOCAL_API_TOKEN': data.get('local_api_token') or '',
 }
+identity = data.get('identity') or {}
+if isinstance(identity, dict):
+    super_admins = identity.get('super_admins') or []
+    if isinstance(super_admins, list):
+        values['OPENCLAW_IDENTITY_SUPER_ADMINS'] = json.dumps(super_admins)
+    user_agent_map = identity.get('user_agent_map') or {}
+    if isinstance(user_agent_map, dict):
+        values['OPENCLAW_IDENTITY_USER_AGENT_MAP'] = json.dumps(user_agent_map)
+    default_agent_id = identity.get('default_agent_id') or ''
+    if default_agent_id:
+        values['OPENCLAW_IDENTITY_DEFAULT_AGENT_ID'] = str(default_agent_id)
+    forbidden_commands = identity.get('forbidden_commands') or ''
+    if isinstance(forbidden_commands, dict):
+        values['OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS'] = json.dumps(forbidden_commands)
+    elif isinstance(forbidden_commands, str) and forbidden_commands.strip():
+        values['OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS'] = forbidden_commands.strip()
+addon_lifecycle = data.get('addon_lifecycle') or {}
+if isinstance(addon_lifecycle, dict):
+    allowlist = addon_lifecycle.get('allowlist') or []
+    if isinstance(allowlist, list):
+        values['OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST'] = json.dumps(allowlist)
+    denylist = addon_lifecycle.get('denylist') or []
+    if isinstance(denylist, list):
+        values['OPENCLAW_ADDON_LIFECYCLE_DENYLIST'] = json.dumps(denylist)
 # reset_pairing: the add-on UI exposes a bool toggle (true => "token" mode,
 # false => "none"). Power users can set OPENCLAW_RESET_PAIRING=identity in
 # the container environment (e.g. via a host-side override of the add-on's

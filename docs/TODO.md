@@ -60,10 +60,9 @@ Runtime events (not PRs):
 ## Open items
 
 ### 1. User mapping / identity propagation
-- Status: DESIGN — see [`docs/IDENTITY-AND-SCOPES.md`](./IDENTITY-AND-SCOPES.md)
-- Captures the agreed model (2026-06-23): three roles (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Single `actor` envelope flows shim → addon → gateway → node, enforced at the node dispatcher with a `min_role` table plus a service-domain policy for `ha.call_service`.
-- Replaces the Tier B `OPENCLAW_ADMIN_TOKEN` placeholder in `docs/COMMAND-TIERS.md` and the subagent-allowlist piece of item #11.
-- Phase 2 (separate gateway ticket): mirror the same gate on the gateway's tool surface so `Write`/`Bash`/`Edit` against `~/.openclaw/` aren't a soft spot. Today that's prompt-level only.
+- Status: IMPLEMENTED-IN-PR — see [`docs/IDENTITY-AND-SCOPES.md`](./IDENTITY-AND-SCOPES.md)
+- Captures the agreed addon-only model (2026-06-23): three roles (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Shim forwards `actor`, addon resolves role, prepends a hardened per-turn authorization disclaimer, and optionally sends `agentId` from `identity.user_agent_map` / `default_agent_id`.
+- This is prompt-level for shared-agent setups. Hard concern-A enforcement still comes from gateway-side agent inventories; hard concern-B invoke enforcement still needs a future gateway invoke envelope that carries session/actor context.
 - Highest leverage; cross-links to 7, 9, 11.
 
 ### 7. Issue triage automation
@@ -72,12 +71,12 @@ Runtime events (not PRs):
 - Shares ingress with item 13 (github-bridge).
 
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
-- Status: IN PROGRESS — Tier A done; subagent-side enforcement + Tier B still open. **Tier policy + cadence: see `docs/COMMAND-TIERS.md`.**
+- Status: IN PROGRESS — Tier A done; Tier B implemented in PR; subagent-side enforcement still open. **Tier policy + cadence: see `docs/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
   2. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*`.
-  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) admin-gated via `OPENCLAW_ADMIN_TOKEN` + per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Separate PR with its own admin allowlist surface. See `docs/COMMAND-TIERS.md` for the full policy.
+  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) admin-gated via `OPENCLAW_ADMIN_TOKEN` + per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 
 ### 12. Generated docs site for node command surface + protocols

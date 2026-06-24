@@ -30,6 +30,75 @@ def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     assert str(config.key_path).endswith("/data/openclaw/node-key.json")
 
 
+def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Identity env values parse into typed config."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-token")
+    monkeypatch.setenv("OPENCLAW_IDENTITY_SUPER_ADMINS", '["rob"]')
+    monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", '{"ash":"clawd-household"}')
+    monkeypatch.setenv("OPENCLAW_IDENTITY_DEFAULT_AGENT_ID", "clawd")
+    monkeypatch.setenv(
+        "OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS",
+        '{"user":{"add":["ha.call_service:lock.unlock"],"remove":["script.*"]}}',
+    )
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_DENYLIST", '["bad_addon"]')
+
+    config = load_config()
+
+    assert config.identity.super_admins == frozenset({"rob"})
+    assert config.identity.user_agent_map == {"ash": "clawd-household"}
+    assert config.identity.default_agent_id == "clawd"
+    assert config.identity.forbidden_commands["user"].add == frozenset(
+        {"ha.call_service:lock.unlock"}
+    )
+    assert config.identity.forbidden_commands["user"].remove == frozenset({"script.*"})
+    assert config.identity.addon_lifecycle_allowlist == frozenset({"openclaw_hass_node"})
+    assert config.identity.addon_lifecycle_denylist == frozenset({"bad_addon"})
+
+
+def test_load_config_identity_options_ignore_invalid_shapes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid identity env shapes fail closed to defaults."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-token")
+    monkeypatch.setenv("OPENCLAW_IDENTITY_SUPER_ADMINS", '{"not":"a list"}')
+    monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", '["not", "a map"]')
+    monkeypatch.setenv("OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS", '["not", "a map"]')
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "not-json,other")
+
+    config = load_config()
+
+    assert config.identity.super_admins == frozenset()
+    assert config.identity.user_agent_map == {}
+    assert config.identity.forbidden_commands == {}
+    assert config.identity.addon_lifecycle_allowlist == frozenset({"not-json", "other"})
+
+
+def test_load_config_identity_options_ignore_bad_forbidden_patch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Malformed per-role patches are skipped."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-token")
+    monkeypatch.setenv(
+        "OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS",
+        '{"user":{"add":"bad","remove":[]},"nobody":{"add":["x"],"remove":[]}}',
+    )
+
+    config = load_config()
+
+    assert config.identity.forbidden_commands == {}
+
+
+def test_load_config_identity_bad_json_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Malformed JSON env values are ignored."""
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-token")
+    monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", "{bad-json")
+
+    config = load_config()
+
+    assert config.identity.user_agent_map == {}
+
+
 @pytest.mark.parametrize(
     ("env_value", "expected"),
     [

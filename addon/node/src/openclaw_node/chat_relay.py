@@ -29,6 +29,9 @@ import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, Final
 
+from openclaw_node.authz import TurnAuthz, apply_turn_authz, log_agent_inventory
+from openclaw_node.config import IdentityConfig
+
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _TURN_TIMEOUT_S: Final[float] = 30.0
@@ -110,13 +113,15 @@ class ChatRelay:
             the gateway WS connection.
     """
 
-    def __init__(self, send_fn: SendFn) -> None:
+    def __init__(self, send_fn: SendFn, identity: IdentityConfig | None = None) -> None:
         """Initialise the relay with no active sessions.
 
         Args:
             send_fn: Async callable to send a frame dict over the gateway WS.
+            identity: Addon identity policy used for startup agent diagnostics.
         """
         self._send: SendFn = send_fn
+        self._identity: IdentityConfig = identity or IdentityConfig()
         self._pending: dict[str, asyncio.Future[dict[str, Any]]] = {}
         # Issue #128: maps chat.send request-id → canonical session key.
         # Used by handle_response to apply the new runId to
@@ -180,6 +185,7 @@ class ChatRelay:
         conversation_id: str,
         text: str,
         language: str = "en",  # noqa: ARG002
+        authz: TurnAuthz | None = None,
     ) -> AsyncIterator[str | StreamKeepalive]:
         """Relay one Assist turn and yield assistant text as it streams.
 
@@ -200,6 +206,7 @@ class ChatRelay:
             conversation_id: HA conversation id.
             text: User's input text.
             language: BCP-47 language tag (informational).
+            authz: Optional per-turn actor policy to prepend and route.
 
         Yields:
             ``str`` for each real assistant content chunk and
@@ -213,7 +220,7 @@ class ChatRelay:
         session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
         async with lock:
-            async for chunk in self._stream_turn_locked(session_key, conversation_id, text):
+            async for chunk in self._stream_turn_locked(session_key, conversation_id, text, authz):
                 yield chunk
 
     def _prepare_pending(self) -> tuple[str, asyncio.Future[dict[str, Any]]]:
@@ -249,7 +256,7 @@ class ChatRelay:
         self._seen_same_run_event.pop(canonical_key, None)
 
     async def _stream_turn_locked(
-        self, session_key: str, conversation_id: str, text: str
+        self, session_key: str, conversation_id: str, text: str, authz: TurnAuthz | None
     ) -> AsyncIterator[str | StreamKeepalive]:
         """Inner streaming turn under the per-session lock.
 
@@ -309,6 +316,14 @@ class ChatRelay:
         self._delta_queues[canonical_key] = queue
 
         idempotency_key = str(uuid.uuid4())
+        message = apply_turn_authz(text, authz) if authz is not None else text
+        params: dict[str, Any] = {
+            "sessionKey": session_key,
+            "message": message,
+            "idempotencyKey": idempotency_key,
+        }
+        if authz is not None and authz.agent_id:
+            params["agentId"] = authz.agent_id
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
             self._cleanup_pending_turn(canonical_key, stream=True)
@@ -324,11 +339,7 @@ class ChatRelay:
             "type": "req",
             "id": req_id,
             "method": "chat.send",
-            "params": {
-                "sessionKey": session_key,
-                "message": text,
-                "idempotencyKey": idempotency_key,
-            },
+            "params": params,
         }
         ack_ok = False
         try:
@@ -463,6 +474,7 @@ class ChatRelay:
         conversation_id: str,
         text: str,
         language: str = "en",  # noqa: ARG002
+        authz: TurnAuthz | None = None,
     ) -> str:
         """Relay one Assist turn and return the assistant's reply.
 
@@ -470,6 +482,7 @@ class ChatRelay:
             conversation_id: HA conversation id (stable across follow-ups).
             text: The user's input text.
             language: BCP-47 language tag (informational; not sent to gateway).
+            authz: Optional per-turn actor policy to prepend and route.
 
         Returns:
             The assistant's reply text.
@@ -481,9 +494,11 @@ class ChatRelay:
 
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
         async with lock:
-            return await self._relay_turn_locked(session_key, conversation_id, text)
+            return await self._relay_turn_locked(session_key, conversation_id, text, authz)
 
-    async def _relay_turn_locked(self, session_key: str, conversation_id: str, text: str) -> str:
+    async def _relay_turn_locked(
+        self, session_key: str, conversation_id: str, text: str, authz: TurnAuthz | None
+    ) -> str:
         """Inner relay turn, called under the per-session lock.
 
         Uses a single monotonic deadline for the entire turn (RPC + deferred
@@ -509,6 +524,14 @@ class ChatRelay:
         self._reply_events[canonical_key] = reply_event
 
         idempotency_key = str(uuid.uuid4())
+        message = apply_turn_authz(text, authz) if authz is not None else text
+        params: dict[str, Any] = {
+            "sessionKey": session_key,
+            "message": message,
+            "idempotencyKey": idempotency_key,
+        }
+        if authz is not None and authz.agent_id:
+            params["agentId"] = authz.agent_id
         remaining = deadline - asyncio.get_event_loop().time()
         if remaining <= 0:
             self._cleanup_pending_turn(canonical_key, stream=False)
@@ -520,11 +543,7 @@ class ChatRelay:
             "type": "req",
             "id": req_id,
             "method": "chat.send",
-            "params": {
-                "sessionKey": session_key,
-                "message": text,
-                "idempotencyKey": idempotency_key,
-            },
+            "params": params,
         }
         ack_ok = False
         try:
@@ -657,6 +676,21 @@ class ChatRelay:
         self._canonical_by_raw[session_key] = canonical_key
         self._subscribed.add(canonical_key)
         return canonical_key
+
+    async def log_gateway_agents(self) -> None:
+        """Best-effort startup log for gateway agent mappings.
+
+        This runs over the operator WS after connect. Failure is warning-only:
+        agent inventory is an operator diagnostic, not a reason to keep Assist
+        offline.
+        """
+        try:
+            response = await self._rpc("agents.list", {}, timeout=_RPC_TIMEOUT_S)
+        except ChatRelayError as exc:
+            _LOG.warning("[identity] agents.list failed: %s %s", exc.code, exc.message)
+            return
+        agents = _extract_agent_ids(response)
+        log_agent_inventory(self._identity, agents)
 
     async def _rpc(
         self,
@@ -1083,3 +1117,28 @@ class ChatRelay:
         self._active_run_id.clear()
         self._seen_same_run_event.clear()
         self._turn_locks.clear()
+
+
+def _extract_agent_ids(response: dict[str, Any]) -> tuple[str, ...]:
+    """Extract agent IDs from common ``agents.list`` response shapes."""
+    raw_agents: Any
+    if isinstance(response.get("agents"), list):
+        raw_agents = response["agents"]
+    elif isinstance(response.get("items"), list):
+        raw_agents = response["items"]
+    elif isinstance(response.get("data"), dict):
+        data = response["data"]
+        raw_agents = data["agents"] if isinstance(data.get("agents"), list) else []
+    else:
+        raw_agents = []
+    agent_ids: list[str] = []
+    for raw in raw_agents:
+        if isinstance(raw, str) and raw:
+            agent_ids.append(raw)
+        elif isinstance(raw, dict):
+            for key in ("id", "agentId", "name"):
+                value = raw.get(key)
+                if isinstance(value, str) and value:
+                    agent_ids.append(value)
+                    break
+    return tuple(sorted(set(agent_ids)))

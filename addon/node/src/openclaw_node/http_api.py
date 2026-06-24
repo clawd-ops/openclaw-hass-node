@@ -19,6 +19,7 @@ from typing import Any, Final
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
+from openclaw_node.authz import actor_from_payload, resolve_turn_authz
 from openclaw_node.chat_relay import ChatRelay, ChatRelayError, StreamKeepalive
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
@@ -208,6 +209,17 @@ def _safe_config(config: NodeConfig) -> dict[str, Any]:
     for key in ("hass_token", "supervisor_token", "pairing_token"):
         data[key] = bool(data.get(key))
     data["data_dir"] = str(config.data_dir)
+    data["identity"] = {
+        "super_admins": sorted(config.identity.super_admins),
+        "user_agent_map": dict(sorted(config.identity.user_agent_map.items())),
+        "default_agent_id": config.identity.default_agent_id,
+        "forbidden_commands": {
+            role: {"add": sorted(patch.add), "remove": sorted(patch.remove)}
+            for role, patch in sorted(config.identity.forbidden_commands.items())
+        },
+        "addon_lifecycle_allowlist": sorted(config.identity.addon_lifecycle_allowlist),
+        "addon_lifecycle_denylist": sorted(config.identity.addon_lifecycle_denylist),
+    }
     return data
 
 
@@ -395,6 +407,7 @@ async def assist_turn(request: web.Request) -> web.Response:
     text = str(body.get("text", "")).strip()
     conversation_id = str(body.get("conversation_id", ""))
     language = str(body.get("language", "en"))
+    authz = resolve_turn_authz(runtime.config.identity, actor_from_payload(body.get("actor")))
 
     if not runtime.is_paired:
         return _assist_error(
@@ -431,7 +444,7 @@ async def assist_turn(request: web.Request) -> web.Response:
         )
 
     try:
-        reply = await relay.relay_turn(conversation_id, text, language)
+        reply = await relay.relay_turn(conversation_id, text, language, authz=authz)
     except ChatRelayError as exc:
         _LOG.warning("Assist relay failed: %s %s", exc.code, exc.message)
         return web.json_response(
@@ -518,6 +531,7 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     text = str(body.get("text", "")).strip()
     conversation_id = str(body.get("conversation_id", ""))
     language = str(body.get("language", "en"))
+    authz = resolve_turn_authz(runtime.config.identity, actor_from_payload(body.get("actor")))
 
     # Same precondition checks as the non-streaming variant but expressed
     # as a single early-bail NDJSON error frame.
@@ -545,7 +559,7 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     await response.prepare(request)
 
     try:
-        async for chunk in relay.stream_turn(conversation_id, text, language):
+        async for chunk in relay.stream_turn(conversation_id, text, language, authz=authz):
             if isinstance(chunk, StreamKeepalive):
                 # Transport-only — kept out of the assistant content
                 # stream the HA shim accumulates. Just writing bytes

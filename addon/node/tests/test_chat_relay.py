@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 import pytest
+from _pytest.logging import LogCaptureFixture
 
+from openclaw_node.authz import Actor, resolve_turn_authz
 from openclaw_node.chat_relay import (
     _PENDING_RUN_ID,
     _SESSION_KEY_PREFIX,
     ChatRelay,
     ChatRelayError,
     StreamKeepalive,
+    _extract_agent_ids,
 )
+from openclaw_node.config import IdentityConfig
 
 
 class FakeSender:
@@ -95,6 +100,97 @@ async def test_relay_turn_success() -> None:
 
     assert reply == "Hello from Clawd!"
     assert len(sender.frames) == 3
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
+    """Actor authz prepends disclaimer and pins chat.send agentId."""
+    sender = FakeSender()
+    identity = IdentityConfig(
+        super_admins=frozenset({"rob"}),
+        user_agent_map={"rob": "clawd"},
+        default_agent_id="clawd-household",
+    )
+    relay = ChatRelay(sender.send, identity)
+    authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
+
+    conv_id = "test-conv-authz"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _simulate_gateway() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        send_frame = sender.frames[2]
+        relay.handle_response(_ok_response(send_frame["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_event(_session_message_event(session_key, "assistant", "ok"))
+
+    task = asyncio.create_task(_simulate_gateway())
+    reply = await relay.relay_turn(conv_id, "restart the addon", authz=authz)
+    await task
+
+    params = sender.frames[2]["params"]
+    assert reply == "ok"
+    assert params["agentId"] == "clawd"
+    assert "OpenClaw authorization context" in params["message"]
+    assert "restart the addon" in params["message"]
+    assert "do NOT echo" in params["message"]
+
+
+@pytest.mark.asyncio
+async def test_log_gateway_agents_parses_agent_list(caplog: LogCaptureFixture) -> None:
+    """Startup diagnostic logs mapped agent inventory."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id="clawd"))
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        req = sender.frames[0]
+        assert req["method"] == "agents.list"
+        relay.handle_response(
+            _ok_response(
+                req["id"],
+                {"agents": [{"id": "clawd"}, {"agentId": "clawd-household"}, "clawd-kid"]},
+            )
+        )
+
+    with caplog.at_level(logging.INFO):
+        await asyncio.gather(relay.log_gateway_agents(), _drive())
+
+    assert "clawd" in caplog.text
+    assert "clawd-household" in caplog.text
+    assert "clawd-kid" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_log_gateway_agents_warning_on_rpc_failure(
+    caplog: LogCaptureFixture,
+) -> None:
+    """agents.list failures are warning-only."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        req = sender.frames[0]
+        relay.handle_response(_error_response(req["id"], "NO_METHOD", "nope"))
+
+    with caplog.at_level(logging.WARNING):
+        await asyncio.gather(relay.log_gateway_agents(), _drive())
+
+    assert "agents.list failed" in caplog.text
+
+
+def test_extract_agent_ids_accepts_common_response_shapes() -> None:
+    """agents.list parsing tolerates list/item/data variants."""
+    assert _extract_agent_ids({"items": [{"name": "clawd"}, {"id": ""}, 123]}) == ("clawd",)
+    assert _extract_agent_ids({"data": {"agents": [{"agentId": "clawd-household"}]}}) == (
+        "clawd-household",
+    )
+    assert _extract_agent_ids({"data": {"agents": "bad"}}) == ()
 
 
 @pytest.mark.asyncio
