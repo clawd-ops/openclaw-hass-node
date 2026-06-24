@@ -110,6 +110,54 @@ class OpenClawConversationEntity(ConversationEntity):
             "model": "Home Assistant Node",
         }
 
+    async def _resolve_actor(
+        self,
+        user_input: ConversationInput,
+    ) -> dict[str, Any] | None:
+        """Resolve the HA user behind this turn into an ``actor`` block.
+
+        Returns the dict the addon expects (``{"user_id", "is_admin"}``)
+        when the conversation is bound to a real human HA user. Returns
+        ``None`` for voice satellites without a bound user, system
+        users, and anything else the addon should treat as anonymous —
+        the addon then applies its most-restrictive defaults.
+
+        Filter follows ``docs/IDENTITY-AND-SCOPES.md`` Step 1: drop
+        ``system_generated``, ``local_only``, users whose only
+        credential isn't the ``homeassistant`` auth provider (refresh-
+        token / OAuth-client owners), and a defensive catch-all on
+        users with no name AND no owner AND no admin flags.
+        """
+        user_id = getattr(user_input.context, "user_id", None)
+        if not user_id:
+            return None
+        user = await self.hass.auth.async_get_user(user_id)
+        if user is None:
+            return None
+        if getattr(user, "system_generated", False):
+            return None
+        if getattr(user, "local_only", False):
+            return None
+        credentials = getattr(user, "credentials", []) or []
+        if credentials and not any(
+            getattr(c, "auth_provider_type", "") == "homeassistant" for c in credentials
+        ):
+            return None
+        # Defensive catch-all: no name, no owner flag, no admin flag —
+        # likely an internal user record we didn't anticipate. Treat as
+        # anonymous so the addon falls back to its most-restrictive
+        # defaults.
+        if (
+            not (getattr(user, "name", "") or "").strip()
+            and not getattr(user, "is_owner", False)
+            and not getattr(user, "is_admin", False)
+        ):
+            return None
+        return {
+            "user_id": user.id,
+            "is_admin": bool(getattr(user, "is_admin", False)),
+        }
+
     async def _async_handle_message(
         self,
         user_input: ConversationInput,
@@ -132,14 +180,18 @@ class OpenClawConversationEntity(ConversationEntity):
         api_token = str(self._entry.data.get(CONF_API_TOKEN, "") or "")
         if api_token:
             headers["Authorization"] = f"Bearer {api_token}"
+        body: dict[str, Any] = {
+            "text": user_input.text,
+            "conversation_id": user_input.conversation_id,
+            "language": user_input.language,
+        }
+        actor = await self._resolve_actor(user_input)
+        if actor is not None:
+            body["actor"] = actor
         try:
             async with session.post(
                 url,
-                json={
-                    "text": user_input.text,
-                    "conversation_id": user_input.conversation_id,
-                    "language": user_input.language,
-                },
+                json=body,
                 headers=headers,
                 timeout=timeout,
             ) as response:
