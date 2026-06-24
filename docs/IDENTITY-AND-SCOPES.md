@@ -1,217 +1,250 @@
-# Identity propagation and HA-command authorization
+# Identity propagation and per-user authorization
 
-Design doc. Captures TODO #1 (user identity propagation) as a single,
-narrow problem: **the addon needs to know which HA user is talking
-so it can gate destructive HA commands per user.**
+Design doc covering TODO #1 (user identity propagation).
 
 Status: **draft, not implemented.** Code lands in follow-up PRs.
 
-## Two separate concerns — this doc only covers one
+---
 
-These are easy to conflate. Calling them out explicitly:
+## Two distinct concerns
 
-### Concern A — OpenClaw agent's tool inventory (out of scope)
+Authorization for an HA Assist turn has two separate questions. They
+look similar; they are not the same. This doc keeps them in their own
+sections so they aren't conflated.
 
-What the agent itself is allowed to do (write OpenClaw config,
-execute shell commands, web-search, edit its own memory, etc.) is
-configured per-agent in the operator's gateway `openclaw.json`.
-That is a gateway / operator concern. It is not addressed in this
-repo, and changing it requires no addon code.
+### Concern A — OpenClaw agent permissions within OpenClaw itself
 
-An operator who wants, say, a "household assistant" agent that can
-only read HA state and control lights configures a separate
-`agentId` (`clawd-household`) with a curated tool inventory in
-their gateway config, then routes that agent to the household
-member. None of that touches `openclaw-hass-node`.
+**What the agent itself is permitted to do**: write its own
+config files, run shell commands on the gateway host, web-search,
+edit its own memory, call MCP tools, etc. This is the agent's
+tool inventory plus any gateway-side policy on those tools.
 
-### Concern B — Addon gate for HA commands (the subject of this doc)
+**This is operator-side, gateway config.** Lives in the operator's
+`openclaw.json` per `agentId`. Outside the addon. Not addressed
+by this doc, and changing it requires no addon code.
 
-When the addon receives `node.invoke.request` for `ha.*` /
-`fs.*` / `system.*` commands, it needs to know which HA user
-originated the request so it can apply per-user rules. Specifically:
+When an operator wants a "household assistant" agent that can't
+modify OpenClaw's own state, they curate a separate `agentId`
+(e.g. `clawd-household`) with a restricted tool inventory in
+their gateway config. The addon's only role in concern A is
+**which** `agentId` to use on `chat.send` (see "Agent selection
+on chat.send" below — this is the lone overlap with concern B).
 
-- Non-admin HA users should not be able to trigger HA-mutation
-  commands (`ha.reload_config`, `ha.addon_start`/`stop`/`restart`,
-  `ha.call_service` to dangerous service domains).
-- Only explicitly-listed super-admin HA users should be able to
-  trigger destructive node commands (`fs.write`, `fs.delete`,
-  `system.run`, etc.).
+### Concern B — Restrictions on HA commands the addon dispatches
 
-This is concern B — entirely an addon problem because it gates
-commands the addon dispatches. The operator's gateway-side
-configuration in concern A complements but does not replace this
-gate: even if a permissive agent has `fs.write` in its inventory,
-the addon should refuse the call when the originating HA user is
-not authorized for it.
+**What HA / node commands the addon will dispatch for a given
+HA user.** Even if an agent has `fs.write` in its inventory, the
+addon should refuse to execute it on behalf of a non-admin HA
+user.
 
-Both gates are useful. They protect against different mistakes
-(operator misconfigured an agent vs. user is escalated past their
-HA role). This doc handles the second.
+**This IS this project's job.** Mechanism is detailed below in
+"Concern B — addon-side disclaimer + optional agent routing".
 
-## Mechanism — addon-side gate driven by HA user identity
+These overlap only in that the agentId selected on `chat.send`
+affects what the agent can attempt at all (concern A's surface).
+The addon's per-user enforcement of HA commands is concern B.
 
-Two-step:
+---
 
-1. **Shim propagates HA user identity into the addon** via the
-   existing `POST /v1/conversation/stream` request. Concretely:
-   the HACS integration reads `ConversationInput.context.user_id`
-   from HA's conversation request, looks up the user via
-   `hass.auth.async_get_user(user_id)`, extracts `is_admin`, and
-   sends both on the addon request body:
+## Concern B — addon-side disclaimer + optional agent routing
 
-   ```json
-   {
-     "conversation_id": "<ha-conversation-uuid>",
-     "text": "<user utterance>",
-     "actor": {
-       "user_id": "<ha-user-uuid>",
-       "is_admin": true
-     }
-   }
-   ```
+The clean addon-only mechanism. No gateway changes, no
+correlation-on-invoke-envelope dependency.
 
-   Voice / unbound / service-call turns where no user context
-   exists → omit the `actor` field. Addon treats absence as
-   anonymous (most-restrictive defaults).
+### Step 1 — shim forwards HA user identity
 
-2. **Addon dispatcher gates HA / node commands** using a static
-   rule table keyed by command (and for `ha.call_service`, also
-   keyed by service domain). For each `node.invoke.request` the
-   addon receives, it looks up the originating actor (see "open
-   technical question" below) and applies:
+HACS integration reads HA's conversation context and forwards
+identity on the existing `POST /v1/conversation/stream`:
 
-   | Command class | Required actor flag |
-   |---|---|
-   | Read-only HA + safe-domain `ha.call_service` (lights, switches, scenes, covers, media_player, climate, fan, vacuum, notify, input_*, lock-lock, script) | none — anyone, including anonymous |
-   | HA admin commands — `ha.reload_config`, `ha.addon_start`/`stop`/`restart`, `ha.call_service` to admin-required domains (`homeassistant`, `automation`, `supervisor`) | `is_admin = true` |
-   | Destructive — `fs.write`, `fs.delete`, `fs.move`, `fs.restore`, `fs.patch`, `system.run`, `ha.call_service` to `shell_command.*` / `python_script.*` / `command_line.*`, `(homeassistant, stop)` specifically | `is_admin = true` AND user in addon-options `identity.super_admins` |
-   | Unknown command, unknown service domain | deny for non-admin, allow for `is_admin = true` (admin can experiment) |
+```json
+{
+  "conversation_id": "<ha-conversation-uuid>",
+  "text": "<user utterance>",
+  "actor": {
+    "user_id": "<ha-user-uuid>",
+    "is_admin": true
+  }
+}
+```
 
-   Resolution order for `ha.call_service`: exact (domain, service)
-   match first → domain match → fallback. So `(homeassistant, stop)`
-   correctly elevates to super-admin even though the `homeassistant`
-   domain alone is admin-required.
+`user_id` comes from `ConversationInput.context.user_id`.
+`is_admin` comes from `hass.auth.async_get_user(user_id).is_admin`.
 
-## Addon options
+Voice / unbound / system-generated turns where no user context
+exists → omit the `actor` field. Addon treats absence as
+anonymous (most-restrictive defaults — same forbidden list as
+`user`).
 
-The only operator-facing config this introduces:
+### Step 2 — addon resolves a role
+
+The addon options carry one explicit list:
 
 ```yaml
 identity:
   super_admins:
     - "<ha-user-uuid-of-rob>"
-  # everyone else: role derived from HA's is_admin flag
+  # everyone else: role derived from is_admin
 ```
 
-No `admins:` list — HA tracks that natively. No `user_agent_map`
-or `default_agent_id` — that's concern A and lives in the operator's
-gateway config, not here.
+Resolution (addon-internal):
 
-## What this protects against
+| `actor.is_admin` | `user_id` in `super_admins` | Role |
+|---|---|---|
+| true | true | `super_admin` |
+| true | false | `admin` |
+| false | n/a | `user` |
+| (no actor) | n/a | `user` (anonymous fallback) |
 
-- Non-admin HA users (e.g., kids' accounts, guest accounts) can ask
-  the agent for anything, but the addon refuses to dispatch
-  HA-mutation or destructive commands on their behalf. Worst case
-  for them: lights toggle, read sensor state, run pre-defined
-  scripts (script library is operator's responsibility).
-- HA admins (e.g., spouse) get HA's full UI-equivalent power
-  conversationally. They cannot trigger destructive node commands
-  (`fs.write`, `system.run`, etc.) unless explicitly added to
-  `super_admins`. This mirrors the distinction between "HA admin
-  via UI" (deliberate clicks) and "OpenClaw super-admin"
-  (voice-grade no-friction).
-- Super-admins (Rob) get everything.
+### Step 3 — addon generates the per-turn forbidden-commands list
 
-## What this does NOT protect against
+Static defaults baked into addon code, keyed by role. **No
+operator config needed in the simple case** — defaults are
+auto-generated from the role.
 
-**Agent self-modification via gateway-side tools.** Concern A —
-the agent has its own tool inventory (`Write`, `Edit`, `Bash`, MCP
-file ops) that runs in the gateway's process context, not the
-addon's. None of those calls go through the addon dispatcher; the
-addon cannot gate them. Mitigation is operator-side:
+| Role | Auto-forbidden commands |
+|---|---|
+| `user` | `fs.write`, `fs.delete`, `fs.move`, `fs.restore`, `fs.patch`, `system.run`, `ha.reload_config`, `ha.addon_start`, `ha.addon_stop`, `ha.addon_restart`, `ha.call_service` to any domain other than the safe-domain set (`light`, `switch`, `scene`, `cover`, `media_player`, `climate`, `fan`, `vacuum`, `notify`, `input_*`, `lock`, `script`) |
+| `admin` | `fs.write`, `fs.delete`, `fs.move`, `fs.restore`, `fs.patch`, `system.run`, `ha.call_service` to super-only domains (`shell_command`, `python_script`, `command_line`) and to the specific `(homeassistant, stop)` service |
+| `super_admin` | none |
 
-- Curate per-agent tool inventory in `openclaw.json` so destructive
-  gateway tools aren't in the agent the household uses.
-- System prompt instructions for the agent (prompt-injectable,
-  weak).
+Operators wanting finer control can override per role via addon
+options:
 
-Documented prominently in user-facing README + INSTALL so operators
-understand the boundary.
-
-## Open technical question — actor correlation on inbound invokes
-
-The addon receives `node.invoke.request` from the gateway. The
-canonical envelope (verified in
-`/app/dist/node-registry-D3vmVKIR.js:268-275`) is:
-
-```json
-{
-  "id": "<request-uuid>",
-  "nodeId": "<node-uuid>",
-  "command": "ha.call_service",
-  "paramsJSON": "<...>",
-  "timeoutMs": 60000,
-  "idempotencyKey": null
-}
+```yaml
+identity:
+  super_admins: [<rob-uuid>]
+  # Optional per-role overrides (advanced)
+  forbidden_commands:
+    user:
+      add: ["ha.call_service:lock.unlock"]   # restrict beyond default
+      remove: ["script.*"]                    # loosen default
+    admin:
+      add: ["ha.call_service:notify.discord"] # operator-specific concern
 ```
 
-**No `runId`, no `sessionKey`, no `agentId`, no actor of any kind.**
-Only exception: `system.run` specifically gets a `runId` injected
-into its `params` via `withSystemRunEventRunId` on the gateway side.
+`add`/`remove` patch the defaults; full replacement is
+intentionally not supported (operators should NOT have to know
+the full default list to make a single-item tweak).
 
-That means today the addon cannot correlate an inbound invoke back
-to the HA user that originated the conversation turn. Without that
-correlation, step 2 of the mechanism above cannot fire.
+### Step 4 — addon injects a disclaimer into the chat.send turn
 
-**Three resolution paths**, ordered by preference:
+The forbidden list is converted to a prompt prefix prepended to
+the user turn before `chat.send`:
 
-1. **Find an addon-only correlation surface.** Investigate whether
-   HA's `Conversation` integration provides a stable mapping from
-   the in-flight `chat.send` to a turn id the addon can stash, and
-   whether the addon could correlate via a turn-serial counter
-   (only one turn per HA `conversation_id` is in flight at a time
-   by HA's contract). If yes, addon-only is feasible by keying on
-   `(conversation_id, turn_serial)` instead of `runId`.
-2. **Stash actor on the most recently-seen chat.send for this
-   session and trust monotonicity.** Workable for typical HA
-   Assist turns (one user, one in-flight turn per session), brittle
-   if HA Assist ever overlaps turns or restarts. Defense-in-depth
-   only; needs a clear bail-out.
-3. **Gateway PR** to add `sessionKey` (or `runId`) to the invoke
-   envelope. Strictly violates the "addon-only" rule for this
-   project but is the cleanest end-state. Smallest possible
-   gateway change: one field added to a payload that already
-   exists.
+```text
+[OpenClaw authorization context]
+Calling HA user: <user_id> (role: user)
+You are FORBIDDEN from invoking the following commands or service
+domains for this turn:
+  - fs.write, fs.delete, fs.move, fs.restore, fs.patch
+  - system.run
+  - ha.reload_config, ha.addon_start, ha.addon_stop, ha.addon_restart
+  - ha.call_service to any domain other than light/switch/scene/
+    cover/media_player/climate/fan/vacuum/notify/input_*/lock/script
+If asked to do any of these, refuse politely and explain that this
+user is not authorized.
+[end authorization context]
 
-**This doc commits to options 1 + 2 first, with option 3 as the
-fallback if neither lands cleanly.** The investigation of (1) and
-(2) is the next thing to do after this doc merges; the
-implementation order below assumes correlation is solved.
+<original user utterance>
+```
 
-## Implementation order (post correlation-investigation)
+This is **prompt-level only**, not software-enforced. A
+sufficiently determined prompt-injection attack on the user side
+could talk past it. Honesty in the docs: this catches the model
+trying to comply with a casual / misfire request from a
+not-authorized user; it does not stop an adversarial prompt.
+
+### Step 5 — agent selection on chat.send (optional, the one overlap with concern A)
+
+When the operator has configured concern-A agents (e.g.
+`clawd-household` in their gateway `openclaw.json`), they can
+also tell the addon to route certain users to certain agents:
+
+```yaml
+identity:
+  super_admins: [<rob-uuid>]
+  user_agent_map:
+    "<household-uuid>": "clawd-household"   # tools missing fs.*, system.run, etc.
+  default_agent_id: "clawd"
+```
+
+This is concern A in mechanism (operator chose the agent
+inventory) but concern B in selection (addon picks based on
+user). If the agent doesn't have the forbidden tools in its
+inventory, the prompt disclaimer becomes belt-and-suspenders —
+the agent literally cannot attempt them.
+
+For Rob's house: `user_agent_map` empty, everyone uses `clawd`,
+disclaimer is the only protection. Operators with stricter
+posture: populate the map.
+
+---
+
+## What this design does NOT enforce
+
+**Hard software-block on shared-agent setups.** When multiple HA
+users share one agent (Rob's case), the only thing protecting
+the non-super users from destructive commands is the prompt
+disclaimer. The addon cannot software-gate the inbound
+`node.invoke.request` because the gateway's invoke envelope
+carries no actor / sessionKey / runId (verified in
+`/app/dist/node-registry-D3vmVKIR.js:268-275`). The correlation
+gap is real and addon-only solutions for it (in-flight
+serialization, monotonic-order tagging) are too fragile to
+ship.
+
+Operators who want hard enforcement use the optional concern-A
+mechanism (Step 5): route restricted users to agents whose
+inventories don't include destructive tools.
+
+**Agent self-modification.** Same concern A: the agent has its
+own gateway-side tools (`Write`, `Edit`, `Bash`, MCP file ops)
+that don't go through the addon dispatcher. Operator-side
+mitigation is to curate the agent's inventory.
+
+---
+
+## Implementation order
 
 1. **Shim** — forward `actor: {user_id, is_admin}` on
-   `/v1/conversation/stream`. Voice / unbound turns omit. Tests
-   with mocked `hass.auth.async_get_user`.
-2. **Addon options schema** — add `identity.super_admins: []` to
-   `addon/config.yaml`.
-3. **Addon ChatRelay** — stash actor at chat.send time keyed by
-   the correlation surface chosen above.
-4. **Addon dispatcher** — static rule table + service-domain
-   policy + dispatcher gate before handler invocation. Regression
-   test per row. Includes a probe with a forged actor (addon
-   should not accept actor data from anywhere except the shim
-   path).
-5. **Tier B commands** — `ha.addon_start`/`stop`/`restart`
-   register against the existing dispatcher and the admin gate
-   applies automatically.
-6. **Docs** — update `docs/COMMAND-TIERS.md` to reference this
-   doc for the gate mechanism (drop `OPENCLAW_ADMIN_TOKEN`).
-   README + INSTALL: operator-facing `identity:` block + the
-   self-modification caveat (concern A out-of-scope here).
+   `/v1/conversation/stream`. Voice / unbound / system-generated
+   turns omit the field. Tests with mocked
+   `hass.auth.async_get_user`.
+2. **Addon options schema** — add `identity.super_admins: []`,
+   optional `identity.forbidden_commands` per-role
+   `add`/`remove`, optional `identity.user_agent_map` +
+   `identity.default_agent_id`.
+3. **Addon role resolver** — pure function:
+   `(actor, super_admins) -> role`.
+4. **Addon forbidden-list generator** — pure function:
+   `(role, overrides) -> list[str]`. Single source of truth for
+   the defaults table above.
+5. **Addon ChatRelay** — at `chat.send` time, build the
+   disclaimer block from the resolved role and forbidden list,
+   prepend to `text`. Select `agentId` from `user_agent_map` (or
+   default). Tests exercising each role + override combination.
+6. **Docs** — README + INSTALL get the operator-facing
+   `identity:` block explanation and the honest "prompt-level
+   only" caveat for shared-agent setups.
+
+## Open questions
+
+- **Disclaimer placement.** Prepending to user text is the
+  simplest and most-supported approach. If the gateway exposes a
+  `system_context` / `instructions` field on `chat.send` later,
+  switch to that. Should not require addon changes beyond
+  swapping the field name.
+- **Forbidden-list updates as new commands ship.** When a future
+  PR adds `ha.foo_command`, the defaults table must be updated.
+  Add a CI lint: registered commands MUST appear in at least one
+  role's defaults table OR be tagged as `read_only_safe`.
+- **HA "Local" user types.** HA has a few special user kinds
+  (long-lived access tokens, system users, OAuth clients). The
+  shim's `user.system_generated` check covers the obvious cases;
+  edge cases need empirical testing during implementation.
 
 ## References
 
-- `docs/TODO.md` — TODO #1 (user identity propagation)
-- `docs/COMMAND-TIERS.md` — Tier A/B/C policy this design feeds the gate mechanism for
-- `/app/dist/node-registry-D3vmVKIR.js:268-275` — canonical `node.invoke.request` envelope (no actor today)
+- `docs/TODO.md` — TODO #1
+- `docs/COMMAND-TIERS.md` — Tier A/B/C policy this disclaimer enumerates from
+- `/app/dist/node-registry-D3vmVKIR.js:268-275` — canonical `node.invoke.request` envelope (no actor today; addon-only enforcement infeasible at this layer)
