@@ -125,6 +125,9 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.addon_stats",
         "ha.addon_changelog",
         "ha.addon_documentation",
+        "ha.addon_start",
+        "ha.addon_stop",
+        "ha.addon_restart",
     ]
 
 

@@ -95,6 +95,9 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.addon_stats",
     "ha.addon_changelog",
     "ha.addon_documentation",
+    "ha.addon_start",
+    "ha.addon_stop",
+    "ha.addon_restart",
 ]
 # The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
 # in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.
@@ -501,7 +504,9 @@ class GatewayClient:
             async def _ws_send(frame: dict[str, Any]) -> None:
                 await ws.send(json.dumps(frame))
 
-            relay: ChatRelay | None = ChatRelay(_ws_send) if self._chat_relay_enabled else None
+            relay: ChatRelay | None = (
+                ChatRelay(_ws_send, self._config.identity) if self._chat_relay_enabled else None
+            )
 
             # Step 6: mark per-role connected on the runtime so the local
             # API can report. Each connection sets its own role-specific
@@ -511,6 +516,7 @@ class GatewayClient:
                 self._set_runtime_connected(True)
                 if relay is not None:
                     self._runtime.chat_relay = relay
+                    await relay.log_gateway_agents()
 
             try:
                 # Step 7: main event loop

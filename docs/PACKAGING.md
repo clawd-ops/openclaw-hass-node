@@ -38,6 +38,7 @@ openclaw-hass-node/
 │       │   ├── __init__.py          # Version + importlib.metadata
 │       │   ├── __main__.py          # Detects add-on (app) vs standalone
 │       │   ├── config.py            # Env-driven configuration
+│       │   ├── authz.py             # HA actor role/disclaimer + agent routing
 │       │   ├── identity.py          # Ed25519 device identity
 │       │   ├── gateway_ws.py        # Gateway WS client (role: node)
 │       │   ├── ha_client.py         # HA REST + WS client
@@ -45,13 +46,13 @@ openclaw-hass-node/
 │       │   ├── safe_fd.py           # TOCTOU-safe fd primitives
 │       │   ├── backup_store.py      # Content-addressed backup store
 │       │   └── commands/
-│       │       ├── dispatcher.py    # Command registry (34 commands)
+│       │       ├── dispatcher.py    # Command registry (37 commands)
 │       │       ├── ping.py
 │       │       ├── fs.py            # fs.read/list/stat/glob
 │       │       ├── fs_write.py      # fs.write/restore/history/diff
 │       │       ├── fs_patch.py      # fs.patch
 │       │       ├── fs_move_delete.py # fs.move/delete
-│       │       ├── ha.py            # 20 ha.* commands
+│       │       ├── ha.py            # 23 ha.* commands
 │       │       ├── system.py        # system.which
 │       │       └── system_run.py    # system.run (admin-gated)
 │       └── tests/

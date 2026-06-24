@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 34 commands are registered.
+OpenClaw conventions where they exist. 37 commands are registered.
 
 Addon-management commands are tiered by blast radius. Tier A
 (read-only) is on the subagent allowlist; Tier B (lifecycle) is
@@ -49,7 +49,7 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (20 commands)
+## `ha.*` — Home Assistant control (23 commands)
 
 | Command                   | Args / Notes                           |
 |---------------------------|----------------------------------------|
@@ -73,6 +73,9 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `ha.addon_stats`          | `slug`; allowlisted utilisation metrics (cpu_percent, memory_usage/limit/percent, network_rx/tx, blk_read/write). Read-only |
 | `ha.addon_changelog`      | `slug`; addon changelog markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_documentation`  | `slug`; addon documentation markdown, bounded 1 MiB trailing window. Read-only |
+| `ha.addon_start`          | `slug`, `admin_token`; Tier B lifecycle command. Requires matching `OPENCLAW_ADMIN_TOKEN`, explicit `addon_lifecycle.allowlist` opt-in, and is always denied for `homeassistant`, `supervisor`, and `core_*` slugs |
+| `ha.addon_stop`           | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; idempotent when already stopped |
+| `ha.addon_restart`        | `slug`, `admin_token`; same Tier B gate as `ha.addon_start` |
 
 ## Planned (not yet registered)
 

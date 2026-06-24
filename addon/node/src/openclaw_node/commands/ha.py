@@ -26,11 +26,17 @@ Commands in this module:
 - ``ha.addon_stats``          — per-addon CPU/memory/network/io numbers (read-only).
 - ``ha.addon_changelog``      — per-addon changelog markdown (read-only).
 - ``ha.addon_documentation``  — per-addon documentation markdown (read-only).
+- ``ha.addon_start``          — start an explicitly allowlisted add-on (Tier B).
+- ``ha.addon_stop``           — stop an explicitly allowlisted add-on (Tier B).
+- ``ha.addon_restart``        — restart an explicitly allowlisted add-on (Tier B).
 """
 
 from __future__ import annotations
 
+import hmac
+import json
 import logging
+import os
 import re
 from typing import Any, Final
 
@@ -41,6 +47,7 @@ from openclaw_node.ha_client import (
     ha_ws_call,
     supervisor_get_json,
     supervisor_get_text,
+    supervisor_post_json,
 )
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -304,15 +311,9 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True}`` on success or an error dict.
     """
-    import hmac
-    import os
-
-    required = os.environ.get("OPENCLAW_ADMIN_TOKEN", "")
-    if not required:
-        return _error("PERMISSION_DENIED", "ha.reload_config: admin gate not configured")
-    caller = str(params.get("admin_token", ""))
-    if not hmac.compare_digest(caller.encode(), required.encode()):
-        return _error("PERMISSION_DENIED", "ha.reload_config requires operator admin token")
+    denied = _admin_token_ok(params, "ha.reload_config")
+    if denied is not None:
+        return denied
 
     try:
         await ha_post("/api/services/homeassistant/reload_core_config")
@@ -496,6 +497,10 @@ _ADDON_LOGS_MAX_BYTES: Final[int] = 1_048_576
 
 
 _ADDON_SLUG_RE: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_CORE_ADDON_PREFIX: Final[str] = "core_"
+_DEFAULT_ADDON_LIFECYCLE_DENYLIST: Final[frozenset[str]] = frozenset(
+    {"homeassistant", "supervisor"}
+)
 
 
 def _valid_addon_slug(slug: str) -> bool:
@@ -512,6 +517,88 @@ def _valid_addon_slug(slug: str) -> bool:
     if not slug or len(slug) > _ADDON_SLUG_MAX_LEN:
         return False
     return _ADDON_SLUG_RE.match(slug) is not None
+
+
+def _admin_token_ok(params: dict[str, Any], command: str) -> dict[str, Any] | None:
+    """Return an error dict when the OPENCLAW_ADMIN_TOKEN gate fails."""
+    required = os.environ.get("OPENCLAW_ADMIN_TOKEN", "")
+    if not required:
+        return _error("PERMISSION_DENIED", f"{command}: admin gate not configured")
+    caller = str(params.get("admin_token", ""))
+    if not hmac.compare_digest(caller.encode(), required.encode()):
+        return _error("PERMISSION_DENIED", f"{command} requires operator admin token")
+    return None
+
+
+def _parse_env_list(name: str) -> frozenset[str]:
+    """Parse JSON-list or comma-separated env values as lowercase strings."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return frozenset()
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        values = raw.split(",")
+    else:
+        values = parsed if isinstance(parsed, list) else []
+    return frozenset(str(item).strip().casefold() for item in values if str(item).strip())
+
+
+def _addon_lifecycle_policy_error(slug: str) -> dict[str, Any] | None:
+    """Return an error if slug is not allowed for Tier B lifecycle commands."""
+    if slug.startswith(_CORE_ADDON_PREFIX):
+        return _error("PERMISSION_DENIED", f"addon lifecycle denied for core slug: {slug}")
+    denylist = _DEFAULT_ADDON_LIFECYCLE_DENYLIST | _parse_env_list(
+        "OPENCLAW_ADDON_LIFECYCLE_DENYLIST"
+    )
+    if slug.casefold() in denylist:
+        return _error("PERMISSION_DENIED", f"addon lifecycle denied for slug: {slug}")
+    allowlist = _parse_env_list("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
+    if slug.casefold() not in allowlist:
+        return _error("PERMISSION_DENIED", f"addon lifecycle slug not allowlisted: {slug}")
+    return None
+
+
+async def _addon_state(slug: str) -> str:
+    """Return Supervisor's current state for an add-on slug, or empty string."""
+    raw = await supervisor_get_json(f"/addons/{slug}/info")
+    if isinstance(raw, dict) and isinstance(raw.get("data"), dict):
+        state = raw["data"].get("state")
+        return state if isinstance(state, str) else ""
+    return ""
+
+
+async def _handle_addon_lifecycle(
+    params: dict[str, Any],
+    *,
+    command: str,
+    action: str,
+    desired_state: str | None,
+) -> dict[str, Any]:
+    """Shared Tier B start/stop/restart handler."""
+    denied = _admin_token_ok(params, command)
+    if denied is not None:
+        return denied
+    slug = str(params.get("slug", "")).strip()
+    if not slug:
+        return _error("MISSING_PARAM", "slug is required")
+    if not _valid_addon_slug(slug):
+        return _error("INVALID_PARAM", f"invalid addon slug: {slug!r}")
+    policy_error = _addon_lifecycle_policy_error(slug)
+    if policy_error is not None:
+        return policy_error
+
+    try:
+        before = await _addon_state(slug)
+        if desired_state is not None and before == desired_state:
+            _LOG.info("Tier B %s skipped for %s: already %s", command, slug, before)
+            return {"ok": True, "slug": slug, "state": before, "changed": False}
+        _LOG.warning("Tier B %s invoked for addon slug=%s", command, slug)
+        await supervisor_post_json(f"/addons/{slug}/{action}")
+        after = await _addon_state(slug)
+    except HAClientError as exc:
+        return _to_error(exc)
+    return {"ok": True, "slug": slug, "state": after, "changed": True}
 
 
 async def handle_ha_addon_logs(params: dict[str, Any]) -> dict[str, Any]:
@@ -825,3 +912,33 @@ async def handle_ha_addon_documentation(params: dict[str, Any]) -> dict[str, Any
         return _to_error(exc)
 
     return {"ok": True, "slug": slug, "documentation": body}
+
+
+async def handle_ha_addon_start(params: dict[str, Any]) -> dict[str, Any]:
+    """Start an explicitly allowlisted Supervisor add-on (Tier B)."""
+    return await _handle_addon_lifecycle(
+        params,
+        command="ha.addon_start",
+        action="start",
+        desired_state="started",
+    )
+
+
+async def handle_ha_addon_stop(params: dict[str, Any]) -> dict[str, Any]:
+    """Stop an explicitly allowlisted Supervisor add-on (Tier B)."""
+    return await _handle_addon_lifecycle(
+        params,
+        command="ha.addon_stop",
+        action="stop",
+        desired_state="stopped",
+    )
+
+
+async def handle_ha_addon_restart(params: dict[str, Any]) -> dict[str, Any]:
+    """Restart an explicitly allowlisted Supervisor add-on (Tier B)."""
+    return await _handle_addon_lifecycle(
+        params,
+        command="ha.addon_restart",
+        action="restart",
+        desired_state=None,
+    )

@@ -2,7 +2,10 @@
 
 Design doc covering TODO #1 (user identity propagation).
 
-Status: **draft, not implemented.** Code lands in follow-up PRs.
+Status: **implemented in follow-up PRs.** PR #164 shipped shim
+actor forwarding; the addon PR implements options parsing, role
+resolution, forbidden-list disclaimer injection, `agentId` routing,
+startup agent-list diagnostics, and Tier B lifecycle commands.
 
 ---
 
@@ -161,11 +164,8 @@ options:
 ```yaml
 identity:
   super_admins: [<rob-uuid>]
-  # Optional per-role overrides (advanced)
-  forbidden_commands:
-    user:
-      add: ["ha.call_service:lock.unlock"]   # restrict beyond default
-      remove: ["script.*"]                    # loosen default
+  # Optional per-role overrides (advanced, JSON string in addon UI)
+  forbidden_commands: '{"user":{"add":["ha.call_service:lock.unlock"],"remove":["script.*"]}}'
     admin:
       add: ["ha.call_service:notify.discord"] # operator-specific concern
 ```
@@ -435,23 +435,25 @@ mitigation is to curate the agent's inventory.
 1. **Shim** — forward `actor: {user_id, is_admin}` on
    `/v1/conversation/stream`. Voice / unbound / system-generated
    turns omit the field. Tests with mocked
-   `hass.auth.async_get_user`.
+   `hass.auth.async_get_user`. **Done in PR #164.**
 2. **Addon options schema** — add `identity.super_admins: []`,
-   optional `identity.forbidden_commands` per-role
+   optional `identity.forbidden_commands` JSON string with per-role
    `add`/`remove`, optional `identity.user_agent_map` +
-   `identity.default_agent_id`.
+   `identity.default_agent_id`. **Implemented.**
 3. **Addon role resolver** — pure function:
-   `(actor, super_admins) -> role`.
+   `(actor, super_admins) -> role`. **Implemented.**
 4. **Addon forbidden-list generator** — pure function:
    `(role, overrides) -> list[str]`. Single source of truth for
-   the defaults table above.
+   the defaults table above. **Implemented.**
 5. **Addon ChatRelay** — at `chat.send` time, build the
    disclaimer block from the resolved role and forbidden list,
    prepend to `text`. Select `agentId` from `user_agent_map` (or
    default). Tests exercising each role + override combination.
+   **Implemented.**
 6. **Docs** — README + INSTALL get the operator-facing
    `identity:` block explanation and the honest "prompt-level
-   only" caveat for shared-agent setups.
+   only" caveat for shared-agent setups. **Partially implemented;
+   README/INSTALL operator polish can follow the implementation PR.**
 
 ## Open questions
 

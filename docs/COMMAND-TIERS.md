@@ -58,7 +58,7 @@ Decide before iterating on `ha.addon_info`.
 Reserved for Clawd-as-Rob or Rob himself. Same `OPENCLAW_ADMIN_TOKEN`
 gate as `ha.reload_config`.
 
-Proposed surface (not yet implemented):
+Shipped surface:
 
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
@@ -68,10 +68,11 @@ Additional constraints on top of the admin-token gate:
 
 - **Slug allow/deny list at addon-config level.** Always deny
   `homeassistant`, `supervisor`, and `core_*` regardless of token.
-  Other slugs default-deny, opt-in.
-- **Audit log every invocation** with caller identity once TODO item
-  #1 (user mapping) lands. Until then, log the gateway session key +
-  the admin-token presence boolean.
+  Other slugs default-deny via `addon_lifecycle.allowlist`, with an
+  optional extra `addon_lifecycle.denylist`.
+- **Audit log every invocation** at WARNING with command + slug. Per-HA-user
+  actor is currently available only on the Assist ingress, not on the
+  `node.invoke.request` envelope for command dispatch.
 - **Idempotent shape.** Start-of-already-started and stop-of-already-
   stopped should return `{ok: True, state: "<current>"}` rather than
   surfacing Supervisor's `400`.
@@ -109,8 +110,8 @@ that cache after a release.
 ## PR cadence
 
 - One Tier A command per PR, each individually reviewable.
-- Tier B lands as a separate PR with the admin allowlist surface
-  wired up first (so the gate exists before any mutator can call it).
+- Tier B landed with the admin token gate and slug allowlist in the same
+  implementation PR as identity routing.
 - Tier C never lands without a fresh, scoped ask.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.
@@ -123,5 +124,5 @@ that cache after a release.
    BEFORE any subagent path is wired to call these commands.
 3. Wire the subagent path to use the Tier A surface instead of the
    HA MCP server.
-4. (Separate, later) Implement the Tier B surface with the admin
-   allowlist gate.
+4. Tier B surface with the admin allowlist gate (done in the identity
+   routing implementation PR).
