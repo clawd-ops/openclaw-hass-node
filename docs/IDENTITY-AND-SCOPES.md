@@ -44,6 +44,13 @@ These overlap only in that the agentId selected on `chat.send`
 affects what the agent can attempt at all (concern A's surface).
 The addon's per-user enforcement of HA commands is concern B.
 
+**Both ship in this design.** The addon does its own concern-B
+work (disclaimer injection on every turn) AND offers the
+operator a way to route different HA users to different
+operator-configured agents (the addon-side hook into concern A).
+The agent personality / scope / inventory itself stays operator
+config; the routing is the addon's job.
+
 ---
 
 ## Concern B — addon-side disclaimer + optional agent routing
@@ -154,29 +161,53 @@ could talk past it. Honesty in the docs: this catches the model
 trying to comply with a casual / misfire request from a
 not-authorized user; it does not stop an adversarial prompt.
 
-### Step 5 — agent selection on chat.send (optional, the one overlap with concern A)
+### Step 5 — per-user agent selection on chat.send
 
-When the operator has configured concern-A agents (e.g.
-`clawd-household` in their gateway `openclaw.json`), they can
-also tell the addon to route certain users to certain agents:
+The addon's first-class hook into concern A. Today's `chat.send`
+from this addon sends no `agentId` field (`chat_relay.py:326-332`
+and `:522-528`), so the gateway picks whatever default it has
+configured for the session. After this design lands, the addon
+resolves a per-HA-user agent and passes it explicitly.
+
+Use cases (both real, both supported):
+
+- **Different permissions per member.** Household members route to
+  agents that operator configured (in `openclaw.json`) with
+  restricted tool inventories — e.g. `clawd-household` lacks
+  `fs.write`/`system.run`, `clawd-readonly` lacks `ha.call_service`
+  entirely. Belt-and-suspenders with the disclaimer.
+- **Different personalities per member.** Kids get a fun helper
+  agent; spouse gets a no-nonsense one; you get the full Clawd.
+  Nothing to do with security — just the right voice for the right
+  person.
+
+Addon options:
 
 ```yaml
 identity:
   super_admins: [<rob-uuid>]
   user_agent_map:
-    "<household-uuid>": "clawd-household"   # tools missing fs.*, system.run, etc.
+    "<ash-uuid>": "clawd-household"
+    "<kid-uuid>": "clawd-kid"
   default_agent_id: "clawd"
+  # Unmapped users (incl. anonymous voice satellite turns) → default_agent_id
 ```
 
-This is concern A in mechanism (operator chose the agent
-inventory) but concern B in selection (addon picks based on
-user). If the agent doesn't have the forbidden tools in its
-inventory, the prompt disclaimer becomes belt-and-suspenders —
-the agent literally cannot attempt them.
+Resolution at chat.send time:
 
-For Rob's house: `user_agent_map` empty, everyone uses `clawd`,
-disclaimer is the only protection. Operators with stricter
-posture: populate the map.
+1. Look up `actor.user_id` in `user_agent_map` → that's the agentId.
+2. Miss → use `default_agent_id`.
+3. No default configured → omit the `agentId` field (gateway picks
+   its own default, today's behavior).
+
+Addon adds `"agentId": "<resolved>"` to the `chat.send` `params`
+block when it resolves a non-null agent. Verified the gateway
+already accepts this field (server-chat.js:139) — no gateway
+change needed.
+
+For Rob's house: leave `user_agent_map` empty, set
+`default_agent_id: clawd`. Same as today, disclaimer is the only
+protection. Add per-user mappings when concern-A agents exist.
 
 ---
 
