@@ -296,11 +296,92 @@ change needed.
 `user_agent_map` maps a user to an `agentId` that does not exist
 in the gateway's `openclaw.json` agents registry, the gateway
 silently falls through to its default agent. No error returned to
-the operator. Recommended mitigation: addon adds a startup check
-that pings `agents.list` on the gateway and logs a WARNING for
-every mapped agentId that isn't present. The check doesn't fail
-startup (gateway agents might be configured async) but the
-warning surfaces the misconfiguration in the addon log.
+the operator.
+
+**Logging requirements** (must ship with this design, not deferred):
+
+1. **At addon startup**, after the gateway connection establishes,
+   ping `agents.list` and log at INFO level:
+
+   ```
+   [identity] Gateway agents available: clawd (default), clawd-household, clawd-kid
+   [identity] Resolved user_agent_map:
+     <rob-uuid> → clawd
+     <ash-uuid> → clawd-household
+   [identity] default_agent_id: clawd
+   ```
+
+2. **For each mapped `agentId` not present in `agents.list`**, log
+   at WARNING:
+
+   ```
+   [identity] WARNING: user_agent_map[<ash-uuid>] = "clawd-kid"
+              but no such agent in gateway. Falling back to
+              default_agent_id ("clawd") for this user. Available
+              agents: clawd, clawd-household.
+   ```
+
+   Both the misconfigured value AND the available agents go in
+   the same log line so the operator can fix it without grepping.
+
+3. **For `default_agent_id` not present**, log at ERROR (this is
+   the fallback that catches everything else):
+
+   ```
+   [identity] ERROR: default_agent_id "clawd-foo" not in gateway
+              agents list. Unmapped users will hit the gateway's
+              own default agent (whatever that is). Available
+              agents: clawd, clawd-household.
+   ```
+
+4. **Per-turn**, log at DEBUG the resolved actor + agent so
+   operators debugging "why did Clawd refuse" can see it:
+
+   ```
+   [identity] turn user_id=<rob-uuid> is_admin=true role=super_admin
+              agent=clawd forbidden_count=0
+   ```
+
+5. **On UNCLASSIFIED_COMMAND deny** (Step 3a's fail-safe), log at
+   WARNING with the command and role so the operator notices a
+   new command needs classifying:
+
+   ```
+   [identity] WARNING: denying unclassified command "ha.foo" for
+              role=user (registered but missing from defaults
+              table). Update commands/dispatcher.py defaults to
+              classify.
+   ```
+
+Startup checks do NOT fail addon startup (gateway agents may be
+configured async or take a moment to register). The warnings are
+the surface area for the operator to fix it.
+
+### Future direction — HA UI for identity mapping
+
+Editing YAML in the addon's Configuration tab is fine for the
+first cut, but eventually this belongs in the HA UI as a proper
+config flow:
+
+- A new options screen on the OpenClaw Gateway integration
+  (`custom_components/openclaw_gateway/`) that lets the operator:
+  1. Pick from a **populated dropdown of HA users** (HA's auth
+     manager exposes the list — no UUID typing required).
+  2. Pick from a **populated dropdown of gateway agents** (queried
+     live from the gateway's `agents.list` — prevents misconfig
+     entirely; no way to map to a non-existent agentId).
+  3. Set `super_admins` membership as a checkbox per user.
+- Underlying storage stays the addon options for now; the HA UI
+  becomes a thin write-through to that schema. (Eventually the
+  whole `identity:` block could move to integration options if
+  that's cleaner.)
+- Same UX for the optional `forbidden_commands` per-role
+  `add`/`remove` overrides — start as advanced-YAML-only, surface
+  in UI later.
+
+Out of scope for the initial implementation PR series — this is
+a follow-up after Step 1-6 ship. Tracked here so it's not
+forgotten when someone has bandwidth.
 
 For Rob's house: leave `user_agent_map` empty, set
 `default_agent_id: clawd`. Same as today, disclaimer is the only
