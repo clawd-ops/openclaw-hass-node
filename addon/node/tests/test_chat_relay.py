@@ -186,7 +186,7 @@ async def test_log_gateway_agents_warning_on_rpc_failure(
 
 def test_extract_agent_ids_accepts_common_response_shapes() -> None:
     """agents.list parsing tolerates list/item/data variants."""
-    assert _extract_agent_ids({"items": [{"name": "clawd"}, {"id": ""}, 123]}) == ("clawd",)
+    assert _extract_agent_ids({"items": [{"name": "clawd"}, {"id": ""}, 123]}) == ()
     assert _extract_agent_ids({"data": {"agents": [{"agentId": "clawd-household"}]}}) == (
         "clawd-household",
     )

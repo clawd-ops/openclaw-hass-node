@@ -62,6 +62,7 @@ def normalize_pairing_token(raw: str) -> str:
 _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
 _EMPTY = "".join(())
+DEFAULT_ADDON_LIFECYCLE_DENYLIST = frozenset({"homeassistant", "supervisor"})
 
 
 @dataclass(frozen=True)
@@ -79,10 +80,11 @@ class IdentityConfig:
     super_admins: frozenset[str] = field(default_factory=frozenset)
     user_agent_map: dict[str, str] = field(default_factory=dict)
     default_agent_id: str = ""
+    actor_secret: str = ""
     forbidden_commands: dict[str, ForbiddenCommandPatch] = field(default_factory=dict)
     addon_lifecycle_allowlist: frozenset[str] = field(default_factory=frozenset)
     addon_lifecycle_denylist: frozenset[str] = field(
-        default_factory=lambda: frozenset({"homeassistant", "supervisor"})
+        default_factory=lambda: DEFAULT_ADDON_LIFECYCLE_DENYLIST
     )
 
 
@@ -270,6 +272,7 @@ def _parse_identity_config() -> IdentityConfig:
         super_admins=frozenset(_parse_string_list_env("OPENCLAW_IDENTITY_SUPER_ADMINS")),
         user_agent_map=_parse_string_map_env("OPENCLAW_IDENTITY_USER_AGENT_MAP"),
         default_agent_id=os.environ.get("OPENCLAW_IDENTITY_DEFAULT_AGENT_ID", "").strip(),
+        actor_secret=os.environ.get("OPENCLAW_IDENTITY_ACTOR_SECRET", "").strip(),
         forbidden_commands=_parse_forbidden_patches_env("OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS"),
         addon_lifecycle_allowlist=frozenset(
             _parse_string_list_env("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
@@ -277,7 +280,7 @@ def _parse_identity_config() -> IdentityConfig:
         addon_lifecycle_denylist=frozenset(
             _parse_string_list_env(
                 "OPENCLAW_ADDON_LIFECYCLE_DENYLIST",
-                default=("homeassistant", "supervisor"),
+                default=tuple(sorted(DEFAULT_ADDON_LIFECYCLE_DENYLIST)),
             )
         ),
     )

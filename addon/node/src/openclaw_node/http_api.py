@@ -19,7 +19,7 @@ from typing import Any, Final
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
-from openclaw_node.authz import actor_from_payload, resolve_turn_authz
+from openclaw_node.authz import actor_from_signed_body, resolve_turn_authz
 from openclaw_node.chat_relay import ChatRelay, ChatRelayError, StreamKeepalive
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
@@ -206,19 +206,17 @@ def _safe_config(config: NodeConfig) -> dict[str, Any]:
         Dict without tokens or pairing secrets.
     """
     data = asdict(config)
-    for key in ("hass_token", "supervisor_token", "pairing_token"):
+    for key in ("hass_token", "supervisor_token", "pairing_token", "local_api_token"):
         data[key] = bool(data.get(key))
     data["data_dir"] = str(config.data_dir)
     data["identity"] = {
-        "super_admins": sorted(config.identity.super_admins),
-        "user_agent_map": dict(sorted(config.identity.user_agent_map.items())),
-        "default_agent_id": config.identity.default_agent_id,
-        "forbidden_commands": {
-            role: {"add": sorted(patch.add), "remove": sorted(patch.remove)}
-            for role, patch in sorted(config.identity.forbidden_commands.items())
-        },
-        "addon_lifecycle_allowlist": sorted(config.identity.addon_lifecycle_allowlist),
-        "addon_lifecycle_denylist": sorted(config.identity.addon_lifecycle_denylist),
+        "super_admin_count": len(config.identity.super_admins),
+        "user_agent_map_count": len(config.identity.user_agent_map),
+        "default_agent_id_configured": bool(config.identity.default_agent_id),
+        "actor_secret_configured": bool(config.identity.actor_secret),
+        "forbidden_commands_roles": sorted(config.identity.forbidden_commands),
+        "addon_lifecycle_allowlist_count": len(config.identity.addon_lifecycle_allowlist),
+        "addon_lifecycle_denylist_count": len(config.identity.addon_lifecycle_denylist),
     }
     return data
 
@@ -407,7 +405,10 @@ async def assist_turn(request: web.Request) -> web.Response:
     text = str(body.get("text", "")).strip()
     conversation_id = str(body.get("conversation_id", ""))
     language = str(body.get("language", "en"))
-    authz = resolve_turn_authz(runtime.config.identity, actor_from_payload(body.get("actor")))
+    authz = resolve_turn_authz(
+        runtime.config.identity,
+        actor_from_signed_body(body, runtime.config.identity),
+    )
 
     if not runtime.is_paired:
         return _assist_error(
@@ -531,7 +532,10 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     text = str(body.get("text", "")).strip()
     conversation_id = str(body.get("conversation_id", ""))
     language = str(body.get("language", "en"))
-    authz = resolve_turn_authz(runtime.config.identity, actor_from_payload(body.get("actor")))
+    authz = resolve_turn_authz(
+        runtime.config.identity,
+        actor_from_signed_body(body, runtime.config.identity),
+    )
 
     # Same precondition checks as the non-streaming variant but expressed
     # as a single early-bail NDJSON error frame.

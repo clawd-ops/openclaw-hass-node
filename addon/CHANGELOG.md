@@ -1,5 +1,18 @@
 # OpenClaw Node Add-on Changelog
 
+## Unreleased
+
+### Fixes
+- **Fix-forward for identity-routing review findings.** HA actor metadata is
+  now trusted only when the HACS shim signs the actor plus turn fields with
+  the separate `identity.actor_secret`; unsigned or bad signatures fall back
+  to the restrictive anonymous/user policy. Public health responses redact
+  identity details to counts/booleans, forbidden-command output uses matchable
+  command patterns, admin prompt policy includes Tier B lifecycle commands,
+  lifecycle allow/deny parsing uses the shared config parser, startup
+  `agents.list` diagnostics no longer block operator connect, and
+  `agents.list` parsing no longer treats display `name` as an agent id.
+
 ## 2026.6.20b7 (2026-06-24) — HA Assist identity routing + Tier B add-on lifecycle commands
 
 ### Features

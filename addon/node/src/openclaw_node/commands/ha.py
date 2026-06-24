@@ -34,12 +34,12 @@ Commands in this module:
 from __future__ import annotations
 
 import hmac
-import json
 import logging
 import os
 import re
 from typing import Any, Final
 
+from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
     HAClientError,
     ha_get,
@@ -498,9 +498,6 @@ _ADDON_LOGS_MAX_BYTES: Final[int] = 1_048_576
 
 _ADDON_SLUG_RE: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _CORE_ADDON_PREFIX: Final[str] = "core_"
-_DEFAULT_ADDON_LIFECYCLE_DENYLIST: Final[frozenset[str]] = frozenset(
-    {"homeassistant", "supervisor"}
-)
 
 
 def _valid_addon_slug(slug: str) -> bool:
@@ -530,30 +527,22 @@ def _admin_token_ok(params: dict[str, Any], command: str) -> dict[str, Any] | No
     return None
 
 
-def _parse_env_list(name: str) -> frozenset[str]:
-    """Parse JSON-list or comma-separated env values as lowercase strings."""
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return frozenset()
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        values = raw.split(",")
-    else:
-        values = parsed if isinstance(parsed, list) else []
-    return frozenset(str(item).strip().casefold() for item in values if str(item).strip())
+def _parse_slug_env(name: str, *, default: frozenset[str] = frozenset()) -> frozenset[str]:
+    """Parse lifecycle slug env values using the shared config parser."""
+    parsed = _parse_string_list_env(name, default=tuple(sorted(default)))
+    return frozenset(item.casefold() for item in parsed)
 
 
 def _addon_lifecycle_policy_error(slug: str) -> dict[str, Any] | None:
     """Return an error if slug is not allowed for Tier B lifecycle commands."""
     if slug.startswith(_CORE_ADDON_PREFIX):
         return _error("PERMISSION_DENIED", f"addon lifecycle denied for core slug: {slug}")
-    denylist = _DEFAULT_ADDON_LIFECYCLE_DENYLIST | _parse_env_list(
+    denylist = DEFAULT_ADDON_LIFECYCLE_DENYLIST | _parse_slug_env(
         "OPENCLAW_ADDON_LIFECYCLE_DENYLIST"
     )
     if slug.casefold() in denylist:
         return _error("PERMISSION_DENIED", f"addon lifecycle denied for slug: {slug}")
-    allowlist = _parse_env_list("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
+    allowlist = _parse_slug_env("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
     if slug.casefold() not in allowlist:
         return _error("PERMISSION_DENIED", f"addon lifecycle slug not allowlisted: {slug}")
     return None

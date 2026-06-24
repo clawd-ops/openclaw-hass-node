@@ -108,6 +108,10 @@ options:
     user_agent_map: {}
     # Empty preserves today's gateway-default routing.
     default_agent_id: ""
+    # Separate shared secret used by the HACS shim to sign HA actor metadata.
+    # Without this, forwarded actor blocks are ignored and Assist turns use
+    # the restrictive anonymous/user policy.
+    actor_secret: ""
     # Advanced prompt-policy patches as JSON. Defaults are generated in code;
     # use add/remove to adjust a role without replacing the whole default list.
     # Example: {"user":{"add":["ha.call_service:lock.unlock"],"remove":[]}}
@@ -141,6 +145,7 @@ schema:
       - str
     user_agent_map: dict?
     default_agent_id: str?
+    actor_secret: password?
     forbidden_commands: str?
   addon_lifecycle:
     allowlist:

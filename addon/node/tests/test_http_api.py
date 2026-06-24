@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ import pytest_asyncio
 from aiohttp.test_utils import TestClient, TestServer
 from aiohttp.web import Application, Request
 
+from openclaw_node.authz import Actor, sign_actor
 from openclaw_node.config import NodeConfig
 from openclaw_node.http_api import NodeRuntime, aiohttp_timeout, create_app
 from openclaw_node.pairing import PairingState
@@ -66,6 +68,9 @@ async def test_health(client: TestClient[Request, Application]) -> None:
     assert data["ok"] is True
     assert data["config"]["hass_token"] is False
     assert data["config"]["pairing_token"] is False
+    local_api_token = data["config"]["local_api_token"]
+    assert local_api_token != _TEST_TOKEN
+    assert local_api_token is True
 
 
 @pytest.mark.asyncio
@@ -288,6 +293,71 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
             super_admins=frozenset({"rob-uuid"}),
             user_agent_map={"rob-uuid": "clawd"},
             default_agent_id="clawd-household",
+            actor_secret="actor-secret",
+        ),
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.relay_turn = AsyncMock(return_value="Done")
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        actor_ts = int(time.time())
+        response = await tc.post(
+            "/v1/conversation",
+            json={
+                "text": "restart addon",
+                "conversation_id": "conv-actor",
+                "actor": {"user_id": "rob-uuid", "is_admin": True},
+                "actor_ts": actor_ts,
+                "actor_signature": sign_actor(
+                    "actor-secret",
+                    actor=Actor("rob-uuid", is_admin=True),
+                    text="restart addon",
+                    conversation_id="conv-actor",
+                    language="en",
+                    ts=actor_ts,
+                ),
+            },
+        )
+        assert response.status == 200
+        authz = mock_relay.relay_turn.await_args.kwargs["authz"]
+        assert authz.role == "super_admin"
+        assert authz.agent_id == "clawd"
+    finally:
+        await tc.close()
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_ignores_unsigned_actor(tmp_path: Path) -> None:
+    """Unsigned actor metadata cannot elevate role or select mapped agents."""
+    from openclaw_node.chat_relay import ChatRelay
+    from openclaw_node.config import IdentityConfig
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+        identity=IdentityConfig(
+            super_admins=frozenset({"rob-uuid"}),
+            user_agent_map={"rob-uuid": "clawd"},
+            default_agent_id="clawd-household",
+            actor_secret="actor-secret",
         ),
     )
     runtime = NodeRuntime(config)
@@ -315,8 +385,8 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
         )
         assert response.status == 200
         authz = mock_relay.relay_turn.await_args.kwargs["authz"]
-        assert authz.role == "super_admin"
-        assert authz.agent_id == "clawd"
+        assert authz.role == "user"
+        assert authz.agent_id == "clawd-household"
     finally:
         await tc.close()
 

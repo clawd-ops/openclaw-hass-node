@@ -1136,7 +1136,7 @@ def _extract_agent_ids(response: dict[str, Any]) -> tuple[str, ...]:
         if isinstance(raw, str) and raw:
             agent_ids.append(raw)
         elif isinstance(raw, dict):
-            for key in ("id", "agentId", "name"):
+            for key in ("id", "agentId"):
                 value = raw.get(key)
                 if isinstance(value, str) and value:
                     agent_ids.append(value)
