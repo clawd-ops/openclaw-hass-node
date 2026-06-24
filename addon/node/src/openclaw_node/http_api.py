@@ -213,7 +213,7 @@ def _safe_config(config: NodeConfig) -> dict[str, Any]:
         "super_admin_count": len(config.identity.super_admins),
         "user_agent_map_count": len(config.identity.user_agent_map),
         "default_agent_id_configured": bool(config.identity.default_agent_id),
-        "actor_secret_configured": bool(config.identity.actor_secret),
+        "actor_signing_configured": bool(config.local_api_token),
         "forbidden_commands_roles": sorted(config.identity.forbidden_commands),
         "addon_lifecycle_allowlist_count": len(config.identity.addon_lifecycle_allowlist),
         "addon_lifecycle_denylist_count": len(config.identity.addon_lifecycle_denylist),
@@ -407,7 +407,7 @@ async def assist_turn(request: web.Request) -> web.Response:
     language = str(body.get("language", "en"))
     authz = resolve_turn_authz(
         runtime.config.identity,
-        actor_from_signed_body(body, runtime.config.identity),
+        actor_from_signed_body(body, runtime.config.local_api_token),
     )
 
     if not runtime.is_paired:
@@ -534,7 +534,7 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     language = str(body.get("language", "en"))
     authz = resolve_turn_authz(
         runtime.config.identity,
-        actor_from_signed_body(body, runtime.config.identity),
+        actor_from_signed_body(body, runtime.config.local_api_token),
     )
 
     # Same precondition checks as the non-streaming variant but expressed

@@ -24,9 +24,10 @@ from homeassistant.helpers import intent
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_ACTOR_SECRET, CONF_API_TOKEN, CONF_SOCKET_URL, DOMAIN
+from .const import CONF_API_TOKEN, CONF_SOCKET_URL, DOMAIN
 
 _STREAM_ENDPOINT: Final[str] = "/v1/conversation/stream"
+_ACTOR_SIGNING_KEY_LABEL: Final[bytes] = b"openclaw-hass-node actor-signing v1"
 
 
 class _StreamErrorFrame(Exception):
@@ -72,6 +73,18 @@ def _sign_actor(
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), "sha256").hexdigest()
+
+
+def _derive_actor_signing_secret(api_token: str) -> str:
+    """Return the actor-signing subkey derived from the configured API token."""
+    token = api_token.strip()
+    if not token:
+        return ""
+    return hmac.new(
+        token.encode("utf-8"),
+        _ACTOR_SIGNING_KEY_LABEL,
+        "sha256",
+    ).hexdigest()
 
 
 async def async_setup_entry(
@@ -215,12 +228,12 @@ class OpenClawConversationEntity(ConversationEntity):
         actor = await self._resolve_actor(user_input)
         if actor is not None:
             body["actor"] = actor
-            actor_secret = str(self._entry.data.get(CONF_ACTOR_SECRET, "") or "")
-            if actor_secret:
+            actor_signing_secret = _derive_actor_signing_secret(api_token)
+            if actor_signing_secret:
                 actor_ts = int(time.time())
                 body["actor_ts"] = actor_ts
                 body["actor_signature"] = _sign_actor(
-                    actor_secret,
+                    actor_signing_secret,
                     actor=actor,
                     text=user_input.text,
                     conversation_id=user_input.conversation_id,

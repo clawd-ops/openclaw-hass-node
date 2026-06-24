@@ -37,6 +37,7 @@ _SAFE_CALL_SERVICE_DOMAINS: Final[tuple[str, ...]] = (
     "script",
 )
 _ACTOR_SIGNATURE_WINDOW_S: Final[int] = 300
+_ACTOR_SIGNING_KEY_LABEL: Final[bytes] = b"openclaw-hass-node actor-signing v1"
 
 _DEFAULT_FORBIDDEN: Final[dict[Role, frozenset[str]]] = {
     "user": frozenset(
@@ -104,19 +105,22 @@ def actor_from_payload(raw: Any) -> Actor | None:
     return Actor(user_id=user_id.strip(), is_admin=bool(raw.get("is_admin")))
 
 
-def actor_from_signed_body(body: dict[str, Any], identity: IdentityConfig) -> Actor | None:
+def actor_from_signed_body(body: dict[str, Any], local_api_token: str) -> Actor | None:
     """Return a verified HA actor from an Assist request body.
 
     The local bearer token proves access to the node API, not which HA user
-    originated an Assist turn. Role and per-user agent routing therefore only
-    trust ``actor`` when the HACS shim signs the actor plus turn fields with
-    the separate ``identity.actor_secret``.
+    originated an Assist turn. Role and per-user agent routing therefore trust
+    ``actor`` only when the HACS shim signs the actor plus turn fields with a
+    key derived from the same local API token it already uses to authenticate to
+    this node. The derivation keeps the signing concept separate in code
+    without requiring the operator to configure a third shared secret.
     """
     actor = actor_from_payload(body.get("actor"))
     if actor is None:
         return None
-    if not identity.actor_secret:
-        _LOG.warning("[identity] unsigned actor ignored because actor_secret is not configured")
+    signing_secret = derive_actor_signing_secret(local_api_token)
+    if not signing_secret:
+        _LOG.warning("[identity] actor ignored because local_api_token is not configured")
         return None
     ts_raw = body.get("actor_ts")
     signature = body.get("actor_signature")
@@ -128,7 +132,7 @@ def actor_from_signed_body(body: dict[str, Any], identity: IdentityConfig) -> Ac
         _LOG.warning("[identity] actor ignored because signature timestamp is outside window")
         return None
     expected = sign_actor(
-        identity.actor_secret,
+        signing_secret,
         actor=actor,
         text=str(body.get("text", "")),
         conversation_id=str(body.get("conversation_id", "")),
@@ -139,6 +143,18 @@ def actor_from_signed_body(body: dict[str, Any], identity: IdentityConfig) -> Ac
         _LOG.warning("[identity] actor ignored because signature check failed")
         return None
     return actor
+
+
+def derive_actor_signing_secret(local_api_token: str) -> str:
+    """Return the HMAC subkey used for HA actor metadata signatures."""
+    token = local_api_token.strip()
+    if not token:
+        return ""
+    return hmac.new(
+        token.encode("utf-8"),
+        _ACTOR_SIGNING_KEY_LABEL,
+        "sha256",
+    ).hexdigest()
 
 
 def sign_actor(

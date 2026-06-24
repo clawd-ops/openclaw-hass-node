@@ -15,7 +15,7 @@ import pytest_asyncio
 from aiohttp.test_utils import TestClient, TestServer
 from aiohttp.web import Application, Request
 
-from openclaw_node.authz import Actor, sign_actor
+from openclaw_node.authz import Actor, derive_actor_signing_secret, sign_actor
 from openclaw_node.config import NodeConfig
 from openclaw_node.http_api import NodeRuntime, aiohttp_timeout, create_app
 from openclaw_node.pairing import PairingState
@@ -293,7 +293,6 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
             super_admins=frozenset({"rob-uuid"}),
             user_agent_map={"rob-uuid": "clawd"},
             default_agent_id="clawd-household",
-            actor_secret="actor-secret",
         ),
     )
     runtime = NodeRuntime(config)
@@ -320,7 +319,7 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
                 "actor": {"user_id": "rob-uuid", "is_admin": True},
                 "actor_ts": actor_ts,
                 "actor_signature": sign_actor(
-                    "actor-secret",
+                    derive_actor_signing_secret(_TEST_TOKEN),
                     actor=Actor("rob-uuid", is_admin=True),
                     text="restart addon",
                     conversation_id="conv-actor",
@@ -357,7 +356,6 @@ async def test_assist_turn_ignores_unsigned_actor(tmp_path: Path) -> None:
             super_admins=frozenset({"rob-uuid"}),
             user_agent_map={"rob-uuid": "clawd"},
             default_agent_id="clawd-household",
-            actor_secret="actor-secret",
         ),
     )
     runtime = NodeRuntime(config)

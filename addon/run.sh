@@ -46,9 +46,6 @@ if isinstance(identity, dict):
     default_agent_id = identity.get('default_agent_id') or ''
     if default_agent_id:
         values['OPENCLAW_IDENTITY_DEFAULT_AGENT_ID'] = str(default_agent_id)
-    actor_secret = identity.get('actor_secret') or ''
-    if actor_secret:
-        values['OPENCLAW_IDENTITY_ACTOR_SECRET'] = str(actor_secret)
     forbidden_commands = identity.get('forbidden_commands') or ''
     if isinstance(forbidden_commands, dict):
         values['OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS'] = json.dumps(forbidden_commands)

@@ -152,13 +152,12 @@ stored approved-commands stays empty and you'll have to
        selects them on `chat.send`.
      - `default_agent_id`: fallback `agentId`; leave blank to preserve
        the gateway default.
-     - `actor_secret`: separate random shared secret used by the HACS
-       shim to sign HA actor metadata. Set this if you want HA
-       `is_admin`, `super_admins`, or `user_agent_map` to affect a
-       turn; unsigned actor blocks are ignored and resolve as the
-       restrictive anonymous/user policy.
      - `forbidden_commands`: advanced per-role `add`/`remove` prompt
        policy patches as a JSON string.
+     HA actor metadata is signed by the HACS shim with a key derived
+     from `local_api_token`; there is no separate actor-signing secret
+     to paste. If `local_api_token` is not configured, the local API is
+     fail-closed and Assist turns cannot use identity routing.
      This is prompt-level protection for shared-agent setups. Hard
      OpenClaw-side permission separation comes from routing a user to an
      agent whose gateway tool inventory is restricted.
@@ -216,10 +215,6 @@ first successful pairing** — it's consumed.
      you set in the add-on config (step 2). The field renders as a
      password. The local API is fail-closed; if you skip this, the
      shim will get `401 NO_TOKEN_CONFIGURED` on every Assist turn.
-   - **Actor signing secret** *(recommended when identity routing is
-     configured)*: paste the same `identity.actor_secret` value from
-     the add-on config. Without this, the node ignores forwarded actor
-     metadata and applies the anonymous/user policy.
 5. Settings → **Voice assistants** → set OpenClaw Gateway as the
    conversation agent for whichever assistant you want.
 

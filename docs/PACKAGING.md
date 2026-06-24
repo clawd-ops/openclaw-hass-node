@@ -99,9 +99,7 @@ options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
   node_name: ""
-  local_api_token: ""    # shared bearer for the local HTTP API (HACS shim)
-  identity:
-    actor_secret: ""     # separate HACS-shim HMAC secret for HA actor metadata
+  local_api_token: ""    # shared bearer; also root for HA actor-signing subkey
   hass_url: ""
   hass_token: ""
 ingress: false

@@ -15,7 +15,6 @@ from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
 from .const import (
-    CONF_ACTOR_SECRET,
     CONF_API_TOKEN,
     CONF_SOCKET_URL,
     CONVERSATION_INFO_ENDPOINT,
@@ -211,7 +210,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             socket_url = _normalise_socket_url(str(user_input[CONF_SOCKET_URL]))
             api_token = str(user_input.get(CONF_API_TOKEN, "") or "")
-            actor_secret = str(user_input.get(CONF_ACTOR_SECRET, "") or "")
             await self.async_set_unique_id(socket_url)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
@@ -219,7 +217,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data={
                     CONF_SOCKET_URL: socket_url,
                     CONF_API_TOKEN: api_token,
-                    CONF_ACTOR_SECRET: actor_secret,
                 },
             )
 
@@ -230,7 +227,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_SOCKET_URL, default=suggested_url): str,
                 vol.Optional(CONF_API_TOKEN, default=""): _pw,
-                vol.Optional(CONF_ACTOR_SECRET, default=""): _pw,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors={})
@@ -249,7 +245,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             socket_url = _normalise_socket_url(str(user_input[CONF_SOCKET_URL]))
             submitted_token = str(user_input.get(CONF_API_TOKEN, "") or "")
-            submitted_actor_secret = str(user_input.get(CONF_ACTOR_SECRET, "") or "")
             url_changed = socket_url != _normalise_socket_url(current_url)
             if submitted_token:
                 api_token = submitted_token
@@ -257,12 +252,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 api_token = ""
             else:
                 api_token = str(entry.data.get(CONF_API_TOKEN, "") or "")
-            if submitted_actor_secret:
-                actor_secret = submitted_actor_secret
-            elif url_changed:
-                actor_secret = ""
-            else:
-                actor_secret = str(entry.data.get(CONF_ACTOR_SECRET, "") or "")
             # If URL is unchanged, skip unique_id update. If changed, the
             # new URL must not collide with another entry's unique_id.
             # _abort_if_unique_id_mismatch can't be used because the URL
@@ -278,7 +267,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data={
                     CONF_SOCKET_URL: socket_url,
                     CONF_API_TOKEN: api_token,
-                    CONF_ACTOR_SECRET: actor_secret,
                 },
             )
 
@@ -287,7 +275,6 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_SOCKET_URL, default=current_url): str,
                 vol.Optional(CONF_API_TOKEN, default=""): _pw,
-                vol.Optional(CONF_ACTOR_SECRET, default=""): _pw,
             }
         )
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors={})

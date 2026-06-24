@@ -164,7 +164,6 @@ options:
 ```yaml
 identity:
   super_admins: [<rob-uuid>]
-  actor_secret: <random-shared-secret>
   # Optional per-role overrides (advanced, JSON string in addon UI)
   forbidden_commands: '{"user":{"add":["ha.call_service:lock.unlock"],"remove":["script.*"]}}'
 ```
@@ -287,11 +286,12 @@ Resolution at chat.send time:
    its own default, today's behavior).
 
 The add-on trusts `actor` only when the HACS shim signs the actor plus
-turn fields with `identity.actor_secret`. If the secret is unset, the
-signature is missing, or the signature fails, the add-on ignores the
-actor block and uses the restrictive anonymous/user policy. This keeps a
-leaked `local_api_token` from being enough to spoof HA admin or
-super-admin context.
+turn fields with a signing key derived from `local_api_token`. If the
+local API token is unset, the signature is missing, or the signature
+fails, the add-on ignores the actor block and uses the restrictive
+anonymous/user policy. This keeps actor signing bound to the existing
+node/HACS-shim shared token without requiring operators to configure a
+third secret.
 
 Addon adds `"agentId": "<resolved>"` to the `chat.send` `params`
 block when it resolves a non-null agent. Verified the gateway
