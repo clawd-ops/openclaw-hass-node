@@ -18,12 +18,20 @@
   dead code with a misleading warning.
 
 ### Full `addon/config.yaml` schema audit (this release)
-Validated every option's schema validator against HA Supervisor's
-accepted set (str/int/float/bool/password/email/port/url/match/list/
-nested-object). All current validators are in-set after the b9 `dict?`
-fix. The only remaining lint is the older `map: config:rw` colon
-syntax; Rob's Supervisor accepts it without warning, so leaving alone
-until/unless flagged.
+Audited the whole manifest against the HA developer docs
+(`https://developers.home-assistant.io/docs/apps/configuration/`):
+
+- **`map:`** modernized from the older colon shorthand
+  (`- config:rw`) to the docs-primary dict form
+  (`- type: config\n  read_only: false`). Same runtime behavior;
+  matches the canonical reference.
+- All option `schema:` validators (`url`, `password`, `str?`,
+  `password?`, `bool?`, `- str`, `- {ha_user_id: str, agent_id: str}`)
+  are in the documented validator set: `str`, `bool`, `int`, `float`,
+  `email`, `url`, `password`, `port`, `match(REGEX)`,
+  `list(val1|val2|...)`, `device`, and nested objects (up to 2 levels).
+- `hassio_role: manager` and `panel_icon: mdi:robot-happy` confirmed
+  valid against docs.
 
 ## 2026.6.20b9 (2026-06-27) — Supervisor manifest re-parse fix (`user_agent_map` schema)
 

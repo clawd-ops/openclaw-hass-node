@@ -38,30 +38,30 @@ homeassistant_api: true
 # HA Auth API. Re-enable only if a shipped surface validates HA-issued
 # tokens with the Supervisor auth endpoint.
 map:
-  # config:rw — `/config` write capability is granted at the OS layer
-  # so the proposal-approved write path can land without re-touching
-  # this manifest.
-  #
-  # For the fs.* mutation commands (fs.write, fs.patch, fs.restore,
-  # fs.move, fs.delete), the actual write-protection boundary is the
-  # software gate: `_is_protected("/config")` returns True and each
-  # handler returns `PROPOSAL_REQUIRED` before any disk write/unlink/
-  # rename is attempted (see addon/node/src/openclaw_node/commands/
-  # fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
-  #
+  # /config — write capability granted at the OS layer so the
+  # proposal-approved write path can land without re-touching this
+  # manifest. For the fs.* mutation commands (fs.write, fs.patch,
+  # fs.restore, fs.move, fs.delete) the actual write-protection
+  # boundary is the software gate: `_is_protected("/config")` returns
+  # True and each handler returns `PROPOSAL_REQUIRED` before any disk
+  # write/unlink/rename is attempted (see addon/node/src/openclaw_node/
+  # commands/fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
   # NOT gated: `system.run` (commands/system_run.py) is admin-token
   # gated (OPENCLAW_ADMIN_TOKEN) and can write anywhere the mount
   # allows, including /config. The admin token is the protection
   # boundary there, NOT _is_protected. Don't broaden system.run's
   # capabilities without re-evaluating this trade-off.
-  - config:rw
-  # share:rw — backs the per-file content-addressed backup store
+  - type: config
+    read_only: false
+  # /share — backs the per-file content-addressed backup store
   # (/share/openclaw-backups) and the delete trash fallback
   # (/share/openclaw-trash). Real shipped writes.
-  - share:rw
-  # media:rw — `/media` is an allowed root and not protected, so
-  # `fs.write` can resolve and atomically write here.
-  - media:rw
+  - type: share
+    read_only: false
+  # /media — allowed root, not protected, so `fs.write` can resolve
+  # and atomically write here.
+  - type: media
+    read_only: false
 # Removed maps (re-add when a shipped feature needs them):
 #   ssl:ro      — would expose TLS certs via generic fs.read/list/glob
 #   addons:ro   — no shipped add-on enumeration reader
