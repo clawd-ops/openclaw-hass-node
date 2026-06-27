@@ -542,4 +542,3 @@ Entrypoint detects mode for the standalone dev-host path:
 - `SUPERVISOR_TOKEN` present -> add-on mode, talks to
   `http://supervisor/` and `http://homeassistant/`.
 - Else -> standalone, uses `HASS_URL` + `HASS_TOKEN`.
-
