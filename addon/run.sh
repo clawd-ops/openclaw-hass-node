@@ -40,9 +40,30 @@ if isinstance(identity, dict):
     super_admins = identity.get('super_admins') or []
     if isinstance(super_admins, list):
         values['OPENCLAW_IDENTITY_SUPER_ADMINS'] = json.dumps(super_admins)
-    user_agent_map = identity.get('user_agent_map') or {}
+    # user_agent_map is configured as a list of {ha_user_id, agent_id}
+    # objects (the HA addon-schema canonical shape for arbitrary
+    # key-value maps; raw `dict?` is not in Supervisor's validator set).
+    # The addon's internal contract is still dict[str, str], so flatten
+    # the list to a dict here before serializing to the env var.
+    user_agent_map = identity.get('user_agent_map') or []
     if isinstance(user_agent_map, dict):
-        values['OPENCLAW_IDENTITY_USER_AGENT_MAP'] = json.dumps(user_agent_map)
+        import sys
+        sys.stderr.write(
+            "[openclaw-node] WARNING: identity.user_agent_map is a dict "
+            "(pre-b9 shape) and is silently ignored. Re-enter entries via "
+            "the add-on UI as a list of {ha_user_id, agent_id} objects.\n"
+        )
+    elif isinstance(user_agent_map, list):
+        flat = {}
+        for entry in user_agent_map:
+            if not isinstance(entry, dict):
+                continue
+            ha_user = entry.get('ha_user_id')
+            agent_id = entry.get('agent_id')
+            if isinstance(ha_user, str) and isinstance(agent_id, str) and ha_user.strip() and agent_id.strip():
+                flat[ha_user.strip()] = agent_id.strip()
+        if flat:
+            values['OPENCLAW_IDENTITY_USER_AGENT_MAP'] = json.dumps(flat)
     default_agent_id = identity.get('default_agent_id') or ''
     if default_agent_id:
         values['OPENCLAW_IDENTITY_DEFAULT_AGENT_ID'] = str(default_agent_id)

@@ -1,5 +1,31 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b9 (2026-06-27) — Supervisor manifest re-parse fix (`user_agent_map` schema)
+
+### Fixes
+- **Addon would not appear as an Update past b6 since b7 shipped.** Root
+  cause: the `identity.user_agent_map` option used schema validator
+  `dict?`, which is not in HA Supervisor's allowed addon-schema validator
+  set (`str`, `int`, `float`, `bool`, `password`, `email`, `port`, `url`,
+  `match(...)`, lists, nested objects). On every git pull Supervisor
+  re-parsed the manifest, the new b7/b8 manifest failed schema
+  validation silently, and Supervisor kept its cached b6 record (Update
+  prompt missing, icon disappeared, `App fcccfbbd_openclaw_hass_node
+  does not exist in the store` on Changelog open).
+- **Switched `user_agent_map` to the HA-canonical list-of-objects shape:**
+  `[{ha_user_id: str, agent_id: str}, ...]`. Supervisor renders a proper
+  list editor in the UI; `run.sh` flattens the list to a dict before
+  exporting `OPENCLAW_IDENTITY_USER_AGENT_MAP` so the internal
+  `dict[str, str]` contract in `config.py` / `IdentityConfig` is
+  unchanged. Pre-1.0 alpha: no back-compat fallback for the old dict
+  shape.
+
+### Operator note
+After updating, existing operators who had populated `user_agent_map`
+will need to re-enter their entries under the new list-of-objects
+shape in the addon Configuration tab. Empty `user_agent_map` (the
+default) requires no action.
+
 ## 2026.6.20b8 (2026-06-27) — Identity-routing hardening + docs architecture reshape
 
 ### Fixes
