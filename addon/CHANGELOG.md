@@ -1,6 +1,6 @@
 # OpenClaw Node Add-on Changelog
 
-## 2026.6.20b11 (2026-06-27) — Tool-progress chunk lands on a new line after preamble text
+## Unreleased
 
 ### Fixes
 - **Tool-progress line ("🔧 Calling Bash...") now starts on a new line
@@ -12,7 +12,7 @@
   prepends a leading `\n` to the progress chunk when so. Caught
   end-to-end by Rob on b10 in an Assist turn.
 
-### Known limitation (unchanged this release)
+### Known limitation (unchanged)
 - **Multi-tool turns still only label the first tool.** When the model
   makes several sequential tool calls in one turn, only the first one
   surfaces a "🔧 Calling X..." line. The remaining ones run silently.
