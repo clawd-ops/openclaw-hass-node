@@ -99,6 +99,23 @@ gateway side. Short version:
   `system.which`; the full surface is gateway-authorized and delivered
   over the node-role gateway WS.
 
+## Security model
+
+- **Outbound-only WSS.** The add-on opens the connection to the gateway. There is no inbound port for the gateway to attack.
+- **Signed handshake.** Pairing uses an Ed25519 key generated inside the add-on. The private key never leaves `/data`. Connect frames are signed (payload format v3); the gateway verifies the signature against the registered public key.
+- **Device-token persistence with self-heal.** After first pairing the add-on persists the device token. If the gateway later rejects it (`NOT_PAIRED`, `PAIRING_REQUIRED`, `AUTH_TOKEN_MISMATCH`, `token_mismatch`), the add-on drops the stored token and falls back to the pairing token, so a stale token doesn't lock you out.
+- **Gateway-side allowlist.** Even if the add-on were compromised, the gateway only honors commands listed in `gateway.nodes.allowCommands`. Removing a command from that list and restarting the gateway disables it everywhere.
+- **HA Supervisor isolation.** The add-on runs in its own container with explicit filesystem maps. Removing a map (e.g. `media:rw`) immediately removes the add-on's access to that area.
+- **No agent reasoning happens here.** This node is purely an executor. Prompts, tool-choice, model selection, and policy all live in the gateway. The node does what the gateway tells it; the gateway does what the agent decides; the agent runs under whatever policy you configure upstream.
+
+## What this is not
+
+- **Not an AI by itself.** It does not call any LLM. It only exposes HA to the agent your OpenClaw gateway already runs.
+- **Not a replacement for HA Assist.** It plugs into Assist as one more conversation-agent option; the rest of the pipeline (wake word, STT, TTS) is unchanged.
+- **Not a public-internet bridge.** Both the WSS to the gateway and the agent that responds are yours.
+
+## Pointers
+
 Live state and roadmap: [`docs/STATUS.md`](docs/STATUS.md).
 Architecture and decisions: [`docs/design/PLAN.md`](docs/design/PLAN.md).
 Install/troubleshooting: [`docs/INSTALL.md`](docs/INSTALL.md).
