@@ -136,10 +136,9 @@ auto-generated from the role.
 | `super_admin` | none |
 
 The Tier B addon-lifecycle commands (`ha.addon_start`/`stop`/
-`restart`) are listed because **they ship as part of this design's
-implementation order** (step 5 below). They are not in
-`commands/dispatcher.py` yet; the table is forward-looking. Their
-auto-forbidden entry exists from the moment they register.
+`restart`) shipped in PR #165 and are registered in
+`commands/dispatcher.py`. Their auto-forbidden entries for `user` and
+the implicit allow for `admin`/`super_admin` are live.
 
 ### Step 3a — fail-safe default for unknown commands
 

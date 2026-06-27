@@ -4,7 +4,7 @@
 > result you should see. If anything diverges, paste the diff into
 > the channel and Clawd will dig in.
 >
-> **State as of the current beta (`2026.6.20b6`):** install, pair,
+> **State as of the current beta (`2026.6.20b7`):** install, pair,
 > connect, gateway-side tool invokes, and Assist conversation relay
 > (dual websocket pair, streaming token deltas, tool-named progress)
 > all work end-to-end. Local HTTP API is fail-closed (a token is
@@ -105,7 +105,7 @@ successful pairing.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 35 (ha.*, fs.*, system.*, ping)
+#         Commands: list of 37 (ha.*, fs.*, system.*, ping)
 ```
 
 ## Phase C — Tool invokes through the gateway *(working)*

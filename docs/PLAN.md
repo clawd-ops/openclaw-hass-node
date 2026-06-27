@@ -7,12 +7,14 @@
 
 ## Goal
 
-Build a single OpenClaw node that runs on a Home Assistant host (as an
-add-on (app), with the same image runnable as a standalone Docker container) and
-gives the gateway three capability surfaces in one process:
+Build a single OpenClaw node that runs on a Home Assistant host as a
+Supervisor add-on. (A standalone Docker run mode is a design goal but
+not shipped during beta — current install/packaging assume the
+Supervisor add-on path.) The node gives the gateway three capability
+surfaces in one process:
 
-1. **Filesystem + shell** on the HA host (`/config`, `/share`, `/addons`,
-   `/ssl`, `/media`, Supervisor API).
+1. **Filesystem + shell** on the HA host (`/config`, `/share`,
+   `/media`; Supervisor API for addon lifecycle).
 2. **HA control** — states, services, areas, devices, registry,
    automations, traces, logbook. Replaces the existing `homeassistant` +
    `homeassistant-readonly` MCP servers for this HA.
@@ -69,22 +71,33 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 ### 1. Filesystem + shell
 
 - Mounted paths (add-on (app) `config.yaml` map): `config:rw`, `share:rw`,
-  `addons:rw`, `ssl:rw`, `media:rw`, `backup:rw`.
+  `media:rw`. (`addons`, `ssl`, and `backup` are intentionally not
+  mapped — Supervisor surfaces those via the Supervisor API rather
+  than direct mounts.)
 - Bind mounts placed under an allowed root are treated as operator-trusted
   configuration; the read-only command layer does not try to distinguish or
   defeat them.
 - Commands: `fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `system.run`,
   `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`,
-  `fs.patch`) are **proposal-gated** — they accept the args but emit an
-  agent-bridge `propose_edit` and wait for resolve.
+  `fs.patch`) are **proposal-gated**: today the handlers return
+  `PROPOSAL_REQUIRED` for protected roots / when `agent_bridge=true`.
+  Wiring the actual `propose_edit` → `resolve_proposal` round-trip
+  through the agent-bridge UI is the next major milestone (see
+  `docs/STATUS.md` "Next concrete steps").
 - `fs.delete` uses `send2trash` (FreeDesktop.org spec) with an
   OpenClaw-managed trash directory fallback, never `rm`. `fs.restore`
   recovers from trash. No sidecar `.bak` files anywhere.
 - `system.run` gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must
   pass matching `admin_token` param.
-- Supervisor API via `ha.supervisor.*` commands wrapping
-  `http://supervisor/...` with `SUPERVISOR_TOKEN` (planned, not yet
-  registered).
+- Supervisor API access uses `SUPERVISOR_TOKEN` against
+  `http://supervisor/...`. Today this is exposed through the
+  `ha.addon_*` Tier A/B command surface (`ha.list_addons`,
+  `ha.addon_info`, `ha.addon_stats`, `ha.addon_logs`,
+  `ha.addon_changelog`, `ha.addon_documentation`,
+  `ha.addon_start`/`stop`/`restart`). A generic `ha.supervisor.*`
+  command family is not registered; broader Supervisor surfaces
+  (snapshots, host, network) remain out-of-scope until proposal-gated
+  write semantics land.
 
 ### 1b. Backup / undo model
 
@@ -261,7 +274,16 @@ fits. The node carries no model knowledge.
 
 ## Mutation control (agent-bridge gated)
 
-- Every write-shaped command on the node has two outcomes:
+> **Status: partially shipped.** Today the write handlers
+> (`fs_write.py`, `fs_patch.py`, `fs_move_delete.py`) return
+> `PROPOSAL_REQUIRED` for protected roots or when `agent_bridge=true`.
+> They do **not** yet emit `propose_edit` or wait for
+> `resolve_proposal` — that round-trip is blocked pending the
+> gateway/agent-bridge proposal bridge, which is the next major
+> milestone (see `docs/STATUS.md` "Next concrete steps"). The model
+> below is the target end-state, not the shipped behaviour.
+
+- Every write-shaped command on the node has two outcomes (target):
   - If `dry_run=true` or `agent_bridge=true` (default for `/config`):
     emit `propose_edit` to agent-bridge with the patch/content, return
     proposal ID. Apply only after `resolve_proposal(accepted)`.
@@ -280,13 +302,14 @@ fits. The node carries no model knowledge.
 
 ## Packaging
 
-- Single Docker image. Two run modes:
+- Single Docker image. Today only the HA add-on run mode is shipped:
   - **HA add-on (app)**: `config.yaml` declares slug, mapped volumes,
     `hassio_api: true`, `hassio_role: manager`, `homeassistant_api: true`.
     Built per HA arch matrix (`amd64`, `aarch64`, `armv7`).
-  - **Standalone Docker**: `docker run` with explicit volume mounts and
-    `HASS_URL` + `HASS_TOKEN` env. Same entrypoint detects which mode
-    it's in.
+  - **Standalone Docker** (planned, not in beta): would `docker run`
+    with explicit volume mounts and `HASS_URL` + `HASS_TOKEN` env;
+    the entrypoint already branches on `SUPERVISOR_TOKEN`. Tracked as
+    a future packaging item — install/CHANGELOG do not advertise it.
 - Repo published as a HA add-on (app) repository (`repository.yaml`) so users
   can add the URL in HA → Add-on (App) Store → Repositories.
 

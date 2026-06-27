@@ -104,7 +104,9 @@ Supervisor partial/full snapshots are coarse, expensive, and not the
 right grain for normal config edits. The node will trigger them only
 when:
 
-- The user calls `ha.supervisor.snapshots.partial|full` directly.
+- The user explicitly requests a Supervisor snapshot (no dedicated
+  `ha.supervisor.snapshots.*` command is registered today; the path
+  for this is proposal-gated and not yet shipped).
 - The user has configured a snapshot cadence in the node config
   (`backups.supervisor_cadence: daily|weekly|off`).
 - A proposal explicitly marks `request_supervisor_snapshot: true`

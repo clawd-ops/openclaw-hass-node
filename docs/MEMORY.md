@@ -41,7 +41,7 @@ OpenClaw node speaking the existing Gateway Protocol.
 end-to-end. The conversation relay runs on the dual-websocket
 architecture below: the operator-role connection carries `chat.send`
 + `sessions.messages.subscribe`, the node-role connection carries
-`node.invoke.*`. Currently on the beta track (`2026.6.20b6`). See
+`node.invoke.*`. Currently on the beta track (`2026.6.20b7`). See
 `docs/STATUS.md`.
 
 ### Relay design decisions
@@ -79,8 +79,9 @@ via `PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow).
 ## Repo layout
 
 - **`node/`** — Python add-on (app). Pairs with the gateway via the
-  Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (21 tools)
-  through `node.invoke`, and runs a local HTTP API on port 8099 for
+  Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (37 commands:
+  23 `ha.*` + 11 `fs.*` + 2 `system.*` + `ping`) through
+  `node.invoke`, and runs a local HTTP API on port 8099 for
   health checks + Assist turn relay.
 - **`custom_components/openclaw_gateway/`** — HACS shim. ~150 LOC
   `ConversationEntity` that POSTs Assist turns to the node's

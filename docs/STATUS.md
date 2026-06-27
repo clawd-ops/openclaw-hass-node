@@ -12,9 +12,9 @@
 
 ## Where we are
 
-Currently on **2026.6.20b7** (beta). The next fix-forward release is
-planned to carry the post-review identity hardening in this PR. The node
-ships:
+Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
+`Unreleased → 2026.6.20b8` carrying the merged identity-routing hardening
+(PR #167) and this docs-reconciliation pass. The node ships:
 
 - **Dual websocket pair.** One `role: node` connection for
   `node.invoke.*`, one `role: operator` connection for the
@@ -70,10 +70,11 @@ ships:
   major milestone.
 - HACS brands PR is still open; the integration shows the default
   HACS icon, not the OpenClaw one.
-- Publishing pipeline is manual. There is no GHCR-published per-arch
-  image yet; Supervisor builds locally on-device. Cutting a release
-  is a manual `git tag` + `gh release create` — see
-  [`RELEASE.md`](RELEASE.md) for the operational procedure.
+- No GHCR-published per-arch image yet; Supervisor builds locally
+  on-device. Cutting a release is automated:
+  `.github/workflows/release-on-version-bump.yml` tags and publishes
+  the GitHub release when a push to `main` bumps the five tracked
+  version files — see [`RELEASE.md`](RELEASE.md).
 
 ## Next concrete steps (in order)
 

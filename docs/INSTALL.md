@@ -11,7 +11,7 @@
 > full version of this warning.
 
 > ⚠️ **Beta.** Pair, connect, tool invokes, and HA Assist conversation
-> all work end-to-end on the current beta track (`2026.6.20b6`). The
+> all work end-to-end on the current beta track (`2026.6.20b7`). The
 > integration appears as a conversation agent in HA's Voice assistants
 > picker, streams replies in real time, and surfaces tool-named
 > progress lines like `🔧 Calling weather...` mid-turn. Pre-1.0
@@ -225,7 +225,7 @@ first successful pairing** — it's consumed.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 34
+#         Commands: list of 37
 ```
 
 Or round-trip a command directly from the gateway side:
