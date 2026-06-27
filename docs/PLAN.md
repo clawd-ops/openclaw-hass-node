@@ -274,7 +274,16 @@ fits. The node carries no model knowledge.
 
 ## Mutation control (agent-bridge gated)
 
-- Every write-shaped command on the node has two outcomes:
+> **Status: partially shipped.** Today the write handlers
+> (`fs_write.py`, `fs_patch.py`, `fs_move_delete.py`) return
+> `PROPOSAL_REQUIRED` for protected roots or when `agent_bridge=true`.
+> They do **not** yet emit `propose_edit` or wait for
+> `resolve_proposal` — that round-trip is blocked pending the
+> gateway/agent-bridge proposal bridge, which is the next major
+> milestone (see `docs/STATUS.md` "Next concrete steps"). The model
+> below is the target end-state, not the shipped behaviour.
+
+- Every write-shaped command on the node has two outcomes (target):
   - If `dry_run=true` or `agent_bridge=true` (default for `/config`):
     emit `propose_edit` to agent-bridge with the patch/content, return
     proposal ID. Apply only after `resolve_proposal(accepted)`.
