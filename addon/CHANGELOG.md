@@ -1,17 +1,36 @@
 # OpenClaw Node Add-on Changelog
 
-## Unreleased
+## 2026.6.20b8 (2026-06-27) — Identity-routing hardening + docs architecture reshape
 
 ### Fixes
-- **Fix-forward for identity-routing review findings.** HA actor metadata is
-  now trusted only when the HACS shim signs the actor plus turn fields with
-  a key derived from the existing `local_api_token`; unsigned or bad
-  signatures fall back to the restrictive anonymous/user policy. Public health responses redact
-  identity details to counts/booleans, forbidden-command output uses matchable
-  command patterns, admin prompt policy includes Tier B lifecycle commands,
-  lifecycle allow/deny parsing uses the shared config parser, startup
-  `agents.list` diagnostics no longer block operator connect, and
-  `agents.list` parsing no longer treats display `name` as an agent id.
+- **Fix-forward for identity-routing review findings (PR #167).** HA actor
+  metadata is now trusted only when the HACS shim signs the actor plus turn
+  fields with a key derived from the existing `local_api_token`; unsigned or
+  bad signatures fall back to the restrictive anonymous/user policy. Public
+  health responses redact identity details to counts/booleans, forbidden-
+  command output uses matchable command patterns, admin prompt policy
+  includes Tier B lifecycle commands, lifecycle allow/deny parsing uses the
+  shared config parser, startup `agents.list` diagnostics no longer block
+  operator connect, and `agents.list` parsing no longer treats display
+  `name` as an agent id. **No new operator-facing secret was introduced** —
+  the actor-signing key is derived from the existing `local_api_token` via
+  HMAC label `openclaw-hass-node actor-signing v1`.
+
+### Docs
+- **Drift reconciliation (PR #168).** Brought every doc back in sync with
+  the actual repo state: version strings, command counts (37), Tier B
+  shipped-status, release-workflow reality, and the post-#167 token model.
+- **Repo-level doc sweep checklist (PR #169).** `docs/README.md` now lists
+  the files outside `docs/` that also need updates when user-facing facts
+  change (`README.md`, `addon/config.yaml` description, `addon/CHANGELOG.md`,
+  the five version sources, manifest/strings/hacs.json, GitHub repo
+  description).
+- **Phase 2 architecture reshape (PR #171).** Reorganized `docs/` into four
+  audience-grouped folders (`design/`, `reference/`, `operations/`,
+  `research/`), absorbed 4 overlap files (OVERVIEW, PACKAGING, PROCESS,
+  QUESTIONS-FOR-ROB), and stripped duplicated content so STATUS / MEMORY /
+  PLAN no longer overlap. README.md gained the "Security model" and
+  "What this is not" sections that previously lived in OVERVIEW.
 
 ## 2026.6.20b7 (2026-06-24) — HA Assist identity routing + Tier B add-on lifecycle commands
 
