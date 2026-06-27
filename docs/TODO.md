@@ -110,6 +110,22 @@ Runtime events (not PRs):
 - Constraints: must respect prerelease semantics (a/b/rc/.dev); must still produce a useful HA-Supervisor-rendered `addon/CHANGELOG.md` (Supervisor reads this file for the addon's Changelog tab); must not require a separate `release: <version>` PR if the changelog can be generated mid-flight.
 - Lands AFTER the doc cleanup + Phase 2 doc-architecture reshape, but BEFORE we'd want to take the project to 1.0.
 
+### 20. Proposal-gated write path — agent-bridge UI wiring
+- Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; the actual `propose_edit` → `resolve_proposal` round-trip through the agent-bridge UI is not wired.
+- Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `ha.config.*`.
+- Goal: a user-visible "agent wants to make this change → accept / reject" pane in agent-bridge that the node waits on before applying the write.
+- This is the next major write-surface milestone.
+
+### 21. HACS brands PR — OpenClaw icon
+- Status: OPEN (external)
+- Upstream HACS "brands" PR is open; while it's pending the integration shows the default HACS icon, not the OpenClaw one. Pure cosmetic; tracked so we don't forget to confirm after it merges.
+
+### 22. Publishing — GHCR per-arch image + HACS index
+- Status: OPEN
+- Today: Supervisor builds locally on-device from the cloned add-on repo; HACS install works but isn't in the default HACS index.
+- Goal: per-arch image published to GHCR by the release workflow (lets us put the `image:` key back in `config.yaml` and skip on-device builds), `addon` repository metadata published, HACS default-index PR submitted.
+- Independent of #20; can land in parallel.
+
 ---
 
 ## Closed items

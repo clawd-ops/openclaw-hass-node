@@ -62,33 +62,16 @@ Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
   green (ruff check + format, mypy strict, pytest coverage,
   bandit, pip-audit, addon-build).
 
-## Known broken / open
+## What's not shipped yet
 
-- The proposal-gated write path (agent-bridge integration for
-  `fs.write` / `fs.patch` / `ha.config.*`) is implemented in the node
-  but not yet wired through the agent-bridge UI. Tracked as the next
-  major milestone.
-- HACS brands PR is still open; the integration shows the default
-  HACS icon, not the OpenClaw one.
-- No GHCR-published per-arch image yet; Supervisor builds locally
-  on-device. Cutting a release is automated:
-  `.github/workflows/release-on-version-bump.yml` tags and publishes
-  the GitHub release when a push to `main` bumps the five tracked
-  version files — see [`docs/operations/RELEASE.md`](operations/RELEASE.md).
+Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
 
-## Next concrete steps (in order)
+- **Writes are `PROPOSAL_REQUIRED`** today; the agent-bridge UI round-trip is not wired. See TODO item #20.
+- **HACS brand icon** is the default; upstream PR pending. TODO #21.
+- **GHCR per-arch image / HACS index entry** not published yet; Supervisor builds locally on-device. TODO #22.
+- **MCP cutover** still in flight. TODO #11.
 
-1. **Proposal-gated writes** — wire `fs.write` / `fs.patch` /
-   `ha.config.*` through the agent-bridge UI so the write surface
-   matches the read surface.
-2. **MCP cutover.** Cron `scripts/check-mcp-retirement-readiness.sh`
-   against OpenClaw logs. When it prints `RETIREMENT_READY`, drop
-   the `homeassistant` + `homeassistant-readonly` MCP server entries
-   from gateway config in one PR.
-3. **Publishing.** Add-on (App) repo metadata, HACS index entry,
-   release workflow for GHCR-published per-arch images (lets us put
-   the `image:` key back in `config.yaml` and skip the on-device
-   build).
+Release-cut itself is automated: `.github/workflows/release-on-version-bump.yml` tags + cuts the GitHub release on every `main` version bump — see [`operations/RELEASE.md`](operations/RELEASE.md).
 
 ## Discoverability / sponsorship
 
