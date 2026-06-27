@@ -322,11 +322,14 @@ through HA — but HA Supervisor reads from published GitHub releases,
 not from main, so no Update prompt ever appeared. Rebuild from the
 add-on UI was the only working path.
 
-The version-bump Action is live
-(`.github/workflows/release-on-version-bump.yml`, PR #156) and creates
-the tag + GitHub release automatically when a push to `main` bumps the
-five tracked version files. The manual recipe below is preserved for
-the rare emergency case (Action failure, retroactive tag, etc.):
+Fixed in PR #156: `.github/workflows/release-on-version-bump.yml`
+now creates the tag + GitHub release automatically when a push to
+`main` bumps the five tracked version files, with notes extracted
+from `addon/CHANGELOG.md`. The lesson — "release PR merged ≠ release
+cut" — is no longer a live trap on the happy path; it's preserved
+here as the reason the workflow exists.
+
+Emergency-only manual recipe (Action failure, retroactive tag):
 
 ```sh
 SHA=$(git rev-parse main)                # or the merge commit
@@ -337,12 +340,6 @@ gh release create v2026.6.20bN \
   --prerelease \
   --notes "<short body; link to full CHANGELOG>"
 ```
-
-Future-Clawd: if you bump versions in a PR titled `release: <version>`
-and you do NOT also create a GitHub release for it, the addon is not
-released. Don't tell Rob to "Update" — he won't see anything to update
-to. Either tag immediately after merge, or update the addon manually
-via Rebuild and tell him so.
 
 ## "User-facing docs" includes more than `docs/` and `README.md`
 

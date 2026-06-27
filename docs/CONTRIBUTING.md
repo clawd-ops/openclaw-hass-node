@@ -10,12 +10,14 @@ your PR title is what matters). Common prefixes: `feat:`, `fix:`,
 `BREAKING CHANGE:` footer. Optional scopes: `addon`, `node`, `hacs`,
 `gateway`, `docs`.
 
-This is what feeds the auto-generated changelog described in
-[`docs/RELEASE.md`](RELEASE.md). The release Action is live
+The release Action is live
 (`.github/workflows/release-on-version-bump.yml`) and auto-cuts a
-release whenever a push to `main` bumps the version in the five
-tracked files. Follow the commit convention so each release's
-changelog is correctly grouped.
+GitHub release whenever a push to `main` bumps the version in the
+five tracked files. Release notes come from the hand-written
+`addon/CHANGELOG.md` section for that version — the workflow
+extracts it, it does not generate it. Follow the commit convention
+so the changelog you write groups cleanly. See
+[`docs/RELEASE.md`](RELEASE.md) for the full flow.
 
 ## Version policy
 
