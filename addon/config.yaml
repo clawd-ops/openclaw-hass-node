@@ -1,6 +1,26 @@
+# --- HA Add-on (App) Configuration Schema --------------------------------
+# Reference: https://developers.home-assistant.io/docs/apps/configuration/
+#
+# This is the canonical doc for every field below. Before editing this
+# file, confirm any new schema validator or top-level field against that
+# page — it lists the accepted types (str/bool/int/float/email/url/
+# password/port/match/list/device + nested objects up to 2 levels) and
+# the valid values for arch, hassio_role, map, panel_icon, etc.
+#
+# Why a literal comment instead of a yaml-language-server schema URL:
+# HA does not publish a JSON Schema for this manifest, so VS Code cannot
+# validate the file. The link is for the human (or agent) editing it.
+#
+# Drift history that this comment is meant to prevent:
+#   - b7-b8: identity.user_agent_map used `dict?` which is not in the
+#     validator set; broke Supervisor's manifest re-parse silently.
+#     Fixed in b9 (list-of-objects shape).
+#   - b8-b9: arch listed `armv7`, which Supervisor logs as deprecated.
+#     Fixed in b10.
+# -------------------------------------------------------------------------
 ---
 name: OpenClaw Node
-version: "2026.6.20b9"
+version: "2026.6.20b10"
 slug: openclaw_hass_node
 description: >
   OpenClaw gateway peripheral for Home Assistant (beta). Connects this HA
@@ -13,7 +33,6 @@ url: https://github.com/clawd-ops/openclaw-hass-node
 arch:
   - amd64
   - aarch64
-  - armv7
 init: false
 # hassio_api: enabled so SUPERVISOR_TOKEN reliably lands in the addon
 # environment for `ha_client.py` to authenticate against
@@ -39,30 +58,30 @@ homeassistant_api: true
 # HA Auth API. Re-enable only if a shipped surface validates HA-issued
 # tokens with the Supervisor auth endpoint.
 map:
-  # config:rw — `/config` write capability is granted at the OS layer
-  # so the proposal-approved write path can land without re-touching
-  # this manifest.
-  #
-  # For the fs.* mutation commands (fs.write, fs.patch, fs.restore,
-  # fs.move, fs.delete), the actual write-protection boundary is the
-  # software gate: `_is_protected("/config")` returns True and each
-  # handler returns `PROPOSAL_REQUIRED` before any disk write/unlink/
-  # rename is attempted (see addon/node/src/openclaw_node/commands/
-  # fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
-  #
+  # /config — write capability granted at the OS layer so the
+  # proposal-approved write path can land without re-touching this
+  # manifest. For the fs.* mutation commands (fs.write, fs.patch,
+  # fs.restore, fs.move, fs.delete) the actual write-protection
+  # boundary is the software gate: `_is_protected("/config")` returns
+  # True and each handler returns `PROPOSAL_REQUIRED` before any disk
+  # write/unlink/rename is attempted (see addon/node/src/openclaw_node/
+  # commands/fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
   # NOT gated: `system.run` (commands/system_run.py) is admin-token
   # gated (OPENCLAW_ADMIN_TOKEN) and can write anywhere the mount
   # allows, including /config. The admin token is the protection
   # boundary there, NOT _is_protected. Don't broaden system.run's
   # capabilities without re-evaluating this trade-off.
-  - config:rw
-  # share:rw — backs the per-file content-addressed backup store
+  - type: config
+    read_only: false
+  # /share — backs the per-file content-addressed backup store
   # (/share/openclaw-backups) and the delete trash fallback
   # (/share/openclaw-trash). Real shipped writes.
-  - share:rw
-  # media:rw — `/media` is an allowed root and not protected, so
-  # `fs.write` can resolve and atomically write here.
-  - media:rw
+  - type: share
+    read_only: false
+  # /media — allowed root, not protected, so `fs.write` can resolve
+  # and atomically write here.
+  - type: media
+    read_only: false
 # Removed maps (re-add when a shipped feature needs them):
 #   ssl:ro      — would expose TLS certs via generic fs.read/list/glob
 #   addons:ro   — no shipped add-on enumeration reader

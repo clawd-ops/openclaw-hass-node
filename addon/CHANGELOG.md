@@ -1,5 +1,38 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b10 (2026-06-27) — Strip unreachable dict-shape branch + drop deprecated armv7 arch
+
+### Fixes
+- **Dropped deprecated `armv7` from the addon `arch:` list.** HA Supervisor
+  deprecated 32-bit ARM support; Rob's Supervisor logged
+  `App config 'arch' uses deprecated values ['armv7']. Please report this
+  to the maintainer of OpenClaw Node`. Now `arch: [amd64, aarch64]`. The
+  addon never had a working 32-bit build path, so no installer is affected.
+
+### Internal
+- Removed the `isinstance(user_agent_map, dict)` branch + warning in
+  `addon/run.sh` that b9 added. The b7/b8 manifests never passed
+  Supervisor schema validation, so no operator's `user_agent_map`
+  ever became a saved dict-shape value — the branch is unreachable.
+  Per the pre-1.0 no-back-compat rule, dropping it instead of carrying
+  dead code with a misleading warning.
+
+### Full `addon/config.yaml` schema audit (this release)
+Audited the whole manifest against the HA developer docs
+(`https://developers.home-assistant.io/docs/apps/configuration/`):
+
+- **`map:`** modernized from the older colon shorthand
+  (`- config:rw`) to the docs-primary dict form
+  (`- type: config\n  read_only: false`). Same runtime behavior;
+  matches the canonical reference.
+- All option `schema:` validators (`url`, `password`, `str?`,
+  `password?`, `bool?`, `- str`, `- {ha_user_id: str, agent_id: str}`)
+  are in the documented validator set: `str`, `bool`, `int`, `float`,
+  `email`, `url`, `password`, `port`, `match(REGEX)`,
+  `list(val1|val2|...)`, `device`, and nested objects (up to 2 levels).
+- `hassio_role: manager` and `panel_icon: mdi:robot-happy` confirmed
+  valid against docs.
+
 ## 2026.6.20b9 (2026-06-27) — Supervisor manifest re-parse fix (`user_agent_map` schema)
 
 ### Fixes
