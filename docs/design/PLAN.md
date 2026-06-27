@@ -155,6 +155,13 @@ See `docs/reference/HA-CONFIG-EDITING.md` for per-domain detail.
 
 ### 2c. Always rooted in installed HA version + breaking-change verification
 
+> **Status: deferred.** None of the pieces below are implemented. The
+> mechanism is gated on the proposal-gated write path actually
+> round-tripping through agent-bridge (TODO #20) — until writes land
+> there's no place for pre-change verification to fire. Tracked as
+> TODO #23. Kept here as the design contract for when #20 unblocks
+> it.
+
 - Node detects HA core version on connect (Supervisor `/info` or
   `/api/config`), emits it as pairing metadata so gateway model
   always knows the live version.
@@ -165,7 +172,7 @@ See `docs/reference/HA-CONFIG-EDITING.md` for per-domain detail.
   command. Pulls the relevant release notes' breaking-changes section
   from the docs repo. Used by the rule below.
 
-**Mandatory pre-change verification (HARD rule):**
+**Mandatory pre-change verification (HARD rule, deferred with §2c):**
 
 Before any proposal that touches HA config (yaml or API-driven), the
 generator must:

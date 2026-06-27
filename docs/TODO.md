@@ -126,6 +126,15 @@ Runtime events (not PRs):
 - Goal: per-arch image published to GHCR by the release workflow (lets us put the `image:` key back in `config.yaml` and skip on-device builds), `addon` repository metadata published, HACS default-index PR submitted.
 - Independent of #20; can land in parallel.
 
+### 23. HA-version-rooted commands + breaking-change verification (PLAN §2c)
+- Status: OPEN — gated on #20 (writes need to actually round-trip through agent-bridge before pre-change verification has a place to fire).
+- Designed in [`design/PLAN.md`](design/PLAN.md) §2c. Three pieces:
+  1. **HA core version detection on connect.** Node hits Supervisor `/info` (or `/api/config`) and emits the version as pairing metadata so the gateway-side agent always knows the live HA version of the target.
+  2. **New `docs.lookup(topic, version=current)` command.** Fetches documentation from the `home-assistant/home-assistant.io` repo at the tag matching the running core version, with a local cache. Goes through `dispatcher.py` like any other command.
+  3. **New `docs.breaking_changes(version=current, since=<prev>?, domain=?)` command.** Pulls the breaking-changes section of the relevant release notes from the same docs repo. Used by the HARD rule below.
+- **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
+- Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
+
 ---
 
 ## Closed items
