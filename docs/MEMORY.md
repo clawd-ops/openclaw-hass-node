@@ -79,10 +79,10 @@ via `PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow).
 ## Repo layout
 
 - **`node/`** — Python add-on (app). Pairs with the gateway via the
-  Gateway Protocol, exposes `fs.*` / `system.*` / `ha.*` (37 commands:
-  23 `ha.*` + 11 `fs.*` + 2 `system.*` + `ping`) through
-  `node.invoke`, and runs a local HTTP API on port 8099 for
-  health checks + Assist turn relay.
+  Gateway Protocol, exposes the `ha.*` / `fs.*` / `system.*` / `ping`
+  command surface through `node.invoke` (canonical registry:
+  [`COMMAND-SURFACE.md`](COMMAND-SURFACE.md)), and runs a local HTTP
+  API on port 8099 for health checks + Assist turn relay.
 - **`custom_components/openclaw_gateway/`** — HACS shim. ~150 LOC
   `ConversationEntity` that POSTs Assist turns to the node's
   `/v1/conversation`. Required because HA's conversation-agent

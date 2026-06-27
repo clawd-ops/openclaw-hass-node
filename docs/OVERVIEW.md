@@ -49,22 +49,20 @@ commands.
   it persists a long-lived device token in `/data/openclaw/` and
   reuses it on every restart, so you only paste the pairing token
   once.
-- Serves the 37 commands the agent uses:
-  - `ha.*` (23 commands): list states, get state, list devices, list
-    entity registry, list areas, list services, call service, turn
-    lights on/off, logbook, history, list automations, check config,
-    reload config, the Tier A read-only addon surface (list
-    addons, addon info, addon stats, addon logs, addon changelog,
-    addon documentation), and Tier B addon lifecycle commands
-    (addon start/stop/restart) behind an admin token and slug allowlist.
-  - `fs.*` (11 commands): list directory, read file, write file,
-    stat, glob, etc. Scoped to the maps the add-on (app) is granted
+- Serves the agent's command surface across four groups:
+  - `ha.*`: Home Assistant state, services, devices, areas, history,
+    addon read-only (Tier A) + addon lifecycle (Tier B, admin-gated).
+  - `fs.*`: filesystem within the maps the add-on (app) is granted
     (`config:rw`, `share:rw`, `media:rw`). Other roots (`ssl`,
     `addons`, `backup`) are intentionally not mapped — re-add only
     when a shipped feature needs them.
-  - `system.*` (2 commands): `system.run` (admin-token-gated shell
-    invocation) and `system.which` (locate executables on PATH).
+  - `system.*`: `system.run` (admin-token-gated shell invocation) and
+    `system.which` (locate executables on PATH).
   - `ping`: liveness check.
+
+  Full per-command registry + tier breakdown:
+  [`docs/COMMAND-SURFACE.md`](COMMAND-SURFACE.md) and
+  [`docs/COMMAND-TIERS.md`](COMMAND-TIERS.md).
 - Logs every invoke at INFO with a compact entry/exit pair and
   elapsed milliseconds, so you can see what the agent is doing
   without enabling debug.

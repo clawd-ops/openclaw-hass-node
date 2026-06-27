@@ -145,6 +145,6 @@ These captured the thinking that led to the current architecture. Read for "why 
 
 ## Maintenance
 
-- If you update a fact and notice another doc still has the old version, **don't** also update the copy — fix the copy by linking to the canonical doc instead. (Phase 2 reshape will systematize this.)
-- A CI guard against hardcoded command counts outside `COMMAND-SURFACE.md` is on the roadmap (post-reshape).
+- If you update a fact and notice another doc still has the old version, **don't** also update the copy — fix the copy by linking to the canonical doc instead.
+- **CI guard is live:** `addon/node/tests/test_doc_consistency.py` fails the build if `STATUS.md`, `MEMORY.md`, or `OVERVIEW.md` hardcode an `<N> commands` count instead of linking to `COMMAND-SURFACE.md`, or if `COMMAND-SURFACE.md`'s claimed count doesn't match the live `_REGISTRY` dict in `commands/dispatcher.py`. User-facing files (`README.md`, `docs/INSTALL.md`, `docs/UAT-PLAN.md`) are exempt and stay self-contained.
 - This file itself is the canonical "what does each doc do" — if a new doc is added, add a row here in the same commit.
