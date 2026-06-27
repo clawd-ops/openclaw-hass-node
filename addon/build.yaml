@@ -10,6 +10,6 @@ build_from:
 labels:
   # io.hass.version is the ADD-ON version (must match config.yaml), not
   # the HA version it was tested against. Supervisor uses this label.
-  io.hass.version: "2026.6.20b7"
+  io.hass.version: "2026.6.20b8"
   io.hass.type: addon
   io.hass.arch: amd64|aarch64|armv7
