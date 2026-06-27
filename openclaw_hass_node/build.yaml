@@ -1,0 +1,15 @@
+---
+# Use Home Assistant's per-arch Python base. Bare python:3.13-alpine
+# images aren't allowed by Supervisor (it forces HA base images), so a
+# value like "python:3.13-alpine" is silently ignored and the default
+# *-base (no Python) is used → 'pip: not found' at install time.
+build_from:
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.20
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.13-alpine3.20
+  armv7: ghcr.io/home-assistant/armv7-base-python:3.13-alpine3.20
+labels:
+  # io.hass.version is the ADD-ON version (must match config.yaml), not
+  # the HA version it was tested against. Supervisor uses this label.
+  io.hass.version: "2026.6.20b9"
+  io.hass.type: addon
+  io.hass.arch: amd64|aarch64|armv7

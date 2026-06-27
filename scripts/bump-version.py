@@ -43,22 +43,22 @@ class VersionFile:
 # Order matters only for readable output — sources are independent.
 SOURCES: list[VersionFile] = [
     VersionFile(
-        path=REPO_ROOT / "addon" / "config.yaml",
+        path=REPO_ROOT / "openclaw_hass_node" / "config.yaml",
         pattern=re.compile(r'^version: "([^"]+)"$', re.MULTILINE),
         template='version: "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "addon" / "build.yaml",
+        path=REPO_ROOT / "openclaw_hass_node" / "build.yaml",
         pattern=re.compile(r'^  io\.hass\.version: "([^"]+)"$', re.MULTILINE),
         template='  io.hass.version: "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "addon" / "node" / "pyproject.toml",
+        path=REPO_ROOT / "openclaw_hass_node" / "node" / "pyproject.toml",
         pattern=re.compile(r'^version = "([^"]+)"$', re.MULTILINE),
         template='version = "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "addon" / "node" / "src" / "openclaw_node" / "__init__.py",
+        path=REPO_ROOT / "openclaw_hass_node" / "node" / "src" / "openclaw_node" / "__init__.py",
         pattern=re.compile(r'^    __version__ = "([^"]+)"$', re.MULTILINE),
         template='    __version__ = "{version}"',
     ),

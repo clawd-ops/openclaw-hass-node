@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openclaw-node"
+version = "2026.6.20b9"
+description = "OpenClaw gateway peripheral node for Home Assistant."
+requires-python = ">=3.13"
+dependencies = [
+    "websockets>=13.0",
+    "cryptography>=48.0.1",
+    "aiohttp>=3.10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openclaw_node"]
+
+# Single source of truth for dev dependencies. The `[project.optional-
+# dependencies]` table was previously used and `[dependency-groups]`
+# was added later as a duplicate; they drifted (pip-audit was at >=2.7
+# in one and >=2.10.0 in the other). uv reads `[dependency-groups]`
+# natively, so keep that and drop the legacy section.
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "mypy>=1.13",
+    "pyright>=1.1",
+    "ruff>=0.8",
+    "bandit>=1.8",
+    "pip-audit>=2.10.0",
+    "pydoclint>=0.5",
+    # Transitive dep of cachecontrol (used by pip-audit). Force >=1.2.1
+    # to clear GHSA-6v7p-g79w-8964; not used by shipped code.
+    "msgpack>=1.2.1",
+]
