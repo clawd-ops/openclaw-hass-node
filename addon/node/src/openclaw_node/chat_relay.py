@@ -392,6 +392,11 @@ class ChatRelay:
         loop = asyncio.get_event_loop()
         last_yield_time = loop.time()
         sent_keepalive_count = 0
+        # Track whether any user-visible chunk has been yielded this turn,
+        # so a tool-progress line ("🔧 Calling Bash...") that fires mid-turn
+        # lands on a new line instead of being appended directly to the
+        # last assistant delta in the HA Assist transcript.
+        has_yielded_user_visible = False
         try:
             while True:
                 now = loop.time()
@@ -438,10 +443,18 @@ class ChatRelay:
                         # to the generic placeholder when no tool has
                         # started — e.g. the model is just thinking.
                         active_tool = self._active_tool.get(canonical_key)
+                        # Leading newline if we've already shown the user
+                        # text this turn (preamble before the first tool
+                        # call). Without it the progress line concatenates
+                        # to the prior delta — e.g. "...parse them.🔧
+                        # Calling Bash..." — instead of starting a new
+                        # line in the Assist transcript.
+                        prefix = "\n" if has_yielded_user_visible else ""
                         if active_tool:
-                            yield f"🔧 Calling {active_tool}...\n\n"
+                            yield f"{prefix}🔧 Calling {active_tool}...\n\n"
                         else:
-                            yield _STREAM_PROGRESS_DELTA
+                            yield f"{prefix}{_STREAM_PROGRESS_DELTA}"
+                        has_yielded_user_visible = True
                     else:
                         # Yield the transport-only sentinel. http_api
                         # converts to a `{"keepalive": true}` NDJSON
@@ -464,6 +477,7 @@ class ChatRelay:
                 # of fast deltas suppresses keepalives entirely.
                 last_yield_time = loop.time()
                 sent_keepalive_count = 0
+                has_yielded_user_visible = True
                 yield item
         finally:
             self._delta_queues.pop(canonical_key, None)
