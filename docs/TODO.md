@@ -103,6 +103,13 @@ Runtime events (not PRs):
 - #78 — Auto-bootstrap API token between node and integration (enhancement).
 - #1 — Direction (catch-all, leave for Rob).
 
+### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
+- Status: OPEN
+- Today: release workflow extracts notes from a hand-written `addon/CHANGELOG.md` section per version heading. Conventional Commits is policy on every PR so the history stays machine-readable, but nothing reads it automatically.
+- Goal: extend `.github/workflows/release-on-version-bump.yml` (or a sibling step) so the release notes are derived from the Conventional Commit subjects since the previous tag, grouped by type (Features / Fixes / Refactor / Docs / etc.). Hand-written `addon/CHANGELOG.md` becomes optional embellishment rather than the source.
+- Constraints: must respect prerelease semantics (a/b/rc/.dev); must still produce a useful HA-Supervisor-rendered `addon/CHANGELOG.md` (Supervisor reads this file for the addon's Changelog tab); must not require a separate `release: <version>` PR if the changelog can be generated mid-flight.
+- Lands AFTER the doc cleanup + Phase 2 doc-architecture reshape, but BEFORE we'd want to take the project to 1.0.
+
 ---
 
 ## Closed items
