@@ -79,8 +79,11 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   defeat them.
 - Commands: `fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `system.run`,
   `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`,
-  `fs.patch`) are **proposal-gated** — they accept the args but emit an
-  agent-bridge `propose_edit` and wait for resolve.
+  `fs.patch`) are **proposal-gated**: today the handlers return
+  `PROPOSAL_REQUIRED` for protected roots / when `agent_bridge=true`.
+  Wiring the actual `propose_edit` → `resolve_proposal` round-trip
+  through the agent-bridge UI is the next major milestone (see
+  `docs/STATUS.md` "Next concrete steps").
 - `fs.delete` uses `send2trash` (FreeDesktop.org spec) with an
   OpenClaw-managed trash directory fallback, never `rm`. `fs.restore`
   recovers from trash. No sidecar `.bak` files anywhere.

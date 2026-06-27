@@ -70,10 +70,11 @@ Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
   major milestone.
 - HACS brands PR is still open; the integration shows the default
   HACS icon, not the OpenClaw one.
-- Publishing pipeline is manual. There is no GHCR-published per-arch
-  image yet; Supervisor builds locally on-device. Cutting a release
-  is a manual `git tag` + `gh release create` — see
-  [`RELEASE.md`](RELEASE.md) for the operational procedure.
+- No GHCR-published per-arch image yet; Supervisor builds locally
+  on-device. Cutting a release is automated:
+  `.github/workflows/release-on-version-bump.yml` tags and publishes
+  the GitHub release when a push to `main` bumps the five tracked
+  version files — see [`RELEASE.md`](RELEASE.md).
 
 ## Next concrete steps (in order)
 
