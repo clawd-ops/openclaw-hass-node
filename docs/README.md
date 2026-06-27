@@ -101,6 +101,23 @@ These captured the thinking that led to the current architecture. Read for "why 
 | Resolved Rob questions | `QUESTIONS-FOR-ROB.md` Resolved section | Cross-reference from the relevant `TODO.md` item. |
 | Architecture snapshot / agent context | `MEMORY.md` | Update on every meaningful architectural or state change so the next Clawd session resumes cleanly. |
 
+## Files outside `docs/` that also need updates
+
+"Doc cleanup" is broader than `docs/`. These repo-level files render to users in places `docs/` cannot reach, and they have to stay in sync. Per the `LESSONS.md` 2026-06-20 lesson "User-facing docs includes more than `docs/` and `README.md`":
+
+| File | What it controls | When it needs updating |
+|---|---|---|
+| `README.md` (repo root) | The GitHub repo landing page; HACS surfaces it on the integration detail page. | Whenever a user-facing fact changes (install instructions, what the project is, supported HA versions). Keep it self-contained — users land here cold. |
+| `addon/config.yaml` `description:` | Text HA Supervisor renders in the addon list and detail page. | When the addon's user-facing pitch changes. Phase IDs / internal jargon don't belong here. |
+| `addon/CHANGELOG.md` | Per-release notes the release workflow extracts and HA Supervisor renders in the addon's Changelog tab. | Add a `## <version> (date) — title` section as part of every release PR. |
+| `addon/config.yaml` + `addon/build.yaml` + `addon/node/pyproject.toml` + `addon/node/src/openclaw_node/__init__.py` + `custom_components/openclaw_gateway/manifest.json` | The five version sources. Drift → CI fail. | Always together via `scripts/bump-version.py <version>`; never hand-edited. |
+| `custom_components/openclaw_gateway/manifest.json` `name` | Integration name in HA's Integrations list. | When you rename the integration. |
+| `custom_components/openclaw_gateway/strings.json` | Config-flow UI copy shown during integration setup (field labels, descriptions, errors). | When you change a config-flow field or its meaning. |
+| `hacs.json` `name` | Title shown in the HACS catalog. | When the HACS-listed title changes (note: intentionally allowed to differ from manifest `name` if you want a "(Beta)" suffix etc.). |
+| GitHub repo description | One-line shown under the repo name on github.com and search results. | When the elevator pitch changes. Check with `gh repo view ... --json description`. |
+
+**Before treating a doc sweep as complete, scan ALL of these for the same staleness patterns** (phase IDs, removed features, old version numbers, contradictions with `docs/`).
+
 ## Cheat sheet — "I just did X, which docs do I touch?"
 
 | You just did… | Update |
