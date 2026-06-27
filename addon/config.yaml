@@ -1,3 +1,23 @@
+# --- HA Add-on (App) Configuration Schema --------------------------------
+# Reference: https://developers.home-assistant.io/docs/apps/configuration/
+#
+# This is the canonical doc for every field below. Before editing this
+# file, confirm any new schema validator or top-level field against that
+# page — it lists the accepted types (str/bool/int/float/email/url/
+# password/port/match/list/device + nested objects up to 2 levels) and
+# the valid values for arch, hassio_role, map, panel_icon, etc.
+#
+# Why a literal comment instead of a yaml-language-server schema URL:
+# HA does not publish a JSON Schema for this manifest, so VS Code cannot
+# validate the file. The link is for the human (or agent) editing it.
+#
+# Drift history that this comment is meant to prevent:
+#   - b7-b8: identity.user_agent_map used `dict?` which is not in the
+#     validator set; broke Supervisor's manifest re-parse silently.
+#     Fixed in b9 (list-of-objects shape).
+#   - b8-b9: arch listed `armv7`, which Supervisor logs as deprecated.
+#     Fixed in b10.
+# -------------------------------------------------------------------------
 ---
 name: OpenClaw Node
 version: "2026.6.20b10"
