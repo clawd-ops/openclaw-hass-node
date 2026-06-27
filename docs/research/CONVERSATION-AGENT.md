@@ -4,7 +4,7 @@
 > event types proposed in this document were deleted from the design;
 > the correct relay architecture uses `chat.send` +
 > `sessions.messages.subscribe` over the existing gateway WS. See
-> `RESEARCH-OPENCLAW-INTEGRATION.md` for the current design. The
+> `docs/research/OPENCLAW-INTEGRATION.md` for the current design. The
 > Plan A / Plan B verdict below (HACS shim required) still stands.
 
 **Question.** Can a Home Assistant Assist "conversation agent" be registered from an HA add-on (app) (or via Supervisor / WS / REST API) WITHOUT shipping a companion `custom_components/` Python integration?

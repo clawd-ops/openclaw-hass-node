@@ -1,150 +1,143 @@
-# Docs index
+# openclaw-hass-node documentation
 
-> Navigation + maintenance guide for `docs/`. Read this **first** if
-> you're about to update a doc and aren't sure which file owns the
-> fact you're changing. Read this **also** if you're a future
-> maintainer (human or agent) trying to orient.
->
-> Rule of thumb: every fact lives in exactly one canonical doc. Other
-> docs link to it. If two docs disagree, fix the non-canonical one to
-> match the canonical one — don't update both copies.
+Navigation hub for everything under `docs/`. New here? Start with
+[Orientation](#orientation). Resuming a session post-compaction? Start
+with [`MEMORY.md`](MEMORY.md).
 
-## 🚨 If you're a fresh Clawd session (or post-compaction)
+## Orientation
 
-Land here. The fastest path to "ready to continue":
+- [`MEMORY.md`](MEMORY.md) — durable build memory for agents resuming
+  after context compaction. Architecture snapshot, what's live, where
+  to find everything.
+- [`STATUS.md`](STATUS.md) — canonical "where we are right now."
+  Current release, what works end-to-end, what's broken, what's next.
+- [`TODO.md`](TODO.md) — open work plus the most-recently merged PRs
+  in ascending order.
+- [`INSTALL.md`](INSTALL.md) — user-facing step-by-step install
+  walkthrough (gateway allowlist, addon config, HACS install,
+  verification).
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — commit policy, version bump
+  rules, cross-provider review workflow, doc-only PR shortcuts.
 
-1. **[`MEMORY.md`](MEMORY.md)** — the agent-side recall. Read this
-   FIRST. It's the durable build memory: current architecture, what
-   the moving parts are, what's live, and where to find everything
-   else. This file is maintained explicitly so a brand-new session
-   can pick up without re-deriving context.
-2. **[`STATUS.md`](STATUS.md)** — "where we are right now."
-   Current shipped version, what works end-to-end, what's broken,
-   what's next.
-3. **[`TODO.md`](TODO.md)** — open work + most-recently merged PRs
-   in ascending order. Read the bottom of "Recently done" to see
-   what just landed; read "Open" to see what's queued.
-4. **[`QUESTIONS-FOR-ROB.md`](QUESTIONS-FOR-ROB.md)** Open section —
-   anything blocked on Rob that you might need to know about.
+## Design (`design/`)
 
-If those four agree, you're current. If they disagree, `MEMORY.md`
-needs an update before you trust it.
+The "why" reference. Architecture, identity model, blast-radius policy.
 
-**Keep memory alive.** When you finish meaningful work, update
-`MEMORY.md` so the next session starts as informed as you are now.
-Memory degrades by neglect, not by use.
+- [`design/PLAN.md`](design/PLAN.md) — full design doc: goals,
+  architecture, surfaces in detail, decision log, packaging + repo
+  layout.
+- [`design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md) —
+  canonical identity + role model. Actor signing (HMAC subkey derived
+  from `local_api_token`), role resolution
+  (`user`/`admin`/`super_admin`), per-role forbidden-command tables,
+  per-user agent routing.
+- [`design/COMMAND-TIERS.md`](design/COMMAND-TIERS.md) — Tier A/B/C
+  blast-radius policy. What each tier means, what's in scope per
+  tier, audit/guard requirements.
 
-## What each doc is for
+## Reference (`reference/`)
 
-### Orientation (read these first)
+Live registries and domain maps that change when shipped code changes.
 
-| File | Purpose |
+- [`reference/COMMAND-SURFACE.md`](reference/COMMAND-SURFACE.md) —
+  canonical live command registry. Every command the node exposes,
+  per-tier constraints. If counts change, this file owns the change.
+- [`reference/HA-CONFIG-EDITING.md`](reference/HA-CONFIG-EDITING.md) —
+  domain API map: HA-native API first, `fs.patch` fallback,
+  `.storage` read-only hard rule.
+- [`reference/BACKUPS.md`](reference/BACKUPS.md) — per-file versioning
+  design: content-addressed store, index format, restore, retention.
+
+## Operations (`operations/`)
+
+How the project ships, validates, and remembers its own mistakes.
+
+- [`operations/RELEASE.md`](operations/RELEASE.md) — canonical release
+  procedure. Auto-cut via
+  `.github/workflows/release-on-version-bump.yml` on version bump.
+  Manual recipe preserved as emergency fallback.
+- [`operations/QUALITY.md`](operations/QUALITY.md) — CI gates (ruff,
+  ruff format, mypy strict, pytest coverage, bandit, pip-audit).
+- [`operations/UAT-PLAN.md`](operations/UAT-PLAN.md) — user acceptance
+  testing checklist.
+- [`operations/LESSONS.md`](operations/LESSONS.md) — postmortems and
+  "I burned a day on this" recipes. Append-only. Read before changing
+  the connect frame, Dockerfile, or addon config.
+
+## Research (`research/`)
+
+Historical design rationale. Read for "why is it this way?" — not for
+current state.
+
+- [`research/AGENT-BRIDGE-CONNECTIVITY.md`](research/AGENT-BRIDGE-CONNECTIVITY.md)
+  — why the node goes through the gateway, not direct to agent-bridge.
+- [`research/CONVERSATION-AGENT.md`](research/CONVERSATION-AGENT.md) —
+  why the HACS shim is required (HA core constraint on
+  conversation-agent registration).
+- [`research/OPENCLAW-INTEGRATION.md`](research/OPENCLAW-INTEGRATION.md)
+  — P5.11 postmortem that killed the parallel-brain direction.
+- [`research/MIGRATION.md`](research/MIGRATION.md) — MCP server
+  retirement readiness tracking.
+
+---
+
+## Source of truth — when a fact changes, update *one* file
+
+| Fact that changes | Canonical doc |
 |---|---|
-| [`OVERVIEW.md`](OVERVIEW.md) | High-level user-facing intro: the three pieces (addon, HACS shim, gateway) and how they fit. |
-| [`PLAN.md`](PLAN.md) | Full design doc: goals, architecture, surfaces in detail, decision log. The "why" reference. |
-| [`STATUS.md`](STATUS.md) | **Canonical "where we are right now."** Current release, what works end-to-end, what's next. Update on every meaningful state change. |
+| Current shipped version | `addon/config.yaml` + `addon/build.yaml` (code is the source); [`STATUS.md`](STATUS.md) references it. |
+| Current state (what works end-to-end) | [`STATUS.md`](STATUS.md) |
+| Command list / counts | [`reference/COMMAND-SURFACE.md`](reference/COMMAND-SURFACE.md) |
+| Tier A/B/C policy | [`design/COMMAND-TIERS.md`](design/COMMAND-TIERS.md) |
+| Identity / actor signing model | [`design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md) |
+| Open work / what's next | [`TODO.md`](TODO.md) |
+| Recently merged PRs | [`TODO.md`](TODO.md) "Recently done" |
+| Release procedure | [`operations/RELEASE.md`](operations/RELEASE.md) |
+| Architecture snapshot / agent context | [`MEMORY.md`](MEMORY.md) |
+| Postmortems / gotchas | [`operations/LESSONS.md`](operations/LESSONS.md) |
 
-### Roadmap + history
-
-| File | Purpose |
-|---|---|
-| [`TODO.md`](TODO.md) | **Canonical roadmap + PR ledger.** Open items (numbered) + "Recently done" PR list in ascending order. Update when a PR merges or an item closes. |
-| [`QUESTIONS-FOR-ROB.md`](QUESTIONS-FOR-ROB.md) | Append-only Q&A for things Clawd can't resolve overnight. Open → Resolved. |
-| [`LESSONS.md`](LESSONS.md) | Postmortems / "I burned a day on this" recipes. Append-only. |
-| [`MEMORY.md`](MEMORY.md) | **Agent-side recall — the post-compaction / new-session entry point.** Architecture snapshot, what's live, what the moving parts are, where to find everything. Keep current — a fresh Clawd session reads this first to know what we've done and what's next. |
-
-### Identity, scopes, command surface
-
-| File | Purpose |
-|---|---|
-| [`IDENTITY-AND-SCOPES.md`](IDENTITY-AND-SCOPES.md) | **Canonical identity + role model.** Actor signing (HMAC subkey derived from `local_api_token`), role resolution (`user`/`admin`/`super_admin`), per-role forbidden-command tables, per-user agent routing. |
-| [`COMMAND-TIERS.md`](COMMAND-TIERS.md) | **Canonical Tier A/B/C blast-radius policy.** What each tier means, what's in scope per tier, audit/guard requirements. |
-| [`COMMAND-SURFACE.md`](COMMAND-SURFACE.md) | **Canonical live command registry.** Every command the node exposes, per-tier constraints. If counts change, this file owns the change. |
-
-### Operations + quality
-
-| File | Purpose |
-|---|---|
-| [`INSTALL.md`](INSTALL.md) | **User-facing.** Step-by-step install (gateway allowlist, addon config, HACS install, verification). Self-contained on purpose — users shouldn't have to chase links. |
-| [`UAT-PLAN.md`](UAT-PLAN.md) | User acceptance testing checklist. Update when phases change. |
-| [`HA-CONFIG-EDITING.md`](HA-CONFIG-EDITING.md) | Domain API map: HA-native API first, `fs.patch` fallback, `.storage` read-only hard rule. |
-| [`BACKUPS.md`](BACKUPS.md) | Per-file versioning design: content-addressed store, index format, restore, retention. |
-| [`PACKAGING.md`](PACKAGING.md) | Build + packaging design: addon config keys, image arch matrix, version policy. |
-| [`RELEASE.md`](RELEASE.md) | **Canonical release procedure.** Auto-cut via `.github/workflows/release-on-version-bump.yml` on version bump. Manual recipe preserved as emergency fallback. |
-| [`PROCESS.md`](PROCESS.md) | Cross-provider code review workflow (Clawd/Opus writes → Codex/GPT-5.5 reviews). |
-| [`QUALITY.md`](QUALITY.md) | CI gates (ruff, ruff format, mypy strict, pytest coverage ≥95%, bandit, pip-audit). |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Conventional commit policy, version policy, where to put what. |
-
-### Research / context (historical)
-
-These captured the thinking that led to the current architecture. Read for "why is it this way?" — not for current state.
-
-| File | Purpose |
-|---|---|
-| [`RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`](RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md) | Why the node goes through the gateway, not direct to agent-bridge. |
-| [`RESEARCH-CONVERSATION-AGENT.md`](RESEARCH-CONVERSATION-AGENT.md) | Why the HACS shim is required (HA core constraint on conversation-agent registration). |
-| [`RESEARCH-OPENCLAW-INTEGRATION.md`](RESEARCH-OPENCLAW-INTEGRATION.md) | P5.11 postmortem that killed the parallel-brain direction. |
-| [`RESEARCH-MIGRATION.md`](RESEARCH-MIGRATION.md) | MCP server retirement readiness tracking. |
-
-## Source-of-truth table — when a fact changes, update *one* file
-
-| Fact that changes | Canonical doc | Other docs that mention it |
-|---|---|---|
-| Current shipped version | `addon/config.yaml` + `addon/build.yaml` (code is the source); `STATUS.md` references it. | `INSTALL.md`, `UAT-PLAN.md`, `PACKAGING.md`, `MEMORY.md`, `RELEASE.md` should `→` link or quote `STATUS.md`. |
-| Current state (what works end-to-end) | `STATUS.md` | `OVERVIEW.md`, `MEMORY.md`, `UAT-PLAN.md` may summarize → link to `STATUS.md`. |
-| Command list / command counts | `COMMAND-SURFACE.md` | `STATUS.md`, `INSTALL.md`, `UAT-PLAN.md`, `MEMORY.md` should link, not duplicate counts. |
-| Tier A/B/C policy | `COMMAND-TIERS.md` | `IDENTITY-AND-SCOPES.md`, `TODO.md` item #11 link to it. |
-| Identity / actor signing model | `IDENTITY-AND-SCOPES.md` | `OVERVIEW.md`, `INSTALL.md`, `authz.py` docstring link to it. |
-| Open work / what's next | `TODO.md` | `STATUS.md` "next steps" links to specific TODO items. |
-| Recently merged PRs | `TODO.md` "Recently done (ascending PR order)" | Don't duplicate elsewhere. |
-| Release procedure | `RELEASE.md` | `CONTRIBUTING.md`, `LESSONS.md` link, don't restate. |
-| Resolved Rob questions | `QUESTIONS-FOR-ROB.md` Resolved section | Cross-reference from the relevant `TODO.md` item. |
-| Architecture snapshot / agent context | `MEMORY.md` | Update on every meaningful architectural or state change so the next Clawd session resumes cleanly. |
+If two docs disagree, fix the non-canonical one to match the canonical
+one. Don't update both copies.
 
 ## Files outside `docs/` that also need updates
 
-"Doc cleanup" is broader than `docs/`. These repo-level files render to users in places `docs/` cannot reach, and they have to stay in sync. Per the `LESSONS.md` 2026-06-20 lesson "User-facing docs includes more than `docs/` and `README.md`":
+"Doc cleanup" is broader than `docs/`. These repo-level files render
+to users in places `docs/` cannot reach and have to stay in sync.
 
 | File | What it controls | When it needs updating |
 |---|---|---|
-| `README.md` (repo root) | The GitHub repo landing page; HACS surfaces it on the integration detail page. | Whenever a user-facing fact changes (install instructions, what the project is, supported HA versions). Keep it self-contained — users land here cold. |
-| `addon/config.yaml` `description:` | Text HA Supervisor renders in the addon list and detail page. | When the addon's user-facing pitch changes. Phase IDs / internal jargon don't belong here. |
-| `addon/CHANGELOG.md` | Per-release notes the release workflow extracts and HA Supervisor renders in the addon's Changelog tab. | Add a `## <version> (date) — title` section as part of every release PR. |
-| `addon/config.yaml` + `addon/build.yaml` + `addon/node/pyproject.toml` + `addon/node/src/openclaw_node/__init__.py` + `custom_components/openclaw_gateway/manifest.json` | The five version sources. Drift → CI fail. | Always together via `scripts/bump-version.py <version>`; never hand-edited. |
+| `README.md` (repo root) | GitHub landing page; HACS surfaces it on the integration detail page. | Whenever a user-facing fact changes. Keep it self-contained. |
+| `addon/config.yaml` `description:` | Text HA Supervisor renders in the addon list and detail page. | When the addon's user-facing pitch changes. No internal jargon. |
+| `addon/CHANGELOG.md` | Per-release notes the release workflow extracts; HA Supervisor renders in the addon's Changelog tab. | Add a `## <version> (date) — title` section as part of every release PR. |
+| Five version sources (`addon/config.yaml`, `addon/build.yaml`, `addon/node/pyproject.toml`, `addon/node/src/openclaw_node/__init__.py`, `custom_components/openclaw_gateway/manifest.json`) | The version string. Drift fails CI. | Always together via `scripts/bump-version.py <version>`. Never hand-edited. |
 | `custom_components/openclaw_gateway/manifest.json` `name` | Integration name in HA's Integrations list. | When you rename the integration. |
-| `custom_components/openclaw_gateway/strings.json` | Config-flow UI copy shown during integration setup (field labels, descriptions, errors). | When you change a config-flow field or its meaning. |
-| `hacs.json` `name` | Title shown in the HACS catalog. | When the HACS-listed title changes (note: intentionally allowed to differ from manifest `name` if you want a "(Beta)" suffix etc.). |
-| GitHub repo description | One-line shown under the repo name on github.com and search results. | When the elevator pitch changes. Check with `gh repo view ... --json description`. |
-
-**Before treating a doc sweep as complete, scan ALL of these for the same staleness patterns** (phase IDs, removed features, old version numbers, contradictions with `docs/`).
+| `custom_components/openclaw_gateway/strings.json` | Config-flow UI copy. | When you change a config-flow field. |
+| `hacs.json` `name` | Title in the HACS catalog. | When the HACS-listed title changes. |
+| GitHub repo description | One-line shown on github.com. | When the elevator pitch changes (`gh repo view ... --json description`). |
 
 ## Cheat sheet — "I just did X, which docs do I touch?"
 
 | You just did… | Update |
 |---|---|
-| Finished a working session of any size | Refresh `MEMORY.md` so a fresh session post-compaction can pick up cleanly. This is non-negotiable — memory only stays useful if it's maintained. |
-| Merged a non-release PR | Add a one-liner to `TODO.md` "Recently done"; if it closes a numbered TODO item, mark that item closed. Then sync `MEMORY.md` if the change affects architecture. |
-| Merged a release PR (version bump) | Auto-cut workflow handles tag + GitHub release. Then update `STATUS.md` "Where we are" if behavior changed; bump version references in `INSTALL.md`/`UAT-PLAN.md`/`PACKAGING.md`/`MEMORY.md`. (Phase 2 reshape will collapse these into a single link.) |
-| Registered a new command | `COMMAND-SURFACE.md` (count + tier); add to `IDENTITY-AND-SCOPES.md` forbidden-command tables if user/admin shouldn't reach it. |
-| Changed a Tier boundary | `COMMAND-TIERS.md`. Then audit `IDENTITY-AND-SCOPES.md` rules. |
-| Shipped a feature that closes a TODO item | Mark the item in `TODO.md`; if it changes user-visible behavior, also `STATUS.md` and `INSTALL.md`. |
-| Wrote a useful postmortem | `LESSONS.md` (append). |
-| Hit a question that needs Rob | `QUESTIONS-FOR-ROB.md` Open section. Move to Resolved when answered. |
-| Changed CI / quality gates | `QUALITY.md` (the gates) + `CONTRIBUTING.md` (if it changes contributor workflow). |
-| Changed the release pipeline | `RELEASE.md`. |
-| Changed the addon `map:` or volume layout | `PLAN.md` "Surfaces in detail" + `PACKAGING.md`. |
-
-## Decision tree — when in doubt
-
-1. **Is this a fact about the live code right now?** → it belongs in the canonical doc for that fact (see source-of-truth table above), not in a research doc or postmortem.
-2. **Is this a fact about why we did something historically?** → `LESSONS.md` (specific incident) or a `RESEARCH-*.md` (broader design rationale).
-3. **Is this a user-facing instruction?** → `INSTALL.md`, `OVERVIEW.md`, or `UAT-PLAN.md`. These are intentionally self-contained — duplicate facts here are accepted.
-4. **Is this state that will change next week?** → `STATUS.md` (current) or `TODO.md` (roadmap). Not `PLAN.md`.
-5. **Is this design-stable and won't change for a while?** → `PLAN.md` or the relevant canonical doc.
-6. **Still unsure?** → drop it in `STATUS.md` "Open / under discussion" and ask Rob via `QUESTIONS-FOR-ROB.md`.
+| Finished a working session of any size | Refresh [`MEMORY.md`](MEMORY.md) so a fresh session can pick up. |
+| Merged a non-release PR | Add a one-liner to [`TODO.md`](TODO.md) "Recently done"; close any numbered TODO item it satisfies. Sync `MEMORY.md` if architecture changed. |
+| Merged a release PR (version bump) | Auto-cut workflow handles tag + GitHub release. Update [`STATUS.md`](STATUS.md) if behaviour changed. |
+| Registered a new command | [`reference/COMMAND-SURFACE.md`](reference/COMMAND-SURFACE.md) (count + tier). Add to [`design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md) forbidden-command tables if user/admin shouldn't reach it. |
+| Changed a Tier boundary | [`design/COMMAND-TIERS.md`](design/COMMAND-TIERS.md). Then audit [`design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md) rules. |
+| Shipped a feature that closes a TODO item | Mark the item in [`TODO.md`](TODO.md); update [`STATUS.md`](STATUS.md) and [`INSTALL.md`](INSTALL.md) if user-visible. |
+| Wrote a useful postmortem | [`operations/LESSONS.md`](operations/LESSONS.md) (append). |
+| Hit a question that needs Rob | Open a TODO item in [`TODO.md`](TODO.md). |
+| Changed CI / quality gates | [`operations/QUALITY.md`](operations/QUALITY.md) (gates) + [`CONTRIBUTING.md`](CONTRIBUTING.md) (if workflow changes). |
+| Changed the release pipeline | [`operations/RELEASE.md`](operations/RELEASE.md). |
+| Changed the addon `map:` or volume layout | [`design/PLAN.md`](design/PLAN.md). |
 
 ## Maintenance
 
-- If you update a fact and notice another doc still has the old version, **don't** also update the copy — fix the copy by linking to the canonical doc instead. (Phase 2 reshape will systematize this.)
-- A CI guard against hardcoded command counts outside `COMMAND-SURFACE.md` is on the roadmap (post-reshape).
-- This file itself is the canonical "what does each doc do" — if a new doc is added, add a row here in the same commit.
+- If you update a fact and notice another doc still has the old
+  version, **don't** also update the copy. Fix the copy by linking to
+  the canonical doc instead.
+- A CI guard against hardcoded command counts outside
+  [`reference/COMMAND-SURFACE.md`](reference/COMMAND-SURFACE.md) is on
+  the roadmap.
+- This file is the canonical "what does each doc do" — if a new doc
+  is added, add a link here in the same commit.

@@ -8,11 +8,11 @@ Supersedes (historical reference only; the in-repo handoff files were
 deleted in PR #150, workspace-side originals remain on disk):
 - `docs/HANDOFF-2026-06-20-streaming-followups.md` (deleted)
 - `docs/HANDOFF-2026-06-20-addon-command-surface.md` (deleted)
-- `docs/QUESTIONS-FOR-ROB.md` (Q1/Q2 carried below)
+- `docs/QUESTIONS-FOR-ROB.md` (deleted in Phase 2 doc reshape; Q1/Q2 carried below)
 - `~/.openclaw/workspace/handoffs/2026-06-20-ha-assist-followups.md`
 - `~/.openclaw/workspace/handoffs/2026-06-20-MASTER-todo.md` (this file's original location)
 
-`docs/STATUS.md` and `docs/PLAN.md` remain as architecture/release docs; this file is the operational punch list.
+`docs/STATUS.md` and `docs/design/PLAN.md` remain as architecture/release docs; this file is the operational punch list.
 
 Item numbers are stable identifiers (PR descriptions reference them); they are not a priority order. Open items are listed first, then closed items.
 
@@ -51,7 +51,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - #158 — `fix(ci)`: PEP 440 regex + CHANGELOG version match correctness (GPT-5.5 review catch on #156).
 - #159 — docs: reorder Recently-done PRs ascending + fold in missing entries.
 - #160 — docs(todo): split Open vs Closed, restore #152.
-- #161 — docs: restore Tier A/B/C policy as `docs/COMMAND-TIERS.md`.
+- #161 — docs: restore Tier A/B/C policy as `docs/design/COMMAND-TIERS.md`.
 - #162 — docs: capture identity + scopes design (TODO #1).
 - #163 — docs: rewrite `IDENTITY-AND-SCOPES` — two-gate, addon-only design (v2).
 - #164 — `feat(shim)`: forward HA user identity as `actor` on `/v1/conversation/stream`.
@@ -62,14 +62,14 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 Runtime events (not PRs):
 
 - Node re-paired in operator role (dual-WS pairing).
-- `paired.json` for the live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified end-to-end. Lesson captured in `docs/LESSONS.md`.
+- `paired.json` for the live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified end-to-end. Lesson captured in `docs/operations/LESSONS.md`.
 
 ---
 
 ## Open items
 
 ### 1. User mapping / identity propagation
-- Status: IMPLEMENTED-IN-PR — see [`docs/IDENTITY-AND-SCOPES.md`](./IDENTITY-AND-SCOPES.md)
+- Status: IMPLEMENTED-IN-PR — see [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md)
 - Captures the agreed addon-only model (2026-06-23): three roles (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Shim forwards `actor`, addon resolves role, prepends a hardened per-turn authorization disclaimer, and optionally sends `agentId` from `identity.user_agent_map` / `default_agent_id`.
 - This is prompt-level for shared-agent setups. Hard concern-A enforcement still comes from gateway-side agent inventories; hard concern-B invoke enforcement still needs a future gateway invoke envelope that carries session/actor context.
 - Highest leverage; cross-links to 7, 9, 11.
@@ -80,7 +80,7 @@ Runtime events (not PRs):
 - Shares ingress with item 13 (github-bridge).
 
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
-- Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/COMMAND-TIERS.md`.**
+- Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/design/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
@@ -110,6 +110,31 @@ Runtime events (not PRs):
 - Constraints: must respect prerelease semantics (a/b/rc/.dev); must still produce a useful HA-Supervisor-rendered `addon/CHANGELOG.md` (Supervisor reads this file for the addon's Changelog tab); must not require a separate `release: <version>` PR if the changelog can be generated mid-flight.
 - Lands AFTER the doc cleanup + Phase 2 doc-architecture reshape, but BEFORE we'd want to take the project to 1.0.
 
+### 20. Proposal-gated write path — agent-bridge UI wiring
+- Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; the actual `propose_edit` → `resolve_proposal` round-trip through the agent-bridge UI is not wired.
+- Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `ha.config.*`.
+- Goal: a user-visible "agent wants to make this change → accept / reject" pane in agent-bridge that the node waits on before applying the write.
+- This is the next major write-surface milestone.
+
+### 21. HACS brands PR — OpenClaw icon
+- Status: OPEN (external)
+- Upstream HACS "brands" PR is open; while it's pending the integration shows the default HACS icon, not the OpenClaw one. Pure cosmetic; tracked so we don't forget to confirm after it merges.
+
+### 22. Publishing — GHCR per-arch image + HACS index
+- Status: OPEN
+- Today: Supervisor builds locally on-device from the cloned add-on repo; HACS install works but isn't in the default HACS index.
+- Goal: per-arch image published to GHCR by the release workflow (lets us put the `image:` key back in `config.yaml` and skip on-device builds), `addon` repository metadata published, HACS default-index PR submitted.
+- Independent of #20; can land in parallel.
+
+### 23. HA-version-rooted commands + breaking-change verification (PLAN §2c)
+- Status: OPEN — gated on #20 (writes need to actually round-trip through agent-bridge before pre-change verification has a place to fire).
+- Designed in [`design/PLAN.md`](design/PLAN.md) §2c. Three pieces:
+  1. **HA core version detection on connect.** Node hits Supervisor `/info` (or `/api/config`) and emits the version as pairing metadata so the gateway-side agent always knows the live HA version of the target.
+  2. **New `docs.lookup(topic, version=current)` command.** Fetches documentation from the `home-assistant/home-assistant.io` repo at the tag matching the running core version, with a local cache. Goes through `dispatcher.py` like any other command.
+  3. **New `docs.breaking_changes(version=current, since=<prev>?, domain=?)` command.** Pulls the breaking-changes section of the relevant release notes from the same docs repo. Used by the HARD rule below.
+- **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
+- Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
+
 ---
 
 ## Closed items
@@ -122,7 +147,7 @@ Runtime events (not PRs):
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
-- Remaining grep hits are only historical-track explanations (`docs/RELEASE.md`, `docs/PACKAGING.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
+- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
 - Status: CLOSED 2026-06-20 (streaming variant fixed; non-streaming variant accepted as structural)
@@ -158,7 +183,7 @@ Runtime events (not PRs):
 
 ### 14. Gateway allowCommands sync for new node commands
 - Status: CLOSED 2026-06-20
-- All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
+- All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/operations/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
 
 ### 15. Q1 — HACS shim default hostname hash
 - Status: CLOSED 2026-06-20 (mooted by PR #94)

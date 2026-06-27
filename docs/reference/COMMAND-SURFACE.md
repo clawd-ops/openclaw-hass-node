@@ -12,7 +12,7 @@ Addon-management commands are tiered by blast radius. Tier A
 (read-only) is on the subagent allowlist; Tier B (lifecycle) is
 admin-gated; Tier C (install / uninstall / update / rebuild) is
 explicitly out of scope. Full policy + constraints in
-[`docs/COMMAND-TIERS.md`](./COMMAND-TIERS.md).
+[`docs/design/COMMAND-TIERS.md`](../design/COMMAND-TIERS.md).
 
 ## `ping` — liveness
 
@@ -84,7 +84,7 @@ They will be registered in the dispatcher as each phase ships.
 
 - **`ha.config.*`** — domain config editing (automations, scripts,
   scenes, lovelace, blueprints). Detects YAML vs UI storage mode.
-  See `HA-CONFIG-EDITING.md`.
+  See `docs/reference/HA-CONFIG-EDITING.md`.
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,

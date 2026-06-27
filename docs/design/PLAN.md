@@ -101,32 +101,15 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 
 ### 1b. Backup / undo model
 
-Purpose-built per-file versioning. No git in `/config`. No Supervisor
-snapshot per file change. No `.bak` sidecars next to live files.
+Per-file content-addressed versioning under `/share/openclaw-backups/`
+(outside `/config`, survives addon rebuilds, included in HA backups).
+Every applied proposal that mutates a file under a protected root
+captures the prior bytes; `fs.restore`/`fs.history`/`fs.diff` surface
+the versions. No git in `/config`, no per-change Supervisor snapshots,
+no `.bak` sidecars.
 
-- **Store**: `/share/openclaw-backups/` (outside `/config`, survives
-  add-on (app) rebuilds, included in normal HA backups).
-- **Layout**: content-addressed object store + per-path index.
-  - Objects: `objects/<sha256[0:2]>/<sha256>` — raw prior bytes,
-    deduplicated across versions and files.
-  - Index: `index/<url-encoded-path>.jsonl` — one line per version:
-    `{ts, proposal_id, sha256, size, op}`.
-- **When written**: every applied proposal that mutates a file under a
-  protected root captures the *prior* bytes before write. Deletes
-  capture the prior bytes and mark `op: "delete"`.
-- **Restore**: `fs.restore path=<p> [--at <ts>|--proposal <id>|--version <n>]`
-  proposal-gates the restore itself (it's a write).
-- **Retention**: default keep-all up to a configurable cap (e.g. 500 MB
-  per node); LRU evict whole versions once cap is hit, never partial.
-  Per-path "pin last N versions" override for hot files.
-- **Diff/list**: `fs.history path=<p>` lists versions; `fs.diff
-  path=<p> from=<v> to=<v>` produces a unified diff.
-- **Supervisor snapshots**: only used when *the user explicitly opts
-  in* per operation, or on user-defined cadence — never automatically
-  per proposal. Coarse, expensive, and not the right grain for normal
-  edits.
-
-See `docs/BACKUPS.md` for the storage format and edge cases.
+Full design (storage layout, retention, edge cases):
+[`../reference/BACKUPS.md`](../reference/BACKUPS.md).
 
 ### 2. HA control
 
@@ -166,11 +149,18 @@ See `docs/BACKUPS.md` for the storage format and edge cases.
   through proposal-gated `fs.patch` since there's no REST API for
   them.
 
-See `docs/HA-CONFIG-EDITING.md` for the per-domain API map.
+See `docs/reference/HA-CONFIG-EDITING.md` for the per-domain API map.
 
-See `docs/HA-CONFIG-EDITING.md` for per-domain detail.
+See `docs/reference/HA-CONFIG-EDITING.md` for per-domain detail.
 
 ### 2c. Always rooted in installed HA version + breaking-change verification
+
+> **Status: deferred.** None of the pieces below are implemented. The
+> mechanism is gated on the proposal-gated write path actually
+> round-tripping through agent-bridge (TODO #20) — until writes land
+> there's no place for pre-change verification to fire. Tracked as
+> TODO #23. Kept here as the design contract for when #20 unblocks
+> it.
 
 - Node detects HA core version on connect (Supervisor `/info` or
   `/api/config`), emits it as pairing metadata so gateway model
@@ -182,7 +172,7 @@ See `docs/HA-CONFIG-EDITING.md` for per-domain detail.
   command. Pulls the relevant release notes' breaking-changes section
   from the docs repo. Used by the rule below.
 
-**Mandatory pre-change verification (HARD rule):**
+**Mandatory pre-change verification (HARD rule, deferred with §2c):**
 
 Before any proposal that touches HA config (yaml or API-driven), the
 generator must:
@@ -198,7 +188,7 @@ generator must:
    edits where supported) before commit.
 
 **Cross-validation of the verification:** the Codex reviewer pass
-(see `PROCESS.md`) re-runs `docs.breaking_changes` against the diff
+(see `docs/CONTRIBUTING.md`) re-runs `docs.breaking_changes` against the diff
 and blocks merge if the generator missed a relevant breaking change
 or fix.
 
@@ -233,7 +223,7 @@ Three pieces, only one of which is bespoke:
    `ConversationEntity` subclass whose `async_process` POSTs to the
    add-on (app)'s local HTTP endpoint. Distributed via HACS. Required by HA
    core because conversation-agent registration is in-process Python
-   only (see `docs/RESEARCH-CONVERSATION-AGENT.md`).
+   only (see `docs/research/CONVERSATION-AGENT.md`).
 2. **Node** (this repo). Pairs with the gateway as dual-role `[node,
    operator]` via the QR / bootstrap-token flow (same
    `PAIRING_SETUP_BOOTSTRAP_PROFILE` mobile clients use). Opens two
@@ -264,7 +254,7 @@ tool dispatch, and conversation state. A node that originates a turn
 just needs the chat scope on its connect frame and the two RPC calls
 above. Earlier iterations built a parallel Python gateway with its own
 brain, providers, and invented `node.conversation.*` events; all of
-that was deleted in P5.11 (see `docs/RESEARCH-OPENCLAW-INTEGRATION.md`
+that was deleted in P5.11 (see `docs/research/OPENCLAW-INTEGRATION.md`
 for the post-mortem and the P5.12 implementation plan).
 
 **Routing model (2026-06-06):** the agent the node routes turns to is
@@ -313,101 +303,157 @@ fits. The node carries no model knowledge.
 - Repo published as a HA add-on (app) repository (`repository.yaml`) so users
   can add the URL in HA → Add-on (App) Store → Repositories.
 
-See `PACKAGING.md` for the full layout.
+See `docs/design/PLAN.md` for the full layout.
 
-## Cross-validated code changes (build process)
+## Process + quality
 
-Every code change to this repo follows:
+Process (Conventional Commits, cross-provider review) lives in
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md). CI gates (mypy strict,
+ruff, pytest coverage ≥95%, bandit, pip-audit, addon smoke build)
+live in [`../operations/QUALITY.md`](../operations/QUALITY.md). Both
+the node and the HACS shim are Python 3.13+ (HA core requires Python
+for the shim; the node aligns to remove a build chain).
 
-1. Claude Code subagent generates the change, opens a PR.
-2. A Codex (OpenAI, pi runtime) subagent is spawned with a review-only
-   prompt against the diff; posts inline comments + verdict.
-3. Merge only if Codex returns no blocking issues, or Claude addresses
-   them in a follow-up commit that Codex re-reviews.
-4. Process and prompts live in `docs/PROCESS.md`.
+## Resolved design questions (historical)
 
-## Code quality gates
+The four early design questions that shaped this plan are documented
+in the research folder; their resolutions are baked into the
+architecture above:
 
-In addition to cross-review, every PR must pass a mechanical quality
-bar enforced in GitHub Actions:
+- Conversation-agent registration → HACS shim required ([`../research/CONVERSATION-AGENT.md`](../research/CONVERSATION-AGENT.md)).
+- agent-bridge connectivity → gateway brokers ([`../research/AGENT-BRIDGE-CONNECTIVITY.md`](../research/AGENT-BRIDGE-CONNECTIVITY.md)).
+- MCP retirement criteria → 7 days of zero unhandled `mcp__homeassistant*` + written inventory ([`../research/MIGRATION.md`](../research/MIGRATION.md)).
+- Versioning → date-based `YYYY.M.PATCH` (now expressed as `2026.6.20bN` pre-1.0).
 
-- Strict type checking: `mypy --strict` + `pyright --strict`.
-- Google-style docstrings on every public symbol (`ruff` D-rules +
-  `pydoclint`).
-- 95 % branch coverage gate on shipped code (`pytest` + `coverage.py`).
-- Lint/format: `ruff check` and `ruff format --check`.
-- Security: `bandit`, `pip-audit`.
-- Add-on (App) smoke build for `amd64`/`aarch64`/`armv7`.
+Current open work is in [`../TODO.md`](../TODO.md); current shipped state is in [`../STATUS.md`](../STATUS.md). This file is the *why*, not the *what's-shipped-now*.
 
-Full details in `docs/QUALITY.md`. Language is Python 3.13+ for both
-the node and the `custom_components/openclaw_gateway/` shim (the
-shim is required to be Python by HA core, so the node aligns to
-remove a build chain).
+---
 
-## Open questions
+## Packaging & repo layout
 
-1. ~~**Conversation agent registration from outside `custom_components/`**~~
-   **Resolved (P1.1, 2026-06-05): not viable.** Plan B (thin HACS shim)
-   is the only realistic option. See
-   `docs/RESEARCH-CONVERSATION-AGENT.md`.
-2. ~~**agent-bridge connectivity from the node**~~ **Resolved (P1.2,
-   2026-06-05): gateway brokers.** Node speaks only the gateway WS
-   protocol; emits `node.propose` requests, gateway translates to
-   agent-bridge MCP calls and relays the result. See
-   `docs/RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`.
-3. ~~**MCP server retirement**~~ **Resolved (P1.3, 2026-06-05):**
-   retire `homeassistant` + `homeassistant-readonly` MCP servers
-   *only after the node has proven it can handle every call surface
-   they currently serve*, across every agent that uses them (main
-   session, ReefMaster, PoolMaster, HomeOps, heartbeats). No
-   calendar-based default. Concrete trigger: zero unhandled
-   `mcp__homeassistant*` tool calls in the gateway logs for 7
-   consecutive days *and* a written inventory in
-   `docs/RESEARCH-MIGRATION.md` confirming coverage. Cutover is a
-   single PR that drops the MCP servers from gateway config and
-   updates any agent prompts that referenced them by name.
-   Migration scope tracked separately under P1.3.
-4. ~~**Update channel**~~ **Resolved (P1.4, 2026-06-05):**
-   date-based versioning, `YYYY.M.PATCH` (e.g. `2026.6.0`). The
-   leading two components track the HA release this node was tested
-   against, so users can read add-on (app)/HA compatibility at a glance.
-   Patch increments for fixes within a HA release. The breaking-change
-   discipline in §2c is the same discipline we want at the version
-   bump — both happen on HA's cadence.
+> Folded in from the former `docs/PACKAGING.md` during the Phase 2 doc
+> reshape. Version policy and the five-source bump flow live in
+> [`../operations/RELEASE.md`](../operations/RELEASE.md).
 
-## Phases
+### Language
 
-Live state in `STATUS.md`. Checkmarks here are an at-a-glance summary.
+Python 3.13+ for both packages (node + HACS shim). See
+[`../CONTRIBUTING.md`](../CONTRIBUTING.md) for the CI gates (ruff check
++ format, mypy strict, pytest with branch coverage).
 
-- ✅ **P0 — Plan** (this doc).
-- ✅ **P1 — Research** — 4 open questions resolved.
-- ✅ **P2 — Skeleton** — `addon/` Dockerfile + `config.yaml`, node
-  entrypoint that pairs and answers `ping`.
-- ✅ **P3 — Filesystem + shell** — `fs.*` read + proposal-gated writes,
-  `system.run`, `system.which`. Content-addressed backup store.
-- ✅ **P4 — HA control surface** — 13 `ha.*` commands covering MCP
-  parity (P4.1–P4.4) plus `list_automations` + `check_config` (P4.5).
-- ◑ **P5 — Assist agent**.
-  - ✅ P5.1 — HACS shim error handling
-  - ✅ P5.2-P5.8 — built and deleted a parallel brain (see P5.11)
-  - ✅ P5.9 — multi-provider brain (deleted in P5.11)
-  - ✅ P5.10 — research doc only; superseded
-  - ✅ P5.11 — cleanup: delete wrong-direction code, document the
-    node-as-conversation-relay architecture
-  - ◑ **P5.12 — ChatRelay implementation (shipped, broken).** Built
-    `chat.send` + `sessions.messages.subscribe` on the existing `role:
-    node` gateway WS — disproved by first real Assist turn (#82). Code
-    landed (PR #72); auth/transport needed the P5.13 refactor.
-  - ✅ **P5.13 — Dual WS connection** (#84). Node maintains two
-    parallel gateway WS connections: existing `role: node` for
-    invokes, new `role: operator` for ChatRelay's `chat.send` and
-    `sessions.messages.subscribe`. Device paired as dual-role via
-    `PAIRING_SETUP_BOOTSTRAP_PROFILE` (QR / bootstrap-token flow).
-    Independent reconnect loops; one connection failing doesn't take
-    the other down. No back-compat migration — existing single-role
-    devices remove + re-add (pre-1.0 rule). Shipped; the relay
-    streams token deltas and tool-named progress mid-turn.
-- ◑ **P6 — Retire MCP servers** for this HA after the validation
-  window. P6.1 (validation harness) shipped; cron it. P6.2 (cutover
-  PR) fires only when the harness ever prints `RETIREMENT_READY`.
-- ⏭ **P7 — Publish add-on (app) repo** + docs.
+### Repo layout
+
+```
+openclaw-hass-node/
+├── README.md
+├── repository.yaml                  # HA add-on store descriptor
+├── hacs.json                        # HACS descriptor for the shim
+├── docs/
+│   ├── README.md                    # docs site landing page
+│   ├── INSTALL.md / STATUS.md / TODO.md / CONTRIBUTING.md / MEMORY.md
+│   ├── design/                      # PLAN, IDENTITY-AND-SCOPES, COMMAND-TIERS
+│   ├── reference/                   # COMMAND-SURFACE, HA-CONFIG-EDITING, BACKUPS
+│   ├── operations/                  # RELEASE, QUALITY, UAT-PLAN, LESSONS
+│   └── research/                    # historical design rationale
+├── addon/                           # Build context for Supervisor
+│   ├── config.yaml                  # HA add-on manifest
+│   ├── Dockerfile                   # HA per-arch Python base
+│   ├── build.yaml                   # Per-arch BUILD_FROM + labels
+│   ├── run.sh                       # Entrypoint (exports env, runs node)
+│   ├── icon.png / logo.png
+│   └── node/                        # OpenClaw node (Python package)
+│       ├── pyproject.toml
+│       ├── src/openclaw_node/
+│       │   ├── __init__.py          # Version + importlib.metadata
+│       │   ├── __main__.py          # Detects add-on vs standalone
+│       │   ├── config.py            # Env-driven configuration
+│       │   ├── authz.py             # HA actor role/disclaimer + agent routing
+│       │   ├── identity.py          # Ed25519 device identity
+│       │   ├── gateway_ws.py        # Gateway WS client (role: node)
+│       │   ├── ha_client.py         # HA REST + WS client
+│       │   ├── http_api.py          # Local HTTP API (bearer-gated)
+│       │   ├── safe_fd.py           # TOCTOU-safe fd primitives
+│       │   ├── backup_store.py      # Content-addressed backup store
+│       │   └── commands/            # Command registry + handlers
+│       └── tests/
+└── custom_components/
+    └── openclaw_gateway/            # HACS integration (conversation shim)
+        ├── __init__.py
+        ├── manifest.json
+        ├── config_flow.py
+        ├── conversation.py
+        ├── const.py
+        └── strings.json
+```
+
+### Add-on `config.yaml`
+
+Canonical source: `addon/config.yaml`. Current shipped shape:
+
+```yaml
+name: OpenClaw Node
+version: "2026.6.20b7"
+slug: openclaw_hass_node
+arch: [amd64, aarch64, armv7]
+init: false
+# Least-privilege API surface. The local HTTP API authenticates with
+# `local_api_token` directly via hmac.compare_digest, not HA-issued tokens.
+homeassistant_api: true
+hassio_api: true
+hassio_role: manager
+# `hassio_role: manager` is required for the read-only Tier A addon command
+# surface. Do not add lifecycle mutation commands without a separate admin
+# gate. `auth_api` remains omitted.
+map:
+  - config:rw    # fs.* mutations gated by software _is_protected("/config")
+                 # → PROPOSAL_REQUIRED before any write/rename/unlink
+  - share:rw    # backups + delete-trash store
+  - media:rw    # generic fs.* write root
+# `ssl:ro`, `addons:ro`, `backup:ro` were removed; no shipped feature
+# consumes them and they leak sensitive material via the generic fs.read
+# surface.
+options:
+  gateway_url: "wss://gateway.example.com/ws"
+  pairing_token: ""
+  node_name: ""
+  local_api_token: ""    # shared bearer; also root for HA actor-signing subkey
+  hass_url: ""
+  hass_token: ""
+ingress: false
+```
+
+No host port mapping. The local HTTP API is only reachable inside the
+Supervisor add-on network by default. The local API is fail-closed:
+non-public paths require `Authorization: Bearer <local_api_token>`.
+When the option is unset, those paths return `401 NO_TOKEN_CONFIGURED`.
+Only `/health`, `/v1/health`, and `/v1/conversation/info` are reachable
+without a token (HA add-on probe + HACS shim config-flow discovery).
+Health responses redact identity details to counts/booleans so public
+probes cannot enumerate HA user UUIDs, agent mappings, lifecycle
+allowlists, or forbidden-command contents.
+
+### Docker base image
+
+The Dockerfile uses Home Assistant's per-arch Python base images
+(e.g. `ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.20`),
+set via `BUILD_FROM` in `build.yaml`. Supervisor requires these HA
+base images; a bare `python:3.13-alpine` is silently ignored by
+Supervisor and causes a `pip: not found` failure.
+
+The HA base image is also required by `addon/run.sh`, which uses
+`#!/usr/bin/with-contenv sh` to pick up Supervisor's injected env
+(notably `SUPERVISOR_TOKEN`). Bare Python images do not ship
+s6-overlay / `with-contenv` and the addon will not start.
+
+### Standalone Docker (not supported during beta)
+
+Running the Docker image outside HA Supervisor is **not a supported
+install path** during the pre-1.0 beta, for the with-contenv reason
+above. Standalone-mode detection in `__main__.py` is kept so the node
+can run directly on the dev host (`python -m openclaw_node` with
+`HASS_URL` + `HASS_TOKEN`), but the image itself is HA-only.
+
+Entrypoint detects mode for the standalone dev-host path:
+- `SUPERVISOR_TOKEN` present -> add-on mode, talks to
+  `http://supervisor/` and `http://homeassistant/`.
+- Else -> standalone, uses `HASS_URL` + `HASS_TOKEN`.

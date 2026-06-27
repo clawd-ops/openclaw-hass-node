@@ -2,7 +2,7 @@
 
 > **Historical snapshot.** Captures the design pivot to using the
 > existing chat surface for relay. The architecture described here is
-> what shipped; cross-check against `STATUS.md` and `PLAN.md` for the
+> what shipped; cross-check against `STATUS.md` and `docs/design/PLAN.md` for the
 > current state.
 
 > **Identity check.** Clawd is OpenClaw. The "brain" answering HA Assist
@@ -129,7 +129,7 @@ endpoint shape — all **stay**. They were always right.
    `sessions.messages.subscribe` over the existing gateway WS.
 3. Rewrite `assist_turn` to use it.
 4. Tests: relay + assist_turn end-to-end with a fake WS.
-5. Update `docs/PLAN.md` to reflect "node as conversation relay" as the
+5. Update `docs/design/PLAN.md` to reflect "node as conversation relay" as the
    architecture, with no more "build a brain" language.
 
 This is real code work — best done with you available rather than

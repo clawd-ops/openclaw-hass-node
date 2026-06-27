@@ -112,7 +112,7 @@ green:
    not published).
 9. `cross-review` — when the PR is opened by the Claude generator
    subagent, this job kicks off the Codex reviewer (see
-   `PROCESS.md`). Verdict comment is required before merge.
+   `docs/CONTRIBUTING.md`). Verdict comment is required before merge.
 
 Branch protection on `main`: required checks = all of the above;
 linear history; no force-push.
