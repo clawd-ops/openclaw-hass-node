@@ -27,9 +27,7 @@ def test_actor_from_payload_filters_missing_or_bad_actor() -> None:
 def test_derive_actor_signing_secret_uses_local_api_token() -> None:
     assert derive_actor_signing_secret("") == ""
     assert derive_actor_signing_secret("  ") == ""
-    assert derive_actor_signing_secret("local-token") == derive_actor_signing_secret(
-        "local-token"
-    )
+    assert derive_actor_signing_secret("local-token") == derive_actor_signing_secret("local-token")
     assert derive_actor_signing_secret("local-token") != "local-token"
 
 
@@ -74,8 +72,7 @@ def test_actor_from_signed_body_rejects_unsigned_or_bad_signatures(
         assert actor_from_signed_body(body, "") is None
         assert actor_from_signed_body(body, "local-token") is None
         assert (
-            actor_from_signed_body({**body, "actor_ts": 0, "actor_signature": "bad"}, "x")
-            is None
+            actor_from_signed_body({**body, "actor_ts": 0, "actor_signature": "bad"}, "x") is None
         )
         assert (
             actor_from_signed_body(
