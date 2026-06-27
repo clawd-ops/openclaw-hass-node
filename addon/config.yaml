@@ -1,6 +1,6 @@
 ---
 name: OpenClaw Node
-version: "2026.6.20b8"
+version: "2026.6.20b9"
 slug: openclaw_hass_node
 description: >
   OpenClaw gateway peripheral for Home Assistant (beta). Connects this HA
@@ -104,8 +104,10 @@ options:
     super_admins: []
     # Optional per-HA-user gateway agent routing. The agents themselves are
     # configured in OpenClaw's gateway config; this addon only picks which
-    # agentId to send on chat.send for each HA user.
-    user_agent_map: {}
+    # agentId to send on chat.send for each HA user. List of
+    # {ha_user_id, agent_id} pairs — list-of-dicts is the HA-canonical
+    # addon-schema shape for an arbitrary key-value map.
+    user_agent_map: []
     # Empty preserves today's gateway-default routing.
     default_agent_id: ""
     # HA actor metadata is signed by the HACS shim with a key derived from
@@ -141,7 +143,9 @@ schema:
   identity:
     super_admins:
       - str
-    user_agent_map: dict?
+    user_agent_map:
+      - ha_user_id: str
+        agent_id: str
     default_agent_id: str?
     forbidden_commands: str?
   addon_lifecycle:
