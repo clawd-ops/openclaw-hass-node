@@ -13,7 +13,6 @@ url: https://github.com/clawd-ops/openclaw-hass-node
 arch:
   - amd64
   - aarch64
-  - armv7
 init: false
 # hassio_api: enabled so SUPERVISOR_TOKEN reliably lands in the addon
 # environment for `ha_client.py` to authenticate against

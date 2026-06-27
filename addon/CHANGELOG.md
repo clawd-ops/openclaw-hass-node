@@ -1,6 +1,13 @@
 # OpenClaw Node Add-on Changelog
 
-## 2026.6.20b10 (2026-06-27) — Strip unreachable dict-shape branch
+## 2026.6.20b10 (2026-06-27) — Strip unreachable dict-shape branch + drop deprecated armv7 arch
+
+### Fixes
+- **Dropped deprecated `armv7` from the addon `arch:` list.** HA Supervisor
+  deprecated 32-bit ARM support; Rob's Supervisor logged
+  `App config 'arch' uses deprecated values ['armv7']. Please report this
+  to the maintainer of OpenClaw Node`. Now `arch: [amd64, aarch64]`. The
+  addon never had a working 32-bit build path, so no installer is affected.
 
 ### Internal
 - Removed the `isinstance(user_agent_map, dict)` branch + warning in
@@ -9,6 +16,14 @@
   ever became a saved dict-shape value — the branch is unreachable.
   Per the pre-1.0 no-back-compat rule, dropping it instead of carrying
   dead code with a misleading warning.
+
+### Full `addon/config.yaml` schema audit (this release)
+Validated every option's schema validator against HA Supervisor's
+accepted set (str/int/float/bool/password/email/port/url/match/list/
+nested-object). All current validators are in-set after the b9 `dict?`
+fix. The only remaining lint is the older `map: config:rw` colon
+syntax; Rob's Supervisor accepts it without warning, so leaving alone
+until/unless flagged.
 
 ## 2026.6.20b9 (2026-06-27) — Supervisor manifest re-parse fix (`user_agent_map` schema)
 
