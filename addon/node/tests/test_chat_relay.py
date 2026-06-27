@@ -888,6 +888,101 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
 
 
 @pytest.mark.asyncio
+async def test_progress_chunk_gets_leading_newline_after_text_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the model emits preamble text BEFORE the first tool call,
+    the subsequent silent-gap progress chunk must start on a new line so
+    the HA Assist transcript doesn't read e.g.
+    ``"Sure, I'll run a few commands.🔧 Calling Bash..."`` (caught
+    end-to-end by Rob on b10).
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_PROGRESS_NEWLINE"
+    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical_session_key},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-pre"}))
+        # Model emits a preamble text delta BEFORE any tool call.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "delta",
+                    "deltaText": "Sure, running a few.",
+                    "runId": "run-pre",
+                    "message": {"role": "assistant", "content": "Sure, running a few."},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        # Now a tool starts and the silence-window keepalive fires.
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "agent",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "stream": "tool",
+                    "runId": "run-pre",
+                    "data": {"name": "Bash", "phase": "start"},
+                },
+            }
+        )
+        await asyncio.sleep(0.20)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical_session_key,
+                    "state": "final",
+                    "runId": "run-pre",
+                    "message": {"role": "assistant", "content": "Sure, running a few."},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "do a few things"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    # The preamble delta and the tool-progress chunk should BOTH be in
+    # the stream, and the progress chunk must carry the leading newline.
+    assert "Sure, running a few." in chunks, f"preamble lost: {chunks!r}"
+    assert "\n🔧 Calling Bash...\n\n" in chunks, (
+        f"expected leading-newline-prefixed tool progress, got: {chunks!r}"
+    )
+    # Without the fix the chunk would lack the leading \n.
+    assert "🔧 Calling Bash...\n\n" not in chunks, (
+        f"unprefixed progress chunk leaked through (regression): {chunks!r}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_handle_event_tool_start_and_end_update_active_tool() -> None:
     """Direct test on the per-session active tool tracking. ``start``
     sets the name; ``end`` clears it. ``stream`` other than ``"tool"``

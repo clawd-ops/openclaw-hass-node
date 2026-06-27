@@ -1,5 +1,25 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b11 (2026-06-27) — Tool-progress chunk lands on a new line after preamble text
+
+### Fixes
+- **Tool-progress line ("🔧 Calling Bash...") now starts on a new line
+  when the model has already emitted preamble text** before the first
+  tool call. Previously the chunk concatenated directly to the
+  preceding assistant delta in the HA Assist transcript
+  (e.g. `"Sure, running a few.🔧 Calling Bash..."`). The relay now
+  tracks whether any user-visible chunk has been yielded this turn and
+  prepends a leading `\n` to the progress chunk when so. Caught
+  end-to-end by Rob on b10 in an Assist turn.
+
+### Known limitation (unchanged this release)
+- **Multi-tool turns still only label the first tool.** When the model
+  makes several sequential tool calls in one turn, only the first one
+  surfaces a "🔧 Calling X..." line. The remaining ones run silently.
+  Tracked under `docs/TODO.md` item #2 "Out of scope this round"; a v2
+  with proper ephemeral status frames + HACS shim change is the
+  documented path.
+
 ## 2026.6.20b10 (2026-06-27) — Strip unreachable dict-shape branch + drop deprecated armv7 arch
 
 ### Fixes
