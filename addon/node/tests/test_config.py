@@ -234,10 +234,21 @@ def test_normalize_pairing_token_garbage_passes_through() -> None:
     assert normalize_pairing_token("not!base64!at!all") == "not!base64!at!all"
 
 
+def test_normalize_pairing_token_non_ascii_passes_through() -> None:
+    """Non-ASCII copy/paste garbage is treated as a raw token."""
+    assert normalize_pairing_token("not-a-token-☃") == "not-a-token-☃"
+
+
 def test_normalize_pairing_token_base64_non_json_passes_through() -> None:
     """Base64 that doesn't decode to JSON is treated as a raw token."""
     raw_b64 = base64.urlsafe_b64encode(b"\xff\xfe\xfd").decode("ascii").rstrip("=")
     assert normalize_pairing_token(raw_b64) == raw_b64
+
+
+def test_normalize_pairing_token_json_non_object_passes_through() -> None:
+    """Base64 JSON that isn't an object is treated as a raw token."""
+    envelope = base64.urlsafe_b64encode(b'["not", "an", "object"]').decode("ascii").rstrip("=")
+    assert normalize_pairing_token(envelope) == envelope
 
 
 def test_normalize_pairing_token_envelope_without_bootstrap_key() -> None:

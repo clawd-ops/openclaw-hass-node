@@ -214,7 +214,10 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
                 title=_entry_title(socket_url),
-                data={CONF_SOCKET_URL: socket_url, CONF_API_TOKEN: api_token},
+                data={
+                    CONF_SOCKET_URL: socket_url,
+                    CONF_API_TOKEN: api_token,
+                },
             )
 
         session = aiohttp_client.async_get_clientsession(self.hass)
@@ -261,7 +264,10 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_update_reload_and_abort(
                 entry,
                 title=_entry_title(socket_url),
-                data={CONF_SOCKET_URL: socket_url, CONF_API_TOKEN: api_token},
+                data={
+                    CONF_SOCKET_URL: socket_url,
+                    CONF_API_TOKEN: api_token,
+                },
             )
 
         _pw = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))

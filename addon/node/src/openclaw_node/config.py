@@ -62,6 +62,7 @@ def normalize_pairing_token(raw: str) -> str:
 _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
 _EMPTY = "".join(())
+DEFAULT_ADDON_LIFECYCLE_DENYLIST = frozenset({"homeassistant", "supervisor"})
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,7 @@ class IdentityConfig:
     forbidden_commands: dict[str, ForbiddenCommandPatch] = field(default_factory=dict)
     addon_lifecycle_allowlist: frozenset[str] = field(default_factory=frozenset)
     addon_lifecycle_denylist: frozenset[str] = field(
-        default_factory=lambda: frozenset({"homeassistant", "supervisor"})
+        default_factory=lambda: DEFAULT_ADDON_LIFECYCLE_DENYLIST
     )
 
 
@@ -277,7 +278,7 @@ def _parse_identity_config() -> IdentityConfig:
         addon_lifecycle_denylist=frozenset(
             _parse_string_list_env(
                 "OPENCLAW_ADDON_LIFECYCLE_DENYLIST",
-                default=("homeassistant", "supervisor"),
+                default=tuple(sorted(DEFAULT_ADDON_LIFECYCLE_DENYLIST)),
             )
         ),
     )

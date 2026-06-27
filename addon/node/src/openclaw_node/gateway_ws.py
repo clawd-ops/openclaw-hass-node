@@ -52,6 +52,17 @@ if TYPE_CHECKING:
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
+
+def _log_background_task_error(task: asyncio.Task[Any]) -> None:
+    """Log unexpected failures from best-effort startup diagnostics."""
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        return
+    except Exception:
+        _LOG.exception("background startup diagnostic failed")
+
+
 # Default role / scopes / caps / commands for a node-role connection.
 # These are class-level defaults; each GatewayClient instance can override
 # via constructor args (see P5.13 dual-WS refactor #84 — operator-role
@@ -516,7 +527,8 @@ class GatewayClient:
                 self._set_runtime_connected(True)
                 if relay is not None:
                     self._runtime.chat_relay = relay
-                    await relay.log_gateway_agents()
+                    task = asyncio.create_task(relay.log_gateway_agents())
+                    task.add_done_callback(_log_background_task_error)
 
             try:
                 # Step 7: main event loop

@@ -6,15 +6,15 @@
         "description": "Connect Home Assistant Assist to the local OpenClaw Node add-on. The default URL points at the Supervisor add-on; for a standalone Docker node, point this at http://<node-host>:8099.",
         "data": {
           "socket_url": "OpenClaw Node add-on URL",
-          "local_api_token": "API token (optional, only if the node's local_api_token option is set)"
+          "local_api_token": "API token (must match the node's local_api_token option)"
         }
       },
       "reconfigure": {
         "title": "Reconfigure OpenClaw Gateway",
-        "description": "Update the OpenClaw Node add-on URL and/or API token this integration points at.",
+        "description": "Update the OpenClaw Node add-on URL and API token this integration points at.",
         "data": {
           "socket_url": "OpenClaw Node add-on URL",
-          "local_api_token": "API token (optional, only if the node's local_api_token option is set)"
+          "local_api_token": "API token (must match the node's local_api_token option)"
         }
       }
     },

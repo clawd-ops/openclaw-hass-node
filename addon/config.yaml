@@ -108,6 +108,8 @@ options:
     user_agent_map: {}
     # Empty preserves today's gateway-default routing.
     default_agent_id: ""
+    # HA actor metadata is signed by the HACS shim with a key derived from
+    # local_api_token, so there is no separate actor-signing secret to paste.
     # Advanced prompt-policy patches as JSON. Defaults are generated in code;
     # use add/remove to adjust a role without replacing the whole default list.
     # Example: {"user":{"add":["ha.call_service:lock.unlock"],"remove":[]}}

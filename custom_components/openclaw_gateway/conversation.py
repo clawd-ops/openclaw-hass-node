@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from typing import Any, Final
 
@@ -25,6 +27,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import CONF_API_TOKEN, CONF_SOCKET_URL, DOMAIN
 
 _STREAM_ENDPOINT: Final[str] = "/v1/conversation/stream"
+_ACTOR_SIGNING_KEY_LABEL: Final[bytes] = b"openclaw-hass-node actor-signing v1"
 
 
 class _StreamErrorFrame(Exception):
@@ -45,6 +48,43 @@ class _StreamErrorFrame(Exception):
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _REQUEST_SOCK_READ_TIMEOUT_S: Final[float] = 45.0
+
+
+def _sign_actor(
+    secret: str,
+    *,
+    actor: dict[str, Any],
+    text: str,
+    conversation_id: str,
+    language: str,
+    ts: int,
+) -> str:
+    """Return the HMAC signature the add-on verifies before trusting actor."""
+    payload = {
+        "v": 1,
+        "ts": ts,
+        "conversation_id": conversation_id,
+        "language": language,
+        "text": text,
+        "actor": {
+            "user_id": str(actor.get("user_id", "")),
+            "is_admin": bool(actor.get("is_admin")),
+        },
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), "sha256").hexdigest()
+
+
+def _derive_actor_signing_secret(api_token: str) -> str:
+    """Return the actor-signing subkey derived from the configured API token."""
+    token = api_token.strip()
+    if not token:
+        return ""
+    return hmac.new(
+        token.encode("utf-8"),
+        _ACTOR_SIGNING_KEY_LABEL,
+        "sha256",
+    ).hexdigest()
 
 
 async def async_setup_entry(
@@ -188,6 +228,18 @@ class OpenClawConversationEntity(ConversationEntity):
         actor = await self._resolve_actor(user_input)
         if actor is not None:
             body["actor"] = actor
+            actor_signing_secret = _derive_actor_signing_secret(api_token)
+            if actor_signing_secret:
+                actor_ts = int(time.time())
+                body["actor_ts"] = actor_ts
+                body["actor_signature"] = _sign_actor(
+                    actor_signing_secret,
+                    actor=actor,
+                    text=user_input.text,
+                    conversation_id=user_input.conversation_id,
+                    language=user_input.language,
+                    ts=actor_ts,
+                )
         try:
             async with session.post(
                 url,

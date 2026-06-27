@@ -12,7 +12,9 @@
 
 ## Where we are
 
-Currently on **2026.6.20b6** (beta). The node ships:
+Currently on **2026.6.20b7** (beta). The next fix-forward release is
+planned to carry the post-review identity hardening in this PR. The node
+ships:
 
 - **Dual websocket pair.** One `role: node` connection for
   `node.invoke.*`, one `role: operator` connection for the
@@ -44,8 +46,10 @@ Currently on **2026.6.20b6** (beta). The node ships:
   every non-public path requires `Authorization: Bearer <token>`
   (compared with `hmac.compare_digest`). Public paths are `/health`,
   `/v1/health`, `/v1/conversation/info` (HA addon probes + shim
-  config-flow discovery). No host port mapping; the API is only
-  reachable inside the Supervisor add-on network by default.
+  config-flow discovery), and health redacts identity details to
+  counts/booleans rather than exposing HA UUIDs, agent mappings, or
+  lifecycle policy. No host port mapping; the API is only reachable
+  inside the Supervisor add-on network by default.
 - **HTTP command surface is allowlisted** to `ping` and
   `system.which` as defense in depth — the bearer token gates
   access, the allowlist gates blast radius. The full surface

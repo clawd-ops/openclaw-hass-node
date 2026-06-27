@@ -99,7 +99,7 @@ options:
   gateway_url: "wss://gateway.example.com/ws"
   pairing_token: ""
   node_name: ""
-  local_api_token: ""    # shared bearer for the local HTTP API (HACS shim)
+  local_api_token: ""    # shared bearer; also root for HA actor-signing subkey
   hass_url: ""
   hass_token: ""
 ingress: false
@@ -111,6 +111,9 @@ non-public paths require `Authorization: Bearer <local_api_token>`. When
 the option is unset, those paths return `401 NO_TOKEN_CONFIGURED`. Only
 `/health`, `/v1/health`, and `/v1/conversation/info` are reachable
 without a token (HA add-on probe + HACS shim config-flow discovery).
+Health responses redact identity details to counts/booleans so public
+probes cannot enumerate HA user UUIDs, agent mappings, lifecycle
+allowlists, or forbidden-command contents.
 
 ## Docker base image
 

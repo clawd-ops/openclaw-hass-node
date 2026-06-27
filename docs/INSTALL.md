@@ -154,6 +154,10 @@ stored approved-commands stays empty and you'll have to
        the gateway default.
      - `forbidden_commands`: advanced per-role `add`/`remove` prompt
        policy patches as a JSON string.
+     HA actor metadata is signed by the HACS shim with a key derived
+     from `local_api_token`; there is no separate actor-signing secret
+     to paste. If `local_api_token` is not configured, the local API is
+     fail-closed and Assist turns cannot use identity routing.
      This is prompt-level protection for shared-agent setups. Hard
      OpenClaw-side permission separation comes from routing a user to an
      agent whose gateway tool inventory is restricted.
