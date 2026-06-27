@@ -9,6 +9,31 @@
 > docs link to it. If two docs disagree, fix the non-canonical one to
 > match the canonical one — don't update both copies.
 
+## 🚨 If you're a fresh Clawd session (or post-compaction)
+
+Land here. The fastest path to "ready to continue":
+
+1. **[`MEMORY.md`](MEMORY.md)** — the agent-side recall. Read this
+   FIRST. It's the durable build memory: current architecture, what
+   the moving parts are, what's live, and where to find everything
+   else. This file is maintained explicitly so a brand-new session
+   can pick up without re-deriving context.
+2. **[`STATUS.md`](STATUS.md)** — "where we are right now."
+   Current shipped version, what works end-to-end, what's broken,
+   what's next.
+3. **[`TODO.md`](TODO.md)** — open work + most-recently merged PRs
+   in ascending order. Read the bottom of "Recently done" to see
+   what just landed; read "Open" to see what's queued.
+4. **[`QUESTIONS-FOR-ROB.md`](QUESTIONS-FOR-ROB.md)** Open section —
+   anything blocked on Rob that you might need to know about.
+
+If those four agree, you're current. If they disagree, `MEMORY.md`
+needs an update before you trust it.
+
+**Keep memory alive.** When you finish meaningful work, update
+`MEMORY.md` so the next session starts as informed as you are now.
+Memory degrades by neglect, not by use.
+
 ## What each doc is for
 
 ### Orientation (read these first)
@@ -26,7 +51,7 @@
 | [`TODO.md`](TODO.md) | **Canonical roadmap + PR ledger.** Open items (numbered) + "Recently done" PR list in ascending order. Update when a PR merges or an item closes. |
 | [`QUESTIONS-FOR-ROB.md`](QUESTIONS-FOR-ROB.md) | Append-only Q&A for things Clawd can't resolve overnight. Open → Resolved. |
 | [`LESSONS.md`](LESSONS.md) | Postmortems / "I burned a day on this" recipes. Append-only. |
-| [`MEMORY.md`](MEMORY.md) | Agent-side recall: snapshots of context an agent rebooting mid-project needs. |
+| [`MEMORY.md`](MEMORY.md) | **Agent-side recall — the post-compaction / new-session entry point.** Architecture snapshot, what's live, what the moving parts are, where to find everything. Keep current — a fresh Clawd session reads this first to know what we've done and what's next. |
 
 ### Identity, scopes, command surface
 
@@ -74,12 +99,14 @@ These captured the thinking that led to the current architecture. Read for "why 
 | Recently merged PRs | `TODO.md` "Recently done (ascending PR order)" | Don't duplicate elsewhere. |
 | Release procedure | `RELEASE.md` | `CONTRIBUTING.md`, `LESSONS.md` link, don't restate. |
 | Resolved Rob questions | `QUESTIONS-FOR-ROB.md` Resolved section | Cross-reference from the relevant `TODO.md` item. |
+| Architecture snapshot / agent context | `MEMORY.md` | Update on every meaningful architectural or state change so the next Clawd session resumes cleanly. |
 
 ## Cheat sheet — "I just did X, which docs do I touch?"
 
 | You just did… | Update |
 |---|---|
-| Merged a non-release PR | Add a one-liner to `TODO.md` "Recently done"; if it closes a numbered TODO item, mark that item closed. |
+| Finished a working session of any size | Refresh `MEMORY.md` so a fresh session post-compaction can pick up cleanly. This is non-negotiable — memory only stays useful if it's maintained. |
+| Merged a non-release PR | Add a one-liner to `TODO.md` "Recently done"; if it closes a numbered TODO item, mark that item closed. Then sync `MEMORY.md` if the change affects architecture. |
 | Merged a release PR (version bump) | Auto-cut workflow handles tag + GitHub release. Then update `STATUS.md` "Where we are" if behavior changed; bump version references in `INSTALL.md`/`UAT-PLAN.md`/`PACKAGING.md`/`MEMORY.md`. (Phase 2 reshape will collapse these into a single link.) |
 | Registered a new command | `COMMAND-SURFACE.md` (count + tier); add to `IDENTITY-AND-SCOPES.md` forbidden-command tables if user/admin shouldn't reach it. |
 | Changed a Tier boundary | `COMMAND-TIERS.md`. Then audit `IDENTITY-AND-SCOPES.md` rules. |

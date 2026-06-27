@@ -89,7 +89,7 @@ Gateway side:
 
 - "Mutation control" section already assumes proposal gating; this
   research confirms the transport is gateway-brokered.
-- `agent-bridge.*` module in `addon/node/src/openclaw_node/commands/` is renamed to
+- `agent-bridge.*` module in `node/src/commands/` is renamed to
   `propose.*` and contains only the gateway-side request/response
   helpers — no MCP client, no agent-bridge URL config in the node.
 - One open question closed.
