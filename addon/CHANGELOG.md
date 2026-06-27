@@ -1,5 +1,15 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.20b10 (2026-06-27) — Strip unreachable dict-shape branch
+
+### Internal
+- Removed the `isinstance(user_agent_map, dict)` branch + warning in
+  `addon/run.sh` that b9 added. The b7/b8 manifests never passed
+  Supervisor schema validation, so no operator's `user_agent_map`
+  ever became a saved dict-shape value — the branch is unreachable.
+  Per the pre-1.0 no-back-compat rule, dropping it instead of carrying
+  dead code with a misleading warning.
+
 ## 2026.6.20b9 (2026-06-27) — Supervisor manifest re-parse fix (`user_agent_map` schema)
 
 ### Fixes

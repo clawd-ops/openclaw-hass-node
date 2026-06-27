@@ -46,14 +46,7 @@ if isinstance(identity, dict):
     # The addon's internal contract is still dict[str, str], so flatten
     # the list to a dict here before serializing to the env var.
     user_agent_map = identity.get('user_agent_map') or []
-    if isinstance(user_agent_map, dict):
-        import sys
-        sys.stderr.write(
-            "[openclaw-node] WARNING: identity.user_agent_map is a dict "
-            "(pre-b9 shape) and is silently ignored. Re-enter entries via "
-            "the add-on UI as a list of {ha_user_id, agent_id} objects.\n"
-        )
-    elif isinstance(user_agent_map, list):
+    if isinstance(user_agent_map, list):
         flat = {}
         for entry in user_agent_map:
             if not isinstance(entry, dict):
