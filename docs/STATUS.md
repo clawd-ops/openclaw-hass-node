@@ -12,9 +12,9 @@
 
 ## Where we are
 
-Currently on **2026.6.20b7** (beta). The next fix-forward release is
-planned to carry the post-review identity hardening in this PR. The node
-ships:
+Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
+`Unreleased → 2026.6.20b8` carrying the merged identity-routing hardening
+(PR #167) and this docs-reconciliation pass. The node ships:
 
 - **Dual websocket pair.** One `role: node` connection for
   `node.invoke.*`, one `role: operator` connection for the

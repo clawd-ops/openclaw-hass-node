@@ -49,6 +49,15 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - #156 — `ci`: auto-cut release on version bump + Version Sync gate on PRs.
 - #157 — docs: close TODO #2/#6/#8, clear Stale/Unconfirmed, capture review-scope lesson.
 - #158 — `fix(ci)`: PEP 440 regex + CHANGELOG version match correctness (GPT-5.5 review catch on #156).
+- #159 — docs: reorder Recently-done PRs ascending + fold in missing entries.
+- #160 — docs(todo): split Open vs Closed, restore #152.
+- #161 — docs: restore Tier A/B/C policy as `docs/COMMAND-TIERS.md`.
+- #162 — docs: capture identity + scopes design (TODO #1).
+- #163 — docs: rewrite `IDENTITY-AND-SCOPES` — two-gate, addon-only design (v2).
+- #164 — `feat(shim)`: forward HA user identity as `actor` on `/v1/conversation/stream`.
+- #165 — `feat(node)`: assist identity routing + Tier B addon lifecycle commands.
+- #166 — release: 2026.6.20b7 (identity routing + Tier B).
+- #167 — `fix(node)`: harden identity routing review findings (actor-HMAC derived from `local_api_token`, no new secret).
 
 Runtime events (not PRs):
 
@@ -71,7 +80,7 @@ Runtime events (not PRs):
 - Shares ingress with item 13 (github-bridge).
 
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
-- Status: IN PROGRESS — Tier A done; Tier B implemented in PR; subagent-side enforcement still open. **Tier policy + cadence: see `docs/COMMAND-TIERS.md`.**
+- Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.

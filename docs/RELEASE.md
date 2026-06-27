@@ -1,12 +1,11 @@
 # Release Process
 
-> Status: **proposed, not yet implemented.** A version-sync CI gate
-> keeps the five version strings in lock-step today; the Action
-> described here will automate the bump itself. Implementation
-> waits until the audit-hardening work is done — but every PR opened
-> in the meantime should already follow the [commit message convention](#commit-messages)
-> so the changelog history is usable when the Action lands. Until then
-> use the [manual release procedure](#manual-release-procedure-until-the-action-lands).
+> Status: **live.** `.github/workflows/release-on-version-bump.yml`
+> auto-cuts a release whenever a push to `main` bumps the version in
+> the five tracked files; `scripts/bump-version.py` is the one-command
+> bump. The version-sync CI gate keeps the five version strings in
+> lock-step on every PR. The manual procedure below is preserved for
+> reference / emergency use only.
 
 The project carries the version string in five places (`pyproject.toml`,
 `addon/config.yaml`, `addon/build.yaml`, `__init__.py` fallback,
@@ -24,7 +23,7 @@ careful edits.
    a changelog grouped by intent (features, fixes, breaking changes,
    etc.) derived from the commits that landed since the last tag.
 3. **Pre-release markers are first-class.** The project is currently
-   on the beta track (`2026.6.20b6` at time of writing); pre-1.0 it
+   on the beta track (`2026.6.20b7` at time of writing); pre-1.0 it
    lives on `aN`/`bN`/`rcN` markers. The release pipeline has to
    understand and preserve that.
 4. **No backports, no parallel branches.** `main` is the only branch
@@ -231,13 +230,15 @@ changelog surface inside Home Assistant:
   URL pointed to via `addon/config.yaml`'s `changelog` key) inside the
   add-on's **Documentation** / **Changelog** tab. The user opens this
   tab from the add-on page in Settings → Add-ons.
-- **The HACS integration.** HACS renders
-  `custom_components/openclaw_gateway/info.md` on the integration's
-  detail page (the "Open in HACS" view in Settings → Devices &
-  Integrations → HACS → OpenClaw Gateway). HACS also surfaces the
-  GitHub *release notes* for the most recent tag below `info.md`, but
-  `info.md` is the canonical "what is this" page and the right home for
-  the integration changelog.
+- **The HACS integration.** HACS renders the integration's `README.md`
+  (or an `info.md` if present) on the integration's detail page (the
+  "Open in HACS" view in Settings → Devices & Integrations → HACS →
+  OpenClaw Gateway), and surfaces the GitHub *release notes* for the
+  most recent tag below it. This repo does not currently ship a
+  separate `custom_components/openclaw_gateway/info.md`; HACS users
+  see the repo `README.md` plus the GitHub release body. If/when the
+  release Action below starts emitting an `info.md`, HACS will pick
+  it up automatically.
 
 A combined `CHANGELOG.md` at the repo root would dump add-on-only
 plumbing into the HACS user's face and HACS-shim quirks into the

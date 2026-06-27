@@ -7,12 +7,14 @@
 
 ## Goal
 
-Build a single OpenClaw node that runs on a Home Assistant host (as an
-add-on (app), with the same image runnable as a standalone Docker container) and
-gives the gateway three capability surfaces in one process:
+Build a single OpenClaw node that runs on a Home Assistant host as a
+Supervisor add-on. (A standalone Docker run mode is a design goal but
+not shipped during beta — current install/packaging assume the
+Supervisor add-on path.) The node gives the gateway three capability
+surfaces in one process:
 
-1. **Filesystem + shell** on the HA host (`/config`, `/share`, `/addons`,
-   `/ssl`, `/media`, Supervisor API).
+1. **Filesystem + shell** on the HA host (`/config`, `/share`,
+   `/media`; Supervisor API for addon lifecycle).
 2. **HA control** — states, services, areas, devices, registry,
    automations, traces, logbook. Replaces the existing `homeassistant` +
    `homeassistant-readonly` MCP servers for this HA.
@@ -69,7 +71,9 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 ### 1. Filesystem + shell
 
 - Mounted paths (add-on (app) `config.yaml` map): `config:rw`, `share:rw`,
-  `addons:rw`, `ssl:rw`, `media:rw`, `backup:rw`.
+  `media:rw`. (`addons`, `ssl`, and `backup` are intentionally not
+  mapped — Supervisor surfaces those via the Supervisor API rather
+  than direct mounts.)
 - Bind mounts placed under an allowed root are treated as operator-trusted
   configuration; the read-only command layer does not try to distinguish or
   defeat them.
@@ -82,9 +86,15 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   recovers from trash. No sidecar `.bak` files anywhere.
 - `system.run` gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must
   pass matching `admin_token` param.
-- Supervisor API via `ha.supervisor.*` commands wrapping
-  `http://supervisor/...` with `SUPERVISOR_TOKEN` (planned, not yet
-  registered).
+- Supervisor API access uses `SUPERVISOR_TOKEN` against
+  `http://supervisor/...`. Today this is exposed through the
+  `ha.addon_*` Tier A/B command surface (`ha.list_addons`,
+  `ha.addon_info`, `ha.addon_stats`, `ha.addon_logs`,
+  `ha.addon_changelog`, `ha.addon_documentation`,
+  `ha.addon_start`/`stop`/`restart`). A generic `ha.supervisor.*`
+  command family is not registered; broader Supervisor surfaces
+  (snapshots, host, network) remain out-of-scope until proposal-gated
+  write semantics land.
 
 ### 1b. Backup / undo model
 
@@ -280,13 +290,14 @@ fits. The node carries no model knowledge.
 
 ## Packaging
 
-- Single Docker image. Two run modes:
+- Single Docker image. Today only the HA add-on run mode is shipped:
   - **HA add-on (app)**: `config.yaml` declares slug, mapped volumes,
     `hassio_api: true`, `hassio_role: manager`, `homeassistant_api: true`.
     Built per HA arch matrix (`amd64`, `aarch64`, `armv7`).
-  - **Standalone Docker**: `docker run` with explicit volume mounts and
-    `HASS_URL` + `HASS_TOKEN` env. Same entrypoint detects which mode
-    it's in.
+  - **Standalone Docker** (planned, not in beta): would `docker run`
+    with explicit volume mounts and `HASS_URL` + `HASS_TOKEN` env;
+    the entrypoint already branches on `SUPERVISOR_TOKEN`. Tracked as
+    a future packaging item — install/CHANGELOG do not advertise it.
 - Repo published as a HA add-on (app) repository (`repository.yaml`) so users
   can add the URL in HA → Add-on (App) Store → Repositories.
 

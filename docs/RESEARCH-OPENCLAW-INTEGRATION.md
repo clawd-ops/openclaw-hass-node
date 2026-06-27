@@ -76,7 +76,7 @@ already wired in P4. No new event types. No standalone brain.
 ## What the node needs (P5.11 work)
 
 This refactor replaces the placeholder behaviour in
-`node/src/openclaw_node/http_api.py::assist_turn` with real chat-surface
+`addon/node/src/openclaw_node/http_api.py::assist_turn` with real chat-surface
 routing. Concretely:
 
 1. After the connect handshake, the node already has an open WS to the
@@ -108,11 +108,11 @@ deleted:
 - **`gateway/` workspace member** (standalone server, brain, providers,
   invoke dispatcher, device registry, auth). Kept only briefly as a
   reference for the README; otherwise deleted.
-- **`node/src/openclaw_node/conversation_dispatcher.py`** — invented to
+- **`addon/node/src/openclaw_node/conversation_dispatcher.py`** — invented to
   correlate `node.conversation.request` / `result` frames I shouldn't
   have invented.
 - **`node.conversation.request` / `node.conversation.result`** routing
-  in `node/src/openclaw_node/gateway_ws.py`.
+  in `addon/node/src/openclaw_node/gateway_ws.py`.
 - **`NodeRuntime.conversation_forwarder`** hook and the related
   `assist_turn` forwarder logic. The new `assist_turn` uses the chat
   surface directly via an injected `ChatRelay` (or similar) backed by

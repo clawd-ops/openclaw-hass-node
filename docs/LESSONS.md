@@ -322,9 +322,11 @@ through HA — but HA Supervisor reads from published GitHub releases,
 not from main, so no Update prompt ever appeared. Rebuild from the
 add-on UI was the only working path.
 
-Until the version-bump Action described in `docs/RELEASE.md` lands
-(it's still proposed-not-implemented), every release PR merge MUST
-be followed by an explicit tag + GitHub release:
+The version-bump Action is live
+(`.github/workflows/release-on-version-bump.yml`, PR #156) and creates
+the tag + GitHub release automatically when a push to `main` bumps the
+five tracked version files. The manual recipe below is preserved for
+the rare emergency case (Action failure, retroactive tag, etc.):
 
 ```sh
 SHA=$(git rev-parse main)                # or the merge commit

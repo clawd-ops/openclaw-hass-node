@@ -73,7 +73,7 @@ Current shipped values (see `addon/config.yaml` for the live file):
 
 ```yaml
 name: OpenClaw Node
-version: "2026.6.20b6"
+version: "2026.6.20b7"
 slug: openclaw_hass_node
 arch: [amd64, aarch64, armv7]
 init: false
@@ -144,7 +144,7 @@ Entrypoint detects mode for the standalone dev-host path:
 ## Versioning
 
 PEP 440 date-based: `YYYY.M.Db<N>` during beta (currently on the beta
-track, e.g. `2026.6.20b6`); `YYYY.M.Da<N>` was the prior alpha format.
+track, e.g. `2026.6.20b7`); `YYYY.M.Da<N>` was the prior alpha format.
 Post-1.0: `YYYY.M.PATCH`. Version is enforced by
 `test_version_sync.py` across 5 sources: `pyproject.toml`,
 `addon/config.yaml`, `addon/build.yaml` label, `manifest.json`, and
