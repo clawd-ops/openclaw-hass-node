@@ -89,7 +89,7 @@ via `PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow).
   registration is in-process Python only.
 - **`addon/`** — Home Assistant add-on (app) packaging (Dockerfile + config).
 - **`docs/`** — durable plan, status, command surface, decisions, and
-  the architecture post-mortem in `RESEARCH-OPENCLAW-INTEGRATION.md`.
+  the architecture post-mortem in `docs/research/OPENCLAW-INTEGRATION.md`.
 
 ## Install
 
@@ -102,17 +102,17 @@ via `PAIRING_SETUP_BOOTSTRAP_PROFILE` (`openclaw qr` flow).
 
 ## Architecture decisions
 
-Full detail in `docs/PLAN.md`. Headline rules:
+Full detail in `docs/design/PLAN.md`. Headline rules:
 
 - **Conversation registration**: HA exposes no out-of-process hook, so
   the HACS shim is required (Plan B in
-  `docs/RESEARCH-CONVERSATION-AGENT.md`).
+  `docs/research/CONVERSATION-AGENT.md`).
 - **Node as conversation relay (dual-WS)**: the node calls `chat.send`
   / `sessions.messages.subscribe` over a **second** gateway WS
   connection opened as `role: operator`. The existing `role: node`
   connection keeps serving `node.invoke.*`. No parallel gateway, no
   new protocol primitives — only a second connection with a different
-  role. See `docs/RESEARCH-OPENCLAW-INTEGRATION.md` for the
+  role. See `docs/research/OPENCLAW-INTEGRATION.md` for the
   brain-vs-relay post-mortem.
 - **`/config` is proposal-gated** through agent-bridge. Reads and shell
   are direct.
@@ -123,7 +123,7 @@ Full detail in `docs/PLAN.md`. Headline rules:
 
 ## Source of truth across compactions
 
-`docs/PLAN.md` and `docs/STATUS.md` are durable. When resuming after a
+`docs/design/PLAN.md` and `docs/STATUS.md` are durable. When resuming after a
 context compaction, **read those two first**. They describe the goal,
 architecture, what's done, what's next, and open questions. Update
 `STATUS.md` whenever a milestone moves.

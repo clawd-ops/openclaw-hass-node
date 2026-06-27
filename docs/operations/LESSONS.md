@@ -99,7 +99,7 @@ Lessons learned from that loop:
 15. **Nodes can also originate chat turns via `chat.send`** — they're
     not pure peripherals. `/app/docs/nodes/index.md` frames them as
     peripherals only, which led to the P5.2–P5.11 "build a parallel
-    brain" detour. See `RESEARCH-OPENCLAW-INTEGRATION.md` for the
+    brain" detour. See `docs/research/OPENCLAW-INTEGRATION.md` for the
     post-mortem and the runtime-audit at
     `workspace/runtime-audits/2026-06-06-openclaw-node-conversation-relay-doc-gap.md`
     for the upstream-doc fix.

@@ -2,7 +2,7 @@
 
 ## Project Context
 
-Read `docs/PLAN.md` and `docs/STATUS.md` before starting any work.
+Read `docs/design/PLAN.md` and `docs/STATUS.md` before starting any work.
 Design context for the GitHub-driven flow: [CLW-47](https://linear.app/openclaw-clawd/issue/CLW-47).
 
 ## Sender Policy

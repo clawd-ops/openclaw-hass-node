@@ -3,7 +3,7 @@
 > **Historical snapshot.** Captures the decision and reasoning at the
 > time the research was run; the verdict still stands but the
 > surrounding architecture has moved on. Cross-check against
-> `STATUS.md` / `PLAN.md` before treating any specific detail as
+> `STATUS.md` / `docs/design/PLAN.md` before treating any specific detail as
 > current.
 
 **Question.** Does the node connect to agent-bridge directly, or does
@@ -82,7 +82,7 @@ Gateway side:
 ```
 
 5. Node applies the mutation (after capturing the prior bytes into
-   `/share/openclaw-backups/` per `BACKUPS.md`), and reports
+   `/share/openclaw-backups/` per `docs/reference/BACKUPS.md`), and reports
    `node.propose.applied` with the resulting sha.
 
 ## What this changes in PLAN.md

@@ -96,14 +96,14 @@ Tier B will likely belong on a *separate* node-config admin allowlist
 if/when one is introduced, not on `nodes.allowCommands` alongside the
 read-only surface. Pin down before implementing.
 
-Each new command also goes in `docs/COMMAND-SURFACE.md` (the canonical
+Each new command also goes in `docs/reference/COMMAND-SURFACE.md` (the canonical
 command catalog) in this repo. Doc + allowlist + code go together; PRs
 that miss one of the three should be flagged in review.
 
 There is also a per-node `commands` cache in
 `~/.openclaw/nodes/paired.json` that is set at original pair time and
 is NOT refreshed by WS reconnect — see
-`docs/LESSONS.md` → "Gateway caches the node's advertised commands at
+`docs/operations/LESSONS.md` → "Gateway caches the node's advertised commands at
 pair time". `hassio.addon_restart` (full handshake) is what rewrites
 that cache after a release.
 

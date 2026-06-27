@@ -8,11 +8,11 @@ Supersedes (historical reference only; the in-repo handoff files were
 deleted in PR #150, workspace-side originals remain on disk):
 - `docs/HANDOFF-2026-06-20-streaming-followups.md` (deleted)
 - `docs/HANDOFF-2026-06-20-addon-command-surface.md` (deleted)
-- `docs/QUESTIONS-FOR-ROB.md` (Q1/Q2 carried below)
+- `docs/QUESTIONS-FOR-ROB.md` (deleted in Phase 2 doc reshape; Q1/Q2 carried below)
 - `~/.openclaw/workspace/handoffs/2026-06-20-ha-assist-followups.md`
 - `~/.openclaw/workspace/handoffs/2026-06-20-MASTER-todo.md` (this file's original location)
 
-`docs/STATUS.md` and `docs/PLAN.md` remain as architecture/release docs; this file is the operational punch list.
+`docs/STATUS.md` and `docs/design/PLAN.md` remain as architecture/release docs; this file is the operational punch list.
 
 Item numbers are stable identifiers (PR descriptions reference them); they are not a priority order. Open items are listed first, then closed items.
 
@@ -51,7 +51,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - #158 — `fix(ci)`: PEP 440 regex + CHANGELOG version match correctness (GPT-5.5 review catch on #156).
 - #159 — docs: reorder Recently-done PRs ascending + fold in missing entries.
 - #160 — docs(todo): split Open vs Closed, restore #152.
-- #161 — docs: restore Tier A/B/C policy as `docs/COMMAND-TIERS.md`.
+- #161 — docs: restore Tier A/B/C policy as `docs/design/COMMAND-TIERS.md`.
 - #162 — docs: capture identity + scopes design (TODO #1).
 - #163 — docs: rewrite `IDENTITY-AND-SCOPES` — two-gate, addon-only design (v2).
 - #164 — `feat(shim)`: forward HA user identity as `actor` on `/v1/conversation/stream`.
@@ -62,14 +62,14 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 Runtime events (not PRs):
 
 - Node re-paired in operator role (dual-WS pairing).
-- `paired.json` for the live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified end-to-end. Lesson captured in `docs/LESSONS.md`.
+- `paired.json` for the live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified end-to-end. Lesson captured in `docs/operations/LESSONS.md`.
 
 ---
 
 ## Open items
 
 ### 1. User mapping / identity propagation
-- Status: IMPLEMENTED-IN-PR — see [`docs/IDENTITY-AND-SCOPES.md`](./IDENTITY-AND-SCOPES.md)
+- Status: IMPLEMENTED-IN-PR — see [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md)
 - Captures the agreed addon-only model (2026-06-23): three roles (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Shim forwards `actor`, addon resolves role, prepends a hardened per-turn authorization disclaimer, and optionally sends `agentId` from `identity.user_agent_map` / `default_agent_id`.
 - This is prompt-level for shared-agent setups. Hard concern-A enforcement still comes from gateway-side agent inventories; hard concern-B invoke enforcement still needs a future gateway invoke envelope that carries session/actor context.
 - Highest leverage; cross-links to 7, 9, 11.
@@ -80,7 +80,7 @@ Runtime events (not PRs):
 - Shares ingress with item 13 (github-bridge).
 
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
-- Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/COMMAND-TIERS.md`.**
+- Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/design/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
@@ -122,7 +122,7 @@ Runtime events (not PRs):
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
-- Remaining grep hits are only historical-track explanations (`docs/RELEASE.md`, `docs/PACKAGING.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
+- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
 - Status: CLOSED 2026-06-20 (streaming variant fixed; non-streaming variant accepted as structural)
@@ -158,7 +158,7 @@ Runtime events (not PRs):
 
 ### 14. Gateway allowCommands sync for new node commands
 - Status: CLOSED 2026-06-20
-- All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
+- All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/operations/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
 
 ### 15. Q1 — HACS shim default hostname hash
 - Status: CLOSED 2026-06-20 (mooted by PR #94)

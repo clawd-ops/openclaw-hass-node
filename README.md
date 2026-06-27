@@ -57,7 +57,7 @@ connections — node-role for invokes, operator-role for the
 conversation relay — sharing a single device identity. Pair the
 device with a dual-role profile via `openclaw qr`.
 
-**New here?** Read **[`docs/OVERVIEW.md`](docs/OVERVIEW.md)** for
+**New here?** Read **[`docs/design/PLAN.md`](docs/design/PLAN.md)** for
 what this is, what each part (add-on (app), HACS integration, gateway)
 does and why, the end-to-end request flow, and the security model.
 
@@ -100,9 +100,9 @@ gateway side. Short version:
   over the node-role gateway WS.
 
 Live state and roadmap: [`docs/STATUS.md`](docs/STATUS.md).
-Architecture and decisions: [`docs/PLAN.md`](docs/PLAN.md).
+Architecture and decisions: [`docs/design/PLAN.md`](docs/design/PLAN.md).
 Install/troubleshooting: [`docs/INSTALL.md`](docs/INSTALL.md).
-Release + versioning policy: [`docs/RELEASE.md`](docs/RELEASE.md).
+Release + versioning policy: [`docs/operations/RELEASE.md`](docs/operations/RELEASE.md).
 
 ## License
 
@@ -113,10 +113,10 @@ Release + versioning policy: [`docs/RELEASE.md`](docs/RELEASE.md).
 - [`docs/MEMORY.md`](docs/MEMORY.md) — durable build memory written for
   the Clawd agent driving the implementation. Read it if you're
   resuming work after a context compaction.
-- [`docs/LESSONS.md`](docs/LESSONS.md) — gotchas from the install
+- [`docs/operations/LESSONS.md`](docs/operations/LESSONS.md) — gotchas from the install
   push. Read **before** changing the connect frame, Dockerfile, or
   addon config.
-- [`docs/PROCESS.md`](docs/PROCESS.md) — cross-provider review process.
-- [`docs/QUALITY.md`](docs/QUALITY.md) — CI gates and quality bar.
+- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — cross-provider review process.
+- [`docs/operations/QUALITY.md`](docs/operations/QUALITY.md) — CI gates and quality bar.
 
 [OpenClaw]: https://github.com/clawd-ops/openclaw

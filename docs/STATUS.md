@@ -7,7 +7,7 @@
 
 > **Update this file at every meaningful state change.** It is the
 > single thing that tells a future maintainer "where am I". If
-> `PLAN.md` and `STATUS.md` disagree, fix whichever is wrong before
+> `docs/design/PLAN.md` and `STATUS.md` disagree, fix whichever is wrong before
 > continuing.
 
 ## Where we are
@@ -74,7 +74,7 @@ Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
   on-device. Cutting a release is automated:
   `.github/workflows/release-on-version-bump.yml` tags and publishes
   the GitHub release when a push to `main` bumps the five tracked
-  version files — see [`RELEASE.md`](RELEASE.md).
+  version files — see [`docs/operations/RELEASE.md`](operations/RELEASE.md).
 
 ## Next concrete steps (in order)
 
@@ -129,15 +129,15 @@ None. The pipeline is live; remaining work is incremental.
 - 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
   thin `custom_components/openclaw_gateway/` HACS shim. Plan A
   (add-on (app) alone) confirmed not viable; see
-  `RESEARCH-CONVERSATION-AGENT.md`. (Clawd)
+  `docs/research/CONVERSATION-AGENT.md`. (Clawd)
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
   gateway WS protocol; does not connect to agent-bridge directly. See
-  `RESEARCH-AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd)
+  `docs/research/AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd)
 - 2026-06-05 — Language: Python 3.13+ for node and shim. Quality
   gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
   (`ruff` D-rules + `pydoclint`), branch coverage gated at 95% via
   pytest, `ruff` lint/format, `bandit`, `pip-audit`. All gated in
-  GitHub Actions. See `QUALITY.md`. (Rob, issue #1 round 3)
+  GitHub Actions. See `docs/operations/QUALITY.md`. (Rob, issue #1 round 3)
 - 2026-06-05 — MCP retirement: node must demonstrably handle every
   call surface the existing MCP servers serve, across every agent
   that uses them, before retirement. Trigger: zero unhandled

@@ -479,5 +479,5 @@ mitigation is to curate the agent's inventory.
 ## References
 
 - `docs/TODO.md` — TODO #1
-- `docs/COMMAND-TIERS.md` — Tier A/B/C policy this disclaimer enumerates from
+- `docs/design/COMMAND-TIERS.md` — Tier A/B/C policy this disclaimer enumerates from
 - `/app/dist/node-registry-D3vmVKIR.js:268-275` — canonical `node.invoke.request` envelope (no actor today; addon-only enforcement infeasible at this layer)
