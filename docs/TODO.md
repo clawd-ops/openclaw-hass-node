@@ -18,54 +18,6 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ---
 
-## Recently done (this session, ascending PR order)
-
-- #129 — `fix(node)`: Assist follow-up turns now stream correctly (closes #128).
-- #130 — release: 2026.6.19b2 (slow-turn progress for HA Assist streaming).
-- #131 — docs: HA Assist streaming + node follow-up punch list.
-- #132 — `feat`: expose addon logs through the node (`ha.addon_logs`).
-- #134 — `feat(node)`: Tier-A addon commands (`addon_info`/`addon_stats`/`addon_changelog`/`addon_documentation`).
-- #135 — docs: "with great power" agent-blast-radius disclaimer.
-- #136 — `test(http_api)`: stream preconditions + catch-all, restore 95% coverage gate (closes #127).
-- #137 — release: 2026.6.20b3 (Tier A read-only addon command surface).
-- #138 — `fix(addon)`: `hassio_role: manager` + pairing retry-after.
-- #139 — docs: canonical `docs/TODO.md` consolidating the punch list.
-- #140 — release: 2026.6.20b4 (Tier A Supervisor access fix + pairing retry-after).
-- #141 — docs: close TODO #3/#14/#18 + capture `paired.json` cache lesson.
-- #142 — docs: close TODO #4/#9/#10 with gateway-side root-cause notes.
-- #143 — `feat(node)`: name the actual tool in HA Assist slow-turn progress.
-- #144 — docs: close TODO #5/#15/#16 + capture GPT-5.5 verification workflow.
-- #145 — release: 2026.6.20b5 (tool-named slow-turn progress).
-- #146 — docs: capture release-PR-vs-release-cut gap in LESSONS.
-- #147 — `fix(node)`: forward `agent` events to `ChatRelay` so tool progress actually fires.
-- #148 — release: 2026.6.20b6 (dispatch `agent` events to `ChatRelay`).
-- #149 — release: sync remaining version strings to 2026.6.20b6.
-- #150 — docs: pre-1.0 cleanup sweep (phase IDs stripped, versions bumped, STATUS rewritten).
-- #151 — docs: command count off-by-one (35→34, 21→20 `ha.*`).
-- #152 — docs: post-#150 GPT-5.5 review follow-up (handoff status + mapped roots).
-- #153 — docs: strip P5.13 from user-facing addon description.
-- #154 — docs: lesson — user-facing surface extends past `docs/`.
-- #155 — `chore`: `scripts/bump-version.py` (one command, all five version files); drop "(Beta)" from `hacs.json`.
-- #156 — `ci`: auto-cut release on version bump + Version Sync gate on PRs.
-- #157 — docs: close TODO #2/#6/#8, clear Stale/Unconfirmed, capture review-scope lesson.
-- #158 — `fix(ci)`: PEP 440 regex + CHANGELOG version match correctness (GPT-5.5 review catch on #156).
-- #159 — docs: reorder Recently-done PRs ascending + fold in missing entries.
-- #160 — docs(todo): split Open vs Closed, restore #152.
-- #161 — docs: restore Tier A/B/C policy as `docs/design/COMMAND-TIERS.md`.
-- #162 — docs: capture identity + scopes design (TODO #1).
-- #163 — docs: rewrite `IDENTITY-AND-SCOPES` — two-gate, addon-only design (v2).
-- #164 — `feat(shim)`: forward HA user identity as `actor` on `/v1/conversation/stream`.
-- #165 — `feat(node)`: assist identity routing + Tier B addon lifecycle commands.
-- #166 — release: 2026.6.20b7 (identity routing + Tier B).
-- #167 — `fix(node)`: harden identity routing review findings (actor-HMAC derived from `local_api_token`, no new secret).
-
-Runtime events (not PRs):
-
-- Node re-paired in operator role (dual-WS pairing).
-- `paired.json` for the live `hass` node refreshed to b4 advertise via `hassio.addon_restart`; all six Tier A addon commands verified end-to-end. Lesson captured in `docs/operations/LESSONS.md`.
-
----
-
 ## Open items
 
 ### 1. User mapping / identity propagation
