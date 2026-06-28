@@ -1,6 +1,19 @@
 # OpenClaw Node Add-on Changelog
 
-## Unreleased
+## 2026.6.28b1
+
+### Features
+- **Multi-tool labeling in HA Assist slow-turn progress (TODO #29).**
+  Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`,
+  optional `id`, monotonic `seq`) emitted alongside the stream when the
+  HACS shim advertises `client_caps: ["tool-progress-frames"]` on the
+  request. Each new tool call updates the progress label as it fires
+  instead of the label sticking on the first tool of the turn. Legacy
+  textual `🔧 Calling X...` deltas are preserved when the capability is
+  not advertised (no dual emit when it is). Shim swallows + debug-logs
+  the frames for now; ChatLog has no ephemeral hook today, so this
+  prepares the path for when HA exposes one. Race fix: an id-less
+  `end` cannot clear an active tool that has an id.
 
 ### Changes
 - **Tier B addon lifecycle no longer requires `OPENCLAW_ADMIN_TOKEN`.**
