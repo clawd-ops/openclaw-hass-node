@@ -91,16 +91,6 @@ options:
   pairing_token: ""
   node_name: ""
   local_api_token: ""
-  # HA credentials fallback. Leave blank to use the Supervisor-injected
-  # SUPERVISOR_TOKEN against http://supervisor/core. Set as a fallback
-  # if SUPERVISOR_TOKEN is unavailable for any reason and you want HA
-  # proxy calls to work via a long-lived token instead. hass_url is the
-  # HA base URL (e.g. http://homeassistant:8123 from inside the add-on
-  # network, or your full HTTPS URL externally) and hass_token is a
-  # long-lived access token from a HA user with the scopes your ha.*
-  # calls need.
-  hass_url: ""
-  hass_token: ""
   # One-shot pairing reset on next startup. UI is a boolean toggle:
   #   false (default) - do nothing.
   #   true            - wipe the persisted device-token only; keep the
@@ -146,13 +136,32 @@ options:
     denylist:
       - homeassistant
       - supervisor
+  # HA credentials fallback (intentionally placed at the bottom of the
+  # options form). Leave blank to use the Supervisor-injected
+  # SUPERVISOR_TOKEN against http://supervisor/core, which is the normal
+  # path on HassOS/Supervised installs. Set both fields only when running
+  # the addon stand-alone (no Supervisor) OR when SUPERVISOR_TOKEN is
+  # unavailable for any reason and you need a long-lived token fallback.
+  # hass_url is the HA base URL (e.g. http://homeassistant:8123 from
+  # inside the add-on network, or your full HTTPS URL externally) and
+  # hass_token is a long-lived access token from a HA user with the
+  # scopes your ha.* calls need.
+  #
+  # Browser autofill gotcha: a [text-field][password-field] pair in a
+  # form will sometimes get auto-populated by a password manager with
+  # ("your username", "your password"). These two fields are placed at
+  # the end of the options form, separated from the other password
+  # fields above by the `identity` and `addon_lifecycle` nested blocks,
+  # to keep them out of any autofill chain. If you ever see a value in
+  # `hass_url` you didn't type (e.g. a HA username), check your
+  # browser's password manager — it didn't come from this addon.
+  hass_url: ""
+  hass_token: ""
 schema:
   gateway_url: url
   pairing_token: password
   node_name: str?
   local_api_token: password?
-  hass_url: str?
-  hass_token: password?
   # bool? — the UI exposes a simple toggle (false=none, true=token).
   # The 2026.6.8a9 string-mode schema (`str?`) broke existing add-on
   # installs whose options store had `reset_pairing: false` (bool):
@@ -175,6 +184,8 @@ schema:
       - str
     denylist:
       - str
+  hass_url: str?
+  hass_token: password?
 # No `ports:` host-mapping. The local API is only reachable inside the
 # Supervisor add-on network (the HACS shim uses the add-on hostname). A
 # host-mapped port would expose the API to anything on the host network,

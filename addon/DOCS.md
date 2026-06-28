@@ -77,32 +77,6 @@ control surface. The manifest field reference is at
   resolution (every caller resolves to `user`). Set this to a strong
   random value; rotate it if it leaks.
 
-### `hass_url`
-
-- **Purpose**: Optional fallback URL for the Home Assistant Core API.
-  When unset, the add-on uses Supervisor-injected `SUPERVISOR_TOKEN`
-  against `http://supervisor/core`. Set this if you need to route HA
-  Core calls through a specific URL with a long-lived token.
-- **Type**: `str?`.
-- **Example**: `"http://homeassistant:8123"`.
-- **Default**: `""`.
-- **Security**: Internal cluster addresses are preferred. Treat as the
-  endpoint a long-lived token is bound to.
-
-### `hass_token`
-
-- **Purpose**: Long-lived HA access token paired with `hass_url`.
-  Required only when the Supervisor-injected token is not available
-  for some reason and the operator wants to fall back to a
-  user-provisioned token.
-- **Type**: `password?`.
-- **Example**: long-lived access token from a Home Assistant user.
-- **Default**: `""`.
-- **Security**: Inherits every permission of the HA user it was issued
-  for. Prefer dedicated users with the minimum scopes required by the
-  `ha.*` commands you intend to call. Rotate it when an operator
-  leaves.
-
 ### `reset_pairing`
 
 - **Purpose**: One-shot recovery toggle. When `true` on next add-on
@@ -140,6 +114,27 @@ control surface. The manifest field reference is at
   identities. Granting `super_admin` removes the per-turn
   forbidden-command guard rails for that user; keep the list short
   and intentional.
+
+#### Finding a Home Assistant user UUID
+
+The Home Assistant UI does not surface user UUIDs in plain text. Three
+ways to look one up:
+
+1. **From the URL** in **Settings → People → Users**. Click the user
+   you want, and the resulting page URL contains the UUID after the
+   final `/`. Example:
+   `…/config/users/picker/8b0d8c1c3a724b1c9b2f0e4a8d5c1e2f`.
+2. **From the WebSocket API** (admin token required). Use the
+   Developer Tools → Services panel or any HA WebSocket client to
+   call `auth/list`; the response maps `id → username`.
+3. **From the database** (HassOS / Supervised installs). The
+   `auth_provider.homeassistant` storage at
+   `/config/.storage/auth_provider.homeassistant` lists users with
+   their UUIDs under `data.users[].id`.
+
+We plan to expose `ha.list_users` as a node command so the gateway UI
+can present a username dropdown instead of asking for raw UUIDs (see
+the project TODO list).
 
 ### `identity.user_agent_map`
 
@@ -232,6 +227,50 @@ control surface. The manifest field reference is at
 - **Security**: A slug listed both here and in `allowlist` is denied;
   the denylist wins. Use this to make sure even an accidental
   allowlist entry cannot bypass policy.
+
+### `hass_url`
+
+- **Purpose**: Optional fallback URL for the Home Assistant Core API.
+  When unset, the add-on uses the Supervisor-injected
+  `SUPERVISOR_TOKEN` against `http://supervisor/core`, which is the
+  normal path on HassOS / Supervised installs. Set this only when
+  running the add-on stand-alone (no Supervisor) or when the
+  Supervisor-injected token is unavailable for some reason and a
+  long-lived token fallback is needed.
+- **Type**: `str?`.
+- **Example**: `"http://homeassistant:8123"`.
+- **Default**: `""` — leave blank on HassOS / Supervised.
+- **Security**: Internal cluster addresses preferred. Treat as the
+  endpoint a long-lived token is bound to.
+
+### `hass_token`
+
+- **Purpose**: Long-lived HA access token paired with `hass_url`.
+  Required only when the Supervisor-injected token cannot be used.
+- **Type**: `password?`.
+- **Example**: long-lived access token from a Home Assistant user.
+- **Default**: `""` — leave blank on HassOS / Supervised.
+- **Security**: Inherits every permission of the HA user it was
+  issued for. Prefer a dedicated user with the minimum scopes the
+  `ha.*` commands you intend to call actually need. Rotate it when
+  an operator leaves.
+
+#### Browser autofill gotcha (`hass_url` + `hass_token`)
+
+If, on a later restart, you see values you did not type appear in
+`hass_url` (often a username string) and `hass_token` (a password
+string), the source is almost certainly your browser's password
+manager. A `[text-field][password-field]` pair in any HTML form will
+sometimes get auto-populated with `(saved-username, saved-password)`
+for a different site. The values get saved into the add-on options on
+form submit; nothing inside the add-on injects them.
+
+These two fields are placed at the very end of the options form,
+separated from the other password fields above by the `identity` and
+`addon_lifecycle` nested blocks, specifically to keep them out of any
+autofill chain. If autofill still strikes, clear both fields, save,
+and use a different browser profile (or disable the password manager
+on the HA hostname) when editing the add-on options.
 
 ## Authorization model for the HA control surface
 

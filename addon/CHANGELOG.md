@@ -21,13 +21,28 @@
   `2026.6.20` getting stuck for a week and reaching `b11`, which
   triggered a GitHub `/releases` UI ordering quirk.
 
+### Changes
+- **`hass_url` and `hass_token` moved to the end of the options form,
+  past the `identity` and `addon_lifecycle` nested blocks.** Mitigates
+  a browser password-manager autofill class of bug where a
+  `[text][password]` adjacency was getting populated with `(saved
+  username, saved password)` for an unrelated site and persisted into
+  the add-on options on save. Schema and runtime semantics unchanged;
+  only the rendering order in the HA Configuration tab moves.
+
 ### Docs
 - **New `addon/DOCS.md` (rendered as the add-on's Documentation tab).**
   Covers every option in `addon/config.yaml` (`gateway_url`,
-  `pairing_token`, `node_name`, `local_api_token`, `hass_url`,
-  `hass_token`, `reset_pairing`, the `identity` block, and the
-  `addon_lifecycle` block) with purpose, example, default, and security
-  implications, plus the Tier A vs Tier B authorization model.
+  `pairing_token`, `node_name`, `local_api_token`, `reset_pairing`, the
+  `identity` block, the `addon_lifecycle` block, and `hass_url` /
+  `hass_token` at the bottom) with purpose, example, default, and
+  security implications, plus the Tier A vs Tier B authorization model.
+- **DOCS: how to find a Home Assistant user UUID** for
+  `identity.super_admins` (URL fragment under Settings → People →
+  Users, WebSocket `auth/list`, or `.storage/auth_provider.homeassistant`).
+- **DOCS: browser-autofill gotcha for `hass_url` / `hass_token`** —
+  explains the [text][password] adjacency hazard, the schema
+  mitigation above, and how to recover if autofill still strikes.
 
 ## 2026.6.20b11 (2026-06-27) — Tool-progress chunk lands on a new line after preamble text
 
