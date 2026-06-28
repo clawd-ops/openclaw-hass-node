@@ -135,6 +135,56 @@ Runtime events (not PRs):
 - **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
 - Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
 
+### 27. Ingress configuration UI for the add-on
+- Status: OPEN (design) — captured 2026-06-28 from operator UX feedback.
+- Goal: serve a small web UI from the add-on over HA Ingress that renders user-friendly editors for the trickier config shapes:
+  - HA-user dropdowns for `identity.super_admins` and `identity.user_agent_map.*.ha_user_id`, populated live from `config/auth/list`.
+  - Allowlist pickers for `identity.forbidden_commands` and `addon_lifecycle.allowlist` / `denylist`, populated from the live command catalog and installed-addon list.
+  - Inline help / tooltips so the operator doesn't have to know what `addon_lifecycle` means before configuring it.
+- Replaces hand-edited YAML for the shapes HA's option-schema validators cannot express (no native dynamic enums for users or addon slugs).
+- Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
+- Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
+
+### 28. Documentation tab intro / glossary (prelude to per-option detail)
+- Status: OPEN — captured 2026-06-28 from operator UX feedback.
+- Today: `addon/DOCS.md` (rendered as HA's Documentation tab) jumps straight into per-option detail. Operator feedback: the **concepts come up cold** — `addon_lifecycle`, Tier A vs Tier B, which token belongs in which field — and there is no orientation paragraph at the top.
+- Fix: prepend a short prelude covering:
+  - **What the add-on is** (one-paragraph orientation).
+  - **Token model** — only three tokens exist and the operator never creates a fourth:
+    - `local_api_token` — auto-generated; the gateway uses it to authenticate to the node. The operator does not paste this anywhere.
+    - `pairing_token` — one-shot token from `openclaw qr`. Pasted into the add-on once during pairing; cleared after a successful pair.
+    - `hass_token` — only needed when running the add-on **outside** HAOS / Supervisor. Leave blank on HAOS.
+    - Explicitly: there is **no separate "admin token"**. Tier B authorization is the pairing-session bearer plus `addon_lifecycle.allowlist`.
+  - **Authorization tiers** — Tier A (read-only), Tier B (lifecycle), Tier C (explicitly not supported). Link to `docs/design/COMMAND-TIERS.md` for the full policy.
+  - **Configuration groups** — what `identity.*`, `addon_lifecycle.*`, and `hass_url`/`hass_token` are each for, so the operator can scan the options page and know what they're looking at.
+- Per-option detail stays as-is.
+
+### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
+- Status: OPEN (enhancement) — confirmed live 2026-06-27, deferred per Rob's "a now, b research/possibly-implement later".
+- Today (item #2 shipped on b6): only the **first** tool call in a turn renders `🔧 Calling X...`. Subsequent tool calls in the same turn are invisible — the label stays on the first tool until the turn ends.
+- Goal: extend the slow-turn relay so each tool call's name updates the progress label as it fires. Needs proper ephemeral status frames + a coordinated HACS shim change (the current shim accumulates the first label into the response body).
+- Out of scope for current `chat_relay.py`; needs an addon + shim release together. Item #2 stays closed; this is the v2.
+
+### 30. GitHub Releases tab missing entries since b9
+- Status: OPEN (investigate) — observed 2026-06-28.
+- Symptom: GitHub Releases tab on `clawd-ops/openclaw-hass-node` still shows Beta 9 as the most recent release on both phone and laptop browsers. Tags exist past it (b6 → b11) and `.github/workflows/release-on-version-bump.yml` is supposed to publish a release for each.
+- Hypothesis A: tag-name string-sort makes `b9` appear *after* `b10`/`b11` on the UI, so newer releases exist but render lower in the list. Hypothesis B: the workflow stopped creating actual releases (only tags) after some PR.
+- Action:
+  1. Pull workflow runs since the b9 tag and confirm whether each completed `gh release create` or only tagged.
+  2. If only tagged: trace which PR regressed the workflow and restore the release step.
+  3. If both: confirm string-sort is the cause. The b9 prerelease cap from PR #177 will roll the date forward instead of going to `b10+`, which sidesteps this for the future but doesn't fix the existing gap.
+- Related: "please release" command surface as a manual escape hatch (separately).
+
+### 31. Add-on icon stopped rendering in HA after the doc / schema reshape
+- Status: OPEN (investigate) — observed 2026-06-27 after the PR #174 / #175 schema modernization.
+- Symptom: HA Supervisor shows the OpenClaw Node add-on without its icon (looks "orphaned" in the dashboard). `ha apps | grep -i openclaw` shows `logo: false` in the supervisor metadata. Both `addon/icon.png` and `addon/logo.png` are present in the repo.
+- Possible causes:
+  - HA Supervisor caches the icon/logo flag and the cache wasn't invalidated by the manifest changes; `ha apps reload` or a repo re-add may refresh it.
+  - The `map:` modernization or another schema change in PR #175 invalidated the manifest from Supervisor's perspective for icon-flag purposes.
+  - The `logo: false` line is older than this and is the expected absence flag for the brand mark vs the icon; needs comparison against a known-good HA add-on manifest.
+- Action: diff the live `apps` metadata against a clean add-on (e.g. a hassio-addons one), check Supervisor logs around the b10/b11 install for any icon-related warnings, and try a manifest-only no-op bump after fixing whatever the root cause is.
+- Rob does not want to uninstall + reinstall (would force a re-pair), so the fix has to be a metadata refresh, not a clean install.
+
 ---
 
 ## Closed items
