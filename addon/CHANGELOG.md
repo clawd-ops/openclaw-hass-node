@@ -1,5 +1,18 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.28b2
+
+### Fixes
+- **HA Assist tool progress restored (regression fix for b1).** On b1 the
+  shim advertised `client_caps: ["tool-progress-frames"]` which made the
+  addon suppress the legacy `🔧 Calling X...` textual delta in favour of
+  structured `tool_progress` frames, but the shim has no ephemeral
+  display hook in HA today so the frames were swallowed — HA Assist
+  showed `...` for the entire tool-heavy turn. The shim no longer
+  advertises the cap; addon emits the legacy textual delta exactly as
+  on b6. The frame emission code stays in place for when HA exposes an
+  ephemeral hook.
+
 ## 2026.6.28b1
 
 ### Features
