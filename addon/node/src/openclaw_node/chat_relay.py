@@ -1055,10 +1055,19 @@ class ChatRelay:
                             # the gateway's own id/name for matching; the seq
                             # in the end event from the gateway is not carried,
                             # so we use our tracked active_seq as the proxy).
-                            id_match = (not tool_id and not active_id) or tool_id == active_id
-                            name_match = not tool_name or tool_name == active_name
+                            #
+                            # Id-safety: an id-less end must NOT clear an active
+                            # tool that has an id — only a matching id may do so.
+                            # Both-idless: when neither end nor active has an id,
+                            # fall back to name-match as before.
+                            id_match = bool(tool_id) and tool_id == active_id
+                            both_idless_name_match = (
+                                not tool_id
+                                and not active_id
+                                and (not tool_name or tool_name == active_name)
+                            )
                             seq_ok = end_seq >= active_seq
-                            if (id_match or (not tool_id and name_match)) and seq_ok:
+                            if (id_match or both_idless_name_match) and seq_ok:
                                 # Emit end frame with the seq of the tool being
                                 # cleared so the shim can correlate start↔end.
                                 q = self._delta_queues.get(tool_canonical_key)

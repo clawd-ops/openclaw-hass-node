@@ -2610,3 +2610,43 @@ async def test_tool_progress_end_id_aware_clearing() -> None:
         frames.append(queue.get_nowait())
     assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start") == 1
     assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end") == 1
+
+
+@pytest.mark.asyncio
+async def test_tool_progress_idless_end_does_not_clear_tool_with_id() -> None:
+    """Id-safety: an id-less ``end`` must NOT clear an active tool that carries
+    an id, even when the names match.  Only a matching id (or a both-id-less
+    name match) may clear the active slot."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_idless_end"
+    relay._canonical_by_raw[s_k] = s_k
+    relay._active_run_id[s_k] = "run-idless"
+    relay._seen_same_run_event[s_k] = True
+    relay._use_tool_frames[s_k] = True
+
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
+    relay._delta_queues[s_k] = queue
+
+    # Start tool with id=call-y — the active slot now has an id.
+    relay.handle_event(_tool_start_event(s_k, "Bash", "run-idless", "call-y"))
+    assert relay._active_tool.get(s_k) == "Bash"
+
+    # id-less end with matching name — must NOT clear (active has an id).
+    relay.handle_event(_tool_end_event(s_k, "Bash", "run-idless"))
+    assert relay._active_tool.get(s_k) == "Bash", (
+        "id-less end with matching name must not clear an active tool that has an id"
+    )
+
+    # Correct id end — must clear.
+    relay.handle_event(_tool_end_event(s_k, "Bash", "run-idless", "call-y"))
+    assert s_k not in relay._active_tool, "matching-id end must clear the tool"
+
+    # Queue: 1 start + 1 end (the id-less end was silently dropped).
+    frames = []
+    while not queue.empty():
+        frames.append(queue.get_nowait())
+    assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start") == 1
+    assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end") == 1, (
+        f"expected exactly 1 end frame after correct-id end; got: {frames!r}"
+    )
