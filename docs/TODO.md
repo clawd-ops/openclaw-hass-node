@@ -28,10 +28,12 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
 - Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/design/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
+- 2026-06-28 overnight cutover progress: live OpenClaw config removed `mcp.servers.homeassistant` and `mcp.servers.homeassistant-readonly` after verifying `nodes.invoke` against the connected `hass` node with `ha.get_state`. Workspace AGENTS instructions now tell Clawd/HomeOps/PoolMaster/ReefMaster to use the `hass` node command surface instead of `mcp__homeassistant*`. Existing already-running sessions may still hold old MCP child processes until they exit; fresh-session validation remains required before closing.
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
-  2. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*`.
-  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) gated by the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
+  2. **Apply command-surface operating guidance for agents/subagents** so callers understand which `ha.*` node command replaces each legacy `mcp__homeassistant*` tool and do not fall back to MCP by habit. Tracked separately in item #34.
+  3. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*`.
+  4. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) gated by the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 
 ### 12. Generated docs site for node command surface + protocols
@@ -102,6 +104,23 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Requested: 2026-06-28 by Rob.
 - Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
 - Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
+
+### 34. Agent skill for HA node command-surface usage
+- Status: OPEN
+- Requested: 2026-06-28 by Rob.
+- Goal: create/apply a reusable agent skill that teaches Clawd/Codex/subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
+- Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
+- Initial proposal: `ha-node-command-surface` Skill Workshop proposal created 2026-06-28. Pending approval/application.
+- Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
+
+### 35. HA Assist active-chat tool usage still not visible
+- Status: OPEN — regression/bug, not blocked by MCP sunset.
+- Reported: 2026-06-28 by Rob after releases through `v2026.6.28b5`.
+- Symptom: HA Assist turns that visibly run commands/tools still show no `🔧 Calling X...` lines in the active chat. Rob's expected behavior is explicit: every new tool call should push a visible active-chat line, so 25 tool calls means 25 visible tool-usage indications.
+- Why it matters: without mid-turn tool-use output, HA Assist can sit silent long enough to look like a timeout or failed response even when the backend is working.
+- Prior attempts: #179 added structured `tool_progress` frames, #184 restored no-cap legacy text, #186 pushed per-tool-start deltas, #188 handled hidden `stream=item` tool starts, and #190 suppressed raw HTML gateway errors. The user-facing result is still not verified/fixed.
+- Next investigation: confirm the installed add-on/shim version, capture the exact HA Assist event stream for a failing turn, and identify which event path is still bypassing `ChatRelay`'s visible tool-start delta.
+- Cross-link: item #32 (show/hide config) must wait until this works; hiding broken output is not useful.
 
 ---
 
