@@ -541,11 +541,12 @@ class ChatRelay:
                         return
                     if sent_keepalive_count == 0 and not use_tool_frames:
                         # Legacy textual progress path (no tool-progress-frames
-                        # cap).  Prefer the actual tool name (captured from
-                        # ``agent``/``session.tool`` start events on the
-                        # operator WS; see __main__.py caps). Falls back to
-                        # the generic placeholder when no tool has started —
-                        # e.g. the model is just thinking.
+                        # cap).  When a tool has already started, handle_event
+                        # pushed an immediate ``🔧 Calling X...`` delta so we
+                        # skip the textual emit here to avoid dual-emit.
+                        # Falls back to the generic placeholder only when no
+                        # tool has started yet — e.g. the model is just
+                        # thinking before calling any tool.
                         #
                         # When use_tool_frames is True the textual delta is
                         # suppressed entirely — ToolProgressFrame sentinels
@@ -553,18 +554,14 @@ class ChatRelay:
                         # so the caller already has per-tool labels without
                         # needing the silence-gated fallback.
                         active_tool = self._active_tool.get(canonical_key)
-                        # Leading newline if we've already shown the user
-                        # text this turn (preamble before the first tool
-                        # call). Without it the progress line concatenates
-                        # to the prior delta — e.g. "...parse them.🔧
-                        # Calling Bash..." — instead of starting a new
-                        # line in the Assist transcript.
-                        prefix = "\n" if has_yielded_user_visible else ""
                         if active_tool:
-                            yield f"{prefix}🔧 Calling {active_tool}...\n\n"
+                            # Immediate delta already pushed by handle_event;
+                            # emit transport-only keepalive to avoid duplicate.
+                            yield _STREAM_KEEPALIVE
                         else:
+                            prefix = "\n" if has_yielded_user_visible else ""
                             yield f"{prefix}{_STREAM_PROGRESS_DELTA}"
-                        has_yielded_user_visible = True
+                            has_yielded_user_visible = True
                     else:
                         # Yield the transport-only sentinel. http_api
                         # converts to a `{"keepalive": true}` NDJSON
@@ -985,9 +982,11 @@ class ChatRelay:
         #
         # Two paths depending on the per-request ``tool-progress-frames`` cap:
         #
-        # Legacy path (cap absent): record the most recent active tool name
-        # in ``_active_tool`` so the slow-turn keepalive can use it in the
-        # textual ``🔧 Calling X...`` delta.  No queue push.
+        # Legacy path (cap absent): push a textual ``🔧 Calling X...`` delta
+        # directly onto the session delta queue on every tool start so each
+        # tool in a multi-tool turn gets its own visible line in real time.
+        # ``_active_tool`` is still updated so the silence-gate keepalive can
+        # skip its own emission and avoid dual-emit.
         #
         # Cap path (cap present): push a ``ToolProgressFrame`` sentinel onto
         # the session's delta queue so ``stream_turn`` yields it in real time.
@@ -1042,6 +1041,15 @@ class ChatRelay:
                                         phase="start", name=tool_name, id=tool_id, seq=seq
                                     )
                                 )
+                        else:
+                            # Push an immediate textual delta so every tool in
+                            # a multi-tool turn gets its own visible line in
+                            # HA Assist without waiting for the silence-gate
+                            # keepalive. Leading \n separates from any preamble
+                            # text already on screen.
+                            q = self._delta_queues.get(tool_canonical_key)
+                            if q is not None:
+                                q.put_nowait(f"\n🔧 Calling {tool_name}...\n")
                     elif phase == "end":
                         if use_frames:
                             # Race fix: gate the clear on id-match (when id is

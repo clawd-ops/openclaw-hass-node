@@ -879,8 +879,8 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
 
     await asyncio.gather(_consume(), _drive())
 
-    assert "🔧 Calling weather...\n\n" in chunks, (
-        f"expected tool-specific progress delta, got: {chunks!r}"
+    assert "\n🔧 Calling weather...\n" in chunks, (
+        f"expected immediate tool-progress delta, got: {chunks!r}"
     )
     assert "Working on it...\n\n" not in chunks, (
         f"generic placeholder should be suppressed when tool name available: {chunks!r}"
@@ -974,12 +974,12 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
     # The preamble delta and the tool-progress chunk should BOTH be in
     # the stream, and the progress chunk must carry the leading newline.
     assert "Sure, running a few." in chunks, f"preamble lost: {chunks!r}"
-    assert "\n🔧 Calling Bash...\n\n" in chunks, (
+    assert "\n🔧 Calling Bash...\n" in chunks, (
         f"expected leading-newline-prefixed tool progress, got: {chunks!r}"
     )
-    # Without the fix the chunk would lack the leading \n.
+    # Chunk must always carry the leading \n (emitted immediately in handle_event).
     assert "🔧 Calling Bash...\n\n" not in chunks, (
-        f"unprefixed progress chunk leaked through (regression): {chunks!r}"
+        f"unexpected format (old keepalive format leaked through): {chunks!r}"
     )
 
 
@@ -2373,10 +2373,87 @@ async def test_stream_turn_no_tool_progress_frames_without_cap(
     assert not any(isinstance(c, ToolProgressFrame) for c in chunks), (
         f"ToolProgressFrame leaked without cap: {chunks!r}"
     )
-    # Must have the tool-named legacy progress delta
-    assert any(c == "🔧 Calling Bash...\n\n" for c in chunks), (
-        f"expected legacy textual delta: {chunks!r}"
+    # Must have the immediate tool-named delta (emitted on start, not keepalive)
+    assert any(c == "\n🔧 Calling Bash...\n" for c in chunks), (
+        f"expected immediate textual delta: {chunks!r}"
     )
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_no_cap_sequential_tools_each_emit_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without the tool-progress-frames cap, each tool in a multi-tool turn
+    must emit its own ``🔧 Calling X...`` chunk immediately when it starts,
+    in order. The second tool must not be invisible (b2 regression)."""
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_NOCAP_SEQ"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-seq2"}))
+        # Tool A starts
+        relay.handle_event(_tool_start_event(canonical, "Bash", "run-seq2", "id-a"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "Bash", "run-seq2", "id-a"))
+        await asyncio.sleep(0.005)
+        # Tool B starts
+        relay.handle_event(_tool_start_event(canonical, "Python", "run-seq2", "id-b"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "Python", "run-seq2", "id-b"))
+        await asyncio.sleep(0.005)
+        # Tool C starts
+        relay.handle_event(_tool_start_event(canonical, "weather", "run-seq2", "id-c"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-seq2",
+                    "message": {"role": "assistant", "content": "all done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "run three tools"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    text_chunks = [c for c in chunks if isinstance(c, str)]
+    assert not any(isinstance(c, ToolProgressFrame) for c in chunks), (
+        f"ToolProgressFrame leaked without cap: {chunks!r}"
+    )
+    assert "\n🔧 Calling Bash...\n" in text_chunks, f"Bash delta missing: {text_chunks!r}"
+    assert "\n🔧 Calling Python...\n" in text_chunks, (
+        f"Python delta missing (second tool invisible — b2 regression): {text_chunks!r}"
+    )
+    assert "\n🔧 Calling weather...\n" in text_chunks, f"weather delta missing: {text_chunks!r}"
+    # Verify order: Bash before Python before weather
+    bash_idx = text_chunks.index("\n🔧 Calling Bash...\n")
+    python_idx = text_chunks.index("\n🔧 Calling Python...\n")
+    weather_idx = text_chunks.index("\n🔧 Calling weather...\n")
+    assert bash_idx < python_idx < weather_idx, f"tool deltas out of order: {text_chunks!r}"
 
 
 @pytest.mark.asyncio
