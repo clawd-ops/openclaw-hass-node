@@ -71,6 +71,18 @@ _STREAM_FIRST_KEEPALIVE_S: Final[float] = 8.0
 _STREAM_KEEPALIVE_INTERVAL_S: Final[float] = 15.0
 _STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
 
+# Capability token that the HACS shim sends in the ``client_caps`` body
+# field to opt in to ``tool_progress`` frames instead of the legacy
+# textual ``🔧 Calling X...`` delta.  The shim advertises this per-request
+# (not at handshake time) because the shim speaks HTTP, not WS.
+#
+# Cap semantics:
+#   - No cap → keep legacy textual ``🔧 Calling X...`` delta (current
+#     behavior).  The ``ToolProgressFrame`` sentinel is never yielded.
+#   - With cap → emit ``ToolProgressFrame`` sentinels on every tool start
+#     AND end; suppress the textual progress delta entirely (no dual emit).
+_CAP_TOOL_PROGRESS_FRAMES: Final[str] = "tool-progress-frames"
+
 
 class StreamKeepalive:
     """Sentinel yielded by ChatRelay.stream_turn to request a keepalive.
@@ -85,6 +97,44 @@ class StreamKeepalive:
 
 
 _STREAM_KEEPALIVE: Final[StreamKeepalive] = StreamKeepalive()
+
+
+class ToolProgressFrame:
+    """Sentinel yielded by ChatRelay.stream_turn to signal tool-call progress.
+
+    Emitted only when the caller advertises the ``tool-progress-frames``
+    capability (``client_caps: ["tool-progress-frames"]`` in the request
+    body).  When this capability is active the textual ``🔧 Calling X...``
+    delta is suppressed entirely — no dual emit.
+
+    Protocol fields mirror the ``tool_progress`` NDJSON frame the HTTP API
+    sends to the shim::
+
+        {"tool_progress": true, "phase": "start"|"end",
+         "name": "<tool>", "id": "<opaque>", "seq": <int>}
+
+    ``id`` is the opaque tool-call ID from the gateway event (may be empty).
+    ``seq`` is a monotonic counter incremented on every tool start event
+    within a turn; the shim uses it to guard against out-of-order ``end``
+    clearing: if the incoming ``seq`` on an ``end`` frame is less than the
+    ``seq`` of the current active tool, the clear is skipped.
+    """
+
+    __slots__ = ("id", "name", "phase", "seq")
+
+    def __init__(self, *, phase: str, name: str, id: str = "", seq: int = 0) -> None:
+        """Initialise.
+
+        Args:
+            phase: ``"start"`` or ``"end"``.
+            name: Tool name, e.g. ``"Bash"``.
+            id: Optional opaque tool-call ID from the gateway event.
+            seq: Monotonic sequence counter for this turn.
+        """
+        self.phase = phase
+        self.name = name
+        self.id = id
+        self.seq = seq
 
 
 class ChatRelayError(Exception):
@@ -155,7 +205,7 @@ class ChatRelay:
         # this an in-flight stream would silently emit `{"done":true}`
         # to HA instead of an error frame).
         self._delta_queues: dict[
-            str, asyncio.Queue[str | None | ChatRelayError]
+            str, asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame]
         ] = {}  # canonical keys
         # Per-session count of characters already yielded to the active
         # stream consumer. Used at the terminal event to compute any tail
@@ -178,6 +228,23 @@ class ChatRelay:
         # tool being called instead of the generic "Working on it..."
         # placeholder. Cleared on tool end and at turn start.
         self._active_tool: dict[str, str] = {}  # canonical keys
+        # Per-turn metadata for the ``tool-progress-frames`` cap path.
+        # ``_tool_progress_seq`` is a monotonic counter of tool-start events
+        # for the current turn; it is embedded in every ToolProgressFrame so
+        # the shim can detect out-of-order ``end`` frames.
+        # ``_active_tool_id`` stores the opaque id from the gateway event
+        # (may be empty) so ``end`` frames can gate their clear on id-match
+        # when an id is present, or fall back to name-match otherwise.
+        # ``_active_tool_seq`` is the seq of the CURRENTLY active tool so
+        # an ``end`` whose seq < active seq is skipped (race fix).
+        self._tool_progress_seq: dict[str, int] = {}  # canonical keys
+        self._active_tool_id: dict[str, str] = {}  # canonical keys
+        self._active_tool_seq: dict[str, int] = {}  # canonical keys
+        # Per-turn flag set by _stream_turn_locked when the caller opts in
+        # to structured tool_progress frames.  handle_event checks this to
+        # decide whether to push ToolProgressFrame items onto the queue
+        # (cap on) or update _active_tool only (cap off, legacy path).
+        self._use_tool_frames: dict[str, bool] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -186,7 +253,8 @@ class ChatRelay:
         text: str,
         language: str = "en",  # noqa: ARG002
         authz: TurnAuthz | None = None,
-    ) -> AsyncIterator[str | StreamKeepalive]:
+        client_caps: list[str] | None = None,
+    ) -> AsyncIterator[str | StreamKeepalive | ToolProgressFrame]:
         """Relay one Assist turn and yield assistant text as it streams.
 
         Implements the streaming half of the HA conversation API: each
@@ -202,15 +270,36 @@ class ChatRelay:
         NDJSON frames that the HA shim ignores when accumulating the
         assistant reply. Keepalives are NOT user-visible content.
 
+        Capability negotiation (``client_caps``):
+            The caller may pass ``client_caps=["tool-progress-frames"]``
+            to opt in to structured ``ToolProgressFrame`` sentinels instead
+            of the legacy textual ``🔧 Calling X...`` delta.  When the cap
+            is present:
+
+            - A ``ToolProgressFrame(phase="start", ...)`` is yielded
+              immediately when a tool-start event is received (no 8 s
+              silence gate — the label fires in real time).
+            - A ``ToolProgressFrame(phase="end", ...)`` is yielded on each
+              tool-end event.
+            - The textual ``🔧 Calling X...`` and ``Working on it...``
+              progress deltas are suppressed (no dual emit).
+
+            Without the cap the legacy path is used unchanged.
+
         Args:
             conversation_id: HA conversation id.
             text: User's input text.
             language: BCP-47 language tag (informational).
             authz: Optional per-turn actor policy to prepend and route.
+            client_caps: Optional list of capability strings the caller
+                supports.  Pass ``["tool-progress-frames"]`` to opt in to
+                structured tool-progress frames.
 
         Yields:
-            ``str`` for each real assistant content chunk and
-            ``StreamKeepalive`` sentinels during silent gaps.
+            ``str`` for each real assistant content chunk,
+            ``StreamKeepalive`` sentinels during silent gaps, and
+            ``ToolProgressFrame`` sentinels when the
+            ``tool-progress-frames`` cap is active.
 
         Raises:
             ChatRelayError: On subscribe / chat.send failure. Errors during
@@ -219,8 +308,11 @@ class ChatRelay:
         """
         session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
+        use_tool_frames = _CAP_TOOL_PROGRESS_FRAMES in (client_caps or [])
         async with lock:
-            async for chunk in self._stream_turn_locked(session_key, conversation_id, text, authz):
+            async for chunk in self._stream_turn_locked(
+                session_key, conversation_id, text, authz, use_tool_frames
+            ):
                 yield chunk
 
     def _prepare_pending(self) -> tuple[str, asyncio.Future[dict[str, Any]]]:
@@ -256,8 +348,13 @@ class ChatRelay:
         self._seen_same_run_event.pop(canonical_key, None)
 
     async def _stream_turn_locked(
-        self, session_key: str, conversation_id: str, text: str, authz: TurnAuthz | None
-    ) -> AsyncIterator[str | StreamKeepalive]:
+        self,
+        session_key: str,
+        conversation_id: str,
+        text: str,
+        authz: TurnAuthz | None,
+        use_tool_frames: bool = False,
+    ) -> AsyncIterator[str | StreamKeepalive | ToolProgressFrame]:
         """Inner streaming turn under the per-session lock.
 
         Turn-boundary ordering (issue #128 fix):
@@ -292,9 +389,8 @@ class ChatRelay:
         ``StreamKeepalive`` sentinels every ``_STREAM_KEEPALIVE_INTERVAL_S``
         until the next real delta or terminal — keeping HA Assist's
         ~30s read timeout from firing on tool-heavy turns. Yield type
-        is ``str | StreamKeepalive``; http_api maps the sentinel onto a
-        ``{"keepalive": true}`` NDJSON frame that the shim ignores when
-        accumulating the assistant reply.
+        is ``str | StreamKeepalive | ToolProgressFrame``; http_api maps
+        the sentinels to appropriate NDJSON frames.
         """
         deadline = asyncio.get_event_loop().time() + _STREAM_TURN_TIMEOUT_S
 
@@ -311,8 +407,12 @@ class ChatRelay:
         self._active_run_id[canonical_key] = _PENDING_RUN_ID
         self._seen_same_run_event[canonical_key] = False
         self._active_tool.pop(canonical_key, None)
+        self._tool_progress_seq[canonical_key] = 0
+        self._active_tool_id.pop(canonical_key, None)
+        self._active_tool_seq.pop(canonical_key, None)
+        self._use_tool_frames[canonical_key] = use_tool_frames
         self._stream_yielded_chars[canonical_key] = 0
-        queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
+        queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
 
         idempotency_key = str(uuid.uuid4())
@@ -410,6 +510,9 @@ class ChatRelay:
                             return
                         if isinstance(item, ChatRelayError):
                             raise item
+                        if isinstance(item, ToolProgressFrame):
+                            yield item
+                            continue
                         yield item
                     return
 
@@ -436,12 +539,19 @@ class ChatRelay:
                     # visible progress delta, then hidden keepalives.
                     if loop.time() >= deadline:
                         return
-                    if sent_keepalive_count == 0:
-                        # Prefer the actual tool name (captured from
-                        # `agent`/`session.tool` start events on the
-                        # operator WS; see __main__.py caps). Falls back
-                        # to the generic placeholder when no tool has
-                        # started — e.g. the model is just thinking.
+                    if sent_keepalive_count == 0 and not use_tool_frames:
+                        # Legacy textual progress path (no tool-progress-frames
+                        # cap).  Prefer the actual tool name (captured from
+                        # ``agent``/``session.tool`` start events on the
+                        # operator WS; see __main__.py caps). Falls back to
+                        # the generic placeholder when no tool has started —
+                        # e.g. the model is just thinking.
+                        #
+                        # When use_tool_frames is True the textual delta is
+                        # suppressed entirely — ToolProgressFrame sentinels
+                        # are pushed to the queue in real time by handle_event
+                        # so the caller already has per-tool labels without
+                        # needing the silence-gated fallback.
                         active_tool = self._active_tool.get(canonical_key)
                         # Leading newline if we've already shown the user
                         # text this turn (preamble before the first tool
@@ -473,6 +583,15 @@ class ChatRelay:
                     return  # terminal sentinel
                 if isinstance(item, ChatRelayError):
                     raise item  # disconnect / fatal-stream sentinel
+                if isinstance(item, ToolProgressFrame):
+                    # Structured tool-progress sentinel (cap active).
+                    # Yield directly without touching the keepalive
+                    # baseline — tool frames are not assistant content and
+                    # must not suppress the eventual silence-gate keepalive
+                    # for cases where the model goes silent after the tool
+                    # starts but before deltas arrive.
+                    yield item
+                    continue
                 # Real delta resets the keepalive baseline so a stream
                 # of fast deltas suppresses keepalives entirely.
                 last_yield_time = loop.time()
@@ -482,6 +601,10 @@ class ChatRelay:
         finally:
             self._delta_queues.pop(canonical_key, None)
             self._stream_yielded_chars.pop(canonical_key, None)
+            self._use_tool_frames.pop(canonical_key, None)
+            self._tool_progress_seq.pop(canonical_key, None)
+            self._active_tool_id.pop(canonical_key, None)
+            self._active_tool_seq.pop(canonical_key, None)
 
     async def relay_turn(
         self,
@@ -853,17 +976,29 @@ class ChatRelay:
             )
             return
 
-        # Tool-event capture (slow-turn progress label, #TODO item 2).
+        # Tool-event capture (slow-turn progress label, TODO item 2 / item 29).
         # Gateway emits `agent` and `session.tool` events with
         # `stream='tool'` to connections that advertised the
         # `tool-events` capability at handshake (operator client; see
         # __main__.py). `data.name` carries the tool name; `data.phase`
-        # is "start" or "end". The relay records the most recent active
-        # tool for the session so the slow-turn keepalive can name the
-        # specific tool instead of the generic "Working on it..."
-        # placeholder. No user-visible delta is emitted here — only the
-        # cached label is updated; the existing 8s silence threshold
-        # still gates visibility so fast turns stay quiet.
+        # is "start" or "end".
+        #
+        # Two paths depending on the per-request ``tool-progress-frames`` cap:
+        #
+        # Legacy path (cap absent): record the most recent active tool name
+        # in ``_active_tool`` so the slow-turn keepalive can use it in the
+        # textual ``🔧 Calling X...`` delta.  No queue push.
+        #
+        # Cap path (cap present): push a ``ToolProgressFrame`` sentinel onto
+        # the session's delta queue so ``stream_turn`` yields it in real time.
+        # The textual fallback delta is suppressed in the keepalive loop.
+        # On ``start`` the frame is always emitted; a new ``start`` simply
+        # replaces the current label without emitting a synthetic ``end`` first.
+        # On ``end`` the frame is gated: the clear is skipped when the
+        # event's ``id`` (when present) does not match the active tool's id,
+        # or when the event's ``seq`` (monotonic within the turn) is less than
+        # the seq of the currently active tool — race fix for interleaved
+        # out-of-order ``end`` deliveries on multi-tool turns.
         if event in ("agent", "session.tool") and payload.get("stream") == "tool":
             raw_session_key = str(payload.get("sessionKey", ""))
             tool_canonical_key = self._canonical_by_raw.get(raw_session_key) or raw_session_key
@@ -890,10 +1025,57 @@ class ChatRelay:
                 if not stale:
                     phase = data.get("phase")
                     tool_name = data.get("name")
+                    tool_id = str(data.get("id", "") or "")
+                    use_frames = self._use_tool_frames.get(tool_canonical_key, False)
                     if phase == "start" and isinstance(tool_name, str) and tool_name:
                         self._active_tool[tool_canonical_key] = tool_name
+                        if use_frames:
+                            # Monotonic seq: increment on every start.
+                            seq = self._tool_progress_seq.get(tool_canonical_key, 0) + 1
+                            self._tool_progress_seq[tool_canonical_key] = seq
+                            self._active_tool_id[tool_canonical_key] = tool_id
+                            self._active_tool_seq[tool_canonical_key] = seq
+                            q = self._delta_queues.get(tool_canonical_key)
+                            if q is not None:
+                                q.put_nowait(
+                                    ToolProgressFrame(
+                                        phase="start", name=tool_name, id=tool_id, seq=seq
+                                    )
+                                )
                     elif phase == "end":
-                        self._active_tool.pop(tool_canonical_key, None)
+                        if use_frames:
+                            # Race fix: gate the clear on id-match (when id is
+                            # present) or name-match, plus monotonic seq guard.
+                            active_seq = self._active_tool_seq.get(tool_canonical_key, 0)
+                            active_id = self._active_tool_id.get(tool_canonical_key, "")
+                            active_name = self._active_tool.get(tool_canonical_key, "")
+                            end_seq = self._tool_progress_seq.get(tool_canonical_key, 0)
+                            # ``end`` seq == the current turn seq (we embed
+                            # the seq from the start into the end frame using
+                            # the gateway's own id/name for matching; the seq
+                            # in the end event from the gateway is not carried,
+                            # so we use our tracked active_seq as the proxy).
+                            id_match = (not tool_id and not active_id) or tool_id == active_id
+                            name_match = not tool_name or tool_name == active_name
+                            seq_ok = end_seq >= active_seq
+                            if (id_match or (not tool_id and name_match)) and seq_ok:
+                                # Emit end frame with the seq of the tool being
+                                # cleared so the shim can correlate start↔end.
+                                q = self._delta_queues.get(tool_canonical_key)
+                                if q is not None:
+                                    q.put_nowait(
+                                        ToolProgressFrame(
+                                            phase="end",
+                                            name=active_name or (tool_name or ""),
+                                            id=active_id,
+                                            seq=active_seq,
+                                        )
+                                    )
+                                self._active_tool.pop(tool_canonical_key, None)
+                                self._active_tool_id.pop(tool_canonical_key, None)
+                                self._active_tool_seq.pop(tool_canonical_key, None)
+                        else:
+                            self._active_tool.pop(tool_canonical_key, None)
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
         # key/role-shaped metadata that determines whether we capture it.
@@ -1130,6 +1312,11 @@ class ChatRelay:
         self._reply_events.clear()
         self._active_run_id.clear()
         self._seen_same_run_event.clear()
+        self._active_tool.clear()
+        self._tool_progress_seq.clear()
+        self._active_tool_id.clear()
+        self._active_tool_seq.clear()
+        self._use_tool_frames.clear()
         self._turn_locks.clear()
 
 
