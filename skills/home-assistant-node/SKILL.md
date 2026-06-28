@@ -1,11 +1,11 @@
 ---
 name: home-assistant-node
-description: Use when inspecting, diagnosing, operating, or safely editing Home Assistant through OpenClaw's hass node command surface.
+description: Use when inspecting, diagnosing, operating, or safely editing Home Assistant through OpenClaw's Home Assistant node command surface.
 ---
 
 # Home Assistant Node
 
-Use this skill whenever an agent needs to inspect, diagnose, operate, or safely edit something through OpenClaw's `hass` node.
+Use this skill whenever an agent needs to inspect, diagnose, operate, or safely edit something through an OpenClaw Home Assistant node.
 
 Good fits:
 
@@ -13,9 +13,11 @@ Good fits:
 - Running bounded diagnostics against the Home Assistant node.
 - Performing explicitly authorized Home Assistant actions.
 - Inspecting or editing supported config/file paths through the node.
-- Wiring agents or subagents to the `hass` node command surface.
+- Wiring agents or subagents to the Home Assistant node command surface.
 
-The core rule: use `nodes.invoke` against node `hass`, then choose the safest specific command family for the task. For normal Home Assistant work, use the `hass` node path rather than an MCP path.
+The core rule: use `nodes.invoke` against the configured Home Assistant node, then choose the safest specific command family for the task. For normal Home Assistant work, use the node path rather than an MCP path.
+
+The node ID is deployment-specific. It may be `hass` in one environment and something else in another. Discover or confirm the node ID before invoking commands.
 
 ## Invocation Pattern
 
@@ -23,7 +25,7 @@ Use this shape:
 
 ```json
 {
-  "nodeId": "hass",
+  "nodeId": "<home-assistant-node-id>",
   "command": "<command-family>.<command>",
   "params": {}
 }
@@ -33,7 +35,7 @@ Examples:
 
 ```json
 {
-  "nodeId": "hass",
+  "nodeId": "<home-assistant-node-id>",
   "command": "ha.get_state",
   "params": {
     "entity_id": "sensor.example"
@@ -43,7 +45,7 @@ Examples:
 
 ```json
 {
-  "nodeId": "hass",
+  "nodeId": "<home-assistant-node-id>",
   "command": "ping",
   "params": {}
 }
@@ -101,10 +103,10 @@ Prompt instructions are not enough for subagent safety. The node or gateway path
 
 When exact command names, parameters, tiers, or edge cases matter, read the repo docs rather than duplicating them in this skill:
 
-- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/reference/COMMAND-SURFACE.md` - complete command catalog, parameters, and command families.
-- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/design/COMMAND-TIERS.md` - risk tiers, safety expectations, and enforcement model.
-- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/design/IDENTITY-AND-SCOPES.md` - identity, scopes, and authorization model.
-- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/reference/HA-CONFIG-EDITING.md` - safe Home Assistant config editing guidance.
-- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/TODO.md` - active implementation gaps and follow-up work.
+- `docs/reference/COMMAND-SURFACE.md` - complete command catalog, parameters, and command families.
+- `docs/design/COMMAND-TIERS.md` - risk tiers, safety expectations, and enforcement model.
+- `docs/design/IDENTITY-AND-SCOPES.md` - identity, scopes, and authorization model.
+- `docs/reference/HA-CONFIG-EDITING.md` - safe Home Assistant config editing guidance.
+- `docs/TODO.md` - active implementation gaps and follow-up work.
 
 If docs, advertised commands, and runtime behavior disagree, stop and report the inconsistency instead of guessing.
