@@ -2650,3 +2650,55 @@ async def test_tool_progress_idless_end_does_not_clear_tool_with_id() -> None:
     assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end") == 1, (
         f"expected exactly 1 end frame after correct-id end; got: {frames!r}"
     )
+
+
+@pytest.mark.asyncio
+async def test_tool_progress_idless_end_does_not_clear_same_name_active_with_id() -> None:
+    """Codex scenario: start(weather, id='a') → start(weather, id='b') → end(weather, no id).
+
+    An id-less ``end`` must NOT clear the active slot even when the tool name
+    matches and an earlier start used the same name.  The active slot carries
+    id='b' after the second start, so the id-less end is ambiguous and must
+    be dropped silently.  Active tool must still be 'weather'/id='b' and no
+    end frame must be pushed for id='b'.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_idless_same_name"
+    relay._canonical_by_raw[s_k] = s_k
+    relay._active_run_id[s_k] = "run-same"
+    relay._seen_same_run_event[s_k] = True
+    relay._use_tool_frames[s_k] = True
+
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
+    relay._delta_queues[s_k] = queue
+
+    # First start: weather, id="a"
+    relay.handle_event(_tool_start_event(s_k, "weather", "run-same", "id-a"))
+    assert relay._active_tool.get(s_k) == "weather"
+    assert relay._active_tool_id.get(s_k) == "id-a"
+
+    # Second start: same name, new id="b" (overwrites the active slot)
+    relay.handle_event(_tool_start_event(s_k, "weather", "run-same", "id-b"))
+    assert relay._active_tool.get(s_k) == "weather"
+    assert relay._active_tool_id.get(s_k) == "id-b"
+
+    # Id-less end with the same name — must NOT clear (active has id='b')
+    relay.handle_event(_tool_end_event(s_k, "weather", "run-same"))
+    assert relay._active_tool.get(s_k) == "weather", (
+        "id-less end must not clear active tool that has an id, even when names match"
+    )
+    assert relay._active_tool_id.get(s_k) == "id-b", (
+        "id-less end must not evict the id from the active slot"
+    )
+
+    # Queue: 2 start frames, 0 end frames (id-less end was silently dropped)
+    frames = []
+    while not queue.empty():
+        frames.append(queue.get_nowait())
+    start_frames = [f for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start"]
+    end_frames = [f for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end"]
+    assert len(start_frames) == 2, f"expected 2 start frames; got: {start_frames!r}"
+    assert len(end_frames) == 0, (
+        f"id-less end pushed an end frame for id='b' — must not clear: {end_frames!r}"
+    )
