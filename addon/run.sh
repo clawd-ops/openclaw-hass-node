@@ -40,7 +40,7 @@ if isinstance(identity, dict):
     super_admins = identity.get('super_admins') or []
     if isinstance(super_admins, list):
         values['OPENCLAW_IDENTITY_SUPER_ADMINS'] = json.dumps(super_admins)
-    # user_agent_map is configured as a list of {ha_user_id, agent_id}
+    # user_agent_map is configured as a list of {ha_username, agent_id}
     # objects (the HA addon-schema canonical shape for arbitrary
     # key-value maps; raw `dict?` is not in Supervisor's validator set).
     # The addon's internal contract is still dict[str, str], so flatten
@@ -51,7 +51,7 @@ if isinstance(identity, dict):
         for entry in user_agent_map:
             if not isinstance(entry, dict):
                 continue
-            ha_user = entry.get('ha_user_id')
+            ha_user = entry.get('ha_username')
             agent_id = entry.get('agent_id')
             if isinstance(ha_user, str) and isinstance(agent_id, str) and ha_user.strip() and agent_id.strip():
                 flat[ha_user.strip()] = agent_id.strip()

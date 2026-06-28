@@ -85,7 +85,7 @@ Runtime events (not PRs):
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
   2. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*`.
-  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) admin-gated via `OPENCLAW_ADMIN_TOKEN` + per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
+  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) gated by the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 
 ### 12. Generated docs site for node command surface + protocols
@@ -135,18 +135,24 @@ Runtime events (not PRs):
 - **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
 - Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
 
-### 26. `identity.super_admins` accepts HA usernames (auto-resolve to UUID at startup)
-- Status: OPEN.
-- Why: `identity.super_admins` currently takes raw HA user UUIDs, which the HA UI does not expose in plain text. Documented lookup paths (URL fragment, WebSocket `auth/list`, `.storage/auth_provider.homeassistant`) work but are awkward. Rob's call (2026-06-27): do NOT add a new node command + gateway-side dropdown — keep this entirely in the addon Configuration tab. The fix is to let operators paste usernames they already know, and resolve to UUIDs internally on startup.
-- Pieces:
-  1. **Schema unchanged externally**: `identity.super_admins` stays `list of str`. Each entry may be either a 32-char hex UUID OR a HA username. Strings shorter than 32 chars or that don't match the hex pattern are treated as usernames.
-  2. **Runtime resolution**: on startup, the addon queries HA for the username→UUID map (canonical source is the WebSocket `auth/list` admin command using `SUPERVISOR_TOKEN`; alternative is reading `/config/.storage/auth_provider.homeassistant` directly). Build a one-shot resolution and persist the resolved UUID list to the in-memory identity policy.
-  3. **Fail-soft**: a username with no matching HA user logs a WARNING but does not block startup; the unresolved entry is dropped from the effective super_admins set. Surface unresolved entries in the addon's startup logs and (eventually) in a gateway-side health check.
-- Out of scope (rejected): adding `ha.list_users` as a node command, or any gateway-side UI work. The addon handles resolution internally.
-
 ---
 
 ## Closed items
+
+### 26. Identity user options accept HA usernames
+- Status: CLOSED in PR #177.
+- `identity.super_admins` and `identity.user_agent_map` are configured
+  with HA usernames. On startup, the add-on calls HA WebSocket
+  `auth/list`, resolves names to HA user IDs, and keeps only the
+  resolved IDs in the in-memory policy used by signed Assist actor
+  checks and per-user agent routing.
+- Unknown usernames log a warning and are ignored for that run, so a
+  typo fails closed to the lower `admin` or `user` role without
+  blocking add-on startup; unresolved route mappings fall back to the
+  default agent route.
+- Out of scope: native HA Configuration-tab user dropdowns. The add-on
+  schema has no dynamic user selector; an ingress management UI remains
+  possible as a separate future feature if needed.
 
 ### 2. Real per-tool progress events
 - Status: CLOSED 2026-06-20 (verified end-to-end on b6)

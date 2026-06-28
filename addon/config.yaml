@@ -107,14 +107,15 @@ options:
   # every restart will wipe again.
   reset_pairing: false
   identity:
-    # HA user IDs allowed to receive the super_admin prompt context.
-    # HA admins not listed here resolve to admin; everyone else resolves
-    # to user. These are HA user UUIDs, not Discord/OpenClaw identities.
+    # HA usernames allowed to receive the super_admin prompt context.
+    # The addon resolves usernames to HA user IDs at startup. HA admins
+    # not listed here resolve to admin; everyone else resolves to user.
+    # These are HA usernames, not Discord/OpenClaw identities.
     super_admins: []
     # Optional per-HA-user gateway agent routing. The agents themselves are
     # configured in OpenClaw's gateway config; this addon only picks which
     # agentId to send on chat.send for each HA user. List of
-    # {ha_user_id, agent_id} pairs — list-of-dicts is the HA-canonical
+    # {ha_username, agent_id} pairs — list-of-dicts is the HA-canonical
     # addon-schema shape for an arbitrary key-value map.
     user_agent_map: []
     # Empty preserves today's gateway-default routing.
@@ -175,7 +176,7 @@ schema:
     super_admins:
       - str
     user_agent_map:
-      - ha_user_id: str
+      - ha_username: str
         agent_id: str
     default_agent_id: str?
     forbidden_commands: str?

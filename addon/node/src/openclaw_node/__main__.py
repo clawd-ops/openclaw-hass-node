@@ -11,10 +11,13 @@ import asyncio
 import contextlib
 import logging
 import sys
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from openclaw_node.config import NodeConfig, load_config
 from openclaw_node.gateway_ws import _OPERATOR_SCOPES, GatewayClient
+from openclaw_node.ha_client import HAClientError, ha_ws_call
 from openclaw_node.http_api import NodeRuntime, run_http_api
 from openclaw_node.identity import DeviceIdentity, load_or_generate
 from openclaw_node.pairing import PairingState
@@ -205,6 +208,119 @@ def _initial_device_token(config: NodeConfig, role: str = "node") -> str | None:
     return persisted or config.pairing_token or None
 
 
+async def _resolve_identity_usernames(config: NodeConfig) -> NodeConfig:
+    """Resolve configured HA usernames to user IDs for per-turn authz.
+
+    The add-on Configuration tab should accept values a human can know, so
+    identity options are entered as HA usernames. Assist actor payloads are
+    signed by HA user ID, so startup resolves configured names once and stores
+    the effective ID-based policy in memory.
+    """
+    super_admins = tuple(sorted(config.identity.super_admins))
+    user_agent_map = dict(sorted(config.identity.user_agent_map.items()))
+    if not super_admins and not user_agent_map:
+        return config
+    try:
+        result = await ha_ws_call("auth/list")
+    except HAClientError as exc:
+        _LOG.warning(
+            "identity usernames could not be resolved from HA users: %s. "
+            "No configured super_admins or user_agent_map entries are active for this startup.",
+            exc.message,
+        )
+        return replace(
+            config,
+            identity=replace(
+                config.identity,
+                super_admins=frozenset(),
+                user_agent_map={},
+            ),
+        )
+    users = _ha_user_id_by_name(result)
+    resolved_super_admins: set[str] = set()
+    unresolved_super_admins: list[str] = []
+    for name in super_admins:
+        user_id = users.get(name.casefold())
+        if user_id:
+            resolved_super_admins.add(user_id)
+        else:
+            unresolved_super_admins.append(name)
+    if unresolved_super_admins:
+        _LOG.warning(
+            "identity.super_admins entries not found in HA users and ignored: %s",
+            ", ".join(unresolved_super_admins),
+        )
+    resolved_user_agent_map: dict[str, str] = {}
+    unresolved_routes: list[str] = []
+    for name, agent_id in user_agent_map.items():
+        user_id = users.get(name.casefold())
+        if user_id:
+            resolved_user_agent_map[user_id] = agent_id
+        else:
+            unresolved_routes.append(name)
+    if unresolved_routes:
+        _LOG.warning(
+            "identity.user_agent_map entries not found in HA users and ignored: %s",
+            ", ".join(unresolved_routes),
+        )
+    _LOG.info(
+        "identity.super_admins resolved %d/%d configured HA usernames",
+        len(resolved_super_admins),
+        len(super_admins),
+    )
+    _LOG.info(
+        "identity.user_agent_map resolved %d/%d configured HA usernames",
+        len(resolved_user_agent_map),
+        len(user_agent_map),
+    )
+    return replace(
+        config,
+        identity=replace(
+            config.identity,
+            super_admins=frozenset(resolved_super_admins),
+            user_agent_map=resolved_user_agent_map,
+        ),
+    )
+
+
+def _ha_user_id_by_name(result: Any) -> dict[str, str]:
+    """Extract a case-insensitive HA username/display-name map from auth/list."""
+    raw_users = result.get("users", result) if isinstance(result, dict) else result
+    if not isinstance(raw_users, list):
+        return {}
+    users: dict[str, str] = {}
+    for raw in raw_users:
+        if not isinstance(raw, dict):
+            continue
+        user_id = raw.get("id")
+        if not isinstance(user_id, str) or not user_id.strip():
+            continue
+        for name in _ha_user_name_candidates(raw):
+            users.setdefault(name.casefold(), user_id.strip())
+    return users
+
+
+def _ha_user_name_candidates(raw: dict[str, Any]) -> tuple[str, ...]:
+    """Return human-enterable names from one HA auth/list user object."""
+    names: list[str] = []
+    for key in ("username", "name"):
+        value = raw.get(key)
+        if isinstance(value, str) and value.strip():
+            names.append(value.strip())
+    credentials = raw.get("credentials")
+    if isinstance(credentials, list):
+        for credential in credentials:
+            if not isinstance(credential, dict):
+                continue
+            data = credential.get("data")
+            if not isinstance(data, dict):
+                continue
+            username = data.get("username")
+            if isinstance(username, str) and username.strip():
+                names.append(username.strip())
+    return tuple(dict.fromkeys(names))
+
+
 def build_runtime(
     config: NodeConfig, identity: DeviceIdentity
 ) -> tuple[NodeRuntime, GatewayClient, GatewayClient]:
@@ -297,6 +413,7 @@ async def _main() -> None:
             "network. Set the `local_api_token` option to require a bearer "
             "token for every endpoint except /health and /v1/conversation/info."
         )
+    config = await _resolve_identity_usernames(config)
 
     identity, created = load_or_generate(config.key_path)
     if created:

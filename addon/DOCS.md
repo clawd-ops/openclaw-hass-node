@@ -98,7 +98,7 @@ control surface. The manifest field reference is at
 
 ### `identity.super_admins`
 
-- **Purpose**: List of Home Assistant user UUIDs whose Assist turns
+- **Purpose**: List of Home Assistant usernames whose Assist turns
   receive the `super_admin` policy context (no forbidden-command
   defaults). HA admins not in this list resolve to `admin`; every
   other HA user resolves to `user`.
@@ -107,34 +107,21 @@ control surface. The manifest field reference is at
   ```yaml
   identity:
     super_admins:
-      - "8b0d8c1c3a724b1c9b2f0e4a8d5c1e2f"
+      - "bigrob8181"
   ```
 - **Default**: `[]`.
-- **Security**: These are HA user UUIDs, not Discord or OpenClaw
-  identities. Granting `super_admin` removes the per-turn
+- **Security**: These are HA usernames, not Discord or OpenClaw
+  identities. The add-on resolves them to HA user IDs at startup using
+  the HA `auth/list` WebSocket command, then compares the signed Assist
+  actor user ID against the resolved set. Granting `super_admin`
+  removes the per-turn
   forbidden-command guard rails for that user; keep the list short
   and intentional.
 
-#### Finding a Home Assistant user UUID
-
-The Home Assistant UI does not surface user UUIDs in plain text. Three
-ways to look one up:
-
-1. **From the URL** in **Settings → People → Users**. Click the user
-   you want, and the resulting page URL contains the UUID after the
-   final `/`. Example:
-   `…/config/users/picker/8b0d8c1c3a724b1c9b2f0e4a8d5c1e2f`.
-2. **From the WebSocket API** (admin token required). Use the
-   Developer Tools → Services panel or any HA WebSocket client to
-   call `auth/list`; the response maps `id → username`.
-3. **From the database** (HassOS / Supervised installs). The
-   `auth_provider.homeassistant` storage at
-   `/config/.storage/auth_provider.homeassistant` lists users with
-   their UUIDs under `data.users[].id`.
-
-A follow-up will let `super_admins` accept HA usernames directly (the
-add-on will resolve username → UUID at startup), so the UUID lookup
-step above becomes optional. See the project TODO list.
+If a configured username is not found at startup, the add-on logs a
+warning and ignores that entry for the current run. This keeps a typo
+from blocking startup while still failing closed to the lower `admin`
+or `user` role for Assist turns.
 
 ### `identity.user_agent_map`
 
@@ -142,20 +129,21 @@ step above becomes optional. See the project TODO list.
   picks which gateway `agentId` to use on `chat.send` for the named
   HA user. The agents themselves are configured in the gateway; this
   add-on only chooses between them.
-- **Type**: list of `{ha_user_id: str, agent_id: str}` objects.
+- **Type**: list of `{ha_username: str, agent_id: str}` objects.
 - **Example**:
   ```yaml
   identity:
     user_agent_map:
-      - ha_user_id: "8b0d8c1c3a724b1c9b2f0e4a8d5c1e2f"
+      - ha_username: "bigrob8181"
         agent_id: "clawd"
-      - ha_user_id: "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f"
+      - ha_username: "ash"
         agent_id: "household"
   ```
 - **Default**: `[]`.
-- **Security**: Routing only; does not grant permissions. Pointing a
-  user at an agent that exposes more capabilities is a policy choice
-  for the operator.
+- **Security**: Routing only; does not grant permissions. The add-on
+  resolves usernames to HA user IDs at startup, then routes signed
+  Assist actors by ID. Pointing a user at an agent that exposes more
+  capabilities is a policy choice for the operator.
 
 ### `identity.default_agent_id`
 

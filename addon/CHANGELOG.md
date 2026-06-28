@@ -11,6 +11,13 @@
   `core_*` and denylist guards still applied). There is no fallback
   to the admin-token gate — the env var is simply not consulted for
   Tier B. The `ha.reload_config` admin gate is unchanged.
+- **Identity user config now takes HA usernames.** At startup the add-on
+  resolves configured names in `identity.super_admins` and
+  `identity.user_agent_map` through HA WebSocket `auth/list`, then keeps
+  the resolved HA user IDs in memory for signed Assist actor policy and
+  routing checks. Unknown names log a warning and are ignored for that
+  run, failing closed to the lower `admin` / `user` role or default
+  agent route.
 
 ### Tooling
 - **`scripts/bump-version.py` now refuses prerelease counters above 9.**
@@ -37,9 +44,8 @@
   `identity` block, the `addon_lifecycle` block, and `hass_url` /
   `hass_token` at the bottom) with purpose, example, default, and
   security implications, plus the Tier A vs Tier B authorization model.
-- **DOCS: how to find a Home Assistant user UUID** for
-  `identity.super_admins` (URL fragment under Settings → People →
-  Users, WebSocket `auth/list`, or `.storage/auth_provider.homeassistant`).
+- **DOCS: identity user configuration now documents HA usernames, not
+  raw HA user ID lookup.**
 - **DOCS: browser-autofill gotcha for `hass_url` / `hass_token`** —
   explains the [text][password] adjacency hazard, the schema
   mitigation above, and how to recover if autofill still strikes.

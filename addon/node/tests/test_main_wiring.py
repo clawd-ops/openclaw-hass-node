@@ -8,16 +8,20 @@ that assembles the shared :class:`NodeRuntime` and the gateway client.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from openclaw_node.__main__ import (
+    _ha_user_id_by_name,
     _initial_device_token,
     _reset_pairing_state,
+    _resolve_identity_usernames,
     build_runtime,
 )
-from openclaw_node.config import NodeConfig
+from openclaw_node.config import IdentityConfig, NodeConfig
 from openclaw_node.http_api import NodeRuntime
 from openclaw_node.identity import DeviceIdentity, load_or_generate
 from openclaw_node.pairing import PairingState
@@ -66,6 +70,86 @@ def test_build_runtime_shares_runtime_with_gateway(
     assert operator_client._chat_relay_enabled is True
     assert operator_client._invoke_dispatch_enabled is False
     assert operator_client._pair_fallback_enabled is False
+
+
+def test_ha_user_id_by_name_extracts_names_and_credentials() -> None:
+    """HA auth/list names can come from user fields or auth-provider data."""
+    result = {
+        "users": [
+            {
+                "id": "uuid-rob",
+                "name": "Rob Landry",
+                "credentials": [
+                    {
+                        "auth_provider_type": "homeassistant",
+                        "data": {"username": "bigrob8181"},
+                    }
+                ],
+            },
+            {"id": "uuid-ash", "username": "ash"},
+        ]
+    }
+
+    assert _ha_user_id_by_name(result) == {
+        "rob landry": "uuid-rob",
+        "bigrob8181": "uuid-rob",
+        "ash": "uuid-ash",
+    }
+
+
+async def test_resolve_identity_usernames_maps_to_ids(
+    monkeypatch: pytest.MonkeyPatch,
+    config: NodeConfig,
+) -> None:
+    """Configured identity usernames resolve to signed HA user IDs."""
+    config = replace(
+        config,
+        identity=IdentityConfig(
+            super_admins=frozenset({"BigRob8181"}),
+            user_agent_map={"Ash": "clawd-household"},
+        ),
+    )
+
+    async def fake_ws_call(msg_type: str) -> dict[str, Any]:
+        assert msg_type == "auth/list"
+        return {
+            "users": [
+                {"id": "rob-uuid", "username": "bigrob8181"},
+                {"id": "ash-uuid", "username": "ash"},
+            ]
+        }
+
+    monkeypatch.setattr("openclaw_node.__main__.ha_ws_call", fake_ws_call)
+
+    resolved = await _resolve_identity_usernames(config)
+
+    assert resolved.identity.super_admins == frozenset({"rob-uuid"})
+    assert resolved.identity.user_agent_map == {"ash-uuid": "clawd-household"}
+
+
+async def test_resolve_identity_usernames_drops_unknown_entries(
+    monkeypatch: pytest.MonkeyPatch,
+    config: NodeConfig,
+) -> None:
+    """Unknown configured usernames are ignored without blocking startup."""
+    config = replace(
+        config,
+        identity=IdentityConfig(
+            super_admins=frozenset({"bigrob8181", "unknown"}),
+            user_agent_map={"unknown-route": "clawd-household"},
+        ),
+    )
+
+    async def fake_ws_call(msg_type: str) -> list[dict[str, Any]]:
+        assert msg_type == "auth/list"
+        return [{"id": "rob-uuid", "username": "bigrob8181"}]
+
+    monkeypatch.setattr("openclaw_node.__main__.ha_ws_call", fake_ws_call)
+
+    resolved = await _resolve_identity_usernames(config)
+
+    assert resolved.identity.super_admins == frozenset({"rob-uuid"})
+    assert resolved.identity.user_agent_map == {}
 
 
 @pytest.mark.parametrize(
