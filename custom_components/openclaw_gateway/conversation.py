@@ -224,15 +224,14 @@ class OpenClawConversationEntity(ConversationEntity):
             "text": user_input.text,
             "conversation_id": user_input.conversation_id,
             "language": user_input.language,
-            # Per-request capability negotiation: advertise that this shim
-            # understands ``tool_progress`` frames so the addon can emit
-            # structured tool-call progress instead of the legacy textual
-            # ``🔧 Calling X...`` delta.  The addon checks for this cap
-            # and suppresses the textual delta when it is present — no
-            # dual emit.  The shim swallows ``tool_progress`` frames and
-            # _LOGGER.debug()s them; the ChatLog has no ephemeral hook
-            # today so no visible UI update occurs yet.
-            "client_caps": ["tool-progress-frames"],
+            # NOTE: do NOT advertise ``tool-progress-frames`` in
+            # ``client_caps`` yet. Advertising it makes the addon suppress
+            # the legacy ``🔧 Calling X...`` textual delta in favour of
+            # structured frames, but ChatLog has no ephemeral hook today
+            # so the frames have no visible consumer — the net effect is
+            # that the user sees nothing during a tool-heavy turn. Wire
+            # the cap on at the same time as the HA-side ephemeral hook
+            # lands.
         }
         actor = await self._resolve_actor(user_input)
         if actor is not None:
