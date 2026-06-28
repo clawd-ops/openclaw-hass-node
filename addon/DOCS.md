@@ -132,9 +132,9 @@ ways to look one up:
    `/config/.storage/auth_provider.homeassistant` lists users with
    their UUIDs under `data.users[].id`.
 
-We plan to expose `ha.list_users` as a node command so the gateway UI
-can present a username dropdown instead of asking for raw UUIDs (see
-the project TODO list).
+A follow-up will let `super_admins` accept HA usernames directly (the
+add-on will resolve username → UUID at startup), so the UUID lookup
+step above becomes optional. See the project TODO list.
 
 ### `identity.user_agent_map`
 

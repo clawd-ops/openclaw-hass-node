@@ -135,14 +135,14 @@ Runtime events (not PRs):
 - **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
 - Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
 
-### 26. `ha.list_users` node command + super_admin dropdown in gateway UI
+### 26. `identity.super_admins` accepts HA usernames (auto-resolve to UUID at startup)
 - Status: OPEN.
-- Why: `identity.super_admins` takes HA user UUIDs, which the HA UI does not expose in plain text. Documented lookup procedures (URL fragment, WebSocket `auth/list`, `.storage/auth_provider.homeassistant`) work but are awkward. The fix is to make the gateway UI present a username dropdown.
+- Why: `identity.super_admins` currently takes raw HA user UUIDs, which the HA UI does not expose in plain text. Documented lookup paths (URL fragment, WebSocket `auth/list`, `.storage/auth_provider.homeassistant`) work but are awkward. Rob's call (2026-06-27): do NOT add a new node command + gateway-side dropdown — keep this entirely in the addon Configuration tab. The fix is to let operators paste usernames they already know, and resolve to UUIDs internally on startup.
 - Pieces:
-  1. **Node side**: add `ha.list_users` to `commands/ha.py` returning `[{id, username, name, is_admin, is_active}, …]`. HA Core REST does not expose this; the canonical source is the WebSocket `auth/list` command (admin-only). Spike which path is cleanest for the addon to call (Supervisor proxy vs direct ws to Core with `SUPERVISOR_TOKEN`).
-  2. **Gateway side**: when rendering the super_admin picker for an openclaw-hass-node, call `ha.list_users` and present `username (name)` → `id` instead of a free-text UUID field.
-  3. **Allowlist**: add `ha.list_users` to `gateway.nodes.allowCommands` after first deploy.
-- Caveat: surfaces a list of HA usernames into the gateway-side prompt context. Keep it scoped to operator-only UI flows, not Assist turn context.
+  1. **Schema unchanged externally**: `identity.super_admins` stays `list of str`. Each entry may be either a 32-char hex UUID OR a HA username. Strings shorter than 32 chars or that don't match the hex pattern are treated as usernames.
+  2. **Runtime resolution**: on startup, the addon queries HA for the username→UUID map (canonical source is the WebSocket `auth/list` admin command using `SUPERVISOR_TOKEN`; alternative is reading `/config/.storage/auth_provider.homeassistant` directly). Build a one-shot resolution and persist the resolved UUID list to the in-memory identity policy.
+  3. **Fail-soft**: a username with no matching HA user logs a WARNING but does not block startup; the unresolved entry is dropped from the effective super_admins set. Surface unresolved entries in the addon's startup logs and (eventually) in a gateway-side health check.
+- Out of scope (rejected): adding `ha.list_users` as a node command, or any gateway-side UI work. The addon handles resolution internally.
 
 ---
 
