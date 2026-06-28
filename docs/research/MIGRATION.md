@@ -110,6 +110,12 @@ reads log lines on stdin so the caller picks how to produce them. This
 keeps it usable across any deployment that's running upstream OpenClaw,
 not just the maintainer's Kubernetes pod.
 
+Only feed runtime logs to this script. Repository text, docs, TODOs,
+session transcripts, or migration inventory files intentionally contain
+legacy `mcp__homeassistant*` names and will produce a not-ready verdict.
+If that happens, the checker emits an `INPUT_WARNING` hint rather than
+silently treating the run as a clean runtime signal.
+
 ```bash
 # Local file
 cat /var/log/openclaw.log                       | scripts/check-mcp-retirement-readiness.sh
@@ -124,6 +130,12 @@ kubectl -n ai logs openclaw-0 --since=24h       | scripts/check-mcp-retirement-r
 Verdicts: `MCP_READINESS_OK` / `RETIREMENT_READY` / `MCP_READINESS_NOT_READY`.
 With `--state-file` the script tracks a clean-day streak; 7 consecutive
 clean days flip the verdict to `RETIREMENT_READY`.
+
+When evaluating the maintainer deployment, also check for already-running
+Codex app-server sessions that were started before the MCP config cutover.
+Those sessions can retain a stale tool inventory and keep `hass-mcp`
+children alive even after `openclaw.json` is clean. Stop or let those
+sessions drain before starting the 7-day clean window.
 
 ## Open items
 
