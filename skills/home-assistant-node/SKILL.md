@@ -15,7 +15,7 @@ Good fits:
 - Inspecting or editing supported config/file paths through the node.
 - Wiring agents or subagents to the `hass` node command surface.
 
-The core rule: use `nodes.invoke` against node `hass`, then choose the safest specific command family for the task.
+The core rule: use `nodes.invoke` against node `hass`, then choose the safest specific command family for the task. For normal Home Assistant work, use the `hass` node path rather than an MCP path.
 
 ## Invocation Pattern
 
@@ -49,18 +49,18 @@ Examples:
 }
 ```
 
-Use these command families by intent:
+Current primary command families include:
 
 - `ha.*` for Home Assistant API operations: states, services, areas, devices, registries, add-ons, config checks, and approved control actions.
 - `fs.*` for supported file inspection or proposal-gated file work exposed by the node.
 - `system.*` for bounded node/system diagnostics.
 - `ping` for connectivity and basic health.
 
-Prefer read-only commands first. Prefer dedicated commands over broad generic mutation paths.
+Prefer read-only commands first when investigating. Prefer dedicated commands over broad generic paths.
 
 ## Safety Boundaries
 
-Safe by default for agents and subagents:
+Generally safe starting points:
 
 - Entity/state reads.
 - Registry, area, device, service, automation, and add-on discovery.
@@ -69,7 +69,7 @@ Safe by default for agents and subagents:
 - Config validation.
 - File reads/inspection through approved node commands.
 
-Privileged unless Rob explicitly authorizes the action:
+Actions that need extra care:
 
 - `ha.call_service`.
 - Entity/device/light mutations.
@@ -84,19 +84,18 @@ Operating rules:
 
 - Prefer observation over action.
 - Prefer dedicated read commands over generic commands.
-- Treat anything that changes Home Assistant, add-ons, files, configuration, or physical devices as privileged.
-- Do not assume a generic service call is safe.
+- Use the least-privileged command that accomplishes the task.
+- Respect the node's built-in authorization model instead of assuming every mutation is privileged.
+- If your human clearly requests a specific low-risk action, such as turning on a named light, that request is sufficient authorization.
+- If the target, scope, blast radius, or safety of the requested action is unclear, ask your human instead of guessing.
+- Do not duplicate permission allowlists in this skill; use the design docs and dispatcher as the source of truth.
 - Do not hand privileged commands to background subagents.
 
 ## Subagents
 
-Subagents should use only read-only command paths unless Rob explicitly authorizes a broader operator-controlled path and software enforcement exists for that path.
+Subagents should use only read-only/Tier A command paths unless software enforcement and an operator-controlled path explicitly allow broader access.
 
 Prompt instructions are not enough for subagent safety. The node or gateway path must software-block subagents from commands outside the approved read-only surface before relying on the delegation.
-
-## Legacy MCP Note
-
-Legacy Home Assistant MCP tools are historical/fallback paths. Do not use them for normal Home Assistant work unless Rob explicitly asks for that path.
 
 ## Details And Source Of Truth
 
@@ -104,8 +103,8 @@ When exact command names, parameters, tiers, or edge cases matter, read the repo
 
 - `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/reference/COMMAND-SURFACE.md` - complete command catalog, parameters, and command families.
 - `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/design/COMMAND-TIERS.md` - risk tiers, safety expectations, and enforcement model.
+- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/design/IDENTITY-AND-SCOPES.md` - identity, scopes, and authorization model.
 - `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/reference/HA-CONFIG-EDITING.md` - safe Home Assistant config editing guidance.
-- `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/research/MIGRATION.md` - historical MCP migration context only.
 - `/home/openclaw/.openclaw/projects/openclaw-hass-node/docs/TODO.md` - active implementation gaps and follow-up work.
 
-If docs and code disagree, inspect the dispatcher and relevant command module, then fix docs and code together.
+If docs, advertised commands, and runtime behavior disagree, stop and report the inconsistency instead of guessing.
