@@ -74,30 +74,34 @@ Per PLAN.md the retirement gate also requires zero unhandled MCP calls
 across **every agent** that uses them. As of 2026-06-06, the relevant
 agents and their HA MCP touchpoints:
 
-| Agent          | HA MCP usage                                    | Migration status                            |
+| Agent          | Former HA MCP usage                              | Migration status                            |
 | -------------- | ----------------------------------------------- | ------------------------------------------- |
-| main session   | Ad-hoc HA queries via `mcp__homeassistant*`      | Will switch when gateway routes via node    |
-| ReefMaster     | `ha_list_states` / `ha_get_state` on tank sensors| Same — read-only is satisfied               |
-| PoolMaster     | `ha_get_state` on pump telemetry                 | Same                                        |
+| main session   | Ad-hoc HA queries via `mcp__homeassistant*`      | Fresh sessions are instructed to use `nodes.invoke` against the connected `hass` node with `ha.*` commands |
+| ReefMaster     | `ha_list_states` / `ha_get_state` on tank sensors| Fresh sessions should use read-only `ha.list_states` / `ha.get_state` through `hass` |
+| PoolMaster     | `ha_get_state` on pump telemetry                 | Fresh sessions should use read-only `ha.get_state` through `hass` |
 | HomeOps        | Mixed; some calls via Supervisor REST direct     | Out of scope — does not use MCP HA tools    |
-| heartbeats     | Calendar entity reads via `ha_get_state`         | Same                                        |
+| heartbeats     | Calendar entity reads via `ha_get_state`         | Fresh sessions should use read-only `ha.get_state` through `hass` |
 
-All agents that use `mcp__homeassistant*` are read- or service-call-driven
-and have direct equivalents in the node surface.
+All agents that used `mcp__homeassistant*` are read- or service-call-driven
+and have direct equivalents in the node surface. The canonical replacement
+path is `nodes.invoke` against node `hass` with the matching `ha.*` command.
 
 ## Retirement plan
 
-When the validation window closes (zero unhandled MCP calls × 7 days):
+Runtime cutover status as of 2026-06-28:
 
-1. Update the per-agent prompts that reference `mcp__homeassistant*` by
-   name to reference `ha.*` (via the gateway).
-2. Drop the `homeassistant` and `homeassistant-readonly` MCP server
-   entries from the gateway config in one PR.
-3. Restart the OpenClaw gateway. The MCP servers stop running; the agents
-   continue working unchanged because the gateway routes their existing
-   `ha.*` calls to the node.
+1. Per-agent startup guidance now says Home Assistant work uses the `hass`
+   node command surface via `nodes.invoke` and `ha.*`, not
+   `mcp__homeassistant*`.
+2. The live OpenClaw config has removed the `homeassistant` and
+   `homeassistant-readonly` MCP server entries.
+3. The `hass` node validates as paired/connected and exposes the replacement
+   `ha.*` command surface.
 
-This cutover is a single PR — no migration scripts, no data move.
+This means fresh sessions should no longer see or use the retired MCP tools.
+Already-running sessions may still hold stale MCP tool inventories until they
+exit. Formal retirement still requires the validation window below: zero
+unhandled `mcp__homeassistant*` calls for 7 consecutive clean days.
 
 ## Validation harness (P6.1)
 
