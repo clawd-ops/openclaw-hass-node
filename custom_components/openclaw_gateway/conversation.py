@@ -224,6 +224,15 @@ class OpenClawConversationEntity(ConversationEntity):
             "text": user_input.text,
             "conversation_id": user_input.conversation_id,
             "language": user_input.language,
+            # Per-request capability negotiation: advertise that this shim
+            # understands ``tool_progress`` frames so the addon can emit
+            # structured tool-call progress instead of the legacy textual
+            # ``🔧 Calling X...`` delta.  The addon checks for this cap
+            # and suppresses the textual delta when it is present — no
+            # dual emit.  The shim swallows ``tool_progress`` frames and
+            # _LOGGER.debug()s them; the ChatLog has no ephemeral hook
+            # today so no visible UI update occurs yet.
+            "client_caps": ["tool-progress-frames"],
         }
         actor = await self._resolve_actor(user_input)
         if actor is not None:
@@ -317,6 +326,24 @@ class OpenClawConversationEntity(ConversationEntity):
                             # saved assistant message. Reading the
                             # line is sufficient: the network bytes
                             # arrived and HA's read timer reset.
+                            continue
+                        if frame.get("tool_progress") is True:
+                            # Structured tool-progress frame emitted by the
+                            # addon when the ``tool-progress-frames`` cap is
+                            # active (advertised via ``client_caps`` above).
+                            # The ChatLog has no ephemeral hook today so we
+                            # simply log and discard.  The frame is NOT
+                            # yielded into chat_log — it must never appear
+                            # in the saved assistant message.  Wired up here
+                            # so we can flip on a UI update path later without
+                            # touching the NDJSON parsing logic.
+                            _LOG.debug(
+                                "tool_progress: phase=%r name=%r id=%r seq=%r",
+                                frame.get("phase"),
+                                frame.get("name"),
+                                frame.get("id"),
+                                frame.get("seq"),
+                            )
                             continue
                         if "delta" in frame:
                             delta_text = str(frame.get("delta") or "")

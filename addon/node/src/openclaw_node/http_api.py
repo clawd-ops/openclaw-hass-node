@@ -20,7 +20,12 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
 from openclaw_node.authz import actor_from_signed_body, resolve_turn_authz
-from openclaw_node.chat_relay import ChatRelay, ChatRelayError, StreamKeepalive
+from openclaw_node.chat_relay import (
+    ChatRelay,
+    ChatRelayError,
+    StreamKeepalive,
+    ToolProgressFrame,
+)
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
 from openclaw_node.pairing import PairingState
@@ -520,18 +525,42 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
 
     - ``{"delta": "..."}`` for each chunk yielded by the gateway as the
       assistant streams its reply.
+    - ``{"tool_progress": true, "phase": "start"|"end", "name": "...",
+      "id": "...", "seq": <int>}`` when the caller opted in to the
+      ``tool-progress-frames`` capability.
     - ``{"done": true}`` once the run finishes cleanly.
     - ``{"error": "<code>"}`` on a relay error; the body is closed after.
 
     HA's conversation API (``async_add_delta_content_stream``) consumes
     chunks like this; the HACS shim adapts NDJSON deltas into the
     AsyncIterable HA expects.
+
+    Capability negotiation (``client_caps`` body field):
+        The caller may include ``"client_caps": ["tool-progress-frames"]``
+        in the JSON request body.  When the cap is present:
+
+        - The relay emits ``ToolProgressFrame`` sentinels for every
+          tool-start and tool-end event it receives from the gateway.
+        - Those sentinels are serialised here as
+          ``{"tool_progress": true, "phase": ..., "name": ..., ...}``.
+        - The legacy textual ``🔧 Calling X...`` delta is suppressed.
+
+        Without the cap the legacy path is used unchanged and no
+        ``tool_progress`` frames appear on the wire.
     """
     runtime = _runtime(request)
     body = await _json_body(request)
     text = str(body.get("text", "")).strip()
     conversation_id = str(body.get("conversation_id", ""))
     language = str(body.get("language", "en"))
+    # ``client_caps`` is a per-request capability list sent by the HACS shim
+    # to opt in to features that require coordinated addon + shim changes.
+    # The shim sends it as a JSON array in the request body, e.g.:
+    #   {"text": "...", "client_caps": ["tool-progress-frames"]}
+    raw_caps = body.get("client_caps")
+    client_caps: list[str] = (
+        [str(c) for c in raw_caps if isinstance(c, str)] if isinstance(raw_caps, list) else []
+    )
     authz = resolve_turn_authz(
         runtime.config.identity,
         actor_from_signed_body(body, runtime.config.local_api_token),
@@ -563,7 +592,9 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     await response.prepare(request)
 
     try:
-        async for chunk in relay.stream_turn(conversation_id, text, language, authz=authz):
+        async for chunk in relay.stream_turn(
+            conversation_id, text, language, authz=authz, client_caps=client_caps
+        ):
             if isinstance(chunk, StreamKeepalive):
                 # Transport-only — kept out of the assistant content
                 # stream the HA shim accumulates. Just writing bytes
@@ -572,6 +603,23 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
                 # marker also lets the shim cleanly distinguish the
                 # frame and skip it without parsing fallback paths.
                 await response.write(b'{"keepalive":true}\n')
+                continue
+            if isinstance(chunk, ToolProgressFrame):
+                # Structured tool-progress frame (``tool-progress-frames``
+                # cap active).  Serialised as a distinct frame type so the
+                # shim can distinguish it from a delta without relying on
+                # field presence.  The shim swallows these for now and
+                # _LOGGER.debug()s them; the ChatLog has no ephemeral hook
+                # today so no UI update occurs yet.
+                frame: dict[str, object] = {
+                    "tool_progress": True,
+                    "phase": chunk.phase,
+                    "name": chunk.name,
+                    "seq": chunk.seq,
+                }
+                if chunk.id:
+                    frame["id"] = chunk.id
+                await response.write(json.dumps(frame).encode("utf-8") + b"\n")
                 continue
             await response.write(json.dumps({"delta": chunk}).encode("utf-8") + b"\n")
         await response.write(b'{"done":true}\n')

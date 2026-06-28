@@ -145,11 +145,9 @@ Runtime events (not PRs):
 - Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
 - Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
 
-### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2) — NEXT UP
-- Status: OPEN (enhancement) — **selected as the next active work item on 2026-06-28** per Rob.
-- Today (item #2 shipped on b6): only the **first** tool call in a turn renders `🔧 Calling X...`. Subsequent tool calls in the same turn are invisible — the label stays on the first tool until the turn ends.
-- Goal: extend the slow-turn relay so each tool call's name updates the progress label as it fires. Needs proper ephemeral status frames + a coordinated HACS shim change (the current shim accumulates the first label into the response body).
-- Out of scope for current `chat_relay.py`; needs an addon + shim release together. Item #2 stays closed; this is the v2.
+### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
+- Status: IMPLEMENTED-IN-PR
+- Implemented in `feat/tool-progress-frames-29`: additive `tool_progress` NDJSON frames with `phase=start|end`, `name`, optional `id`, `seq` (monotonic). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS shim. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; shim swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard. Legacy textual `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
 
 ---
 

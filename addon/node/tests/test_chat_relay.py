@@ -16,6 +16,7 @@ from openclaw_node.chat_relay import (
     ChatRelay,
     ChatRelayError,
     StreamKeepalive,
+    ToolProgressFrame,
     _extract_agent_ids,
 )
 from openclaw_node.config import IdentityConfig
@@ -307,7 +308,7 @@ async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -343,7 +344,7 @@ async def test_stream_turn_session_message_yields_full_text_when_no_deltas() -> 
         # No deltas, just a single session.message terminal event.
         relay.handle_event(_session_message_event(canonical_session_key, "assistant", "Done."))
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -402,7 +403,7 @@ async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -453,7 +454,7 @@ async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.Mo
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -489,7 +490,7 @@ async def test_stream_turn_chat_send_generic_exception_becomes_relay_failed() ->
         if future is not None and not future.done():
             future.set_exception(RuntimeError("stream boom"))
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -615,7 +616,7 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
         await asyncio.sleep(0.01)
         relay.reset()
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
     raised: list[ChatRelayError] = []
 
     async def _consume() -> None:
@@ -698,7 +699,7 @@ async def test_stream_turn_emits_keepalive_during_silent_gap(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "long question"):
@@ -783,7 +784,7 @@ async def test_stream_turn_no_keepalive_on_fast_turn(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -870,7 +871,7 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "what's the weather"):
@@ -962,7 +963,7 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "do a few things"):
@@ -1802,8 +1803,8 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
     conv_id = "01KVHTWOTURNSTREAM"
     canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
-    chunks_t1: list[str | StreamKeepalive] = []
-    chunks_t2: list[str | StreamKeepalive] = []
+    chunks_t1: list[str | StreamKeepalive | ToolProgressFrame] = []
+    chunks_t2: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _drive_t1() -> None:
         await asyncio.sleep(0.01)
@@ -2143,7 +2144,7 @@ async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> 
     # consumer present, no terminal captured yet, no same-run event yet.
     relay._active_run_id[key] = "run-t2"
     relay._seen_same_run_event[key] = False
-    queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
     relay._delta_queues[key] = queue
     relay._stream_yielded_chars[key] = 0
 
@@ -2275,3 +2276,429 @@ async def test_handle_response_chat_send_ack_applies_run_id_synchronously() -> N
         }
     )
     assert relay._terminal_assistant_text[canonical] == "Hi from new run"
+
+
+# ---------------------------------------------------------------------------
+# TODO #29 — tool_progress frames (cap on vs off, sequential tools, race fix)
+# ---------------------------------------------------------------------------
+
+
+def _tool_start_event(
+    session_key: str, name: str, run_id: str, tool_id: str = ""
+) -> dict[str, Any]:
+    """Helper: gateway ``agent`` event with phase=start."""
+    data: dict[str, Any] = {"name": name, "phase": "start"}
+    if tool_id:
+        data["id"] = tool_id
+    return {
+        "type": "event",
+        "event": "agent",
+        "payload": {
+            "sessionKey": session_key,
+            "stream": "tool",
+            "runId": run_id,
+            "data": data,
+        },
+    }
+
+
+def _tool_end_event(session_key: str, name: str, run_id: str, tool_id: str = "") -> dict[str, Any]:
+    """Helper: gateway ``agent`` event with phase=end."""
+    data: dict[str, Any] = {"name": name, "phase": "end"}
+    if tool_id:
+        data["id"] = tool_id
+    return {
+        "type": "event",
+        "event": "agent",
+        "payload": {
+            "sessionKey": session_key,
+            "stream": "tool",
+            "runId": run_id,
+            "data": data,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_no_tool_progress_frames_without_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without the tool-progress-frames cap the relay yields no
+    ToolProgressFrame sentinels — only the legacy textual delta."""
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_NOCAP_FRAMES"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-nc"}))
+        relay.handle_event(_tool_start_event(canonical, "Bash", "run-nc"))
+        await asyncio.sleep(0.20)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-nc",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        # No client_caps → legacy path
+        async for chunk in relay.stream_turn(conv_id, "hi"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    # Legacy textual progress must appear (or keepalives), no ToolProgressFrame
+    assert not any(isinstance(c, ToolProgressFrame) for c in chunks), (
+        f"ToolProgressFrame leaked without cap: {chunks!r}"
+    )
+    # Must have the tool-named legacy progress delta
+    assert any(c == "🔧 Calling Bash...\n\n" for c in chunks), (
+        f"expected legacy textual delta: {chunks!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_tool_progress_frames_with_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With the tool-progress-frames cap:
+    - ToolProgressFrame(phase=start) is yielded immediately on tool-start.
+    - ToolProgressFrame(phase=end) is yielded on tool-end.
+    - The textual ``🔧 Calling X...`` delta is suppressed.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 0.05)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_CAP_FRAMES"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-cap"}))
+        relay.handle_event(_tool_start_event(canonical, "weather", "run-cap", tool_id="call-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "weather", "run-cap", tool_id="call-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "delta",
+                    "deltaText": "Sunny",
+                    "runId": "run-cap",
+                    "message": {"role": "assistant", "content": "Sunny"},
+                },
+            }
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-cap",
+                    "message": {"role": "assistant", "content": "Sunny"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(
+            conv_id, "weather?", client_caps=["tool-progress-frames"]
+        ):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    starts = [c for c in chunks if isinstance(c, ToolProgressFrame) and c.phase == "start"]
+    ends = [c for c in chunks if isinstance(c, ToolProgressFrame) and c.phase == "end"]
+    assert len(starts) == 1, f"expected 1 start frame: {chunks!r}"
+    assert starts[0].name == "weather"
+    assert starts[0].id == "call-1"
+    assert starts[0].seq == 1
+    assert len(ends) == 1, f"expected 1 end frame: {chunks!r}"
+    assert ends[0].name == "weather"
+    assert ends[0].seq == 1
+    # Textual progress must be suppressed
+    assert "🔧 Calling weather...\n\n" not in chunks, (
+        f"textual delta leaked with cap active: {chunks!r}"
+    )
+    assert "Working on it...\n\n" not in chunks, f"generic placeholder leaked with cap: {chunks!r}"
+    assert "Sunny" in chunks
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_sequential_tool_calls_emit_frames_per_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sequential tool calls in one turn each emit their own start+end pair.
+    Seq increments monotonically."""
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_SEQ_TOOLS"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-seq"}))
+        # Tool A
+        relay.handle_event(_tool_start_event(canonical, "Bash", "run-seq", "id-a"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "Bash", "run-seq", "id-a"))
+        await asyncio.sleep(0.005)
+        # Tool B
+        relay.handle_event(_tool_start_event(canonical, "Python", "run-seq", "id-b"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "Python", "run-seq", "id-b"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-seq",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(
+            conv_id, "do two things", client_caps=["tool-progress-frames"]
+        ):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    frames = [c for c in chunks if isinstance(c, ToolProgressFrame)]
+    starts = [f for f in frames if f.phase == "start"]
+    ends = [f for f in frames if f.phase == "end"]
+    assert len(starts) == 2, f"expected 2 start frames: {frames!r}"
+    assert len(ends) == 2, f"expected 2 end frames: {frames!r}"
+    assert starts[0].name == "Bash"
+    assert starts[0].seq == 1
+    assert starts[1].name == "Python"
+    assert starts[1].seq == 2
+    assert ends[0].seq == 1
+    assert ends[1].seq == 2
+
+
+@pytest.mark.asyncio
+async def test_tool_progress_end_race_skipped_on_low_seq() -> None:
+    """Race fix: an ``end`` whose seq is lower than the current active tool's
+    seq must be skipped so a stale out-of-order end does not clear a newer
+    tool's label."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_end_race"
+    relay._canonical_by_raw[s_k] = s_k
+    relay._active_run_id[s_k] = "run-race"
+    relay._seen_same_run_event[s_k] = True
+    relay._use_tool_frames[s_k] = True
+
+    # Install a queue so end-frames can be pushed
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
+    relay._delta_queues[s_k] = queue
+
+    # Start tool A (seq=1), then start tool B (seq=2).
+    relay.handle_event(_tool_start_event(s_k, "Bash", "run-race", "id-a"))
+    relay.handle_event(_tool_start_event(s_k, "Python", "run-race", "id-b"))
+
+    # A stale ``end`` for tool A arrives. Because A's id doesn't match the
+    # current active id (id-b), the clear must be skipped.
+    relay.handle_event(_tool_end_event(s_k, "Bash", "run-race", "id-a"))
+
+    # Active tool must still be Python (the newer start is not cleared).
+    assert relay._active_tool.get(s_k) == "Python", (
+        f"stale end cleared the newer tool: {relay._active_tool.get(s_k)!r}"
+    )
+    # The queue should have 2 start frames and 0 end frames (end was skipped).
+    frames = []
+    while not queue.empty():
+        frames.append(queue.get_nowait())
+    start_frames = [f for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start"]
+    end_frames = [f for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end"]
+    assert len(start_frames) == 2
+    assert len(end_frames) == 0, f"stale end was pushed to queue: {end_frames!r}"
+
+
+@pytest.mark.asyncio
+async def test_tool_progress_end_id_aware_clearing() -> None:
+    """Id-aware clearing: an ``end`` with the matching id clears the tool
+    and pushes an end frame; one with a mismatched id is ignored."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_id_clear"
+    relay._canonical_by_raw[s_k] = s_k
+    relay._active_run_id[s_k] = "run-id"
+    relay._seen_same_run_event[s_k] = True
+    relay._use_tool_frames[s_k] = True
+
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
+    relay._delta_queues[s_k] = queue
+
+    # Start tool with id=call-x
+    relay.handle_event(_tool_start_event(s_k, "weather", "run-id", "call-x"))
+    assert relay._active_tool.get(s_k) == "weather"
+
+    # End with WRONG id — must not clear.
+    relay.handle_event(_tool_end_event(s_k, "weather", "run-id", "call-WRONG"))
+    assert relay._active_tool.get(s_k) == "weather", "wrong-id end must not clear the tool"
+
+    # End with CORRECT id — must clear.
+    relay.handle_event(_tool_end_event(s_k, "weather", "run-id", "call-x"))
+    assert s_k not in relay._active_tool, "correct-id end must clear the tool"
+
+    # Queue: 1 start + 1 end (the wrong-id end was silently dropped).
+    frames = []
+    while not queue.empty():
+        frames.append(queue.get_nowait())
+    assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start") == 1
+    assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end") == 1
+
+
+@pytest.mark.asyncio
+async def test_tool_progress_idless_end_does_not_clear_tool_with_id() -> None:
+    """Id-safety: an id-less ``end`` must NOT clear an active tool that carries
+    an id, even when the names match.  Only a matching id (or a both-id-less
+    name match) may clear the active slot."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_idless_end"
+    relay._canonical_by_raw[s_k] = s_k
+    relay._active_run_id[s_k] = "run-idless"
+    relay._seen_same_run_event[s_k] = True
+    relay._use_tool_frames[s_k] = True
+
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
+    relay._delta_queues[s_k] = queue
+
+    # Start tool with id=call-y — the active slot now has an id.
+    relay.handle_event(_tool_start_event(s_k, "Bash", "run-idless", "call-y"))
+    assert relay._active_tool.get(s_k) == "Bash"
+
+    # id-less end with matching name — must NOT clear (active has an id).
+    relay.handle_event(_tool_end_event(s_k, "Bash", "run-idless"))
+    assert relay._active_tool.get(s_k) == "Bash", (
+        "id-less end with matching name must not clear an active tool that has an id"
+    )
+
+    # Correct id end — must clear.
+    relay.handle_event(_tool_end_event(s_k, "Bash", "run-idless", "call-y"))
+    assert s_k not in relay._active_tool, "matching-id end must clear the tool"
+
+    # Queue: 1 start + 1 end (the id-less end was silently dropped).
+    frames = []
+    while not queue.empty():
+        frames.append(queue.get_nowait())
+    assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start") == 1
+    assert sum(1 for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end") == 1, (
+        f"expected exactly 1 end frame after correct-id end; got: {frames!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_tool_progress_idless_end_does_not_clear_same_name_active_with_id() -> None:
+    """Codex scenario: start(weather, id='a') → start(weather, id='b') → end(weather, no id).
+
+    An id-less ``end`` must NOT clear the active slot even when the tool name
+    matches and an earlier start used the same name.  The active slot carries
+    id='b' after the second start, so the id-less end is ambiguous and must
+    be dropped silently.  Active tool must still be 'weather'/id='b' and no
+    end frame must be pushed for id='b'.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    s_k = "agent:clawd:ha-assist:01kvh_idless_same_name"
+    relay._canonical_by_raw[s_k] = s_k
+    relay._active_run_id[s_k] = "run-same"
+    relay._seen_same_run_event[s_k] = True
+    relay._use_tool_frames[s_k] = True
+
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
+    relay._delta_queues[s_k] = queue
+
+    # First start: weather, id="a"
+    relay.handle_event(_tool_start_event(s_k, "weather", "run-same", "id-a"))
+    assert relay._active_tool.get(s_k) == "weather"
+    assert relay._active_tool_id.get(s_k) == "id-a"
+
+    # Second start: same name, new id="b" (overwrites the active slot)
+    relay.handle_event(_tool_start_event(s_k, "weather", "run-same", "id-b"))
+    assert relay._active_tool.get(s_k) == "weather"
+    assert relay._active_tool_id.get(s_k) == "id-b"
+
+    # Id-less end with the same name — must NOT clear (active has id='b')
+    relay.handle_event(_tool_end_event(s_k, "weather", "run-same"))
+    assert relay._active_tool.get(s_k) == "weather", (
+        "id-less end must not clear active tool that has an id, even when names match"
+    )
+    assert relay._active_tool_id.get(s_k) == "id-b", (
+        "id-less end must not evict the id from the active slot"
+    )
+
+    # Queue: 2 start frames, 0 end frames (id-less end was silently dropped)
+    frames = []
+    while not queue.empty():
+        frames.append(queue.get_nowait())
+    start_frames = [f for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "start"]
+    end_frames = [f for f in frames if isinstance(f, ToolProgressFrame) and f.phase == "end"]
+    assert len(start_frames) == 2, f"expected 2 start frames; got: {start_frames!r}"
+    assert len(end_frames) == 0, (
+        f"id-less end pushed an end frame for id='b' — must not clear: {end_frames!r}"
+    )

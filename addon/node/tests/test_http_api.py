@@ -951,3 +951,100 @@ async def test_assist_turn_stream_unexpected_exception_surfaces_internal_error(
     status, frames = await _post_stream(runtime, {"text": "hi", "conversation_id": "c-boom"})
     assert status == 200  # headers already flushed before the exception
     assert frames == [{"delta": "first"}, {"error": "INTERNAL_ERROR"}]
+
+
+# ---------------------------------------------------------------------------
+# TODO #29 — tool_progress frames serialisation in the HTTP API layer
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_emits_tool_progress_frames(tmp_path: Path) -> None:
+    """ToolProgressFrame sentinels are serialised as ``{"tool_progress": true,
+    "phase": ..., "name": ..., "seq": ...}`` NDJSON frames on the wire.
+    A non-empty ``id`` is included; an empty ``id`` is omitted."""
+    from openclaw_node.chat_relay import ChatRelay, ToolProgressFrame
+
+    runtime = _stream_runtime(tmp_path)
+
+    async def _fake_stream(*_args: Any, **_kwargs: Any) -> Any:
+        yield ToolProgressFrame(phase="start", name="Bash", id="call-1", seq=1)
+        yield "partial"
+        yield ToolProgressFrame(phase="end", name="Bash", id="call-1", seq=1)
+        yield " done"
+        # id-less frame: id field must be omitted from the wire frame
+        yield ToolProgressFrame(phase="start", name="Python", id="", seq=2)
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    status, frames = await _post_stream(
+        runtime,
+        {
+            "text": "hi",
+            "conversation_id": "c-tp",
+            "client_caps": ["tool-progress-frames"],
+        },
+    )
+    assert status == 200
+    assert frames == [
+        {"tool_progress": True, "phase": "start", "name": "Bash", "id": "call-1", "seq": 1},
+        {"delta": "partial"},
+        {"tool_progress": True, "phase": "end", "name": "Bash", "id": "call-1", "seq": 1},
+        {"delta": " done"},
+        {"tool_progress": True, "phase": "start", "name": "Python", "seq": 2},
+        {"done": True},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_passes_client_caps_to_relay(tmp_path: Path) -> None:
+    """The ``client_caps`` body field is parsed and forwarded to
+    ``relay.stream_turn`` as the ``client_caps`` keyword argument."""
+    from openclaw_node.chat_relay import ChatRelay
+
+    runtime = _stream_runtime(tmp_path)
+    captured_caps: list[list[str]] = []
+
+    async def _fake_stream(
+        *_args: Any, client_caps: list[str] | None = None, **_kwargs: Any
+    ) -> Any:
+        captured_caps.append(list(client_caps or []))
+        yield "ok"
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    await _post_stream(
+        runtime,
+        {
+            "text": "hi",
+            "conversation_id": "c-caps",
+            "client_caps": ["tool-progress-frames", "other-cap"],
+        },
+    )
+    assert captured_caps == [["tool-progress-frames", "other-cap"]]
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_stream_no_client_caps_passes_empty_list(tmp_path: Path) -> None:
+    """Without ``client_caps`` in the body the relay receives an empty list."""
+    from openclaw_node.chat_relay import ChatRelay
+
+    runtime = _stream_runtime(tmp_path)
+    captured_caps: list[list[str]] = []
+
+    async def _fake_stream(
+        *_args: Any, client_caps: list[str] | None = None, **_kwargs: Any
+    ) -> Any:
+        captured_caps.append(list(client_caps or []))
+        yield "ok"
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _fake_stream
+    runtime.chat_relay = mock_relay
+
+    await _post_stream(runtime, {"text": "hi", "conversation_id": "c-nocaps"})
+    assert captured_caps == [[]]
