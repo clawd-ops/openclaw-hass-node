@@ -780,6 +780,20 @@ async def test_addon_logs_supervisor_404() -> None:
     assert result["error"] == "HA_NOT_FOUND"
 
 
+async def test_addon_logs_suppresses_upstream_html_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError(
+            "HA_HTTP_ERROR",
+            "Supervisor returned 504 (HTML error page suppressed)",
+        ),
+    ):
+        result = await handle_ha_addon_logs({"slug": "self"})
+    assert result["error"] == "HA_HTTP_ERROR"
+    assert result["message"] == "Supervisor returned 504 (HTML error page suppressed)"
+    assert "<html>" not in result["message"]
+
+
 # ---------------------------------------------------------------------------
 # ha.list_addons
 # ---------------------------------------------------------------------------
