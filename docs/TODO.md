@@ -135,9 +135,40 @@ Runtime events (not PRs):
 - **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
 - Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
 
+### 27. Ingress configuration UI for the add-on
+- Status: OPEN (design) — captured 2026-06-28 from operator UX feedback.
+- Goal: serve a small web UI from the add-on over HA Ingress that renders user-friendly editors for the trickier config shapes:
+  - HA-user dropdowns for `identity.super_admins` and `identity.user_agent_map.*.ha_user_id`, populated live from `config/auth/list`.
+  - Allowlist pickers for `identity.forbidden_commands` and `addon_lifecycle.allowlist` / `denylist`, populated from the live command catalog and installed-addon list.
+  - Inline help / tooltips so the operator doesn't have to know what `addon_lifecycle` means before configuring it.
+- Replaces hand-edited YAML for the shapes HA's option-schema validators cannot express (no native dynamic enums for users or addon slugs).
+- Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
+- Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
+
+### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2) — NEXT UP
+- Status: OPEN (enhancement) — **selected as the next active work item on 2026-06-28** per Rob.
+- Today (item #2 shipped on b6): only the **first** tool call in a turn renders `🔧 Calling X...`. Subsequent tool calls in the same turn are invisible — the label stays on the first tool until the turn ends.
+- Goal: extend the slow-turn relay so each tool call's name updates the progress label as it fires. Needs proper ephemeral status frames + a coordinated HACS shim change (the current shim accumulates the first label into the response body).
+- Out of scope for current `chat_relay.py`; needs an addon + shim release together. Item #2 stays closed; this is the v2.
+
 ---
 
 ## Closed items
+
+### 28. Documentation tab intro / glossary (prelude to per-option detail)
+- Status: CLOSED 2026-06-28 — `addon/DOCS.md` (shipped in PR #177) covers the substance.
+- Has: orientation paragraph, Quick start, per-option detail with purpose/example/default/security on every option, and a dedicated **Authorization model for the HA control surface** section that documents Tier A / Tier B and the explicit "There is no separate operator admin token for Tier B" line.
+- Residual polish (not a blocker, not opening a separate item preemptively): the three-token model is described inside each token's own option section rather than as one up-front glossary block. If a future operator still trips on the token-vs-token question, lift those three explanations into one prelude block then.
+
+### 30. GitHub Releases tab missing entries since b9
+- Status: CLOSED 2026-06-28 — not a real gap.
+- Re-checked 2026-06-28: GitHub Releases tab now shows all 8 releases matching all 8 tags (`v2026.6.20b4` through `v2026.6.20b11`); each Release entry exists with prerelease flag, title, and notes. The earlier observation was a tag-name string-sort artifact and/or browser cache — `b9` rendered later than `b10/b11` in the list view, making it look like the most recent.
+- The b9 prerelease cap from PR #177 will roll the date forward instead of going to `b10+` going forward, which sidesteps the string-sort confusion for future releases.
+- No workflow regression to fix.
+
+### 31. Add-on icon stopped rendering in HA after the doc / schema reshape
+- Status: CLOSED 2026-06-28 — resolved per Rob's observation on the b11 install (likely a Supervisor cache refresh after the b10/b11 manifest re-parse).
+- No repo-side change required. If the icon disappears again after a future schema change, re-open and trace `ha apps | grep -i openclaw` `logo:` against the manifest.
 
 ### 26. Identity user options accept HA usernames
 - Status: CLOSED in PR #177.
