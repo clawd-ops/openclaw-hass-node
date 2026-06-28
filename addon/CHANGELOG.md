@@ -12,6 +12,15 @@
   to the admin-token gate — the env var is simply not consulted for
   Tier B. The `ha.reload_config` admin gate is unchanged.
 
+### Tooling
+- **`scripts/bump-version.py` now refuses prerelease counters above 9.**
+  For `YYYY.M.D{a|b|rc}n` versions, attempting to bump to `b10+` /
+  `a10+` / `rc10+` exits non-zero with a hint to roll the calendar
+  portion forward and reset the counter to `1` instead. Rule lives in
+  user memory as `feedback_beta_cap_b9`; concrete prior failure was
+  `2026.6.20` getting stuck for a week and reaching `b11`, which
+  triggered a GitHub `/releases` UI ordering quirk.
+
 ### Docs
 - **New `addon/DOCS.md` (rendered as the add-on's Documentation tab).**
   Covers every option in `addon/config.yaml` (`gateway_url`,
