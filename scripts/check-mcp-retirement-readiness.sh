@@ -2,7 +2,7 @@
 #
 # Validation harness for retiring upstream `homeassistant` /
 # `homeassistant-readonly` MCP servers in favour of the node command surface.
-# See docs/RESEARCH-MIGRATION.md.
+# See docs/research/MIGRATION.md.
 #
 # Source-agnostic: it does not know where logs come from. The caller pipes
 # log lines on stdin and the script reports whether any
@@ -50,7 +50,10 @@ if [[ -n "$matches" ]]; then
         printf '0' > "$STATE_FILE.streak"
     fi
     echo "MCP_READINESS_NOT_READY label=$LABEL unique_tools=$count"
-    printf '  %s\n' $matches >&2
+    if printf '%s\n' "$input" | grep -Eq '(^|/)(docs|scripts|addon|custom_components)/|docs/research/MIGRATION|scripts/check-mcp-retirement-readiness'; then
+        echo "MCP_READINESS_INPUT_WARNING input_looks_like_repo_text_not_runtime_logs" >&2
+    fi
+    printf '  %s\n' "$matches" >&2
     exit 1
 fi
 

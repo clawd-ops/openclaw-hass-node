@@ -83,6 +83,16 @@ ec=$?
 set -e
 assert "unknown arg exit=2" "2" "$ec"
 
+# --- Scenario 8: repo/docs text gets a misuse warning ---
+set +e
+out="$(printf 'docs/research/MIGRATION.md: `mcp__homeassistant__ha_get_state`\n' | "$SCRIPT" 2>&1)"
+ec=$?
+set -e
+assert "repo text exit=1" "1" "$ec"
+[[ "$out" == *"INPUT_WARNING"* ]] \
+    && { pass=$((pass+1)); echo "  ok   repo text warning"; } \
+    || { fail=$((fail+1)); echo "  FAIL repo text warning: $out"; }
+
 echo
 echo "passed=$pass failed=$fail"
 [[ "$fail" -eq 0 ]]
