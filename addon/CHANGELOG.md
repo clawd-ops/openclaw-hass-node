@@ -1,5 +1,20 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.28b3
+
+### Fixes
+- **HA Assist now shows every tool call as it starts.** In the legacy
+  no-cap path, the add-on now pushes `🔧 Calling X...` into the active
+  Assist chat immediately on each tool-start event. Multi-tool turns
+  therefore show each tool usage in sequence instead of only showing one
+  silence-gated progress line or going quiet between calls.
+
+### Docs
+- **Tracked follow-ups for tool-progress controls and log noise.**
+  TODO now includes a future show/hide config option for HA Assist tool
+  progress and a cleanup item to move noisy `[relay-diag]` lines from
+  INFO to DEBUG.
+
 ## 2026.6.28b2
 
 ### Fixes
