@@ -1,5 +1,25 @@
 # OpenClaw Node Add-on Changelog
 
+## Unreleased
+
+### Changes
+- **Tier B addon lifecycle no longer requires `OPENCLAW_ADMIN_TOKEN`.**
+  Authorization for `ha.addon_start`, `ha.addon_stop`, and
+  `ha.addon_restart` is now: the pairing-session bearer
+  (`local_api_token`) authenticates the request, and the target slug
+  must be present in `addon_lifecycle.allowlist` (with the existing
+  `core_*` and denylist guards still applied). There is no fallback
+  to the admin-token gate — the env var is simply not consulted for
+  Tier B. The `ha.reload_config` admin gate is unchanged.
+
+### Docs
+- **New `addon/DOCS.md` (rendered as the add-on's Documentation tab).**
+  Covers every option in `addon/config.yaml` (`gateway_url`,
+  `pairing_token`, `node_name`, `local_api_token`, `hass_url`,
+  `hass_token`, `reset_pairing`, the `identity` block, and the
+  `addon_lifecycle` block) with purpose, example, default, and security
+  implications, plus the Tier A vs Tier B authorization model.
+
 ## 2026.6.20b11 (2026-06-27) — Tool-progress chunk lands on a new line after preamble text
 
 ### Fixes

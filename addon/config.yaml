@@ -137,7 +137,10 @@ options:
     forbidden_commands: ""
   addon_lifecycle:
     # Tier B lifecycle commands (`ha.addon_start`/stop/restart) default-deny
-    # every slug and require explicit opt-in here plus OPENCLAW_ADMIN_TOKEN.
+    # every slug and require explicit opt-in here. Authorization is the
+    # pairing-session bearer (local_api_token) plus this allowlist — no
+    # separate admin token. Add a slug ONLY for add-ons you accept the
+    # operator-side risk of remote start/stop/restart on.
     allowlist: []
     # Always denied in code too: homeassistant, supervisor, and core_*.
     denylist:
