@@ -2302,6 +2302,25 @@ def _tool_start_event(
     }
 
 
+def _tool_item_start_event(
+    session_key: str, name: str, run_id: str, tool_id: str = ""
+) -> dict[str, Any]:
+    """Helper: hidden HA Assist ``agent`` item event for tool lifecycle."""
+    data: dict[str, Any] = {"kind": "tool", "title": name, "phase": "start"}
+    if tool_id:
+        data["toolCallId"] = tool_id
+    return {
+        "type": "event",
+        "event": "agent",
+        "payload": {
+            "sessionKey": session_key,
+            "stream": "item",
+            "runId": run_id,
+            "data": data,
+        },
+    }
+
+
 def _tool_end_event(session_key: str, name: str, run_id: str, tool_id: str = "") -> dict[str, Any]:
     """Helper: gateway ``agent`` event with phase=end."""
     data: dict[str, Any] = {"name": name, "phase": "end"}
@@ -2454,6 +2473,65 @@ async def test_stream_turn_no_cap_sequential_tools_each_emit_delta(
     python_idx = text_chunks.index("\n🔧 Calling Python...\n")
     weather_idx = text_chunks.index("\n🔧 Calling weather...\n")
     assert bash_idx < python_idx < weather_idx, f"tool deltas out of order: {text_chunks!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_hidden_item_tool_starts_emit_delta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hidden HA Assist subscribers receive tool starts as ``stream=item``.
+
+    The relay must surface those in the active chat too; otherwise Assist
+    stays quiet while tools run and only shows the final answer.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_ITEM_TOOL"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-item"}))
+        relay.handle_event(_tool_item_start_event(canonical, "ha.list_areas", "run-item", "tc-a"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_item_start_event(canonical, "ha.get_state", "run-item", "tc-b"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-item",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "run tools"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    text_chunks = [c for c in chunks if isinstance(c, str)]
+    assert "\n🔧 Calling ha.list_areas...\n" in text_chunks, text_chunks
+    assert "\n🔧 Calling ha.get_state...\n" in text_chunks, text_chunks
 
 
 @pytest.mark.asyncio

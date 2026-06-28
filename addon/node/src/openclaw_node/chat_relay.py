@@ -980,6 +980,12 @@ class ChatRelay:
         # __main__.py). `data.name` carries the tool name; `data.phase`
         # is "start" or "end".
         #
+        # Hidden HA Assist sessions can also receive the same lifecycle
+        # as `agent` events with `stream='item'`, `data.kind='tool'`, and
+        # `data.name`/`data.title`. Treat those starts as visible tool
+        # usage too; otherwise the model can run tools while HA Assist
+        # stays silent until the final answer.
+        #
         # Two paths depending on the per-request ``tool-progress-frames`` cap:
         #
         # Legacy path (cap absent): push a textual ``🔧 Calling X...`` delta
@@ -998,11 +1004,18 @@ class ChatRelay:
         # or when the event's ``seq`` (monotonic within the turn) is less than
         # the seq of the currently active tool — race fix for interleaved
         # out-of-order ``end`` deliveries on multi-tool turns.
-        if event in ("agent", "session.tool") and payload.get("stream") == "tool":
+        payload_stream = payload.get("stream")
+        if event in ("agent", "session.tool") and payload_stream in ("tool", "item"):
             raw_session_key = str(payload.get("sessionKey", ""))
             tool_canonical_key = self._canonical_by_raw.get(raw_session_key) or raw_session_key
             data = payload.get("data")
             if isinstance(data, dict) and tool_canonical_key:
+                if (
+                    payload_stream == "item"
+                    and data.get("kind") != "tool"
+                    and not data.get("toolCallId")
+                ):
+                    return
                 # Apply the same runId staleness filter used for
                 # assistant events (Codex review #143): a delayed
                 # prior-run tool event must not relabel the current
@@ -1023,8 +1036,12 @@ class ChatRelay:
                         stale = True
                 if not stale:
                     phase = data.get("phase")
-                    tool_name = data.get("name")
-                    tool_id = str(data.get("id", "") or "")
+                    raw_tool_name = data.get("name") or (
+                        data.get("title") if payload_stream == "item" else None
+                    )
+                    tool_name = raw_tool_name if isinstance(raw_tool_name, str) else None
+                    raw_tool_id = data.get("id") or data.get("toolCallId") or data.get("itemId")
+                    tool_id = str(raw_tool_id or "")
                     use_frames = self._use_tool_frames.get(tool_canonical_key, False)
                     if phase == "start" and isinstance(tool_name, str) and tool_name:
                         self._active_tool[tool_canonical_key] = tool_name
