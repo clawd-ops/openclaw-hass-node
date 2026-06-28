@@ -308,7 +308,7 @@ async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -344,7 +344,7 @@ async def test_stream_turn_session_message_yields_full_text_when_no_deltas() -> 
         # No deltas, just a single session.message terminal event.
         relay.handle_event(_session_message_event(canonical_session_key, "assistant", "Done."))
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -403,7 +403,7 @@ async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -454,7 +454,7 @@ async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.Mo
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -490,7 +490,7 @@ async def test_stream_turn_chat_send_generic_exception_becomes_relay_failed() ->
         if future is not None and not future.done():
             future.set_exception(RuntimeError("stream boom"))
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -616,7 +616,7 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
         await asyncio.sleep(0.01)
         relay.reset()
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
     raised: list[ChatRelayError] = []
 
     async def _consume() -> None:
@@ -699,7 +699,7 @@ async def test_stream_turn_emits_keepalive_during_silent_gap(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "long question"):
@@ -784,7 +784,7 @@ async def test_stream_turn_no_keepalive_on_fast_turn(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
@@ -871,7 +871,7 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "what's the weather"):
@@ -963,7 +963,7 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
             }
         )
 
-    chunks: list[str | StreamKeepalive] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "do a few things"):
@@ -1803,8 +1803,8 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
     conv_id = "01KVHTWOTURNSTREAM"
     canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
-    chunks_t1: list[str | StreamKeepalive] = []
-    chunks_t2: list[str | StreamKeepalive] = []
+    chunks_t1: list[str | StreamKeepalive | ToolProgressFrame] = []
+    chunks_t2: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _drive_t1() -> None:
         await asyncio.sleep(0.01)
@@ -2144,7 +2144,7 @@ async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> 
     # consumer present, no terminal captured yet, no same-run event yet.
     relay._active_run_id[key] = "run-t2"
     relay._seen_same_run_event[key] = False
-    queue: asyncio.Queue[str | None | ChatRelayError] = asyncio.Queue()
+    queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
     relay._delta_queues[key] = queue
     relay._stream_yielded_chars[key] = 0
 
@@ -2553,7 +2553,7 @@ async def test_tool_progress_end_race_skipped_on_low_seq() -> None:
 
     # Install a queue so end-frames can be pushed
     queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
-    relay._delta_queues[s_k] = queue  # type: ignore[assignment]
+    relay._delta_queues[s_k] = queue
 
     # Start tool A (seq=1), then start tool B (seq=2).
     relay.handle_event(_tool_start_event(s_k, "Bash", "run-race", "id-a"))
@@ -2590,7 +2590,7 @@ async def test_tool_progress_end_id_aware_clearing() -> None:
     relay._use_tool_frames[s_k] = True
 
     queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
-    relay._delta_queues[s_k] = queue  # type: ignore[assignment]
+    relay._delta_queues[s_k] = queue
 
     # Start tool with id=call-x
     relay.handle_event(_tool_start_event(s_k, "weather", "run-id", "call-x"))
