@@ -20,12 +20,6 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ## Open items
 
-### 1. User mapping / identity propagation
-- Status: IMPLEMENTED-IN-PR — see [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md)
-- Captures the agreed addon-only model (2026-06-23): three roles (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Shim forwards `actor`, addon resolves role, prepends a hardened per-turn authorization disclaimer, and optionally sends `agentId` from `identity.user_agent_map` / `default_agent_id`.
-- This is prompt-level for shared-agent setups. Hard concern-A enforcement still comes from gateway-side agent inventories; hard concern-B invoke enforcement still needs a future gateway invoke envelope that carries session/actor context.
-- Highest leverage; cross-links to 7, 9, 11.
-
 ### 7. Issue triage automation
 - Status: OPEN (design)
 - Read-only triage first; write actions (label, comment, close) behind allowlist. Hard stop before close/merge without Rob's explicit approval.
@@ -97,13 +91,18 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
 - Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
 
-### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
-- Status: IMPLEMENTED-IN-PR
-- Implemented in `feat/tool-progress-frames-29`: additive `tool_progress` NDJSON frames with `phase=start|end`, `name`, optional `id`, `seq` (monotonic). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS shim. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; shim swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard. Legacy textual `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
-
 ---
 
 ## Closed items
+
+### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
+- Status: CLOSED 2026-06-28 — shipped in PR #179.
+- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS shim. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; shim swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Legacy textual `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
+
+### 1. User mapping / identity propagation
+- Status: CLOSED 2026-06-28 — addon side shipped via PRs #164–#167 + #177; design captured in [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md).
+- Three-role model (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Shim forwards `actor`, addon resolves role, prepends a hardened per-turn authorization disclaimer, and optionally sends `agentId` from `identity.user_agent_map` / `default_agent_id`.
+- Out of scope for this repo (closing cleanly): hard concern-A enforcement comes from gateway-side agent inventories; hard concern-B invoke enforcement needs a future gateway invoke envelope that carries session/actor context. Track gateway-side work in the gateway repo, not here.
 
 ### 28. Documentation tab intro / glossary (prelude to per-option detail)
 - Status: CLOSED 2026-06-28 — `addon/DOCS.md` (shipped in PR #177) covers the substance.
