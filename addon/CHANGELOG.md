@@ -31,6 +31,13 @@
   routing checks. Unknown names log a warning and are ignored for that
   run, failing closed to the lower `admin` / `user` role or default
   agent route.
+- **`hass_url` and `hass_token` moved to the end of the options form,
+  past the `identity` and `addon_lifecycle` nested blocks.** Mitigates
+  a browser password-manager autofill class of bug where a
+  `[text][password]` adjacency was getting populated with `(saved
+  username, saved password)` for an unrelated site and persisted into
+  the add-on options on save. Schema and runtime semantics unchanged;
+  only the rendering order in the HA Configuration tab moves.
 
 ### Tooling
 - **`scripts/bump-version.py` now refuses prerelease counters above 9.**
@@ -40,15 +47,6 @@
   user memory as `feedback_beta_cap_b9`; concrete prior failure was
   `2026.6.20` getting stuck for a week and reaching `b11`, which
   triggered a GitHub `/releases` UI ordering quirk.
-
-### Changes
-- **`hass_url` and `hass_token` moved to the end of the options form,
-  past the `identity` and `addon_lifecycle` nested blocks.** Mitigates
-  a browser password-manager autofill class of bug where a
-  `[text][password]` adjacency was getting populated with `(saved
-  username, saved password)` for an unrelated site and persisted into
-  the add-on options on save. Schema and runtime semantics unchanged;
-  only the rendering order in the HA Configuration tab moves.
 
 ### Docs
 - **New `addon/DOCS.md` (rendered as the add-on's Documentation tab).**
