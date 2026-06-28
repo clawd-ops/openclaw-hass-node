@@ -91,6 +91,18 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
 - Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
 
+### 32. Config option to show/hide tool usage in HA Assist
+- Status: OPEN
+- Requested: 2026-06-28 by Rob.
+- Goal: addon option `show_tool_progress: true|false` (default `true`). When `false`, the relay skips emitting `🔧 Calling X...` deltas entirely (both the legacy immediate path and the `ToolProgressFrame` cap path). Lets users who want a quieter HA Assist UX suppress the per-tool progress lines without needing a different cap.
+- Scope: `addon/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
+
+### 33. Quiet `[relay-diag]` INFO noise in addon logs
+- Status: OPEN
+- Requested: 2026-06-28 by Rob.
+- Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
+- Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
+
 ---
 
 ## Closed items
