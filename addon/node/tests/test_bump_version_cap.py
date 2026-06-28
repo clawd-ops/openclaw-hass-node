@@ -54,23 +54,55 @@ def test_rc10_rejected_with_cap_message() -> None:
     assert "exceeds the rc9 prerelease cap" in (result.stdout + result.stderr)
 
 
-def test_b9_still_accepted() -> None:
+def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedProcess[str]:
+    """Copy the script + a minimal set of version-bearing sources into a
+    throwaway tree and run the real ``_bump`` path against it.
+
+    We can't run the in-repo bump for real (it would rewrite five tracked
+    files), so we mirror the file layout the script expects under *tmp_path*
+    and invoke the script there. This actually exercises ``_bump`` —
+    ``--check`` does not — which is the path the cap lives on.
+    """
+    import shutil
+
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    shutil.copy2(_SCRIPT, scripts_dir / "bump-version.py")
+
+    layout = {
+        "addon/config.yaml": 'version: "2026.6.20b9"\n',
+        "addon/build.yaml": '  io.hass.version: "2026.6.20b9"\n',
+        "addon/node/pyproject.toml": 'version = "2026.6.20b9"\n',
+        "addon/node/src/openclaw_node/__init__.py": '    __version__ = "2026.6.20b9"\n',
+        "custom_components/openclaw_gateway/manifest.json": '  "version": "2026.6.20b9"\n',
+    }
+    for rel, content in layout.items():
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    return subprocess.run(
+        [sys.executable, str(scripts_dir / "bump-version.py"), new_version],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+    )
+
+
+def test_b9_still_accepted(tmp_path: Path) -> None:
     """``b9`` is the highest allowed counter — must not fire the cap.
 
-    Use ``--check`` against the current synced version to assert that the
-    script can be invoked without writing files; ``--check`` does not flow
-    through the cap, only ``_bump`` does, so we still need the bump path
-    smoke-tested. Use a no-op same-version bump for that: if the script
-    reaches ``_bump`` it will write no files and exit 0.
+    Runs the real ``_bump`` path (where the cap logic lives) against an
+    isolated copy of the version-bearing sources.
     """
-    from openclaw_node import __version__
-
-    result = _run("--check", __version__)
+    result = _run_bump_in_tmp(tmp_path, "2026.7.1b9")
     assert result.returncode == 0, result.stderr
+    assert "exceeds" not in (result.stdout + result.stderr)
 
 
-def test_final_version_unaffected() -> None:
+def test_final_version_unaffected(tmp_path: Path) -> None:
     """A non-prerelease (e.g. ``2026.7.0``) must not trigger the cap."""
-    result = _run("--check")
-    # --check with no version just verifies the sources agree; should pass
+    result = _run_bump_in_tmp(tmp_path, "2026.7.0")
     assert result.returncode == 0, result.stderr
+    assert "exceeds" not in (result.stdout + result.stderr)
