@@ -73,12 +73,12 @@ def test_build_runtime_shares_runtime_with_gateway(
 
 
 def test_ha_user_id_by_name_extracts_names_and_credentials() -> None:
-    """HA auth/list names can come from user fields or auth-provider data."""
+    """HA auth/list names come from stable usernames, not display names."""
     result = {
         "users": [
             {
                 "id": "uuid-rob",
-                "name": "Rob Landry",
+                "name": "Mutable Display Name",
                 "credentials": [
                     {
                         "auth_provider_type": "homeassistant",
@@ -91,7 +91,6 @@ def test_ha_user_id_by_name_extracts_names_and_credentials() -> None:
     }
 
     assert _ha_user_id_by_name(result) == {
-        "rob landry": "uuid-rob",
         "bigrob8181": "uuid-rob",
         "ash": "uuid-ash",
     }
@@ -149,6 +148,31 @@ async def test_resolve_identity_usernames_drops_unknown_entries(
     resolved = await _resolve_identity_usernames(config)
 
     assert resolved.identity.super_admins == frozenset({"rob-uuid"})
+    assert resolved.identity.user_agent_map == {}
+
+
+async def test_resolve_identity_usernames_fails_closed_on_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    config: NodeConfig,
+) -> None:
+    """A slow HA auth/list call must not abort add-on startup."""
+    config = replace(
+        config,
+        identity=IdentityConfig(
+            super_admins=frozenset({"bigrob8181"}),
+            user_agent_map={"ash": "clawd-household"},
+        ),
+    )
+
+    async def fake_ws_call(msg_type: str) -> dict[str, Any]:
+        assert msg_type == "auth/list"
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr("openclaw_node.__main__.ha_ws_call", fake_ws_call)
+
+    resolved = await _resolve_identity_usernames(config)
+
+    assert resolved.identity.super_admins == frozenset()
     assert resolved.identity.user_agent_map == {}
 
 

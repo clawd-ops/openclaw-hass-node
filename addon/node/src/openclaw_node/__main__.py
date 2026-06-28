@@ -222,11 +222,12 @@ async def _resolve_identity_usernames(config: NodeConfig) -> NodeConfig:
         return config
     try:
         result = await ha_ws_call("auth/list")
-    except HAClientError as exc:
+    except (HAClientError, TimeoutError) as exc:
+        detail = exc.message if isinstance(exc, HAClientError) else str(exc)
         _LOG.warning(
             "identity usernames could not be resolved from HA users: %s. "
             "No configured super_admins or user_agent_map entries are active for this startup.",
-            exc.message,
+            detail,
         )
         return replace(
             config,
@@ -284,7 +285,7 @@ async def _resolve_identity_usernames(config: NodeConfig) -> NodeConfig:
 
 
 def _ha_user_id_by_name(result: Any) -> dict[str, str]:
-    """Extract a case-insensitive HA username/display-name map from auth/list."""
+    """Extract a case-insensitive HA login-username map from auth/list."""
     raw_users = result.get("users", result) if isinstance(result, dict) else result
     if not isinstance(raw_users, list):
         return {}
@@ -301,12 +302,11 @@ def _ha_user_id_by_name(result: Any) -> dict[str, str]:
 
 
 def _ha_user_name_candidates(raw: dict[str, Any]) -> tuple[str, ...]:
-    """Return human-enterable names from one HA auth/list user object."""
+    """Return stable login names from one HA auth/list user object."""
     names: list[str] = []
-    for key in ("username", "name"):
-        value = raw.get(key)
-        if isinstance(value, str) and value.strip():
-            names.append(value.strip())
+    username = raw.get("username")
+    if isinstance(username, str) and username.strip():
+        names.append(username.strip())
     credentials = raw.get("credentials")
     if isinstance(credentials, list):
         for credential in credentials:
