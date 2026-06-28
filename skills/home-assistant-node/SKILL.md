@@ -73,8 +73,8 @@ Generally safe starting points:
 
 Actions that need extra care:
 
-- `ha.call_service`.
-- Entity/device/light mutations.
+- Generic `ha.call_service`, especially broad or sensitive service domains.
+- Entity/device/light mutations where the target, scope, or requested outcome is unclear.
 - Add-on start, stop, or restart.
 - Reloads.
 - Any command that changes Home Assistant state.
@@ -90,14 +90,12 @@ Operating rules:
 - Respect the node's built-in authorization model instead of assuming every mutation is privileged.
 - If your human clearly requests a specific low-risk action, such as turning on a named light, that request is sufficient authorization.
 - If the target, scope, blast radius, or safety of the requested action is unclear, ask your human instead of guessing.
-- Do not duplicate permission allowlists in this skill; use the design docs and dispatcher as the source of truth.
+- When exact permission boundaries matter, consult `docs/design/IDENTITY-AND-SCOPES.md`; do not guess whether a command or service domain is allowed.
 - Do not hand privileged commands to background subagents.
 
 ## Subagents
 
-Subagents should use only read-only/Tier A command paths unless software enforcement and an operator-controlled path explicitly allow broader access.
-
-Prompt instructions are not enough for subagent safety. The node or gateway path must software-block subagents from commands outside the approved read-only surface before relying on the delegation.
+When acting as a subagent, use only read-only/Tier A command paths. Do not attempt privileged commands, lifecycle actions, service calls, reloads, or file edits unless the controlling agent provides an explicitly authorized, software-enforced path.
 
 ## Details And Source Of Truth
 
