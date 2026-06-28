@@ -221,7 +221,7 @@ async def _resolve_identity_usernames(config: NodeConfig) -> NodeConfig:
     if not super_admins and not user_agent_map:
         return config
     try:
-        result = await ha_ws_call("auth/list")
+        result = await ha_ws_call("config/auth/list")
     except (HAClientError, TimeoutError) as exc:
         detail = exc.message if isinstance(exc, HAClientError) else str(exc)
         _LOG.warning(
@@ -285,7 +285,7 @@ async def _resolve_identity_usernames(config: NodeConfig) -> NodeConfig:
 
 
 def _ha_user_id_by_name(result: Any) -> dict[str, str]:
-    """Extract a case-insensitive HA login-username map from auth/list."""
+    """Extract a case-insensitive HA login-username map from config/auth/list."""
     raw_users = result.get("users", result) if isinstance(result, dict) else result
     if not isinstance(raw_users, list):
         return {}
@@ -302,7 +302,7 @@ def _ha_user_id_by_name(result: Any) -> dict[str, str]:
 
 
 def _ha_user_name_candidates(raw: dict[str, Any]) -> tuple[str, ...]:
-    """Return stable login names from one HA auth/list user object."""
+    """Return stable login names from one HA config/auth/list user object."""
     names: list[str] = []
     username = raw.get("username")
     if isinstance(username, str) and username.strip():

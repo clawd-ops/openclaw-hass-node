@@ -143,7 +143,7 @@ Runtime events (not PRs):
 - Status: CLOSED in PR #177.
 - `identity.super_admins` and `identity.user_agent_map` are configured
   with HA usernames. On startup, the add-on calls HA WebSocket
-  `auth/list`, resolves names to HA user IDs, and keeps only the
+  `config/auth/list`, resolves names to HA user IDs, and keeps only the
   resolved IDs in the in-memory policy used by signed Assist actor
   checks and per-user agent routing.
 - Unknown usernames log a warning and are ignored for that run, so a

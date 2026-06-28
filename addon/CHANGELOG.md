@@ -13,7 +13,7 @@
   Tier B. The `ha.reload_config` admin gate is unchanged.
 - **Identity user config now takes HA usernames.** At startup the add-on
   resolves configured names in `identity.super_admins` and
-  `identity.user_agent_map` through HA WebSocket `auth/list`, then keeps
+  `identity.user_agent_map` through HA WebSocket `config/auth/list`, then keeps
   the resolved HA user IDs in memory for signed Assist actor policy and
   routing checks. Unknown names log a warning and are ignored for that
   run, failing closed to the lower `admin` / `user` role or default

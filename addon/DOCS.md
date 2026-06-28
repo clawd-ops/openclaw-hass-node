@@ -112,7 +112,7 @@ control surface. The manifest field reference is at
 - **Default**: `[]`.
 - **Security**: These are HA usernames, not Discord or OpenClaw
   identities. The add-on resolves them to HA user IDs at startup using
-  the HA `auth/list` WebSocket command, then compares the signed Assist
+  the HA `config/auth/list` WebSocket command, then compares the signed Assist
   actor user ID against the resolved set. Granting `super_admin`
   removes the per-turn
   forbidden-command guard rails for that user; keep the list short

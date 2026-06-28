@@ -73,7 +73,7 @@ def test_build_runtime_shares_runtime_with_gateway(
 
 
 def test_ha_user_id_by_name_extracts_names_and_credentials() -> None:
-    """HA auth/list names come from stable usernames, not display names."""
+    """HA config/auth/list names come from stable usernames, not display names."""
     result = {
         "users": [
             {
@@ -110,7 +110,7 @@ async def test_resolve_identity_usernames_maps_to_ids(
     )
 
     async def fake_ws_call(msg_type: str) -> dict[str, Any]:
-        assert msg_type == "auth/list"
+        assert msg_type == "config/auth/list"
         return {
             "users": [
                 {"id": "rob-uuid", "username": "bigrob8181"},
@@ -140,7 +140,7 @@ async def test_resolve_identity_usernames_drops_unknown_entries(
     )
 
     async def fake_ws_call(msg_type: str) -> list[dict[str, Any]]:
-        assert msg_type == "auth/list"
+        assert msg_type == "config/auth/list"
         return [{"id": "rob-uuid", "username": "bigrob8181"}]
 
     monkeypatch.setattr("openclaw_node.__main__.ha_ws_call", fake_ws_call)
@@ -155,7 +155,7 @@ async def test_resolve_identity_usernames_fails_closed_on_timeout(
     monkeypatch: pytest.MonkeyPatch,
     config: NodeConfig,
 ) -> None:
-    """A slow HA auth/list call must not abort add-on startup."""
+    """A slow HA config/auth/list call must not abort add-on startup."""
     config = replace(
         config,
         identity=IdentityConfig(
@@ -165,7 +165,7 @@ async def test_resolve_identity_usernames_fails_closed_on_timeout(
     )
 
     async def fake_ws_call(msg_type: str) -> dict[str, Any]:
-        assert msg_type == "auth/list"
+        assert msg_type == "config/auth/list"
         raise TimeoutError("timed out")
 
     monkeypatch.setattr("openclaw_node.__main__.ha_ws_call", fake_ws_call)
