@@ -547,6 +547,26 @@ async def test_supervisor_get_text_500(monkeypatch: pytest.MonkeyPatch) -> None:
     with _patch_session(resp), pytest.raises(HAClientError) as ei:
         await supervisor_get_text("/addons/self/logs")
     assert ei.value.code == "HA_HTTP_ERROR"
+    assert ei.value.message == "Supervisor returned 500: boom"
+
+
+async def test_supervisor_get_text_suppresses_html_error_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sup-tok")
+    resp = _FakeResp(
+        status=504,
+        content_type="text/html",
+        text_body=(
+            "<html><head><title>504 Gateway Time-out</title></head>"
+            "<body><center><h1>504 Gateway Time-out</h1></center></body></html>"
+        ),
+    )
+    with _patch_session(resp), pytest.raises(HAClientError) as ei:
+        await supervisor_get_text("/addons/self/logs")
+    assert ei.value.code == "HA_HTTP_ERROR"
+    assert ei.value.message == "Supervisor returned 504 (HTML error page suppressed)"
+    assert "<html>" not in ei.value.message
 
 
 async def test_supervisor_get_text_network_error(

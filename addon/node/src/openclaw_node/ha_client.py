@@ -107,6 +107,16 @@ def _headers() -> dict[str, str]:
     }
 
 
+def _http_error_message(service: str, status: int, body: str) -> str:
+    """Return a bounded HTTP error message without surfacing HTML error pages."""
+    snippet = body[:512].strip()
+    if "<html" in snippet.lower() or "<!doctype html" in snippet.lower():
+        return f"{service} returned {status} (HTML error page suppressed)"
+    if not snippet:
+        return f"{service} returned {status}"
+    return f"{service} returned {status}: {snippet}"
+
+
 async def ha_get(path: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> Any:
     """GET *path* on the HA REST API and return the JSON-decoded body.
 
@@ -271,8 +281,10 @@ async def supervisor_get_text(
             if resp.status == 404:
                 raise HAClientError("HA_NOT_FOUND", f"Supervisor returned 404 for {path}")
             if resp.status >= 400:
-                body = (await resp.text())[:512]
-                raise HAClientError("HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body}")
+                body = await resp.text()
+                raise HAClientError(
+                    "HA_HTTP_ERROR", _http_error_message("Supervisor", resp.status, body)
+                )
             tail = bytearray()
             async for chunk in resp.content.iter_chunked(65_536):
                 tail.extend(chunk)
@@ -335,8 +347,10 @@ async def supervisor_get_json(
             if resp.status == 404:
                 raise HAClientError("HA_NOT_FOUND", f"Supervisor returned 404 for {path}")
             if resp.status >= 400:
-                body = (await resp.text())[:512]
-                raise HAClientError("HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body}")
+                body = await resp.text()
+                raise HAClientError(
+                    "HA_HTTP_ERROR", _http_error_message("Supervisor", resp.status, body)
+                )
             buf = bytearray()
             async for chunk in resp.content.iter_chunked(65_536):
                 buf.extend(chunk)
@@ -383,9 +397,9 @@ async def supervisor_post_json(
             if resp.status == 404:
                 raise HAClientError("HA_NOT_FOUND", f"Supervisor returned 404 for {path}")
             if resp.status >= 400:
-                body_text = (await resp.text())[:512]
+                body_text = await resp.text()
                 raise HAClientError(
-                    "HA_HTTP_ERROR", f"Supervisor returned {resp.status}: {body_text}"
+                    "HA_HTTP_ERROR", _http_error_message("Supervisor", resp.status, body_text)
                 )
             buf = bytearray()
             async for chunk in resp.content.iter_chunked(65_536):
@@ -414,8 +428,8 @@ async def _decode(resp: aiohttp.ClientResponse) -> Any:
     if resp.status == 404:
         raise HAClientError("HA_NOT_FOUND", f"HA returned 404 for {resp.url.path}")
     if resp.status >= 400:
-        text = (await resp.text())[:512]
-        raise HAClientError("HA_HTTP_ERROR", f"HA returned {resp.status}: {text}")
+        text = await resp.text()
+        raise HAClientError("HA_HTTP_ERROR", _http_error_message("HA", resp.status, text))
     if resp.content_type and "json" in resp.content_type:
         return await resp.json()
     return await resp.text()
