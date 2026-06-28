@@ -1,5 +1,16 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.28b4
+
+### Fixes
+- **HA Assist now surfaces hidden-session tool starts too.** b3 listened
+  for gateway `stream="tool"` lifecycle events, but the hidden HA Assist
+  path can deliver tool usage as `stream="item"` events with
+  `kind="tool"` and a `name`/`title`. The relay now treats those starts
+  as active-chat tool usage, so read-only HA tool calls such as listing
+  areas or reading entity state produce visible `🔧 Calling X...` lines
+  before the final response.
+
 ## 2026.6.28b3
 
 ### Fixes

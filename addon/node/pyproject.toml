@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "openclaw-node"
-version = "2026.6.28b3"
+version = "2026.6.28b4"
 description = "OpenClaw gateway peripheral node for Home Assistant."
 requires-python = ">=3.13"
 dependencies = [
