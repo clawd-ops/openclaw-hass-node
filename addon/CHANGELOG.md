@@ -1,5 +1,15 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.28b5
+
+### Fixes
+- **Supervisor/HA HTTP errors no longer leak raw HTML into chat.** If an
+  upstream hiccup returns an nginx-style HTML error page, the shared HA
+  client now returns a concise `HA_HTTP_ERROR` message such as
+  `Supervisor returned 504 (HTML error page suppressed)` instead of
+  preserving the full document body for agents to paste back into
+  Discord or HA Assist.
+
 ## 2026.6.28b4
 
 ### Fixes
