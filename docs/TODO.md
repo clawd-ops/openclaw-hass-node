@@ -85,7 +85,7 @@ Runtime events (not PRs):
 - Remaining (in order):
   1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
   2. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*`.
-  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) admin-gated via `OPENCLAW_ADMIN_TOKEN` + per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
+  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) gated by the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 
 ### 12. Generated docs site for node command surface + protocols
@@ -138,6 +138,21 @@ Runtime events (not PRs):
 ---
 
 ## Closed items
+
+### 26. Identity user options accept HA usernames
+- Status: CLOSED in PR #177.
+- `identity.super_admins` and `identity.user_agent_map` are configured
+  with HA usernames. On startup, the add-on calls HA WebSocket
+  `config/auth/list`, resolves names to HA user IDs, and keeps only the
+  resolved IDs in the in-memory policy used by signed Assist actor
+  checks and per-user agent routing.
+- Unknown usernames log a warning and are ignored for that run, so a
+  typo fails closed to the lower `admin` or `user` role without
+  blocking add-on startup; unresolved route mappings fall back to the
+  default agent route.
+- Out of scope: native HA Configuration-tab user dropdowns. The add-on
+  schema has no dynamic user selector; an ingress management UI remains
+  possible as a separate future feature if needed.
 
 ### 2. Real per-tool progress events
 - Status: CLOSED 2026-06-20 (verified end-to-end on b6)

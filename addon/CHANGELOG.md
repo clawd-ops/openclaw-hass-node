@@ -1,5 +1,55 @@
 # OpenClaw Node Add-on Changelog
 
+## Unreleased
+
+### Changes
+- **Tier B addon lifecycle no longer requires `OPENCLAW_ADMIN_TOKEN`.**
+  Authorization for `ha.addon_start`, `ha.addon_stop`, and
+  `ha.addon_restart` is now: the pairing-session bearer
+  (`local_api_token`) authenticates the request, and the target slug
+  must be present in `addon_lifecycle.allowlist` (with the existing
+  `core_*` and denylist guards still applied). There is no fallback
+  to the admin-token gate — the env var is simply not consulted for
+  Tier B. The `ha.reload_config` admin gate is unchanged.
+- **Identity user config now takes HA usernames.** At startup the add-on
+  resolves configured names in `identity.super_admins` and
+  `identity.user_agent_map` through HA WebSocket `config/auth/list`, then keeps
+  the resolved HA user IDs in memory for signed Assist actor policy and
+  routing checks. Unknown names log a warning and are ignored for that
+  run, failing closed to the lower `admin` / `user` role or default
+  agent route.
+
+### Tooling
+- **`scripts/bump-version.py` now refuses prerelease counters above 9.**
+  For `YYYY.M.D{a|b|rc}n` versions, attempting to bump to `b10+` /
+  `a10+` / `rc10+` exits non-zero with a hint to roll the calendar
+  portion forward and reset the counter to `1` instead. Rule lives in
+  user memory as `feedback_beta_cap_b9`; concrete prior failure was
+  `2026.6.20` getting stuck for a week and reaching `b11`, which
+  triggered a GitHub `/releases` UI ordering quirk.
+
+### Changes
+- **`hass_url` and `hass_token` moved to the end of the options form,
+  past the `identity` and `addon_lifecycle` nested blocks.** Mitigates
+  a browser password-manager autofill class of bug where a
+  `[text][password]` adjacency was getting populated with `(saved
+  username, saved password)` for an unrelated site and persisted into
+  the add-on options on save. Schema and runtime semantics unchanged;
+  only the rendering order in the HA Configuration tab moves.
+
+### Docs
+- **New `addon/DOCS.md` (rendered as the add-on's Documentation tab).**
+  Covers every option in `addon/config.yaml` (`gateway_url`,
+  `pairing_token`, `node_name`, `local_api_token`, `reset_pairing`, the
+  `identity` block, the `addon_lifecycle` block, and `hass_url` /
+  `hass_token` at the bottom) with purpose, example, default, and
+  security implications, plus the Tier A vs Tier B authorization model.
+- **DOCS: identity user configuration now documents HA usernames, not
+  raw HA user ID lookup.**
+- **DOCS: browser-autofill gotcha for `hass_url` / `hass_token`** —
+  explains the [text][password] adjacency hazard, the schema
+  mitigation above, and how to recover if autofill still strikes.
+
 ## 2026.6.20b11 (2026-06-27) — Tool-progress chunk lands on a new line after preamble text
 
 ### Fixes

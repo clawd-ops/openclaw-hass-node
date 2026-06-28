@@ -29,6 +29,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 _PEP440_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
+_PRERELEASE_RE = re.compile(r"(a|b|rc)(\d+)$")
+_PRERELEASE_CAP = 9
 
 
 @dataclass(frozen=True)
@@ -125,6 +127,15 @@ def _bump(new_version: str, sources: Iterable[VersionFile]) -> int:
         raise SystemExit(  # noqa: TRY003
             f"error: {new_version!r} does not look like a PEP 440 version "
             f"(expected e.g. 2026.6.20b7 or 2026.7.0)"
+        )
+    match = _PRERELEASE_RE.search(new_version)
+    if match and int(match.group(2)) > _PRERELEASE_CAP:
+        marker = match.group(1)
+        raise SystemExit(  # noqa: TRY003
+            f"error: {new_version!r} exceeds the {marker}{_PRERELEASE_CAP} "
+            f"prerelease cap. Roll the calendar portion forward to today and "
+            f"reset to {marker}1 instead (e.g. 2026.7.1{marker}1). "
+            f"See feedback_beta_cap_b9 in user memory."
         )
     changed: list[Path] = []
     for source in sources:

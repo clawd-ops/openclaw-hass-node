@@ -564,10 +564,13 @@ async def _handle_addon_lifecycle(
     action: str,
     desired_state: str | None,
 ) -> dict[str, Any]:
-    """Shared Tier B start/stop/restart handler."""
-    denied = _admin_token_ok(params, command)
-    if denied is not None:
-        return denied
+    """Shared Tier B start/stop/restart handler.
+
+    Authorization: the request is already authenticated by the local API
+    bearer (the established pairing session). Tier B further requires the
+    slug to be present in ``addon_lifecycle.allowlist`` (and not in any
+    denylist / not a core add-on). No separate admin token is required.
+    """
     slug = str(params.get("slug", "")).strip()
     if not slug:
         return _error("MISSING_PARAM", "slug is required")
