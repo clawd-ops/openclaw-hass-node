@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 37 commands are registered.
+OpenClaw conventions where they exist. 42 commands are registered.
 
 Addon-management commands are tiered by blast radius. Tier A
 (read-only) is on the subagent allowlist; Tier B (lifecycle) is
@@ -49,13 +49,18 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (23 commands)
+## `ha.*` — Home Assistant control (28 commands)
 
 | Command                   | Args / Notes                           |
 |---------------------------|----------------------------------------|
 | `ha.list_states`          | All entities and current state         |
 | `ha.get_state`            | `entity_id`                            |
 | `ha.list_services`        | Service catalog (REST)                 |
+| `ha.get_config`           | HA core config (REST `/api/config`)    |
+| `ha.list_events`          | Event bus listener summary (REST `/api/events`) |
+| `ha.list_config_entries`  | Config entries (REST `/api/config/config_entries/entry`) |
+| `ha.core_logs`            | `lines?` (1–5000, default 200); HA core logs via Supervisor |
+| `ha.calendar_get_events`  | `entity_id`, `start_date_time`, `end_date_time`; wraps `calendar.get_events?return_response` |
 | `ha.call_service`         | `domain`, `service`, `target?`, `data?` |
 | `ha.list_areas`           | Via WS API                             |
 | `ha.list_devices`         | Via WS API                             |

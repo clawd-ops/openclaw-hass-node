@@ -116,12 +116,15 @@ Lessons learned from that loop:
     Reinstall, which wipes `/data`, deletes the persisted device-token
     and Ed25519 identity, and forces a re-pair every release. See
     `docs/CONTRIBUTING.md`.
-19. **`gateway.nodes.allowCommands` is read at *pairing-approval time*,
-    not at every connect.** If the operator approves a device before
-    they add the addon's command list to `openclaw.json`, the gateway
-    stores an empty approved-commands set for that device and no
-    reconnect will fix it. Remediation: `openclaw devices remove
-    <deviceId>`, ensure the allowCommands patch is live, then re-pair.
+19. **`gateway.nodes.allowCommands` is part of the approved command
+    surface.** If the operator approves a node before adding the addon's
+    command list to `openclaw.json`, the gateway stores a too-small
+    approved command set. Current gateway builds can repair command
+    surface upgrades through a node pending-reapproval request: add the
+    allowCommands patch, restart/reconnect the add-on so it advertises
+    the full list, then approve the new `openclaw nodes pending` request.
+    Full remove/re-pair is the fallback only when no node reapproval
+    request can be produced or approved.
 20. **Persisted device_token must have a fallback path.** If the
     gateway evicts the device (operator-initiated remove, gateway data
     wipe, etc.), the addon would loop NOT_PAIRED forever sending the
@@ -142,14 +145,12 @@ Lessons learned from that loop:
     the request id under `openclaw nodes pending` or read
     `~/.openclaw/nodes/pending.json`). 28-command surface appeared
     immediately after the nodes-side approval landed.
-22. **`gateway.nodes.allowCommands` has `reloadKind: restart`** (verify
-    via `mcp__openclaw__gateway action=config.schema.lookup
-    path=gateway.nodes.allowCommands`). After editing the patch into
-    `openclaw.json`, restart the gateway (via
-    `mcp__openclaw__gateway action=restart` or pod-delete) **before**
-    the next pair approval — the allowlist is captured into the
-    device's stored record at approval-time. Approval before restart
-    stores an empty set; pairing then has to be removed and re-done.
+22. **`gateway.nodes.allowCommands` has `reloadKind: restart`.** After
+    editing the patch into `openclaw.json`, restart the gateway before
+    the next node approval/reapproval so the runtime allowlist includes
+    the new commands. Approval against stale runtime config stores the
+    stale command surface; fix that by reloading config, reconnecting
+    the add-on, and approving the resulting node reapproval request.
 
 ## Gateway role policy is binary — operator-scope methods need an operator connection
 
@@ -173,15 +174,20 @@ When designing anything that calls gateway RPCs from the node: check
 the method's `scope` in `core-descriptors-B9yUgJ17.js`. If it's not
 `node`, it needs an operator connection.
 
-## Gateway caches the node's advertised commands at pair time
+## Gateway caches and re-approves the node's advertised commands
 
 Discovered 2026-06-20 while shipping the Tier A addon command surface
-(b3 → b4). The gateway stores the node's advertised `commands` array in
-`~/.openclaw/nodes/paired.json` keyed by `nodeId` **at the original
-pair**. WS reconnects (even after an addon version bump) do NOT refresh
-that cached list. Newly-shipped commands therefore appear in the source,
-the dispatcher, and the node's b4 startup, but the gateway still rejects
-invocations with:
+(b3 → b4), then refined 2026-06-28 after reading the current gateway
+reconnect code. The gateway stores the approved command surface for each
+node in `~/.openclaw/nodes/paired.json` keyed by `nodeId`. Newly-shipped
+commands must be present in three places before they can be used:
+
+- `_NODE_COMMANDS` in `gateway_ws.py` so the node advertises them.
+- `commands/dispatcher.py` so the node can handle them.
+- `gateway.nodes.allowCommands` so the operator allows them.
+
+If any of those is missing, the command may appear in source or docs but
+the gateway will still reject invocations with:
 
 ```
 node command not allowed: the node (platform: linux) does not support "ha.<x>"
@@ -189,36 +195,42 @@ node command not allowed: the node (platform: linux) does not support "ha.<x>"
 
 …and the invoke never reaches the node (no log line at the addon).
 Adding the command to `nodes.allowCommands` in `~/.openclaw/openclaw.json`
-is necessary but NOT sufficient — the per-node cache wins.
+is necessary but NOT sufficient by itself.
 
-**How to refresh the cache when adding new node commands:**
+**Current path when adding new node commands:**
 
 1. Ship + release the command in the node (advertise it from
    `_NODE_COMMANDS` in `gateway_ws.py`, register the handler in
    `commands/dispatcher.py`).
 2. Add the command to `nodes.allowCommands` in the operator's gateway
    config (`~/.openclaw/openclaw.json`).
-3. Restart the addon — NOT just the gateway. `hassio.addon_restart`
-   via HA service call is enough. The gateway-tool soft restart
-   (SIGUSR1 hot-reload) does NOT re-read `paired.json` from the live
-   node. The addon's reconnect handshake is what causes the gateway to
-   rewrite the per-node `commands` cache from the fresh advertise.
-4. Verify with `mcp__openclaw__nodes action=status node=hass` — the
-   live `commands` array should now include the new entries. If it
-   doesn't, the addon image didn't pick up the latest source (HA
-   "Update" sometimes reuses a cached layer — try Rebuild).
+3. Restart the addon so it reconnects and advertises the fresh command
+   list. `hassio.addon_restart` via HA service call is enough. A gateway
+   hot reload alone does not make the old addon process advertise new
+   commands.
+4. Watch `openclaw nodes pending` / `openclaw nodes status`. Current
+   gateway builds detect a command-surface upgrade on reconnect and
+   create a node `pending-reapproval` request. Approve that request with
+   `openclaw nodes approve <requestId>`; this updates the paired node
+   record without removing the device or doing a full re-pair.
+5. Verify with `openclaw nodes status` or the `nodes` tool — the live
+   `commands` array should now include the new entries. If it doesn't,
+   the addon image didn't pick up the latest source (HA "Update"
+   sometimes reuses a cached layer — try Rebuild).
 
-Surgical workaround when you can't bounce the addon: directly edit
-`paired.json` to append the missing commands, then hot-reload the
-gateway. Brittle and drift-prone; only use if you understand why a
-proper re-handshake isn't available. The b3→b4 bring-up did this once
-and the addon restart immediately overwrote it (which was the actual
-fix).
+Surgical workaround when you can't bounce the addon or use node
+reapproval: directly edit `paired.json` to append the missing commands,
+then hot-reload the gateway. Brittle and drift-prone; only use if you
+understand why the normal reconnect/reapproval path is not available.
+The b3→b4 bring-up did this once and the addon restart immediately
+overwrote it, which proved the proper fix was the fresh addon
+advertise/reapproval path.
 
 Future-Clawd: when a Tier B / new HA-domain command lands and "the node
 does not support" shows up despite a green build and a config push,
 this is almost always why. Don't waste a session debugging the wire
-protocol — restart the addon first.
+protocol — check `_NODE_COMMANDS`, restart the addon, then approve the
+pending node reapproval.
 
 ## Known streaming edge cases (2026-06-20 audit, gateway-side root causes)
 
