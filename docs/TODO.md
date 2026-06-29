@@ -106,11 +106,11 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
 
 ### 34. Agent skill for HA node command-surface usage
-- Status: OPEN
+- Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
 - Requested: 2026-06-28 by Rob.
 - Goal: create/apply a reusable agent skill that teaches Clawd/Codex/subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
 - Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
-- Initial proposal: `ha-node-command-surface` Skill Workshop proposal created 2026-06-28. Pending approval/application.
+- Final skill: `home-assistant-node`; repo mirror lives at `skills/home-assistant-node/SKILL.md`.
 - Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
 
 ### 35. HA Assist active-chat tool usage still not visible
@@ -121,6 +121,20 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Prior attempts: #179 added structured `tool_progress` frames, #184 restored no-cap legacy text, #186 pushed per-tool-start deltas, #188 handled hidden `stream=item` tool starts, and #190 suppressed raw HTML gateway errors. The user-facing result is still not verified/fixed.
 - Next investigation: confirm the installed add-on/shim version, capture the exact HA Assist event stream for a failing turn, and identify which event path is still bypassing `ChatRelay`'s visible tool-start delta.
 - Cross-link: item #32 (show/hide config) must wait until this works; hiding broken output is not useful.
+
+### 36. Node command gaps discovered while migrating workspace HA scripts
+- Status: IMPLEMENTED-PENDING-LIVE-VALIDATION
+- Reported: 2026-06-28 during MCP sunset / workspace script migration.
+- Context: workspace scripts were moved off direct `HASS_URL` / `HASS_TOKEN` where the node command surface already supports the required read path. Calendar/event and deeper HomeOps details now report explicit gaps instead of using the old token path.
+- Implemented command coverage:
+  1. `calendar.get_events` equivalent with `return_response` semantics, so `calendar-hass-status.mjs` and `calendar-conflict-check.mjs` can fetch event lists through the node.
+  2. `/api/config` equivalent, so `homeassistant-ops-status.mjs` can report HA version/location/components through the node.
+  3. `/api/events` equivalent, so HomeOps status can report event-bus listener counts through the node.
+  4. `/api/config/config_entries/entry` equivalent, so HomeOps status can report unhealthy config entries through the node.
+  5. Home Assistant core log read equivalent, so HomeOps status can restore `core_log_attention` without direct REST.
+- Local validation: handlers, dispatcher registration, docs, and unit coverage are in place; workspace scripts now run through the HA node helper instead of `HASS_TOKEN`.
+- Remaining live gate: publish/install the updated node, restart/re-pair after `gateway.nodes.allowCommands` includes the new commands, then run the affected workspace scripts through `openclaw nodes invoke` against the connected node.
+- Acceptance: the affected workspace scripts run through `openclaw nodes invoke` / the HA node command surface by default, with no `HASS_TOKEN` path required for normal operation and no allowlist rejection for the new commands.
 
 ---
 

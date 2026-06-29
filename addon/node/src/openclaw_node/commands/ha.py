@@ -12,6 +12,11 @@ Commands in this module:
 - ``ha.list_areas``           — return all area-registry entries.
 - ``ha.list_devices``         — return all device-registry entries.
 - ``ha.list_services``        — return all service descriptions by domain.
+- ``ha.get_config``           — return HA core config.
+- ``ha.list_events``          — return event bus listener summary.
+- ``ha.list_config_entries``  — return config-entry records.
+- ``ha.core_logs``            — fetch Home Assistant core logs.
+- ``ha.calendar_get_events``  — fetch calendar events with return_response semantics.
 - ``ha.list_entity_registry`` — return all entity-registry entries.
 - ``ha.logbook``              — return logbook entries (optional entity + time window).
 - ``ha.history``              — return state history for entities (optional time window).
@@ -206,6 +211,84 @@ async def handle_ha_list_services(_params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, list):
         return _error("HA_BAD_RESPONSE", "Expected list from /api/services")
     return {"ok": True, "count": len(raw), "services": raw}
+
+
+async def handle_ha_get_config(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return Home Assistant core config from ``/api/config``."""
+    try:
+        raw = await ha_get("/api/config")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from /api/config")
+    return {"ok": True, "config": raw}
+
+
+async def handle_ha_list_events(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return Home Assistant event bus listener summary from ``/api/events``."""
+    try:
+        raw = await ha_get("/api/events")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from /api/events")
+    return {"ok": True, "count": len(raw), "events": raw}
+
+
+async def handle_ha_list_config_entries(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return Home Assistant config entries from the internal config-entry API."""
+    try:
+        raw = await ha_get("/api/config/config_entries/entry")
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, list):
+        return _error("HA_BAD_RESPONSE", "Expected list from /api/config/config_entries/entry")
+    return {"ok": True, "count": len(raw), "entries": raw}
+
+
+async def handle_ha_core_logs(params: dict[str, Any]) -> dict[str, Any]:
+    """Return Home Assistant core logs via the Supervisor API."""
+    lines_raw = params.get("lines", 200)
+    if not isinstance(lines_raw, int):
+        return _error("INVALID_PARAM", "lines must be an integer")
+    lines = max(1, min(lines_raw, 5000))
+    try:
+        body = await supervisor_get_text("/core/logs")
+    except HAClientError as exc:
+        return _to_error(exc)
+    selected = body.splitlines()[-lines:]
+    return {"ok": True, "lines": len(selected), "log": "\n".join(selected)}
+
+
+async def handle_ha_calendar_get_events(params: dict[str, Any]) -> dict[str, Any]:
+    """Call ``calendar.get_events`` and return HA's ``return_response`` payload."""
+    entity_id = params.get("entity_id")
+    if isinstance(entity_id, str):
+        entity_ids: str | list[str] = entity_id
+    elif isinstance(entity_id, list) and all(isinstance(item, str) for item in entity_id):
+        entity_ids = entity_id
+    else:
+        return _error("INVALID_PARAM", "entity_id must be a string or list of strings")
+
+    start_date_time = str(params.get("start_date_time", ""))
+    end_date_time = str(params.get("end_date_time", ""))
+    if not start_date_time:
+        return _error("MISSING_PARAM", "start_date_time is required")
+    if not end_date_time:
+        return _error("MISSING_PARAM", "end_date_time is required")
+
+    body = {
+        "entity_id": entity_ids,
+        "start_date_time": start_date_time,
+        "end_date_time": end_date_time,
+    }
+    try:
+        raw = await ha_post("/api/services/calendar/get_events?return_response", body)
+    except HAClientError as exc:
+        return _to_error(exc)
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from calendar.get_events")
+    return {"ok": True, "response": raw}
 
 
 async def handle_ha_list_entity_registry(_params: dict[str, Any]) -> dict[str, Any]:

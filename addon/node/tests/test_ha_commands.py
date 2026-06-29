@@ -16,8 +16,11 @@ from openclaw_node.commands.ha import (
     handle_ha_addon_start,
     handle_ha_addon_stats,
     handle_ha_addon_stop,
+    handle_ha_calendar_get_events,
     handle_ha_call_service,
     handle_ha_check_config,
+    handle_ha_core_logs,
+    handle_ha_get_config,
     handle_ha_get_state,
     handle_ha_history,
     handle_ha_light_turn_off,
@@ -25,8 +28,10 @@ from openclaw_node.commands.ha import (
     handle_ha_list_addons,
     handle_ha_list_areas,
     handle_ha_list_automations,
+    handle_ha_list_config_entries,
     handle_ha_list_devices,
     handle_ha_list_entity_registry,
+    handle_ha_list_events,
     handle_ha_list_services,
     handle_ha_list_states,
     handle_ha_logbook,
@@ -297,6 +302,212 @@ async def test_list_services_ha_error() -> None:
 async def test_list_services_bad_response_shape() -> None:
     with patch("openclaw_node.commands.ha.ha_get", return_value={"not": "a list"}):
         result = await handle_ha_list_services({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+# ---------------------------------------------------------------------------
+# HA operational read helpers
+# ---------------------------------------------------------------------------
+
+
+async def test_get_config_returns_config() -> None:
+    config = {"version": "2026.6.0", "location_name": "Home"}
+    with patch("openclaw_node.commands.ha.ha_get", return_value=config) as mock_get:
+        result = await handle_ha_get_config({})
+    assert result["ok"] is True
+    assert result["config"] == config
+    mock_get.assert_called_once_with("/api/config")
+
+
+async def test_get_config_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]):
+        result = await handle_ha_get_config({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_get_config_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_AUTH", "401"),
+    ):
+        result = await handle_ha_get_config({})
+    assert result["error"] == "HA_AUTH"
+
+
+async def test_list_events_returns_events() -> None:
+    events = [{"event": "state_changed", "listener_count": 50}]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=events) as mock_get:
+        result = await handle_ha_list_events({})
+    assert result["ok"] is True
+    assert result["events"] == events
+    mock_get.assert_called_once_with("/api/events")
+
+
+async def test_list_events_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500"),
+    ):
+        result = await handle_ha_list_events({})
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_list_events_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={}):
+        result = await handle_ha_list_events({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_config_entries_returns_entries() -> None:
+    entries = [{"domain": "mqtt", "state": "loaded"}]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=entries) as mock_get:
+        result = await handle_ha_list_config_entries({})
+    assert result["ok"] is True
+    assert result["entries"] == entries
+    mock_get.assert_called_once_with("/api/config/config_entries/entry")
+
+
+async def test_list_config_entries_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"not": "a list"}):
+        result = await handle_ha_list_config_entries({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_list_config_entries_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_get",
+        side_effect=HAClientError("HA_NETWORK", "boom"),
+    ):
+        result = await handle_ha_list_config_entries({})
+    assert result["error"] == "HA_NETWORK"
+
+
+async def test_core_logs_returns_tail() -> None:
+    body = "\n".join(f"line {i}" for i in range(10))
+    with patch("openclaw_node.commands.ha.supervisor_get_text", return_value=body) as mock_get:
+        result = await handle_ha_core_logs({"lines": 3})
+    assert result["ok"] is True
+    assert result["lines"] == 3
+    assert result["log"] == "line 7\nline 8\nline 9"
+    mock_get.assert_called_once_with("/core/logs")
+
+
+async def test_core_logs_invalid_lines() -> None:
+    result = await handle_ha_core_logs({"lines": "many"})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_core_logs_lines_clamped() -> None:
+    body = "\n".join(f"line {i}" for i in range(5))
+    with patch("openclaw_node.commands.ha.supervisor_get_text", return_value=body):
+        result = await handle_ha_core_logs({"lines": 999999})
+    assert result["lines"] == 5
+
+
+async def test_core_logs_supervisor_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_text",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "missing"),
+    ):
+        result = await handle_ha_core_logs({})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+async def test_calendar_get_events_requires_entity_id() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "start_date_time": "2026-06-28T00:00:00Z",
+            "end_date_time": "2026-06-29T00:00:00Z",
+        }
+    )
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_calendar_get_events_requires_start_and_end() -> None:
+    result = await handle_ha_calendar_get_events({"entity_id": "calendar.work"})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_calendar_get_events_requires_end() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "entity_id": "calendar.work",
+            "start_date_time": "2026-06-28T00:00:00Z",
+        }
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_calendar_get_events_returns_response() -> None:
+    response: dict[str, Any] = {"service_response": {"calendar.work": {"events": []}}}
+    with patch("openclaw_node.commands.ha.ha_post", return_value=response) as mock_post:
+        result = await handle_ha_calendar_get_events(
+            {
+                "entity_id": "calendar.work",
+                "start_date_time": "2026-06-28T00:00:00Z",
+                "end_date_time": "2026-06-29T00:00:00Z",
+            }
+        )
+    assert result["ok"] is True
+    assert result["response"] == response
+    mock_post.assert_called_once_with(
+        "/api/services/calendar/get_events?return_response",
+        {
+            "entity_id": "calendar.work",
+            "start_date_time": "2026-06-28T00:00:00Z",
+            "end_date_time": "2026-06-29T00:00:00Z",
+        },
+    )
+
+
+async def test_calendar_get_events_accepts_entity_list() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value={}) as mock_post:
+        result = await handle_ha_calendar_get_events(
+            {
+                "entity_id": ["calendar.work", "calendar.family"],
+                "start_date_time": "2026-06-28T00:00:00Z",
+                "end_date_time": "2026-06-29T00:00:00Z",
+            }
+        )
+    assert result["ok"] is True
+    assert mock_post.call_args.args[1]["entity_id"] == ["calendar.work", "calendar.family"]
+
+
+async def test_calendar_get_events_rejects_malformed_entity_list() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "entity_id": ["calendar.work", 1],
+            "start_date_time": "2026-06-28T00:00:00Z",
+            "end_date_time": "2026-06-29T00:00:00Z",
+        }
+    )
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_calendar_get_events_ha_error() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500"),
+    ):
+        result = await handle_ha_calendar_get_events(
+            {
+                "entity_id": "calendar.work",
+                "start_date_time": "2026-06-28T00:00:00Z",
+                "end_date_time": "2026-06-29T00:00:00Z",
+            }
+        )
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_calendar_get_events_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]):
+        result = await handle_ha_calendar_get_events(
+            {
+                "entity_id": "calendar.work",
+                "start_date_time": "2026-06-28T00:00:00Z",
+                "end_date_time": "2026-06-29T00:00:00Z",
+            }
+        )
     assert result["error"] == "HA_BAD_RESPONSE"
 
 

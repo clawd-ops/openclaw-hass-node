@@ -36,7 +36,7 @@ then the **HACS shim**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node ships 37 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node ships 42 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
 `gateway.nodes.allowCommands`:
 
@@ -52,6 +52,8 @@ its allowlist. The HA node ships 37 commands across `ha.*`, `fs.*`,
         "system.run", "system.which",
         "ha.list_states", "ha.get_state", "ha.call_service",
         "ha.list_areas", "ha.list_devices", "ha.list_services",
+        "ha.get_config", "ha.list_events", "ha.list_config_entries",
+        "ha.core_logs", "ha.calendar_get_events",
         "ha.list_entity_registry", "ha.logbook", "ha.history",
         "ha.reload_config", "ha.light_turn_on", "ha.light_turn_off",
         "ha.list_automations", "ha.check_config",
@@ -268,7 +270,7 @@ to work.
 | `AUTH_TOKEN_MISSING`                                             | Either no `pairing_token` set on first run, or the token expired before pairing was approved.    |
 | `NOT_PAIRED` after `openclaw devices approve`                    | Add-on (App) still using old pairing_token. Update to the latest add-on (app) (token now auto-persists).     |
 | `Gateway connection lost: <ws error>` (every 5s)                 | Network or `gateway_url` typo. The 5s reconnect cadence is normal.                               |
-| Connected but `openclaw nodes describe` shows `Commands: (none)` | Missing the `gateway.nodes.allowCommands` patch above — OR you approved the pairing before applying the patch. Run `openclaw devices remove <id>` and let the addon re-pair. |
+| Connected but `openclaw nodes describe` shows `Commands: (none)` or is missing newly shipped commands | Missing the `gateway.nodes.allowCommands` patch above, stale runtime config, or a node approval from before the command surface changed. Apply the allowCommands patch, restart the gateway if needed, restart/reconnect the add-on, then approve the resulting `openclaw nodes pending` reapproval request. Remove/re-pair only if reapproval cannot be produced or approved. |
 
 ## Updating
 
