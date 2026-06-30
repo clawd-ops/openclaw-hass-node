@@ -35,3 +35,14 @@ node-key
 options.json
 .worktrees/
 .claude/
+
+# Node.js / TS workspace (for plugins/* — coexists with the Python addon)
+node_modules/
+**/node_modules/
+*.tsbuildinfo
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+.eslintcache
+.turbo/
+.vite/
