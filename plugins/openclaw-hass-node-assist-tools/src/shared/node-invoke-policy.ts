@@ -40,6 +40,22 @@ function deny(
   return { ok: false, code, message };
 }
 
+async function forward(
+  ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
+): Promise<OpenClawPluginNodeInvokePolicyResult> {
+  // After the per-node policy check passes, forward the call to the node
+  // so the HA command actually executes. Returning { ok: true } without
+  // invoking the node would swallow the call.
+  if (!ctx.invokeNode) {
+    return deny(
+      "NODE_UNAVAILABLE",
+      `${ctx.command} cannot be forwarded: invokeNode is not bound on this policy context`,
+    );
+  }
+  return await ctx.invokeNode({ params });
+}
+
 async function loadPolicyForNode(
   ctx: OpenClawPluginNodeInvokePolicyContext,
 ): Promise<PerNodePolicy | undefined> {
@@ -66,7 +82,7 @@ async function enforceCallService(
   if (!decision.allowed) {
     return deny("SERVICE_DENIED", `ha.call_service denied: ${decision.reason}`);
   }
-  return { ok: true };
+  return await forward(ctx, params);
 }
 
 async function enforceReadEntity(
@@ -87,11 +103,12 @@ async function enforceReadEntity(
   if (!decision.allowed) {
     return deny("ENTITY_DENIED", `ha.get_state denied: ${decision.reason}`);
   }
-  return { ok: true };
+  return await forward(ctx, params);
 }
 
 async function enforceListStates(
   ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
   // list_states returns all entities, so per-entity allowReadEntities
   // can't be matched against an input. Require allowReadEntities to be
@@ -103,7 +120,7 @@ async function enforceListStates(
       "ha.list_states denied: no allowReadEntities configured for this node",
     );
   }
-  return { ok: true };
+  return await forward(ctx, params);
 }
 
 async function enforceCalendarGetEvents(
@@ -125,7 +142,7 @@ async function enforceCalendarGetEvents(
       `ha.calendar_get_events denied: ${entityId} not in allowCalendars`,
     );
   }
-  return { ok: true };
+  return await forward(ctx, params);
 }
 
 export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePolicy {
@@ -146,15 +163,15 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.get_state":
           return await enforceReadEntity(ctx, params);
         case "ha.list_states":
-          return await enforceListStates(ctx);
+          return await enforceListStates(ctx, params);
         case "ha.calendar_get_events":
           return await enforceCalendarGetEvents(ctx, params);
         case "ha.list_areas":
         case "ha.list_devices":
         case "ha.list_entity_registry":
           // Metadata reads (no entity payload); allow when the plugin
-          // is bound to the node.
-          return { ok: true };
+          // is bound to the node, then forward to execute.
+          return await forward(ctx, params);
         default:
           return deny(
             "COMMAND_NOT_ALLOWED",

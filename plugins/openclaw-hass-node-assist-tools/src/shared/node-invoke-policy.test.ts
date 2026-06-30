@@ -8,11 +8,18 @@ const { createAssistToolsNodeInvokePolicy } = await import(
   "./node-invoke-policy.js"
 );
 
+type InvokeNodeResult =
+  | { ok: true; payload?: unknown; details?: unknown }
+  | { ok: false; code: string; message: string; details?: unknown };
+
 type Ctx = {
   command: string;
   nodeId: string;
   params?: unknown;
   pluginConfig?: unknown;
+  invokeNode?: (opts: {
+    params: Record<string, unknown>;
+  }) => Promise<InvokeNodeResult>;
 };
 
 const nodeConfig = {
@@ -27,10 +34,17 @@ const nodeConfig = {
   },
 };
 
+function defaultInvokeNode() {
+  return vi.fn(async () => ({ ok: true, payload: { forwarded: true } }));
+}
+
 function runPolicy(ctx: Ctx) {
   const policy = createAssistToolsNodeInvokePolicy();
+  const withInvoke: Ctx = ctx.invokeNode
+    ? ctx
+    : { ...ctx, invokeNode: defaultInvokeNode() };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return policy.handle(ctx as any);
+  return policy.handle(withInvoke as any);
 }
 
 describe("createAssistToolsNodeInvokePolicy", () => {
@@ -162,5 +176,86 @@ describe("createAssistToolsNodeInvokePolicy", () => {
       pluginConfig: { nodes: { "*": { allowReadEntities: ["sensor.*"] } } },
     });
     expect(result.ok).toBe(true);
+  });
+
+  it("forwards allowed ha.call_service to ctx.invokeNode and returns its payload", async () => {
+    const invokeNode = vi.fn(async () => ({
+      ok: true as const,
+      payload: { context_id: "abc" },
+    }));
+    const result = await runPolicy({
+      command: "ha.call_service",
+      nodeId: "node-1",
+      params: { domain: "light", service: "turn_on" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+    expect(invokeNode).toHaveBeenCalledWith({
+      params: { domain: "light", service: "turn_on" },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.payload).toEqual({ context_id: "abc" });
+  });
+
+  it("forwards metadata reads (ha.list_areas) to ctx.invokeNode", async () => {
+    const invokeNode = vi.fn(async () => ({
+      ok: true as const,
+      payload: { areas: [] },
+    }));
+    const result = await runPolicy({
+      command: "ha.list_areas",
+      nodeId: "node-1",
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+  });
+
+  it("propagates ctx.invokeNode failures", async () => {
+    const invokeNode = vi.fn(async () => ({
+      ok: false as const,
+      code: "NODE_OFFLINE",
+      message: "node not connected",
+    }));
+    const result = await runPolicy({
+      command: "ha.get_state",
+      nodeId: "node-1",
+      params: { entity_id: "sensor.outdoor_temp" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("NODE_OFFLINE");
+  });
+
+  it("denies with NODE_UNAVAILABLE when ctx.invokeNode is missing on an allowed call", async () => {
+    const policy = createAssistToolsNodeInvokePolicy();
+    const result = await policy.handle(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      {
+        command: "ha.call_service",
+        nodeId: "node-1",
+        params: { domain: "light", service: "turn_on" },
+        pluginConfig: nodeConfig,
+      } as any,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("NODE_UNAVAILABLE");
+  });
+
+  it("does not invoke the node when the policy denies the call", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true as const }));
+    const result = await runPolicy({
+      command: "ha.call_service",
+      nodeId: "node-1",
+      params: { domain: "light", service: "delete" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    expect(invokeNode).not.toHaveBeenCalled();
   });
 });
