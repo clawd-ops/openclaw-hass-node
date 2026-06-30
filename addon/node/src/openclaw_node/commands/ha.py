@@ -249,7 +249,7 @@ async def handle_ha_list_config_entries(_params: dict[str, Any]) -> dict[str, An
 async def handle_ha_core_logs(params: dict[str, Any]) -> dict[str, Any]:
     """Return Home Assistant core logs via the Supervisor API."""
     lines_raw = params.get("lines", 200)
-    if not isinstance(lines_raw, int):
+    if not isinstance(lines_raw, int) or isinstance(lines_raw, bool):
         return _error("INVALID_PARAM", "lines must be an integer")
     lines = max(1, min(lines_raw, 5000))
     try:
@@ -264,18 +264,32 @@ async def handle_ha_calendar_get_events(params: dict[str, Any]) -> dict[str, Any
     """Call ``calendar.get_events`` and return HA's ``return_response`` payload."""
     entity_id = params.get("entity_id")
     if isinstance(entity_id, str):
+        if not entity_id:
+            return _error(
+                "INVALID_PARAM",
+                "entity_id must be a non-empty string or list of strings",
+            )
         entity_ids: str | list[str] = entity_id
-    elif isinstance(entity_id, list) and all(isinstance(item, str) for item in entity_id):
+    elif (
+        isinstance(entity_id, list)
+        and len(entity_id) > 0
+        and all(isinstance(item, str) and item for item in entity_id)
+    ):
         entity_ids = entity_id
     else:
-        return _error("INVALID_PARAM", "entity_id must be a string or list of strings")
+        return _error(
+            "INVALID_PARAM",
+            "entity_id must be a non-empty string or list of strings",
+        )
 
-    start_date_time = str(params.get("start_date_time", ""))
-    end_date_time = str(params.get("end_date_time", ""))
-    if not start_date_time:
+    start_raw = params.get("start_date_time")
+    end_raw = params.get("end_date_time")
+    if not isinstance(start_raw, str) or not start_raw:
         return _error("MISSING_PARAM", "start_date_time is required")
-    if not end_date_time:
+    if not isinstance(end_raw, str) or not end_raw:
         return _error("MISSING_PARAM", "end_date_time is required")
+    start_date_time = start_raw
+    end_date_time = end_raw
 
     body = {
         "entity_id": entity_ids,
