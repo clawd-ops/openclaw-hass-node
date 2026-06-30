@@ -33,18 +33,44 @@ declare module "openclaw/plugin-sdk/plugin-entry" {
     handle: (paramsJSON: string | null | undefined) => Promise<string>;
   };
 
+  export type OpenClawPluginNodeMeta = {
+    nodeId: string;
+    displayName?: string;
+    [key: string]: unknown;
+  };
+
+  export type OpenClawPluginNodeInvokeResult =
+    | { ok: true; payload?: unknown; details?: unknown }
+    | { ok: false; code: string; message: string; details?: unknown };
+
+  export type OpenClawPluginApprovalGate = {
+    request: (opts: Record<string, unknown>) => Promise<{
+      ok: boolean;
+      code?: string;
+      message?: string;
+      [key: string]: unknown;
+    }>;
+  };
+
   export type OpenClawPluginNodeInvokePolicyContext = {
     command: string;
     nodeId: string;
     params?: unknown;
+    pluginConfig?: unknown;
+    node?: OpenClawPluginNodeMeta;
+    approvals?: OpenClawPluginApprovalGate;
+    invokeNode?: (
+      opts: { params: Record<string, unknown> },
+    ) => Promise<OpenClawPluginNodeInvokeResult>;
   };
 
   export type OpenClawPluginNodeInvokePolicyResult =
-    | { ok: true }
+    | { ok: true; payload?: unknown; details?: unknown }
     | {
         ok: false;
         code: string;
         message: string;
+        details?: unknown;
         unavailable?: boolean;
       };
 
