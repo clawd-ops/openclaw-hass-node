@@ -392,6 +392,11 @@ async def test_core_logs_returns_tail() -> None:
     mock_get.assert_called_once_with("/core/logs")
 
 
+async def test_core_logs_rejects_bool_lines() -> None:
+    result = await handle_ha_core_logs({"lines": True})
+    assert result["error"] == "INVALID_PARAM"
+
+
 async def test_core_logs_invalid_lines() -> None:
     result = await handle_ha_core_logs({"lines": "many"})
     assert result["error"] == "INVALID_PARAM"
@@ -482,6 +487,50 @@ async def test_calendar_get_events_rejects_malformed_entity_list() -> None:
         }
     )
     assert result["error"] == "INVALID_PARAM"
+
+
+async def test_calendar_get_events_rejects_empty_entity_list() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "entity_id": [],
+            "start_date_time": "2026-06-28T00:00:00Z",
+            "end_date_time": "2026-06-29T00:00:00Z",
+        }
+    )
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_calendar_get_events_rejects_empty_entity_string() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "entity_id": "",
+            "start_date_time": "2026-06-28T00:00:00Z",
+            "end_date_time": "2026-06-29T00:00:00Z",
+        }
+    )
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_calendar_get_events_rejects_null_start_date_time() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "entity_id": "calendar.work",
+            "start_date_time": None,
+            "end_date_time": "2026-06-29T00:00:00Z",
+        }
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_calendar_get_events_rejects_null_end_date_time() -> None:
+    result = await handle_ha_calendar_get_events(
+        {
+            "entity_id": "calendar.work",
+            "start_date_time": "2026-06-28T00:00:00Z",
+            "end_date_time": None,
+        }
+    )
+    assert result["error"] == "MISSING_PARAM"
 
 
 async def test_calendar_get_events_ha_error() -> None:
