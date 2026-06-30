@@ -1,0 +1,16 @@
+{
+  "name": "openclaw-hass-node-workspace",
+  "private": true,
+  "type": "module",
+  "description": "Workspace root for openclaw-hass-node multi-piece bundle (Python addon + TS gateway plugin).",
+  "scripts": {
+    "typecheck": "pnpm -r --filter './plugins/*' typecheck",
+    "test": "pnpm -r --filter './plugins/*' test",
+    "lint": "pnpm -r --filter './plugins/*' lint"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

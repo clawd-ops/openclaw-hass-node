@@ -1,0 +1,64 @@
+{
+  "id": "openclaw-hass-node-assist-tools",
+  "activation": {
+    "onStartup": true
+  },
+  "enabledByDefault": false,
+  "name": "OpenClaw HA Node — Assist Tools",
+  "description": "Scoped OpenClaw tool wrappers (ha_call_service, ha_get_state, ...) that bridge HA Assist sessions to the paired openclaw-hass-node-app's command surface. Required for Assist; chat/cron/sub-agent sessions use the openclaw-hass-node-skill on top of nodes.invoke and don't need this plugin.",
+  "contracts": {
+    "tools": [
+      "ha_call_service",
+      "ha_get_state",
+      "ha_list_states",
+      "ha_calendar_get_events",
+      "ha_list_areas",
+      "ha_list_devices",
+      "ha_list_entity_registry"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodes": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ask": {
+              "type": "string",
+              "enum": ["off", "on-miss", "always"]
+            },
+            "allowServices": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Service-call patterns the plugin may invoke. Each item is a domain.service glob, e.g. 'light.*', 'switch.turn_*', 'homeassistant.update_entity'."
+            },
+            "denyServices": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Service-call patterns explicitly denied. Deny wins over allow."
+            },
+            "allowReadEntities": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Entity-id patterns ha_get_state / ha_list_states may return. Each item is an entity_id glob, e.g. 'light.*', 'sensor.living_room_*'."
+            },
+            "denyReadEntities": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Entity-id patterns explicitly hidden from reads. Deny wins."
+            },
+            "allowCalendars": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Calendar entity_ids ha_calendar_get_events may query."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,47 @@
+name: TS
+
+on:
+  pull_request:
+    paths:
+      - "plugins/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.json"
+      - ".github/workflows/ts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "plugins/**"
+      - "package.json"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.json"
+      - ".github/workflows/ts.yml"
+
+jobs:
+  typecheck:
+    name: TS Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+      - name: pnpm typecheck
+        run: pnpm -r --filter './plugins/*' typecheck
+
+  test:
+    name: TS Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+      - name: pnpm test
+        run: pnpm -r --filter './plugins/*' test
