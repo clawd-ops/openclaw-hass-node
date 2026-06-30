@@ -1,5 +1,17 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.6.29b1
+
+### Fixes
+- **Tighter input validation in `ha.core_logs` and `ha.calendar.get_events`.**
+  `core_logs` now rejects `bool` values for `lines` (Python's `bool` is a
+  subclass of `int`, so `True` previously slipped past the `isinstance` guard
+  and clamped to a 1-line tail). `calendar.get_events` rejects empty
+  `entity_id` (empty string or empty list) and rejects non-string/`None`
+  `start_date_time`/`end_date_time` (previously `str(None)` produced the
+  string `"None"`, which bypassed the `MISSING_PARAM` check and surfaced a
+  less helpful HA-side error).
+
 ## 2026.6.28b5
 
 ### Fixes
