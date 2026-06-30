@@ -1,0 +1,27 @@
+{
+  "name": "@openclaw-hass-node/assist-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "OpenClaw gateway plugin that bridges HA Assist sessions to the paired openclaw-hass-node-app command surface (ha_call_service, ha_get_state, ...).",
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    }
+  },
+  "dependencies": {
+    "minimatch": "10.2.5",
+    "typebox": "1.1.39"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "vitest": "3.0.5"
+  }
+}
