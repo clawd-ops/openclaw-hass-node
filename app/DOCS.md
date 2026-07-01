@@ -1,25 +1,25 @@
-# OpenClaw Node
+# OpenClaw HA Node — App
 
-The OpenClaw Node add-on connects this Home Assistant instance to an
+The OpenClaw HA Node — App connects this Home Assistant instance to an
 OpenClaw gateway as a remote node. It exposes a controlled filesystem,
 shell, and Home Assistant control surface to the gateway, and streams
 Assist conversation turns through node-role and operator-role
 connections.
 
-This page documents every option exposed by the add-on configuration
+This page documents every option exposed by the app configuration
 schema, plus the authorization model that governs the Home Assistant
 control surface. The manifest field reference is at
 <https://developers.home-assistant.io/docs/apps/configuration/>.
 
 ## Quick start
 
-1. Install the add-on from the OpenClaw HACS repository.
+1. Install the app from the OpenClaw HACS repository.
 2. Set `gateway_url` to the WebSocket URL of your OpenClaw gateway.
 3. Generate a pairing token from the gateway (`openclaw qr`) and paste
    it into `pairing_token`.
 4. Set `local_api_token` to a strong random value (used by the HACS
-   integration to authenticate Assist turns to the add-on).
-5. Start the add-on. After successful pairing, leave
+   integration to authenticate Assist turns to the app).
+5. Start the app. After successful pairing, leave
    `pairing_token` and `reset_pairing` alone unless you intentionally
    want to re-pair.
 
@@ -40,7 +40,7 @@ control surface. The manifest field reference is at
 ### `pairing_token`
 
 - **Purpose**: One-shot setup-code that the gateway issues for a new
-  node identity. After the first successful handshake the add-on
+  node identity. After the first successful handshake the app
   persists a long-lived device token internally and the setup-code is
   no longer required.
 - **Type**: `password` (required for the first run; may be left blank
@@ -64,14 +64,14 @@ control surface. The manifest field reference is at
 ### `local_api_token`
 
 - **Purpose**: Shared bearer token used by the in-Supervisor HACS integration
-  to authenticate Assist relay requests to this add-on's local HTTP
+  to authenticate Assist relay requests to this app's local HTTP
   API. The same value is also used to derive the HMAC subkey that
   signs the HA actor metadata forwarded on each Assist turn.
 - **Type**: `password?` (strongly recommended).
 - **Example**: `"a-long-random-string-from-openssl-rand-hex-32"`.
 - **Default**: `""`.
 - **Security**: The local API is reachable only on the Supervisor
-  add-on network (no host port mapping), but the HACS integration still
+  app network (no host port mapping), but the HACS integration still
   requires this token to talk to it. If it is unset, the actor-signing
   path is disabled and HA Assist turns degrade to anonymous role
   resolution (every caller resolves to `user`). Set this to a strong
@@ -79,7 +79,7 @@ control surface. The manifest field reference is at
 
 ### `reset_pairing`
 
-- **Purpose**: One-shot recovery toggle. When `true` on next add-on
+- **Purpose**: One-shot recovery toggle. When `true` on next app
   startup, the persisted device token is wiped while the device
   identity is kept. This lets a fresh setup-code from the *same*
   device record re-pair, which is the safe way out of an
@@ -93,7 +93,7 @@ control surface. The manifest field reference is at
 - **Advanced**: A full identity wipe (also deletes `node-key.json`,
   forcing a brand-new gateway device record) is available out-of-band
   by setting the env var `OPENCLAW_RESET_PAIRING=identity` on the
-  add-on container. The UI does not expose identity-mode because it is
+  app container. The UI does not expose identity-mode because it is
   destructive enough to warrant an explicit out-of-band step.
 
 ### `identity.super_admins`
@@ -111,14 +111,14 @@ control surface. The manifest field reference is at
   ```
 - **Default**: `[]`.
 - **Security**: These are HA usernames, not Discord or OpenClaw
-  identities. The add-on resolves them to HA user IDs at startup using
+  identities. The app resolves them to HA user IDs at startup using
   the HA `config/auth/list` WebSocket command, then compares the signed Assist
   actor user ID against the resolved set. Granting `super_admin`
   removes the per-turn
   forbidden-command guard rails for that user; keep the list short
   and intentional.
 
-If a configured username is not found at startup, the add-on logs a
+If a configured username is not found at startup, the app logs a
 warning and ignores that entry for the current run. This keeps a typo
 from blocking startup while still failing closed to the lower `admin`
 or `user` role for Assist turns.
@@ -128,7 +128,7 @@ or `user` role for Assist turns.
 - **Purpose**: Optional per-HA-user gateway agent routing. Each entry
   picks which gateway `agentId` to use on `chat.send` for the named
   HA user. The agents themselves are configured in the gateway; this
-  add-on only chooses between them.
+  app only chooses between them.
 - **Type**: list of `{ha_username: str, agent_id: str}` objects.
 - **Example**:
   ```yaml
@@ -140,7 +140,7 @@ or `user` role for Assist turns.
         agent_id: "household"
   ```
 - **Default**: `[]`.
-- **Security**: Routing only; does not grant permissions. The add-on
+- **Security**: Routing only; does not grant permissions. The app
   resolves usernames to HA user IDs at startup, then routes signed
   Assist actors by ID. Pointing a user at an agent that exposes more
   capabilities is a policy choice for the operator.
@@ -189,7 +189,7 @@ or `user` role for Assist turns.
 - **Default**: `[]` (no Tier B lifecycle action is allowed).
 - **Security**: Allowing a slug here means any caller who can
   authenticate to the local API (via `local_api_token`) and reach this
-  add-on can start/stop/restart that add-on. Only add slugs you accept
+  app can start/stop/restart that add-on. Only add slugs you accept
   the operator-side risk of remote restart for. The denylist below
   still applies on top, and `core_*` slugs are always denied.
 
@@ -219,10 +219,10 @@ or `user` role for Assist turns.
 ### `hass_url`
 
 - **Purpose**: Optional fallback URL for the Home Assistant Core API.
-  When unset, the add-on uses the Supervisor-injected
+  When unset, the app uses the Supervisor-injected
   `SUPERVISOR_TOKEN` against `http://supervisor/core`, which is the
   normal path on HassOS / Supervised installs. Set this only when
-  running the add-on stand-alone (no Supervisor) or when the
+  running the app stand-alone (no Supervisor) or when the
   Supervisor-injected token is unavailable for some reason and a
   long-lived token fallback is needed.
 - **Type**: `str?`.
@@ -250,15 +250,15 @@ If, on a later restart, you see values you did not type appear in
 string), the source is almost certainly your browser's password
 manager. A `[text-field][password-field]` pair in any HTML form will
 sometimes get auto-populated with `(saved-username, saved-password)`
-for a different site. The values get saved into the add-on options on
-form submit; nothing inside the add-on injects them.
+for a different site. The values get saved into the app options on
+form submit; nothing inside the app injects them.
 
 These two fields are placed at the very end of the options form,
 separated from the other password fields above by the `identity` and
 `addon_lifecycle` nested blocks, specifically to keep them out of any
 autofill chain. If autofill still strikes, clear both fields, save,
 and use a different browser profile (or disable the password manager
-on the HA hostname) when editing the add-on options.
+on the HA hostname) when editing the app options.
 
 ## Authorization model for the HA control surface
 
@@ -302,7 +302,7 @@ restartable remotely, leave its slug out of the allowlist.
 
 ## Related references
 
-- Home Assistant add-on configuration reference:
+- Home Assistant app configuration reference:
   <https://developers.home-assistant.io/docs/apps/configuration/>
 - Project repository:
   <https://github.com/clawd-ops/openclaw-hass-node>
