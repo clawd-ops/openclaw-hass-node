@@ -1113,9 +1113,9 @@ class ChatRelay:
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
         # key/role-shaped metadata that determines whether we capture it.
-        # This is INFO-level (not DEBUG) so it lands in the default addon
-        # log without re-deploying. Suppress the message text itself — we
-        # do not want assistant replies in logs.
+        # Lowered to DEBUG in TODO #33 (was INFO during stale-trailer race
+        # debugging; no longer needed at default log level). Suppress the
+        # message text itself — we do not want assistant replies in logs.
         msg_field_diag = payload.get("message")
         msg_role = msg_field_diag.get("role") if isinstance(msg_field_diag, dict) else None
         _LOG.debug(
