@@ -646,6 +646,178 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     if (!result.ok) expect(result.code).toBe("METADATA_DENIED");
   });
 
+  // --- timestamp smuggling regression (PR #207 v5 blocker) ---
+  it("ha.history rejects end_time smuggling `&filter_entity_id=...`", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        end_time: "2026-07-02T00:00:00&filter_entity_id=person.rob",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects start_time with whitespace/newline", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start_time: "2026-07-01T00:00:00\n&filter_entity_id=person.rob",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects start_time with slash path smuggling", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start_time: "2026-07-01T00:00:00/../states",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects malformed date (garbage)", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start_time: "yesterday",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history accepts valid ISO-8601 timestamps (Z + offset + fractional)", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: { history: [] } }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start_time: "2026-07-01T00:00:00.123Z",
+        end_time: "2026-07-02T00:00:00+00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+  });
+
+  it("ha.logbook rejects end_time smuggling delimiters", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.logbook",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        end_time: "2026-07-02T00:00:00&entity=person.rob",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.logbook accepts valid ISO-8601 start_time/end_time", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: [] }));
+    const result = await runPolicy({
+      command: "ha.logbook",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start_time: "2026-07-01T00:00:00",
+        end_time: "2026-07-02T00:00:00Z",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+  });
+
+  it("ha.history rejects Assist-shape `end` smuggling delimiters", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        end: "2026-07-02T00:00:00&filter_entity_id=person.rob",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.calendar_get_events rejects smuggled end_date_time", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.calendar_get_events",
+      nodeId: "node-1",
+      params: {
+        entity_id: "calendar.family",
+        start_date_time: "2026-07-01T00:00:00",
+        end_date_time: "2026-07-02T00:00:00&x=y",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.calendar_get_events accepts valid ISO-8601 datetimes", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: [] }));
+    const result = await runPolicy({
+      command: "ha.calendar_get_events",
+      nodeId: "node-1",
+      params: {
+        entity_id: "calendar.family",
+        start_date_time: "2026-07-01T00:00:00",
+        end_date_time: "2026-07-02T00:00:00Z",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+  });
+
   it("ha.addon_logs metadata read allowed via wildcard '*'", async () => {
     const result = await runPolicy({
       command: "ha.addon_logs",
