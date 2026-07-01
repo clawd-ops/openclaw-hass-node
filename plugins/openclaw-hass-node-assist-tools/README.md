@@ -33,25 +33,37 @@ See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full
 
 ## Status
 
-**Scaffold only.** The manifest (`openclaw.plugin.json`) declares the
-intended tool surface and per-node config schema; concrete implementations
-(TypeScript handlers in `src/`, tests, root TS infra, CI lane) land in
-follow-up commits on this branch.
+**Implemented.** 28 `ha_*` tools are registered in `index.ts` (PRs #206/#207
+landed the wrappers). The manifest (`openclaw.plugin.json`) declares the full
+tool surface and per-node config schema.
 
-## Layout (planned)
+The plugin is `enabledByDefault: false`. Operators must explicitly enable it
+and provide per-node policy configuration (allowServices, allowReadEntities,
+allowCalendars, allowAdminOps/adminToken for Tier B) before any `ha_*` tool
+is usable in Assist turns.
+
+## Layout
 
 ```
 plugins/openclaw-hass-node-assist-tools/
-├── openclaw.plugin.json     # manifest (this commit)
-├── package.json             # follow-up
-├── index.ts                 # plugin entry; registers tools + node-host commands
+├── openclaw.plugin.json     # manifest; declares all 28 tools in contracts.tools
+├── package.json
+├── index.ts                 # plugin entry; lazy-registers all 28 ha_* tools
 ├── src/
 │   ├── tools/
-│   │   ├── descriptors.ts   # TypeBox schemas + tool metadata
+│   │   ├── descriptors.ts                  # TypeBox schemas + tool metadata (28 descriptors)
 │   │   ├── ha-call-service-tool.ts
 │   │   ├── ha-get-state-tool.ts
-│   │   └── ...one file per tool
-│   ├── node-host/           # server-side handlers if any wrappers run partly on the node
-│   └── shared/              # lazy-loaders, per-node policy resolvers
+│   │   ├── ha-list-states-tool.ts
+│   │   ├── ha-calendar-get-events-tool.ts
+│   │   ├── ha-list-areas-tool.ts
+│   │   ├── ha-list-devices-tool.ts
+│   │   ├── ha-list-entity-registry-tool.ts
+│   │   ├── ha-simple-read-tools.ts         # list_services, get_config, list_events, list_config_entries, list_automations, check_config, core_logs, addon_logs, list_addons, addon_info, addon_stats, addon_changelog, addon_documentation
+│   │   ├── ha-entity-scoped-read-tools.ts  # logbook, history
+│   │   ├── ha-light-tools.ts               # light_turn_on, light_turn_off
+│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart (Tier B)
+│   └── shared/
+│       └── lazy-node-invoke-policy.ts      # per-node policy resolver
 └── README.md
 ```

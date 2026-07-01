@@ -1118,7 +1118,7 @@ class ChatRelay:
         # do not want assistant replies in logs.
         msg_field_diag = payload.get("message")
         msg_role = msg_field_diag.get("role") if isinstance(msg_field_diag, dict) else None
-        _LOG.info(
+        _LOG.debug(
             "[relay-diag] event=%r sessionKey=%r role=%r msg.role=%r "
             "runId=%r state=%r subscribed=%r reply_waiters=%r",
             event,

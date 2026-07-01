@@ -9,10 +9,15 @@ Commands the node exposes via `node.invoke`. Group prefixes match
 OpenClaw conventions where they exist. 42 commands are registered.
 
 Addon-management commands are tiered by blast radius. Tier A
-(read-only) is on the subagent allowlist; Tier B (lifecycle) is
+(read-only) is designated for subagent use; Tier B (lifecycle) is
 admin-gated; Tier C (install / uninstall / update / rebuild) is
 explicitly out of scope. Full policy + constraints in
 [`docs/design/COMMAND-TIERS.md`](../design/COMMAND-TIERS.md).
+
+Note: Tier A is designated as the subagent-safe surface, but the
+software-enforced allowlist gate at the node dispatcher is still pending
+(TODO #11 — subagent-side enforcement). Until that lands, the restriction
+is prompt-instructed via SKILL.md, not hardware-blocked.
 
 ## `ping` — liveness
 

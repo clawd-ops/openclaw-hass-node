@@ -15,6 +15,8 @@ Good fits:
 - Inspecting or editing supported config/file paths through the node.
 - Wiring agents or subagents to the Home Assistant node command surface.
 
+**Context scope:** this skill applies in chat, cron, main-session, and subagent contexts where `nodes.invoke` is available. It does NOT apply in Assist contexts (HA voice/text turns relayed through `openclaw-hass-node-app`). In Assist, `nodes.invoke` is intentionally filtered out per the OpenClaw reduced trusted surface (≥ 2026.3.31). For Assist HA operations, the operator must enable and configure the `openclaw-hass-node-assist-tools` plugin, which exposes scoped `ha_*` wrappers that work within Assist's tool filter. Subagents spawned from an Assist turn inherit Assist's tool filter and therefore cannot use this skill unless `nodes.invoke` is actually present in their context.
+
 The core rule: use `nodes.invoke` against the configured Home Assistant node, then choose the safest specific command family for the task. For normal Home Assistant work, use the node path rather than an MCP path.
 
 The node ID is deployment-specific. It may be `hass` in one environment and something else in another. Discover or confirm the node ID before invoking commands.
