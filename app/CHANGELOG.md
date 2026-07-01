@@ -1,5 +1,62 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.7.1b1
+
+### Features
+- **Assist tool bridge plugin (`openclaw-hass-node-assist-tools`) is complete.**
+  All 28 `ha.*` node commands now have scoped OpenClaw gateway-side tool
+  wrappers (`ha_call_service`, `ha_get_state`, `ha_list_states`,
+  `ha_logbook`, `ha_history`, `ha_calendar_get_events`, …) so HA Assist
+  sessions can operate the paired node without the operator-only
+  `nodes.invoke` tool. Ships as `enabledByDefault: false`; operators
+  register it in `plugins.entries` and configure a per-node policy
+  (`allowServices`, `allowReadEntities`, `allowCalendars`, optional
+  `allowAdminOps` + `adminToken`) to enable it. See PRs #205, #206, #207.
+
+### Changes
+- **Unified component naming across the four pieces.** Everything is
+  now prefixed `openclaw-hass-node-` and named for its role:
+  `openclaw-hass-node-app` (HA app), `openclaw-hass-node-assist` (HACS
+  integration), `openclaw-hass-node-assist-tools` (gateway plugin),
+  `openclaw-hass-node-skill` (companion skill). Repo directories,
+  Python packages, and skill IDs were renamed to match. See PRs #203,
+  #204, #209, #210, #211.
+- **Skill scope clarified.** `openclaw-hass-node-skill` applies in
+  chat, cron, main-session, and subagent contexts where `nodes.invoke`
+  is available. In Assist contexts (HA voice/text turns relayed through
+  `openclaw-hass-node-app`), `nodes.invoke` is filtered by OpenClaw's
+  reduced trusted surface and operators must configure the
+  `openclaw-hass-node-assist-tools` plugin instead. Subagents spawned
+  from an Assist turn inherit Assist's tool filter.
+
+### Fixes
+- **`[relay-diag]` log line moved from INFO to DEBUG.** The per-event
+  diagnostic added during stale-trailer race debugging (b1) is no longer
+  needed at INFO level and was flooding the addon log. Set the addon
+  log level to DEBUG to restore visibility if the diagnostic is needed.
+
+### Security
+- **ISO-8601 timestamp validation on `ha.calendar.get_events`.**
+  `start_date_time`/`end_date_time` are now validated as ISO-8601 before
+  being forwarded to HA, blocking a URL-smuggling class where crafted
+  strings could construct an unintended path. See PR #208.
+
+### Docs
+- Repo README, `app/DOCS.md`, and display names swept for taxonomy
+  consistency with the four-piece naming scheme (PR #212).
+- `docs/TODO.md` refreshed: item #17 (open GitHub issues) now tracks
+  #199–#202; item #35 (active-chat tool usage) updated to reflect
+  b3/b4 shipped code with #199/#200 as the remaining UX polish; item
+  #36 (node command gaps) kept OPEN pending live install/re-pair
+  validation; item #11 (MCP → node sunset) rewritten to distinguish
+  Assist-side enforcement (via the assist-tools plugin, done) from
+  subagent-side enforcement (dispatcher-level, still open).
+- `plugins/openclaw-hass-node-assist-tools/openclaw.plugin.json`
+  `contracts.tools` synced to all 28 registered tools (was declaring 7).
+- `docs/reference/COMMAND-SURFACE.md` reconciled with
+  `docs/design/COMMAND-TIERS.md`: Tier A is *designated* for subagent
+  use, but the software enforcement gate is pending TODO #11.
+
 ## 2026.6.29b1
 
 ### Fixes
