@@ -44,6 +44,47 @@ function isValidEntityId(value: string): boolean {
   return ENTITY_ID_PATTERN.test(value);
 }
 
+// HA domain / service names are lowercase alphanumeric + underscore. Reject
+// anything else — same class of bug as entity_id smuggling: without this,
+// a caller could pass `service: "restart?x"` so the deny-glob check sees
+// `homeassistant.restart?x` (misses `homeassistant.restart` denylist entry)
+// while the addon builds `/api/services/homeassistant/restart?x`, which
+// aiohttp still routes to the real `homeassistant.restart` handler.
+const DOMAIN_OR_SERVICE_PATTERN = /^[a-z0-9_]+$/;
+
+function isValidDomainOrService(value: string): boolean {
+  return DOMAIN_OR_SERVICE_PATTERN.test(value);
+}
+
+// ISO-8601 datetime, strict. Rejects anything that could smuggle URL
+// delimiters (`&`, `?`, `/`, `#`, whitespace, `%`) into the addon's URL
+// builder, which interpolates timestamps unencoded into paths and query
+// strings for ha.history / ha.logbook. Allowed shape:
+//   YYYY-MM-DDTHH:MM:SS[.fraction][Z|±HH:MM]
+// Four-digit year only (no negative or expanded years), no unicode digits.
+const ISO_8601_DATETIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+
+function isValidIso8601DateTime(value: string): boolean {
+  return ISO_8601_DATETIME_PATTERN.test(value);
+}
+
+function validateTimeParam(
+  params: Record<string, unknown>,
+  key: string,
+  commandLabel: string,
+): OpenClawPluginNodeInvokePolicyResult | undefined {
+  const raw = params[key];
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== "string" || !isValidIso8601DateTime(raw.trim())) {
+    return deny(
+      "INVALID_PARAMS",
+      `${commandLabel} ${key} must be an ISO-8601 datetime (YYYY-MM-DDTHH:MM:SS[.fff][Z|±HH:MM])`,
+    );
+  }
+  return undefined;
+}
+
 function deny(
   code: string,
   message: string,
@@ -82,6 +123,12 @@ async function enforceCallService(
   const service = readString(params, "service");
   if (!domain || !service) {
     return deny("INVALID_PARAMS", "ha.call_service requires domain and service");
+  }
+  if (!isValidDomainOrService(domain) || !isValidDomainOrService(service)) {
+    return deny(
+      "INVALID_PARAMS",
+      "ha.call_service domain and service must be lowercase [a-z0-9_]+ (no URL delimiters)",
+    );
   }
   const policy = await loadPolicyForNode(ctx);
   const decision = decideGlobPolicy({
@@ -183,6 +230,15 @@ async function enforceEntityScopedRead(
   // node.invoke must not be able to pass unvalidated `entity_ids`, so we
   // validate each id against the same per-entity globs. Passing both
   // `entity_id` and `entity_ids` is rejected as conflicting.
+  // Validate any timestamp params before touching entity globs so a
+  // smuggled `end_time: "...&filter_entity_id=person.rob"` is rejected
+  // regardless of allowReadEntities scope. Both Assist-shape (start/end)
+  // and node-shape (start_time/end_time) are accepted on the raw invoke
+  // path; both need validation.
+  for (const key of ["start", "end", "start_time", "end_time"]) {
+    const denial = validateTimeParam(params, key, ctx.command);
+    if (denial) return denial;
+  }
   const entityId = readString(params, "entity_id");
   const rawEntityIds = params.entity_ids;
   let entityIdsArray: string[] | undefined;
@@ -362,6 +418,12 @@ async function enforceCalendarGetEvents(
       "INVALID_PARAMS",
       "ha.calendar_get_events entity_id must match domain.object_id",
     );
+  }
+  // Even though the addon posts these as JSON body (not URL-interpolated),
+  // validate as defense-in-depth so a smuggled param can't reach HA raw.
+  for (const key of ["start_date_time", "end_date_time"]) {
+    const denial = validateTimeParam(params, key, ctx.command);
+    if (denial) return denial;
   }
   const policy = await loadPolicyForNode(ctx);
   const allowed = policy?.allowCalendars ?? [];
