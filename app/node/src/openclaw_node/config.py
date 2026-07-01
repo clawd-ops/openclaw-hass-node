@@ -91,7 +91,7 @@ def _is_addon_mode() -> bool:
     """Return True when running inside a Home Assistant add-on.
 
     Primary signal is the ``SUPERVISOR_TOKEN`` env var, which Supervisor
-    injects when ``hassio_api: true`` is set in ``addon/config.yaml``.
+    injects when ``hassio_api: true`` is set in ``app/config.yaml``.
 
     Fallback: HA add-on containers always get a writable ``/data`` mount
     (regardless of whether hassio_api is enabled), so an existing

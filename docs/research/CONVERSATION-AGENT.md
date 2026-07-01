@@ -5,11 +5,11 @@
 > the correct relay architecture uses `chat.send` +
 > `sessions.messages.subscribe` over the existing gateway WS. See
 > `docs/research/OPENCLAW-INTEGRATION.md` for the current design. The
-> Plan A / Plan B verdict below (HACS shim required) still stands.
+> Plan A / Plan B verdict below (HACS integration required) still stands.
 
 **Question.** Can a Home Assistant Assist "conversation agent" be registered from an HA add-on (app) (or via Supervisor / WS / REST API) WITHOUT shipping a companion `custom_components/` Python integration?
 
-**Verdict: Plan A (add-on (app) alone) is NOT viable as of HA core ~2026.6. Plan B (thin `custom_components/` shim that forwards to the add-on (app) socket) is the only realistic option.**
+**Verdict: Plan A (add-on (app) alone) is NOT viable as of HA core ~2026.6. Plan B (thin `custom_components/` integration that forwards to the add-on (app) socket) is the only realistic option.**
 
 ## Why
 
@@ -46,7 +46,7 @@ Pipelines reference a `conversation_engine` that must already resolve to a regis
 
 ### 5. 100 % of precedent ships as `custom_components/`
 
-Every conversation-agent project surveyed — `openai_conversation` and `anthropic` (core), `ollama` (core), `extended_openai_conversation`, `hasscc/ai-conversation`, `grok_conversation`, `home-llm`, `home-generative-agent`, `custom-conversation`, `hass_llm_assist` — installs as a Python integration into `custom_components/`. No project ships as add-on (app)-only. The "external conversation agent" community thread explicitly resolves to a custom_component shim. [5][8][9]
+Every conversation-agent project surveyed — `openai_conversation` and `anthropic` (core), `ollama` (core), `extended_openai_conversation`, `hasscc/ai-conversation`, `grok_conversation`, `home-llm`, `home-generative-agent`, `custom-conversation`, `hass_llm_assist` — installs as a Python integration into `custom_components/`. No project ships as add-on (app)-only. The "external conversation agent" community thread explicitly resolves to a custom_component integration. [5][8][9]
 
 ### 6. The 2025–2026 `llm` helper / `AssistAPI` does not change this
 
@@ -77,7 +77,7 @@ be the right models and cheaper."
 - **Subagents** spawned by the brain are **not pinned**. The brain picks per
   task and prefers the smallest model that works (Haiku, GPT-5.4-mini, etc.).
   The gateway is free to evolve which subagent it picks without changing the
-  shim or the node.
+  integration or the node.
 - **Node** (this repo) is the **tool runtime** for the brain: it forwards
   every turn over `node.conversation.request`, then services any number of
   `ha.*` invocations the brain issues mid-turn via the existing

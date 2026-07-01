@@ -8,7 +8,7 @@
 > preserved for emergency / out-of-band use only.
 
 The project carries the version string in five places (`pyproject.toml`,
-`addon/config.yaml`, `addon/build.yaml`, `__init__.py` fallback,
+`app/config.yaml`, `app/build.yaml`, `__init__.py` fallback,
 `custom_components/openclaw_hass_node_assist/manifest.json`) and ships through
 two ecosystems (HA Supervisor add-on, HACS custom integration).
 Cutting a release is one command, not five careful edits.
@@ -51,11 +51,11 @@ Common types: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`,
 A breaking change is marked either by `feat!:` / `fix!:` syntax or by
 a `BREAKING CHANGE:` footer in the commit body. Pre-1.0 we treat
 breaking changes as ordinary prerelease bumps but call them out in the
-`addon/CHANGELOG.md` entry so users know to read the upgrade notes.
+`app/CHANGELOG.md` entry so users know to read the upgrade notes.
 
 The current release workflow does **not** auto-generate a changelog
 from these commits — it extracts notes from a hand-written
-`addon/CHANGELOG.md` section. Conventional Commits is still the policy
+`app/CHANGELOG.md` section. Conventional Commits is still the policy
 because it keeps the history machine-readable for future tooling and
 makes manual changelog drafting fast.
 
@@ -83,10 +83,10 @@ the rest.
 
 The five files are:
 
-- `addon/config.yaml`
-- `addon/build.yaml`
-- `addon/node/pyproject.toml`
-- `addon/node/src/openclaw_node/__init__.py`
+- `app/config.yaml`
+- `app/build.yaml`
+- `app/node/pyproject.toml`
+- `app/node/src/openclaw_node/__init__.py`
 - `custom_components/openclaw_hass_node_assist/manifest.json`
 
 Hand-editing them is how drift happens. Use the script:
@@ -110,7 +110,7 @@ gate, you can't merge inconsistent versions.
 
 ### Step 2 — add the CHANGELOG entry, open + merge the release PR
 
-Add a section to `addon/CHANGELOG.md` for the new version. The heading
+Add a section to `app/CHANGELOG.md` for the new version. The heading
 format matters because the release workflow extracts notes by parsing
 this file:
 
@@ -135,7 +135,7 @@ itself) changes. It:
 1. Reads the current synced version via `scripts/bump-version.py --get`.
 2. Skips if a matching `v<version>` git tag already exists
    (idempotent — safe to re-trigger).
-3. Extracts the `addon/CHANGELOG.md` section matching this version
+3. Extracts the `app/CHANGELOG.md` section matching this version
    (heading line like `## 2026.6.20b8 (...)`). Falls back to a stub
    if no matching section is found.
 4. Creates the tag and a GitHub release with those notes. Versions
@@ -147,8 +147,8 @@ not from `main`, so this is what users actually see.
 
 ## What HA Supervisor and HACS read
 
-- **HA Supervisor (add-on)** reads `addon/CHANGELOG.md` directly
-  (`addon/config.yaml` does not set a `changelog` URL key, so the
+- **HA Supervisor (add-on)** reads `app/CHANGELOG.md` directly
+  (`app/config.yaml` does not set a `changelog` URL key, so the
   in-repo file is rendered). The user opens the add-on's
   Documentation / Changelog tab from Settings → Add-ons.
 - **HACS (integration)** renders the repo `README.md` on the
@@ -171,7 +171,7 @@ git push origin v2026.6.20b8
 gh release create v2026.6.20b8 \
   --title "2026.6.20b8 — <line from CHANGELOG>" \
   --prerelease \
-  --notes "$(awk '/^## 2026\.6\.20b8/{flag=1;next}/^## /{flag=0}flag' addon/CHANGELOG.md)"
+  --notes "$(awk '/^## 2026\.6\.20b8/{flag=1;next}/^## /{flag=0}flag' app/CHANGELOG.md)"
 ```
 
 If you find yourself running this regularly, fix the workflow instead.

@@ -62,7 +62,7 @@ _PENDING_RUN_ID: Final[str] = "__pending_chat_send_ack__"
 #
 # CRITICAL: the keepalive is yielded as a distinct sentinel
 # (StreamKeepalive), NOT as an assistant-text chunk. http_api wraps it
-# as a `{"keepalive": true}` NDJSON frame and the HA shim ignores
+# as a `{"keepalive": true}` NDJSON frame and the HA integration ignores
 # those frames when accumulating the assistant content. If we yielded
 # keepalives as text they would be persisted as part of the saved
 # assistant message in HA's conversation log — Codex review #129
@@ -71,10 +71,10 @@ _STREAM_FIRST_KEEPALIVE_S: Final[float] = 8.0
 _STREAM_KEEPALIVE_INTERVAL_S: Final[float] = 15.0
 _STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
 
-# Capability token that the HACS shim sends in the ``client_caps`` body
+# Capability token that the HACS integration sends in the ``client_caps`` body
 # field to opt in to ``tool_progress`` frames instead of the legacy
-# textual ``🔧 Calling X...`` delta.  The shim advertises this per-request
-# (not at handshake time) because the shim speaks HTTP, not WS.
+# textual ``🔧 Calling X...`` delta.  The integration advertises this per-request
+# (not at handshake time) because the integration speaks HTTP, not WS.
 #
 # Cap semantics:
 #   - No cap → keep legacy textual ``🔧 Calling X...`` delta (current
@@ -88,7 +88,7 @@ class StreamKeepalive:
     """Sentinel yielded by ChatRelay.stream_turn to request a keepalive.
 
     Transport-only — http_api emits ``{"keepalive": true}`` on the
-    wire when this is yielded, and the HA shim skips those frames
+    wire when this is yielded, and the HA integration skips those frames
     when accumulating the assistant reply so they never appear in
     the saved message.
     """
@@ -108,14 +108,14 @@ class ToolProgressFrame:
     delta is suppressed entirely — no dual emit.
 
     Protocol fields mirror the ``tool_progress`` NDJSON frame the HTTP API
-    sends to the shim::
+    sends to the integration::
 
         {"tool_progress": true, "phase": "start"|"end",
          "name": "<tool>", "id": "<opaque>", "seq": <int>}
 
     ``id`` is the opaque tool-call ID from the gateway event (may be empty).
     ``seq`` is a monotonic counter incremented on every tool start event
-    within a turn; the shim uses it to guard against out-of-order ``end``
+    within a turn; the integration uses it to guard against out-of-order ``end``
     clearing: if the incoming ``seq`` on an ``end`` frame is less than the
     ``seq`` of the current active tool, the clear is skipped.
     """
@@ -231,7 +231,7 @@ class ChatRelay:
         # Per-turn metadata for the ``tool-progress-frames`` cap path.
         # ``_tool_progress_seq`` is a monotonic counter of tool-start events
         # for the current turn; it is embedded in every ToolProgressFrame so
-        # the shim can detect out-of-order ``end`` frames.
+        # the integration can detect out-of-order ``end`` frames.
         # ``_active_tool_id`` stores the opaque id from the gateway event
         # (may be empty) so ``end`` frames can gate their clear on id-match
         # when an id is present, or fall back to name-match otherwise.
@@ -267,7 +267,7 @@ class ChatRelay:
         Assist read timeout this iterator also yields ``StreamKeepalive``
         sentinels to signal "transport-only keepalive needed" — the
         http wire layer converts those into ``{"keepalive": true}``
-        NDJSON frames that the HA shim ignores when accumulating the
+        NDJSON frames that the HA integration ignores when accumulating the
         assistant reply. Keepalives are NOT user-visible content.
 
         Capability negotiation (``client_caps``):
@@ -565,7 +565,7 @@ class ChatRelay:
                     else:
                         # Yield the transport-only sentinel. http_api
                         # converts to a `{"keepalive": true}` NDJSON
-                        # frame that the HA shim skips for accumulation
+                        # frame that the HA integration skips for accumulation
                         # — the user-visible assistant reply is NOT
                         # affected by keepalives.
                         yield _STREAM_KEEPALIVE
@@ -1094,7 +1094,7 @@ class ChatRelay:
                             seq_ok = end_seq >= active_seq
                             if (id_match or both_idless_name_match) and seq_ok:
                                 # Emit end frame with the seq of the tool being
-                                # cleared so the shim can correlate start↔end.
+                                # cleared so the integration can correlate start↔end.
                                 q = self._delta_queues.get(tool_canonical_key)
                                 if q is not None:
                                     q.put_nowait(

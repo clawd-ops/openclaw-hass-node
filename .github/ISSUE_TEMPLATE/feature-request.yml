@@ -27,9 +27,11 @@ body:
     attributes:
       label: Area
       options:
-        - Add-on / packaging
+        - App / packaging (openclaw-hass-node-app)
         - Node command surface (fs.* / system.* / ha.*)
+        - HACS integration (openclaw-hass-node-assist)
+        - Gateway plugin (openclaw-hass-node-assist-tools)
+        - Companion skill (openclaw-hass-node-skill)
         - Assist conversation relay
-        - HACS shim
         - Docs
         - Other

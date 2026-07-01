@@ -207,19 +207,19 @@ operator-scope method (see P5.12 post-mortem below).
 End-to-end flow:
 
 ```
-HA Assist → ConversationEntity shim → node /v1/conversation
+HA Assist → ConversationEntity integration → node /v1/conversation
          → node ChatRelay calls `chat.send` on its OPERATOR WS
          → OpenClaw routes the message to the configured agent (Clawd)
          → agent calls ha.* tools via node.invoke on the NODE WS (P4)
          → agent reply arrives on the session
          → node receives it via sessions.messages.subscribe (operator WS)
          → /v1/conversation returns the reply text
-         → shim surfaces it as Assist speech
+         → integration surfaces it as Assist speech
 ```
 
 Three pieces, only one of which is bespoke:
 
-1. **HACS shim** (`custom_components/openclaw_hass_node_assist/`, ~150 LOC).
+1. **HACS integration** (`custom_components/openclaw_hass_node_assist/`, ~150 LOC).
    `ConversationEntity` subclass whose `async_process` POSTs to the
    add-on (app)'s local HTTP endpoint. Distributed via HACS. Required by HA
    core because conversation-agent registration is in-process Python
@@ -311,8 +311,8 @@ Process (Conventional Commits, cross-provider review) lives in
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md). CI gates (mypy strict,
 ruff, pytest coverage ≥95%, bandit, pip-audit, addon smoke build)
 live in [`../operations/QUALITY.md`](../operations/QUALITY.md). Both
-the node and the HACS shim are Python 3.13+ (HA core requires Python
-for the shim; the node aligns to remove a build chain).
+the node and the HACS integration are Python 3.13+ (HA core requires Python
+for the integration; the node aligns to remove a build chain).
 
 ## Resolved design questions (historical)
 
@@ -320,7 +320,7 @@ The four early design questions that shaped this plan are documented
 in the research folder; their resolutions are baked into the
 architecture above:
 
-- Conversation-agent registration → HACS shim required ([`../research/CONVERSATION-AGENT.md`](../research/CONVERSATION-AGENT.md)).
+- Conversation-agent registration → HACS integration required ([`../research/CONVERSATION-AGENT.md`](../research/CONVERSATION-AGENT.md)).
 - agent-bridge connectivity → gateway brokers ([`../research/AGENT-BRIDGE-CONNECTIVITY.md`](../research/AGENT-BRIDGE-CONNECTIVITY.md)).
 - MCP retirement criteria → 7 days of zero unhandled `mcp__homeassistant*` + written inventory ([`../research/MIGRATION.md`](../research/MIGRATION.md)).
 - Versioning → date-based `YYYY.M.PATCH` (now expressed as `2026.6.20bN` pre-1.0).
@@ -337,7 +337,7 @@ Current open work is in [`../TODO.md`](../TODO.md); current shipped state is in 
 
 ### Language
 
-Python 3.13+ for both packages (node + HACS shim). See
+Python 3.13+ for both packages (node + HACS integration). See
 [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for the CI gates (ruff check
 + format, mypy strict, pytest with branch coverage).
 
@@ -347,7 +347,7 @@ Python 3.13+ for both packages (node + HACS shim). See
 openclaw-hass-node/
 ├── README.md
 ├── repository.yaml                  # HA add-on store descriptor
-├── hacs.json                        # HACS descriptor for the shim
+├── hacs.json                        # HACS descriptor for the integration
 ├── docs/
 │   ├── README.md                    # docs site landing page
 │   ├── INSTALL.md / STATUS.md / TODO.md / CONTRIBUTING.md / MEMORY.md
@@ -355,7 +355,7 @@ openclaw-hass-node/
 │   ├── reference/                   # COMMAND-SURFACE, HA-CONFIG-EDITING, BACKUPS
 │   ├── operations/                  # RELEASE, QUALITY, UAT-PLAN, LESSONS
 │   └── research/                    # historical design rationale
-├── addon/                           # Build context for Supervisor
+├── app/                           # Build context for Supervisor
 │   ├── config.yaml                  # HA add-on manifest
 │   ├── Dockerfile                   # HA per-arch Python base
 │   ├── build.yaml                   # Per-arch BUILD_FROM + labels
@@ -377,7 +377,7 @@ openclaw-hass-node/
 │       │   └── commands/            # Command registry + handlers
 │       └── tests/
 └── custom_components/
-    └── openclaw_hass_node_assist/            # HACS integration (conversation shim)
+    └── openclaw_hass_node_assist/            # HACS integration (conversation integration)
         ├── __init__.py
         ├── manifest.json
         ├── config_flow.py
@@ -388,7 +388,7 @@ openclaw-hass-node/
 
 ### Add-on `config.yaml`
 
-Canonical source: `addon/config.yaml`. Current shipped shape:
+Canonical source: `app/config.yaml`. Current shipped shape:
 
 ```yaml
 name: OpenClaw Node
@@ -427,7 +427,7 @@ Supervisor add-on network by default. The local API is fail-closed:
 non-public paths require `Authorization: Bearer <local_api_token>`.
 When the option is unset, those paths return `401 NO_TOKEN_CONFIGURED`.
 Only `/health`, `/v1/health`, and `/v1/conversation/info` are reachable
-without a token (HA add-on probe + HACS shim config-flow discovery).
+without a token (HA add-on probe + HACS integration config-flow discovery).
 Health responses redact identity details to counts/booleans so public
 probes cannot enumerate HA user UUIDs, agent mappings, lifecycle
 allowlists, or forbidden-command contents.
@@ -440,7 +440,7 @@ set via `BUILD_FROM` in `build.yaml`. Supervisor requires these HA
 base images; a bare `python:3.13-alpine` is silently ignored by
 Supervisor and causes a `pip: not found` failure.
 
-The HA base image is also required by `addon/run.sh`, which uses
+The HA base image is also required by `app/run.sh`, which uses
 `#!/usr/bin/with-contenv sh` to pick up Supervisor's injected env
 (notably `SUPERVISOR_TOKEN`). Bare Python images do not ship
 s6-overlay / `with-contenv` and the addon will not start.

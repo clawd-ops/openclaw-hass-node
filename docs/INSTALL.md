@@ -20,7 +20,7 @@
 
 End-to-end setup to get Home Assistant talking to your OpenClaw gateway.
 Three pieces install in order: **gateway-side config**, then the **HA add-on (app)**,
-then the **HACS shim**.
+then the **HACS integration**.
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ then the **HACS shim**.
   builds locally on-device on first install.
 - Network reachability: the HA host must be able to reach the
   gateway's WSS URL.
-- HACS installed in HA — for the conversation-entity shim.
+- HACS installed in HA — for the conversation-entity integration.
 
 ## 1. OpenClaw gateway: allowlist the node commands
 
@@ -129,11 +129,11 @@ stored approved-commands stays empty and you'll have to
    - `local_api_token` **(required)**: any opaque random string
      (e.g. `openssl rand -hex 32`). The local HTTP API is fail-closed:
      when this is empty, every non-public path returns
-     `401 NO_TOKEN_CONFIGURED` and the HACS shim cannot reach the
+     `401 NO_TOKEN_CONFIGURED` and the HACS integration cannot reach the
      node. Public paths (`/health`, `/v1/health`,
      `/v1/conversation/info`) stay open so HA's health probes and the
-     shim's config-flow discovery still work. **Paste the same value
-     into the HACS shim config flow** (step 4) so the integration can
+     integration's config-flow discovery still work. **Paste the same value
+     into the HACS integration config flow** (step 4) so the integration can
      authenticate.
    - `hass_url` *(optional)*: HA base URL fallback. Leave blank in
      normal Supervisor installs — the node hits `http://supervisor/core`
@@ -156,7 +156,7 @@ stored approved-commands stays empty and you'll have to
        the gateway default.
      - `forbidden_commands`: advanced per-role `add`/`remove` prompt
        policy patches as a JSON string.
-     HA actor metadata is signed by the HACS shim with a key derived
+     HA actor metadata is signed by the HACS integration with a key derived
      from `local_api_token`; there is no separate actor-signing secret
      to paste. If `local_api_token` is not configured, the local API is
      fail-closed and Assist turns cannot use identity routing.
@@ -200,7 +200,7 @@ the add-on (app) persists it to `/data/openclaw/device-token` and reuses it
 on every restart. **You don't need to re-paste `pairing_token` after the
 first successful pairing** — it's consumed.
 
-## 4. HACS shim: install + bind
+## 4. HACS integration: install + bind
 
 1. HACS → Integrations → Custom repositories → add this repo URL,
    category Integration.
@@ -216,7 +216,7 @@ first successful pairing** — it's consumed.
    - **API token** **(required)**: paste the same `local_api_token`
      you set in the add-on config (step 2). The field renders as a
      password. The local API is fail-closed; if you skip this, the
-     shim will get `401 NO_TOKEN_CONFIGURED` on every Assist turn.
+     integration will get `401 NO_TOKEN_CONFIGURED` on every Assist turn.
 5. Settings → **Voice assistants** → set OpenClaw HA Node — Assist as the
    conversation agent for whichever assistant you want.
 
@@ -282,7 +282,7 @@ device token persists across restarts; you do not need to re-pair.
 
 Standalone Docker — running the addon image outside Home Assistant
 Supervisor — is **not a supported install path during the pre-1.0
-beta**. The runtime entrypoint (`addon/run.sh`) uses
+beta**. The runtime entrypoint (`app/run.sh`) uses
 `#!/usr/bin/with-contenv sh`, which only resolves inside an HA
 base-python image. Bare `python:3.13-alpine` and other non-HA bases
 will not start.

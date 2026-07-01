@@ -38,7 +38,7 @@ explicitly out of scope. Full policy + constraints in
 
 All filesystem commands are scoped to the add-on's allowed roots
 (`/config`, `/share`, `/media` in add-on mode, matching the `map:`
-entries in `addon/config.yaml`; configurable via `OPENCLAW_ALLOWED_ROOTS`
+entries in `app/config.yaml`; configurable via `OPENCLAW_ALLOWED_ROOTS`
 in standalone mode). Path traversal and symlink escape are blocked by
 `safe_fd.py`.
 

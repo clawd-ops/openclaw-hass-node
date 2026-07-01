@@ -10,7 +10,7 @@ without a rename.
 
 | Name                                  | Role                                                              | Lives at (today)                                                 |
 |---------------------------------------|-------------------------------------------------------------------|------------------------------------------------------------------|
-| `openclaw-hass-node-app`              | The Home Assistant **app** (formerly "add-on"). Python service that runs in the HA Supervisor and exposes the `ha.*` / `fs.*` / `system.*` node command surface over the gateway WebSocket. | This repo, `addon/` directory (kept as-is for now to avoid churning install paths). |
+| `openclaw-hass-node-app`              | The Home Assistant **app** (formerly "add-on"). Python service that runs in the HA Supervisor and exposes the `ha.*` / `fs.*` / `system.*` node command surface over the gateway WebSocket. | This repo, `app/` directory (renamed from `addon/` on 2026-07-01). |
 | `openclaw-hass-node-assist`           | The HACS **integration**. Registers the OpenClaw conversation entity inside HA core and proxies turns to the app over HTTP. The piece that makes Assist see "OpenClaw HA Node — Assist" as a selectable conversation agent. | This repo, `custom_components/openclaw_hass_node_assist/`. HACS domain: `openclaw_hass_node_assist`. |
 | `openclaw-hass-node-assist-tools`     | The OpenClaw **gateway plugin**. Declares scoped tools (`ha_call_service`, `ha_get_state`, etc.) that wrap `ha.*` / `fs.*` node commands so Assist sessions can operate the bound HA node. **Assist-only**: every other OC session (chat, cron, sub-agent) has the operator-only `nodes.invoke` tool and uses the `openclaw-hass-node-skill` skill on top of it. | This repo, `plugins/openclaw-hass-node-assist-tools/` (new). |
 | `openclaw-hass-node-skill`            | The companion **skill** used by every non-Assist session (chat, cron, sub-agent) to drive `ha.*` / `fs.*` via `nodes.invoke`. | This repo, `skills/openclaw-hass-node-skill/`. |
@@ -19,10 +19,11 @@ without a rename.
 
 Home Assistant has shifted terminology from "add-on" toward "app" in newer
 docs and UI. We adopt `-app` for the role suffix to track upstream language.
-The on-disk directory keeps its existing `addon/` name for now to avoid
-churning install paths, build scripts, and CI lanes; the rename happens when
-there's a natural reason to touch those paths. (This is independent of HACS
-— HACS is just the distribution channel for the `-assist` integration.)
+The on-disk directory was renamed from `addon/` to `app/` on 2026-07-01 to
+match. Existing installs must reinstall the app under the new Supervisor
+build path — clean break, no back-compat alias (per the alpha-project rule).
+This is independent of HACS — HACS is just the distribution channel for the
+`-assist` integration.
 
 ## Why `-assist` and not `-integration`
 

@@ -72,7 +72,7 @@ current state.
 - [`research/AGENT-BRIDGE-CONNECTIVITY.md`](research/AGENT-BRIDGE-CONNECTIVITY.md)
   — why the node goes through the gateway, not direct to agent-bridge.
 - [`research/CONVERSATION-AGENT.md`](research/CONVERSATION-AGENT.md) —
-  why the HACS shim is required (HA core constraint on
+  why the HACS integration is required (HA core constraint on
   conversation-agent registration).
 - [`research/OPENCLAW-INTEGRATION.md`](research/OPENCLAW-INTEGRATION.md)
   — P5.11 postmortem that killed the parallel-brain direction.
@@ -85,7 +85,7 @@ current state.
 
 | Fact that changes | Canonical doc |
 |---|---|
-| Current shipped version | `addon/config.yaml` + `addon/build.yaml` (code is the source); [`STATUS.md`](STATUS.md) references it. |
+| Current shipped version | `app/config.yaml` + `app/build.yaml` (code is the source); [`STATUS.md`](STATUS.md) references it. |
 | Current state (what works end-to-end) | [`STATUS.md`](STATUS.md) |
 | Command list / counts | [`reference/COMMAND-SURFACE.md`](reference/COMMAND-SURFACE.md) |
 | Tier A/B/C policy | [`design/COMMAND-TIERS.md`](design/COMMAND-TIERS.md) |
@@ -107,9 +107,9 @@ to users in places `docs/` cannot reach and have to stay in sync.
 | File | What it controls | When it needs updating |
 |---|---|---|
 | `README.md` (repo root) | GitHub landing page; HACS surfaces it on the integration detail page. | Whenever a user-facing fact changes. Keep it self-contained. |
-| `addon/config.yaml` `description:` | Text HA Supervisor renders in the addon list and detail page. | When the addon's user-facing pitch changes. No internal jargon. |
-| `addon/CHANGELOG.md` | Per-release notes the release workflow extracts; HA Supervisor renders in the addon's Changelog tab. | Add a `## <version> (date) — title` section as part of every release PR. |
-| Five version sources (`addon/config.yaml`, `addon/build.yaml`, `addon/node/pyproject.toml`, `addon/node/src/openclaw_node/__init__.py`, `custom_components/openclaw_hass_node_assist/manifest.json`) | The version string. Drift fails CI. | Always together via `scripts/bump-version.py <version>`. Never hand-edited. |
+| `app/config.yaml` `description:` | Text HA Supervisor renders in the addon list and detail page. | When the addon's user-facing pitch changes. No internal jargon. |
+| `app/CHANGELOG.md` | Per-release notes the release workflow extracts; HA Supervisor renders in the addon's Changelog tab. | Add a `## <version> (date) — title` section as part of every release PR. |
+| Five version sources (`app/config.yaml`, `app/build.yaml`, `app/node/pyproject.toml`, `app/node/src/openclaw_node/__init__.py`, `custom_components/openclaw_hass_node_assist/manifest.json`) | The version string. Drift fails CI. | Always together via `scripts/bump-version.py <version>`. Never hand-edited. |
 | `custom_components/openclaw_hass_node_assist/manifest.json` `name` | Integration name in HA's Integrations list. | When you rename the integration. |
 | `custom_components/openclaw_hass_node_assist/strings.json` | Config-flow UI copy. | When you change a config-flow field. |
 | `hacs.json` `name` | Title in the HACS catalog. | When the HACS-listed title changes. |

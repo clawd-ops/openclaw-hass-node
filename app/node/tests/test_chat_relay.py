@@ -577,7 +577,7 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
     """reset() mid-stream must raise DISCONNECTED, not finish cleanly.
 
     A clean iterator close would let the http_api layer emit
-    ``{"done": true}``, which the HACS shim treats as a successful turn —
+    ``{"done": true}``, which the HACS integration treats as a successful turn —
     so a gateway disconnect would silently commit the partial reply as a
     finished assistant message. Reset must surface as an error.
     """

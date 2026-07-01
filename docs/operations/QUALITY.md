@@ -6,9 +6,9 @@
 ## Language
 
 - **Python 3.13+** for both the node and the `custom_components/`
-  shim. Matches HA's runtime and lets the same engineers swap
+  integration. Matches HA's runtime and lets the same engineers swap
   between the two without context switching. The conversation-agent
-  shim has to be Python anyway (it imports from HA core); aligning
+  integration has to be Python anyway (it imports from HA core); aligning
   the add-on (app) rules out an extra build chain.
 - `pyproject.toml` for both packages. `src/` layout. `uv` for
   dependency management (fast, reproducible lockfiles).
@@ -74,7 +74,7 @@ def fs_patch(path: str, patch: str, proposal_id: str) -> PatchResult:
 - Every new module ships with its tests in the same PR; "tests later"
   is not a valid review state.
 - HA-touching integration tests use `pytest-homeassistant-custom-component`
-  to spin up a real HA test harness for the shim.
+  to spin up a real HA test harness for the integration.
 
 ## Lint and format
 
@@ -100,14 +100,14 @@ green:
 1. `lint` — `ruff check`, `ruff format --check`, `pydoclint`.
 2. `typecheck` — `mypy --strict` + `pyright --strict`.
 3. `test-node` — pytest with branch coverage on `node/`.
-4. `test-shim` — pytest with branch coverage on
+4. `test-integration` — pytest with branch coverage on
    `custom_components/openclaw_hass_node_assist/`, using
    `pytest-homeassistant-custom-component`.
 5. `coverage-gate` — fails if total branch coverage on shipped code
    drops below 95 %.
 6. `security` — `bandit`, `pip-audit`.
 7. `docs-build` — markdown lint + dead-link check on `docs/`.
-8. `addon-build` — HA add-on (app) build for `amd64`, `aarch64`, `armv7`
+8. `app-smoke` — HA app (add-on) build for `amd64`, `aarch64`, `armv7`
    via the official `home-assistant/builder` action (smoke build,
    not published).
 9. `cross-review` — when the PR is opened by the Claude generator

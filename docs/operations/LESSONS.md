@@ -8,9 +8,9 @@
 ## Addon / build
 
 1. **Supervisor's build context is the addon folder, not the repo root.**
-   Dockerfile `COPY` paths must resolve against `addon/`. Concretely:
-   `COPY node /opt/...` works only because `node/` lives at `addon/node/`.
-   `COPY addon/run.sh /run.sh` does NOT work — `addon/` is the context.
+   Dockerfile `COPY` paths must resolve against `app/`. Concretely:
+   `COPY node /opt/...` works only because `node/` lives at `app/node/`.
+   `COPY app/run.sh /run.sh` does NOT work — `app/` is the context.
 2. **`image:` in `config.yaml` makes Supervisor pull, not build.** If we
    set `image: ghcr.io/...{arch}` with no published images, Supervisor
    404s on the pull and surfaces a useless "unknown error" dialog. Leave
@@ -19,8 +19,8 @@
    `python:3.13-alpine` is silently ignored and Supervisor falls back to
    `*-base` (no Python). Use
    `ghcr.io/home-assistant/{arch}-base-python:3.13-alpine3.20`.
-4. **CI's addon-smoke job must use `docker build addon`, not `docker
-   build -f addon/Dockerfile .`.** The latter passes if the Dockerfile
+4. **CI's app-smoke job must use `docker build app`, not `docker
+   build -f app/Dockerfile .`.** The latter passes if the Dockerfile
    compiles but lies about whether Supervisor's invocation will work.
    The former mirrors Supervisor exactly.
 
@@ -108,10 +108,10 @@ Lessons learned from that loop:
 
 16. **`gateway.nodes.allowCommands`** (see lesson 9) is required to
     surface our commands. Documented in `INSTALL.md` § 1.
-17. **Add-on (App) options reach the Python process via `addon/run.sh`** which
+17. **Add-on (App) options reach the Python process via `app/run.sh`** which
     reads `/data/options.json` and exports each key as an env var
     (uppercased). When adding a new option, update `run.sh` too.
-18. **Bump `addon/config.yaml` `version:` on every release.** Otherwise
+18. **Bump `app/config.yaml` `version:` on every release.** Otherwise
     HA Supervisor never offers Update; users must Uninstall →
     Reinstall, which wipes `/data`, deletes the persisted device-token
     and Ed25519 identity, and forces a re-pair every release. See
@@ -300,7 +300,7 @@ What that looks like in practice:
 - **Pre-merge code review** — still required for every non-trivial
   diff (see `feedback_codex_reviews_use_cli` in the workspace memory).
 - **Plan agent for fan-out investigations** — when a TODO item touches
-  multiple subsystems (e.g. addon + gateway + shim), dispatch a Plan
+  multiple subsystems (e.g. addon + gateway + integration), dispatch a Plan
   subagent (sonnet-4-6 or gpt-5.5) with a file-path-anchored prompt
   and a sharp output spec (< 800 words, no code, file:line evidence).
   Used for #4/#9/#10 and #2 — both produced concrete merge plans that
@@ -337,7 +337,7 @@ add-on UI was the only working path.
 Fixed in PR #156: `.github/workflows/release-on-version-bump.yml`
 now creates the tag + GitHub release automatically when a push to
 `main` bumps the five tracked version files, with notes extracted
-from `addon/CHANGELOG.md`. The lesson — "release PR merged ≠ release
+from `app/CHANGELOG.md`. The lesson — "release PR merged ≠ release
 cut" — is no longer a live trap on the happy path; it's preserved
 here as the reason the workflow exists.
 
@@ -357,7 +357,7 @@ gh release create v2026.6.20bN \
 
 The 2026-06-20 doc-cleanup sweep stripped phase IDs (`P5.13`, `P3.x`,
 etc.) from everything in `docs/` and `README.md` — but missed
-`addon/config.yaml`'s `description:` block, which is the text HA
+`app/config.yaml`'s `description:` block, which is the text HA
 Supervisor renders in the addon list and detail page. Caught by Rob
 post-merge. Both the planner subagent and the post-merge verifier
 restricted their scope to `docs/` and the top-level README.
@@ -366,8 +366,8 @@ Before treating a doc sweep as complete, scan ALL of these for the
 same staleness patterns:
 
 - `README.md` and everything under `docs/` (the obvious ones)
-- `addon/config.yaml` — `description:` field; rendered by Supervisor
-- `addon/build.yaml` labels (rarely user-visible but worth a glance)
+- `app/config.yaml` — `description:` field; rendered by Supervisor
+- `app/build.yaml` labels (rarely user-visible but worth a glance)
 - `custom_components/openclaw_hass_node_assist/manifest.json` — `name` field;
   shown in HA Integrations list. (As of 2026-06-20 the manifest reads
   "OpenClaw HA Node — Assist"; HACS reads "OpenClaw HA Node — Assist (Beta)" from
@@ -381,7 +381,7 @@ Grep recipe for the next sweep:
 
 ```sh
 grep -rn -E "\bP[3-6]\.[0-9]+\b" \
-  README.md docs/ addon/config.yaml addon/build.yaml \
+  README.md docs/ app/config.yaml app/build.yaml \
   custom_components/ hacs.json
 ```
 
@@ -392,7 +392,7 @@ Caught 2026-06-20 by Rob: PRs #155 (`scripts/bump-version.py` +
 + Version Sync CI job) merged without a GPT-5.5 review pass. Both were
 real code — a Python script with regex-driven find/replace logic, plus
 a GitHub Actions workflow that mutates main (tags + releases). I
-treated them like docs because the diff sat outside `addon/node/src/`.
+treated them like docs because the diff sat outside `app/node/src/`.
 
 The HARD RULE in MEMORY.md / `feedback_codex_reviews_use_cli` covers
 **any** non-trivial code change in clawd-ops/* repos — not just the
@@ -402,7 +402,7 @@ their failure modes are silent until production: a bad regex in a
 extraction — these don't surface in unit tests.
 
 Future-Clawd: before claiming a code PR is ready to merge, ask
-yourself "does this change touch any of: Python under `addon/`,
+yourself "does this change touch any of: Python under `app/`,
 GitHub Actions YAML, shell/Python scripts under `scripts/`, Docker /
 build config, packaging metadata?" If yes → spawn the GPT-5.5 review
 pass. Docs-only direct-merge is for `.md` (and the equivalent

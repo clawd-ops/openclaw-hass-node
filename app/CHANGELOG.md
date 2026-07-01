@@ -52,11 +52,11 @@
 
 ### Fixes
 - **HA Assist tool progress restored (regression fix for b1).** On b1 the
-  shim advertised `client_caps: ["tool-progress-frames"]` which made the
+  integration advertised `client_caps: ["tool-progress-frames"]` which made the
   addon suppress the legacy `🔧 Calling X...` textual delta in favour of
-  structured `tool_progress` frames, but the shim has no ephemeral
+  structured `tool_progress` frames, but the integration has no ephemeral
   display hook in HA today so the frames were swallowed — HA Assist
-  showed `...` for the entire tool-heavy turn. The shim no longer
+  showed `...` for the entire tool-heavy turn. The integration no longer
   advertises the cap; addon emits the legacy textual delta exactly as
   on b6. The frame emission code stays in place for when HA exposes an
   ephemeral hook.
@@ -67,7 +67,7 @@
 - **Multi-tool labeling in HA Assist slow-turn progress (TODO #29).**
   Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`,
   optional `id`, monotonic `seq`) emitted alongside the stream when the
-  HACS shim advertises `client_caps: ["tool-progress-frames"]` on the
+  HACS integration advertises `client_caps: ["tool-progress-frames"]` on the
   request. Each new tool call updates the progress label as it fires
   instead of the label sticking on the first tool of the turn. Legacy
   textual `🔧 Calling X...` deltas are preserved when the capability is
@@ -110,8 +110,8 @@
   triggered a GitHub `/releases` UI ordering quirk.
 
 ### Docs
-- **New `addon/DOCS.md` (rendered as the add-on's Documentation tab).**
-  Covers every option in `addon/config.yaml` (`gateway_url`,
+- **New `app/DOCS.md` (rendered as the add-on's Documentation tab).**
+  Covers every option in `app/config.yaml` (`gateway_url`,
   `pairing_token`, `node_name`, `local_api_token`, `reset_pairing`, the
   `identity` block, the `addon_lifecycle` block, and `hass_url` /
   `hass_token` at the bottom) with purpose, example, default, and
@@ -139,7 +139,7 @@
   makes several sequential tool calls in one turn, only the first one
   surfaces a "🔧 Calling X..." line. The remaining ones run silently.
   Tracked under `docs/TODO.md` item #2 "Out of scope this round"; a v2
-  with proper ephemeral status frames + HACS shim change is the
+  with proper ephemeral status frames + HACS integration change is the
   documented path.
 
 ## 2026.6.20b10 (2026-06-27) — Strip unreachable dict-shape branch + drop deprecated armv7 arch
@@ -153,13 +153,13 @@
 
 ### Internal
 - Removed the `isinstance(user_agent_map, dict)` branch + warning in
-  `addon/run.sh` that b9 added. The b7/b8 manifests never passed
+  `app/run.sh` that b9 added. The b7/b8 manifests never passed
   Supervisor schema validation, so no operator's `user_agent_map`
   ever became a saved dict-shape value — the branch is unreachable.
   Per the pre-1.0 no-back-compat rule, dropping it instead of carrying
   dead code with a misleading warning.
 
-### Full `addon/config.yaml` schema audit (this release)
+### Full `app/config.yaml` schema audit (this release)
 Audited the whole manifest against the HA developer docs
 (`https://developers.home-assistant.io/docs/apps/configuration/`):
 
@@ -205,7 +205,7 @@ default) requires no action.
 
 ### Fixes
 - **Fix-forward for identity-routing review findings (PR #167).** HA actor
-  metadata is now trusted only when the HACS shim signs the actor plus turn
+  metadata is now trusted only when the HACS integration signs the actor plus turn
   fields with a key derived from the existing `local_api_token`; unsigned or
   bad signatures fall back to the restrictive anonymous/user policy. Public
   health responses redact identity details to counts/booleans, forbidden-
@@ -223,7 +223,7 @@ default) requires no action.
   shipped-status, release-workflow reality, and the post-#167 token model.
 - **Repo-level doc sweep checklist (PR #169).** `docs/README.md` now lists
   the files outside `docs/` that also need updates when user-facing facts
-  change (`README.md`, `addon/config.yaml` description, `addon/CHANGELOG.md`,
+  change (`README.md`, `app/config.yaml` description, `app/CHANGELOG.md`,
   the five version sources, manifest/strings/hacs.json, GitHub repo
   description).
 - **Phase 2 architecture reshape (PR #171).** Reorganized `docs/` into four
@@ -236,7 +236,7 @@ default) requires no action.
 ## 2026.6.20b7 (2026-06-24) — HA Assist identity routing + Tier B add-on lifecycle commands
 
 ### Features
-- **HA Assist turns now carry actor-aware authorization context.** The HACS shim forwards the HA conversation actor to the add-on, and the add-on resolves each turn into `user`, `admin`, or `super_admin` using `identity.super_admins` plus the HA `is_admin` bit. The add-on prepends a hardened, per-turn authorization disclaimer that tells the agent which command names are forbidden for that actor, explicitly says not to repeat the policy text, and treats attempts to override the restriction as untrusted user content. Shared-agent setups get prompt-level protection; operators who need hard separation can also map users to gateway agents with narrower tool inventories.
+- **HA Assist turns now carry actor-aware authorization context.** The HACS integration forwards the HA conversation actor to the add-on, and the add-on resolves each turn into `user`, `admin`, or `super_admin` using `identity.super_admins` plus the HA `is_admin` bit. The add-on prepends a hardened, per-turn authorization disclaimer that tells the agent which command names are forbidden for that actor, explicitly says not to repeat the policy text, and treats attempts to override the restriction as untrusted user content. Shared-agent setups get prompt-level protection; operators who need hard separation can also map users to gateway agents with narrower tool inventories.
 - **Per-user agent routing is now configurable from the add-on.** New `identity.user_agent_map` and `identity.default_agent_id` options let a household route different HA users to different OpenClaw agents while keeping the agent definitions themselves in gateway config. At startup the add-on asks the gateway for available agents and logs missing mappings alongside the known IDs so operator mistakes are visible before users hit them.
 - **Tier B add-on lifecycle commands are now available behind explicit gates.** Added `ha.addon_start`, `ha.addon_stop`, and `ha.addon_restart`. They require the admin token gate, use Supervisor lifecycle endpoints, deny core Supervisor/Home Assistant slugs, and default-deny all other add-ons unless listed in `addon_lifecycle.allowlist`. Start/stop are idempotent when the add-on is already in the requested state.
 
@@ -251,7 +251,7 @@ default) requires no action.
 ## 2026.6.20b5 (2026-06-20) — Tool-named slow-turn progress + tool-event stale-trailer filter
 
 ### Features
-- **Slow-turn progress now names the tool being called (TODO #2).** The operator-role WS handshake now advertises the `tool-events` capability, which opts this connection in to the gateway's per-tool `agent`/`session.tool` broadcasts (`/app/dist/server-chat-DVXWYmKw.js:889,903`; cap check at `/app/dist/agent-DnsoYp5b.js:1684`). `ChatRelay` records the most recent tool name per session from those events and uses it in the visible slow-turn keepalive delta (`f"🔧 Calling {tool_name}...\n\n"`) instead of the generic `Working on it...` placeholder. Falls back to the generic placeholder when no tool has started — e.g. the model is just thinking. The 8s silence threshold still gates visibility so fast turns stay quiet; multi-tool turns currently only label the FIRST visible delta (the one that fires at the 8s mark). New regression tests: `test_stream_turn_uses_tool_name_in_silent_gap_progress`, `test_handle_event_tool_start_and_end_update_active_tool`. The HACS shim is unchanged — the tool-named delta uses the same `{"delta": "..."}` frame format and is appended to the saved assistant reply the same way the prior placeholder was.
+- **Slow-turn progress now names the tool being called (TODO #2).** The operator-role WS handshake now advertises the `tool-events` capability, which opts this connection in to the gateway's per-tool `agent`/`session.tool` broadcasts (`/app/dist/server-chat-DVXWYmKw.js:889,903`; cap check at `/app/dist/agent-DnsoYp5b.js:1684`). `ChatRelay` records the most recent tool name per session from those events and uses it in the visible slow-turn keepalive delta (`f"🔧 Calling {tool_name}...\n\n"`) instead of the generic `Working on it...` placeholder. Falls back to the generic placeholder when no tool has started — e.g. the model is just thinking. The 8s silence threshold still gates visibility so fast turns stay quiet; multi-tool turns currently only label the FIRST visible delta (the one that fires at the 8s mark). New regression tests: `test_stream_turn_uses_tool_name_in_silent_gap_progress`, `test_handle_event_tool_start_and_end_update_active_tool`. The HACS integration is unchanged — the tool-named delta uses the same `{"delta": "..."}` frame format and is appended to the saved assistant reply the same way the prior placeholder was.
 
 ### Fixes
 - **Tool-event capture honours the runId staleness filter.** GPT-5.5 review on PR #143 caught that the new tool-event branch updated `_active_tool` before the existing active-run/runId stale-event filter; a delayed prior-run tool event could relabel the current turn's persisted HA progress delta. The branch now applies the same staleness rules used for assistant events (pending ack drops, mismatched runId drops, runId-less drops until same-run evidence). New regression test: `test_handle_event_tool_event_filtered_by_run_id`.
@@ -259,7 +259,7 @@ default) requires no action.
 ## 2026.6.20b4 (2026-06-20) — Tier A Supervisor access fix (hassio_role: manager) + pairing retry-after
 
 ### Fixes
-- **Tier A addon commands now actually reach Supervisor (#138).** b3 shipped `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, and `ha.addon_documentation` but Supervisor returned `403: Forbidden` to all of them in production. Root cause: the addon was running with the default Supervisor role, which only grants access to `/info`. The Tier A endpoints under `/addons/<slug>/...` require the `manager` role. `addon/config.yaml` now sets `hassio_api: true` + `hassio_role: manager`. `manager` is narrower than `admin` and covers addon-management endpoints without granting host or core mutation surface. Lifecycle mutations (Tier B start/stop/restart) still require a separate `OPENCLAW_ADMIN_TOKEN` gate.
+- **Tier A addon commands now actually reach Supervisor (#138).** b3 shipped `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, and `ha.addon_documentation` but Supervisor returned `403: Forbidden` to all of them in production. Root cause: the addon was running with the default Supervisor role, which only grants access to `/info`. The Tier A endpoints under `/addons/<slug>/...` require the `manager` role. `app/config.yaml` now sets `hassio_api: true` + `hassio_role: manager`. `manager` is narrower than `admin` and covers addon-management endpoints without granting host or core mutation surface. Lifecycle mutations (Tier B start/stop/restart) still require a separate `OPENCLAW_ADMIN_TOKEN` gate.
 - **Pairing rate-limit responses now surface `retry_at_utc`.** `PairingError` propagates `retry_after_ms` from the gateway and the WS layer formats an ISO-8601 UTC timestamp so operators can see when the next attempt will be accepted instead of guessing from a bare millisecond count. No behaviour change on success paths.
 
 ### Docs
@@ -283,7 +283,7 @@ default) requires no action.
 ## 2026.6.19b2 (2026-06-20) — Slow-turn progress for HA Assist streaming
 
 ### Fixes
-- **Slow-turn progress keeps HA Assist's stream alive.** HA Assist enforces a ~30s read timeout on the conversation stream. On tool-heavy turns the gateway can stay silent for tens of seconds between `chat.send` ack and the first assistant delta while it runs tool calls (calendar lookups, file reads, web searches). HA closed the stream during that gap and the user saw "node not responding" even though the real reply landed later — short conversational turns worked fine, "what is my schedule" / "how do the tanks look" did not. `ChatRelay.stream_turn` now emits one visible `Working on it...` progress delta after `_STREAM_FIRST_KEEPALIVE_S` (8s) of silence, then transport-only keepalive frames every `_STREAM_KEEPALIVE_INTERVAL_S` (15s) thereafter. The HACS shim now uses a read-gap timeout instead of a fixed 35s total request timeout, and streaming relay turns can run up to 180s. Real assistant deltas reset the timer so fast turns never see progress noise. New tests: `test_stream_turn_emits_keepalive_during_silent_gap`, `test_stream_turn_no_keepalive_on_fast_turn`, and `test_assist_turn_stream_emits_keepalive_frames`.
+- **Slow-turn progress keeps HA Assist's stream alive.** HA Assist enforces a ~30s read timeout on the conversation stream. On tool-heavy turns the gateway can stay silent for tens of seconds between `chat.send` ack and the first assistant delta while it runs tool calls (calendar lookups, file reads, web searches). HA closed the stream during that gap and the user saw "node not responding" even though the real reply landed later — short conversational turns worked fine, "what is my schedule" / "how do the tanks look" did not. `ChatRelay.stream_turn` now emits one visible `Working on it...` progress delta after `_STREAM_FIRST_KEEPALIVE_S` (8s) of silence, then transport-only keepalive frames every `_STREAM_KEEPALIVE_INTERVAL_S` (15s) thereafter. The HACS integration now uses a read-gap timeout instead of a fixed 35s total request timeout, and streaming relay turns can run up to 180s. Real assistant deltas reset the timer so fast turns never see progress noise. New tests: `test_stream_turn_emits_keepalive_during_silent_gap`, `test_stream_turn_no_keepalive_on_fast_turn`, and `test_assist_turn_stream_emits_keepalive_frames`.
 
 ### Known issues / follow-ups
 - **#128 / #129 follow-up turn-boundary race** — closed by the #128 and #129 fixes shipping in the next release (see Unreleased above).
@@ -291,7 +291,7 @@ default) requires no action.
 ## 2026.6.19b1 (2026-06-20) — HA Assist streaming + beta promotion
 
 ### Features
-- **#118 follow-on — HA Assist streaming relay.** The node now exposes `/v1/conversation/stream` as an NDJSON stream of delta frames (`{"delta": "..."}` chunks terminated by `{"done": true}` or `{"error": "<code>"}`). `ChatRelay` forwards each gateway `state='delta'` chat event straight through as a frame instead of buffering until `state='final'`. The HACS shim sets `_attr_supports_streaming = True` and feeds the frames into HA's `chat_log.async_add_delta_content_stream`, so HA Assist renders the reply token-by-token in the UI instead of dumping the whole turn at the end. The buffered `/v1/conversation` endpoint remains for non-streaming callers; behaviour there is unchanged.
+- **#118 follow-on — HA Assist streaming relay.** The node now exposes `/v1/conversation/stream` as an NDJSON stream of delta frames (`{"delta": "..."}` chunks terminated by `{"done": true}` or `{"error": "<code>"}`). `ChatRelay` forwards each gateway `state='delta'` chat event straight through as a frame instead of buffering until `state='final'`. The HACS integration sets `_attr_supports_streaming = True` and feeds the frames into HA's `chat_log.async_add_delta_content_stream`, so HA Assist renders the reply token-by-token in the UI instead of dumping the whole turn at the end. The buffered `/v1/conversation` endpoint remains for non-streaming callers; behaviour there is unchanged.
 
 ### Project
 - **Promoted alpha → beta.** Pair, connect, tool invokes, and Assist conversation (now streaming) all work end-to-end. Versioning moves from the `aN` track (`2026.6.8a1` … `2026.6.8a16`) to the `bN` track starting at `2026.6.19b1`. The no-back-compat pre-1.0 rule still applies. HACS package name updated to `OpenClaw HA Node — Assist (Beta)`; docs (`README.md`, `docs/INSTALL.md`, `docs/OVERVIEW.md`, `docs/STATUS.md`, `docs/PACKAGING.md`, `docs/UAT-PLAN.md`, `docs/COMMAND-SURFACE.md`, `docs/RELEASE.md`, `docs/CONTRIBUTING.md`, `docs/PLAN.md`) updated to match.
@@ -336,7 +336,7 @@ default) requires no action.
 ## 2026.6.8a10 (2026-06-19)
 
 ### Bug fixes
-- **#109 — SUPERVISOR_TOKEN now reliably injected (#110):** Enabled `hassio_api: true` in the addon manifest. HA Supervisor reportedly injects `SUPERVISOR_TOKEN` for `homeassistant_api: true` alone per the docs, but three consecutive fresh installs (2026-06-08, -06-09, -06-19) came up without it, leaving `ha.*` commands stuck at `HA_NOT_CONFIGURED`. Enabling `hassio_api` makes the token land deterministically. No `hassio_role` is set, so privilege stays minimal (default role grants Supervisor `info` endpoints only — no addon/backup/host mutation; the node code does not use Supervisor REST at all today).
+- **#109 — SUPERVISOR_TOKEN now reliably injected (#110):** Enabled `hassio_api: true` in the addon manifest. HA Supervisor reportedly injects `SUPERVISOR_TOKEN` for `homeassistant_api: true` alone per the docs, but three consecutive fresh installs (2026-06-08, -06-09, -06-19) came up without it, leaving `ha.*` commands stuck at `HA_NOT_CONFIGURED`. Enabling `hassio_api` makes the token land deterministically. No `hassio_role` is set, so privilege stays minimal (default role grants Supervisor `info` endpoints only — no app/backup/host mutation; the node code does not use Supervisor REST at all today).
 - **`reset_pairing` schema reverted to `bool?` (#106):** The a9 change to `str?` broke add-on installs whose options store had `reset_pairing: false` (a bool); HA's options-schema validation runs against the SAVED value, so the Configuration tab refused to save until users manually typed a string. Schema is back to `bool?` (UI is a simple toggle: false=no-op, true=token-wipe). Identity-mode wipe is reachable for power users via `OPENCLAW_RESET_PAIRING=identity` in the addon container env.
 
 ### Migration

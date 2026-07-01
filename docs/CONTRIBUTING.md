@@ -14,7 +14,7 @@ The release Action is live
 (`.github/workflows/release-on-version-bump.yml`) and auto-cuts a
 GitHub release whenever a push to `main` bumps the version in the
 five tracked files. Release notes come from the hand-written
-`addon/CHANGELOG.md` section for that version — the workflow
+`app/CHANGELOG.md` section for that version — the workflow
 extracts it, it does not generate it. Follow the commit convention
 so the changelog you write groups cleanly. See
 [`docs/operations/RELEASE.md`](operations/RELEASE.md) for the full flow.
@@ -22,7 +22,7 @@ so the changelog you write groups cleanly. See
 ## Version policy
 
 The project carries the version string in five places (`pyproject.toml`,
-`__init__.py` fallback, `addon/config.yaml`, `addon/build.yaml`,
+`__init__.py` fallback, `app/config.yaml`, `app/build.yaml`,
 `custom_components/openclaw_hass_node_assist/manifest.json`). Use
 `scripts/bump-version.py <new-version>` — it updates all five together.
 `test_version_sync.py` keeps them honest in CI; a drift in any of the
@@ -30,7 +30,7 @@ five fails the Version Sync gate on the PR. The version stays on a
 pre-release marker (`a`/`b`/`rc`/`.dev`) until the project ships a 1.0
 — enforced by CI (`test_prerelease_tag_present`).
 
-**Why the bump matters at all:** `addon/config.yaml`'s `version:` is
+**Why the bump matters at all:** `app/config.yaml`'s `version:` is
 the *only* signal HA Supervisor watches to decide whether the add-on
 needs a new build. Without a bump:
 
