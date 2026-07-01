@@ -32,7 +32,7 @@ body:
       options:
         - Add-on (node runs inside)
         - Standalone node (no add-on)
-        - HACS shim (custom_components/openclaw_gateway)
+        - HACS shim (custom_components/openclaw_hass_node_assist)
         - Gateway pairing / connect
         - Assist conversation relay
         - fs.* / system.* / ha.* commands

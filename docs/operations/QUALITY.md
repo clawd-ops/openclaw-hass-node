@@ -15,7 +15,7 @@
 
 ## Type checking — strict
 
-- **`mypy --strict`** on `node/` and `custom_components/openclaw_gateway/`.
+- **`mypy --strict`** on `node/` and `custom_components/openclaw_hass_node_assist/`.
   No `Any` leaks. No implicit `Optional`. No untyped defs. No
   `# type: ignore` without an inline comment explaining why and a
   ticket link.
@@ -65,7 +65,7 @@ def fs_patch(path: str, patch: str, proposal_id: str) -> PatchResult:
   `pytest-httpx` / `respx` for HA REST mocking. `hypothesis` for
   property tests on the patch + backup engines.
 - **≥ 95 % branch coverage** on `node/src/` and
-  `custom_components/openclaw_gateway/`. Measured by `coverage.py`
+  `custom_components/openclaw_hass_node_assist/`. Measured by `coverage.py`
   with `--branch`. Coverage report is a CI gate; the live floor
   enforced today is 95% (we run well above it but the gate is set
   there so a routine refactor doesn't trip the build).
@@ -101,7 +101,7 @@ green:
 2. `typecheck` — `mypy --strict` + `pyright --strict`.
 3. `test-node` — pytest with branch coverage on `node/`.
 4. `test-shim` — pytest with branch coverage on
-   `custom_components/openclaw_gateway/`, using
+   `custom_components/openclaw_hass_node_assist/`, using
    `pytest-homeassistant-custom-component`.
 5. `coverage-gate` — fails if total branch coverage on shipped code
    drops below 95 %.

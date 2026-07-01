@@ -65,15 +65,15 @@
 1. **HACS → Integrations → ⋮ → Custom repositories**.
 2. Add `https://github.com/clawd-ops/openclaw-hass-node` as
    **Integration** category.
-3. Search for **OpenClaw Gateway** → Install → Restart HA.
+3. Search for **OpenClaw HA Node — Assist** → Install → Restart HA.
 4. After restart: **Settings → Devices & Services → Add Integration
-   → OpenClaw Gateway**.
+   → OpenClaw HA Node — Assist**.
 5. Config flow asks for the add-on (app) socket; default points at
    the add-on hostname (`http://<addon-slug>:8099`). If you set
    `local_api_token`, paste the same value here so the shim can
    call the local API.
 6. **Expect:** integration sets up clean; one conversation entity
-   `conversation.openclaw_gateway` shows up under Settings → Voice
+   `conversation.openclaw_hass_node_assist` shows up under Settings → Voice
    Assistants → Conversation agents.
 
 ## Phase B — Pairing to OpenClaw gateway *(working)*
@@ -180,7 +180,7 @@ behind the proposal/agent-bridge flow.
 The node opens parallel node-role and operator-role gateway
 connections; the operator-role connection owns the conversation relay
 (`chat.send` + `sessions.messages.subscribe`), and selecting the
-OpenClaw Gateway shim as your Assist conversation agent streams real
+OpenClaw HA Node — Assist shim as your Assist conversation agent streams real
 responses back through the gateway. Pair the device with a dual-role
 profile via `openclaw qr`.
 

@@ -109,9 +109,9 @@ to users in places `docs/` cannot reach and have to stay in sync.
 | `README.md` (repo root) | GitHub landing page; HACS surfaces it on the integration detail page. | Whenever a user-facing fact changes. Keep it self-contained. |
 | `addon/config.yaml` `description:` | Text HA Supervisor renders in the addon list and detail page. | When the addon's user-facing pitch changes. No internal jargon. |
 | `addon/CHANGELOG.md` | Per-release notes the release workflow extracts; HA Supervisor renders in the addon's Changelog tab. | Add a `## <version> (date) — title` section as part of every release PR. |
-| Five version sources (`addon/config.yaml`, `addon/build.yaml`, `addon/node/pyproject.toml`, `addon/node/src/openclaw_node/__init__.py`, `custom_components/openclaw_gateway/manifest.json`) | The version string. Drift fails CI. | Always together via `scripts/bump-version.py <version>`. Never hand-edited. |
-| `custom_components/openclaw_gateway/manifest.json` `name` | Integration name in HA's Integrations list. | When you rename the integration. |
-| `custom_components/openclaw_gateway/strings.json` | Config-flow UI copy. | When you change a config-flow field. |
+| Five version sources (`addon/config.yaml`, `addon/build.yaml`, `addon/node/pyproject.toml`, `addon/node/src/openclaw_node/__init__.py`, `custom_components/openclaw_hass_node_assist/manifest.json`) | The version string. Drift fails CI. | Always together via `scripts/bump-version.py <version>`. Never hand-edited. |
+| `custom_components/openclaw_hass_node_assist/manifest.json` `name` | Integration name in HA's Integrations list. | When you rename the integration. |
+| `custom_components/openclaw_hass_node_assist/strings.json` | Config-flow UI copy. | When you change a config-flow field. |
 | `hacs.json` `name` | Title in the HACS catalog. | When the HACS-listed title changes. |
 | GitHub repo description | One-line shown on github.com. | When the elevator pitch changes (`gh repo view ... --json description`). |
 

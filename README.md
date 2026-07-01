@@ -73,7 +73,7 @@ gateway side. Short version:
 2. Add this repo as an HA add-on (app) repository, install **OpenClaw Node**,
    fill in `gateway_url` + `pairing_token` + `node_name`, start it.
 3. `openclaw devices approve <request-id>` on the gateway.
-4. Install the **OpenClaw Gateway** HACS integration, point its config
+4. Install the **OpenClaw HA Node — Assist** HACS integration, point its config
    flow at the add-on (app) socket.
 5. Pick it as your HA Assist conversation agent.
 

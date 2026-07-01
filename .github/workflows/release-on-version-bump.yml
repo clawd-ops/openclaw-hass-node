@@ -22,7 +22,7 @@ on:
       - "addon/build.yaml"
       - "addon/node/pyproject.toml"
       - "addon/node/src/openclaw_node/__init__.py"
-      - "custom_components/openclaw_gateway/manifest.json"
+      - "custom_components/openclaw_hass_node_assist/manifest.json"
       - ".github/workflows/release-on-version-bump.yml"
 
 jobs:

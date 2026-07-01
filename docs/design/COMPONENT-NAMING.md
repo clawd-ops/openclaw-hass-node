@@ -11,7 +11,7 @@ without a rename.
 | Name                                  | Role                                                              | Lives at (today)                                                 |
 |---------------------------------------|-------------------------------------------------------------------|------------------------------------------------------------------|
 | `openclaw-hass-node-app`              | The Home Assistant **app** (formerly "add-on"). Python service that runs in the HA Supervisor and exposes the `ha.*` / `fs.*` / `system.*` node command surface over the gateway WebSocket. | This repo, `addon/` directory (kept as-is for now to avoid churning install paths). |
-| `openclaw-hass-node-assist`           | The HACS **integration**. Registers the OpenClaw conversation entity inside HA core and proxies turns to the app over HTTP. The piece that makes Assist see "OC Gateway" as a selectable conversation agent. | This repo, `custom_components/openclaw_gateway/` today; HACS domain will rename to `openclaw_hass_node_assist` on the next touch. |
+| `openclaw-hass-node-assist`           | The HACS **integration**. Registers the OpenClaw conversation entity inside HA core and proxies turns to the app over HTTP. The piece that makes Assist see "OC Gateway" as a selectable conversation agent. | This repo, `custom_components/openclaw_hass_node_assist/` today; HACS domain will rename to `openclaw_hass_node_assist` on the next touch. |
 | `openclaw-hass-node-assist-tools`     | The OpenClaw **gateway plugin**. Declares scoped tools (`ha_call_service`, `ha_get_state`, etc.) that wrap `ha.*` / `fs.*` node commands so Assist sessions can operate the bound HA node. **Assist-only**: every other OC session (chat, cron, sub-agent) has the operator-only `nodes.invoke` tool and uses the `openclaw-hass-node-skill` skill on top of it. | This repo, `plugins/openclaw-hass-node-assist-tools/` (new). |
 | `openclaw-hass-node-skill`            | The companion **skill** used by every non-Assist session (chat, cron, sub-agent) to drive `ha.*` / `fs.*` via `nodes.invoke`. | This repo, `skills/openclaw-hass-node-skill/`. |
 
@@ -50,7 +50,7 @@ all session types including node-originated Assist.
 
 ## HACS domain rename
 
-The HACS custom_component currently uses the domain `openclaw_gateway`. The
+The HACS custom_component currently uses the domain `openclaw_hass_node_assist`. The
 rename to `openclaw_hass_node_assist` will land in the same pass that
 introduces the new naming everywhere else. This is a clean break — no
 backwards-compat alias — because the only existing install is Rob's and a

@@ -1,10 +1,10 @@
-"""Constants for the openclaw_gateway custom component."""
+"""Constants for the openclaw_hass_node_assist custom component."""
 
 from __future__ import annotations
 
 from typing import Final
 
-DOMAIN: Final[str] = "openclaw_gateway"
+DOMAIN: Final[str] = "openclaw_hass_node_assist"
 # Hostname Supervisor exposes for the add-on inside the add-on network.
 # The ``a0d7b954-`` prefix is the deterministic-but-install-specific hash
 # Supervisor derives from the repository URL — it's NOT stable across

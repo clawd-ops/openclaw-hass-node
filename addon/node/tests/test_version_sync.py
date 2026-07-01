@@ -7,7 +7,7 @@ There are five sources of truth that all have to match exactly:
   ``importlib.metadata`` cannot resolve the package (source/dev runs)
 - ``addon/config.yaml`` — Home Assistant add-on metadata
 - ``addon/build.yaml`` — Supervisor build label
-- ``custom_components/openclaw_gateway/manifest.json`` — HACS shim version
+- ``custom_components/openclaw_hass_node_assist/manifest.json`` — HACS shim version
 
 Past versions drifted between these (e.g. UAT-PLAN expecting 2026.6.0 while
 code was on 2026.6.8). The user called it cosmetic at the time, but a
@@ -68,7 +68,7 @@ def _read_build_yaml_version() -> str:
 
 
 def _read_manifest_version() -> str:
-    raw = (_REPO_ROOT / "custom_components" / "openclaw_gateway" / "manifest.json").read_text(
+    raw = (_REPO_ROOT / "custom_components" / "openclaw_hass_node_assist" / "manifest.json").read_text(
         encoding="utf-8"
     )
     data = json.loads(raw)

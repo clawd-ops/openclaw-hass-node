@@ -51,7 +51,7 @@ in the workspace.
 HA Assist UI
     │ user turn (text + conversation_id + language)
     ▼
-custom_components/openclaw_gateway/  (ConversationEntity)
+custom_components/openclaw_hass_node_assist/  (ConversationEntity)
     │ POST /v1/conversation
     ▼
 openclaw-hass-node (Python, this repo)
@@ -60,7 +60,7 @@ openclaw-hass-node (Python, this repo)
     │  • subscribes via sessions.messages.subscribe for the reply
     │  • services ha.* via node.invoke when the agent calls them
     ▼
-OpenClaw Gateway
+OpenClaw HA Node — Assist
     │ routes session messages to the configured agent (Clawd)
     ▼
 Clawd handles the turn, uses ha.* tools as needed

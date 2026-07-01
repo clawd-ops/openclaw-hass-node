@@ -1,4 +1,4 @@
-"""Config flow for the OpenClaw Gateway companion integration."""
+"""Config flow for the OpenClaw HA Node — Assist companion integration."""
 
 from __future__ import annotations
 
@@ -187,7 +187,7 @@ def _normalise_socket_url(raw: str) -> str:
 
 
 class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for OpenClaw Gateway.
+    """Handle a config flow for OpenClaw HA Node — Assist.
 
     The flow asks for the local add-on socket URL. The default points at the
     add-on hostname and port used by this repository.
