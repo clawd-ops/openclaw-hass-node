@@ -646,6 +646,42 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     if (!result.ok) expect(result.code).toBe("METADATA_DENIED");
   });
 
+  // --- domain/service smuggling regression ---
+  it("ha.call_service rejects service with URL delimiters (deny-glob bypass)", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.call_service",
+      nodeId: "node-1",
+      params: { domain: "homeassistant", service: "restart?x" },
+      pluginConfig: {
+        nodes: {
+          "node-1": {
+            allowServices: ["homeassistant.*"],
+            denyServices: ["homeassistant.restart"],
+          },
+        },
+      },
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.call_service rejects domain with slash (path smuggling)", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.call_service",
+      nodeId: "node-1",
+      params: { domain: "light/../homeassistant", service: "turn_on" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
   // --- timestamp smuggling regression (PR #207 v5 blocker) ---
   it("ha.history rejects end_time smuggling `&filter_entity_id=...`", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));

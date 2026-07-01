@@ -44,6 +44,18 @@ function isValidEntityId(value: string): boolean {
   return ENTITY_ID_PATTERN.test(value);
 }
 
+// HA domain / service names are lowercase alphanumeric + underscore. Reject
+// anything else — same class of bug as entity_id smuggling: without this,
+// a caller could pass `service: "restart?x"` so the deny-glob check sees
+// `homeassistant.restart?x` (misses `homeassistant.restart` denylist entry)
+// while the addon builds `/api/services/homeassistant/restart?x`, which
+// aiohttp still routes to the real `homeassistant.restart` handler.
+const DOMAIN_OR_SERVICE_PATTERN = /^[a-z0-9_]+$/;
+
+function isValidDomainOrService(value: string): boolean {
+  return DOMAIN_OR_SERVICE_PATTERN.test(value);
+}
+
 // ISO-8601 datetime, strict. Rejects anything that could smuggle URL
 // delimiters (`&`, `?`, `/`, `#`, whitespace, `%`) into the addon's URL
 // builder, which interpolates timestamps unencoded into paths and query
@@ -111,6 +123,12 @@ async function enforceCallService(
   const service = readString(params, "service");
   if (!domain || !service) {
     return deny("INVALID_PARAMS", "ha.call_service requires domain and service");
+  }
+  if (!isValidDomainOrService(domain) || !isValidDomainOrService(service)) {
+    return deny(
+      "INVALID_PARAMS",
+      "ha.call_service domain and service must be lowercase [a-z0-9_]+ (no URL delimiters)",
+    );
   }
   const policy = await loadPolicyForNode(ctx);
   const decision = decideGlobPolicy({
