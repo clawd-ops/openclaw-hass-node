@@ -391,11 +391,11 @@ Two operational issues hit during the b1 rollout. Neither requires a code change
 
 ### Plugin packaging gap (this repo — TODO #37)
 
-**Symptom A — `openclaw plugin install <path>` fails.** The gateway
+**Symptom A — `openclaw plugins install <path>` fails.** The gateway
 expects compiled JS; the plugin ships only TypeScript source (no `dist/`
 directory in `plugins/openclaw-hass-node-assist-tools/`).
 
-**Symptom B — `openclaw plugin install --link <repo>/plugins/...` fails
+**Symptom B — `openclaw plugins install --link <repo>/plugins/...` fails
 the safety scan.** The pnpm workspace hoists `node_modules` and creates
 symlinks that resolve outside the plugin root. The gateway's link-install
 safety scan rejects any symlink that escapes the plugin tree, so the
@@ -415,12 +415,12 @@ pnpm-managed `node_modules` triggers the block.
    ```
 3. Install via link from the stable path:
    ```sh
-   openclaw plugin install --link ~/.openclaw/plugins/openclaw-hass-node-assist-tools
+   openclaw plugins install --link ~/.openclaw/plugins/openclaw-hass-node-assist-tools
    ```
 
 **Fix required:** add `"build": "tsc --outDir dist"` to the plugin's
 `package.json` and run it in CI / the release workflow. Long-term,
-publish to npm or GHCR so `openclaw plugin install <package-name>` works
+publish to npm or GHCR so `openclaw plugins install <package-name>` works
 from any fresh clone. Tracked in `docs/TODO.md` item #37.
 
 ### Gateway `config.patch` false-positive on plugin-internal paths (upstream gateway quirk)
