@@ -116,6 +116,48 @@ describe("ha_list_states execute", () => {
     expect(text).not.toContain("sensor.outdoor_temp");
   });
 
+  it("throws when node returns an ok:false error payload instead of masking as 0/0", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: { allowReadEntities: ["light.*"] },
+    });
+    invokeMock.mockResolvedValue({
+      ok: false,
+      error: "HA_BAD_RESPONSE",
+      message: "supervisor returned 502",
+    });
+
+    const tool = await loadTool();
+    await expect(
+      tool.execute(
+        "call-err",
+        { node: "hass" },
+        new AbortController().signal,
+        () => undefined,
+      ),
+    ).rejects.toThrow(/HA_BAD_RESPONSE|supervisor returned 502/);
+  });
+
+  it("throws on unexpected payload shapes", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: { allowReadEntities: ["light.*"] },
+    });
+    invokeMock.mockResolvedValue({ unexpected: true });
+
+    const tool = await loadTool();
+    await expect(
+      tool.execute(
+        "call-shape",
+        { node: "hass" },
+        new AbortController().signal,
+        () => undefined,
+      ),
+    ).rejects.toThrow(/unexpected payload shape/);
+  });
+
   it("unwraps payload.states when the node returns a wrapped object", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",

@@ -23,10 +23,27 @@ type HaState = {
 function extractStates(payload: unknown): HaState[] {
   if (Array.isArray(payload)) return payload as HaState[];
   if (payload && typeof payload === "object") {
-    const inner = (payload as { states?: unknown }).states;
-    if (Array.isArray(inner)) return inner as HaState[];
+    const obj = payload as {
+      ok?: unknown;
+      error?: unknown;
+      message?: unknown;
+      code?: unknown;
+      states?: unknown;
+    };
+    // Surface node-side error payloads instead of masking them as an empty list.
+    if (obj.ok === false) {
+      const detail =
+        (typeof obj.error === "string" && obj.error) ||
+        (typeof obj.message === "string" && obj.message) ||
+        (typeof obj.code === "string" && obj.code) ||
+        "unknown node error";
+      throw new Error(`ha.list_states returned an error payload: ${detail}`);
+    }
+    if (Array.isArray(obj.states)) return obj.states as HaState[];
   }
-  return [];
+  throw new Error(
+    `ha.list_states returned an unexpected payload shape: ${JSON.stringify(payload)}`,
+  );
 }
 
 export function createHaListStatesTool(): AnyAgentTool {

@@ -159,11 +159,36 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("allows metadata reads (ha.list_areas)", async () => {
+  it("allows metadata reads (ha.list_areas) when per-node policy exists", async () => {
     const result = await runPolicy({
       command: "ha.list_areas",
       nodeId: "node-1",
       pluginConfig: nodeConfig,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("denies metadata reads when no per-node policy is configured", async () => {
+    const invokeNode = vi.fn(async () => ({
+      ok: true as const,
+      payload: {},
+    }));
+    const result = await runPolicy({
+      command: "ha.list_areas",
+      nodeId: "unpolicied-node",
+      pluginConfig: { nodes: {} },
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("METADATA_DENIED");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("allows metadata reads via wildcard '*' node entry", async () => {
+    const result = await runPolicy({
+      command: "ha.list_devices",
+      nodeId: "any-node",
+      pluginConfig: { nodes: { "*": { allowReadEntities: ["sensor.*"] } } },
     });
     expect(result.ok).toBe(true);
   });
