@@ -138,6 +138,16 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Remaining live gate: publish/install the updated node, restart/re-pair after `gateway.nodes.allowCommands` includes the new commands, then run the affected workspace scripts through `openclaw nodes invoke` against the connected node. Do NOT close this item based on local validation alone — live install + re-pair + allowCommands inclusion must be confirmed.
 - Acceptance: the affected workspace scripts run through `openclaw nodes invoke` / the HA node command surface by default, with no `HASS_TOKEN` path required for normal operation and no allowlist rejection for the new commands.
 
+### 37. Plugin packaging — `openclaw-hass-node-assist-tools` needs a build step + npm publish
+- Status: OPEN — discovered during v2026.7.1b1 rollout (2026-07-01).
+- Root cause: the plugin ships a TypeScript entry point with no compiled `dist/` directory. The pnpm workspace also hoists `node_modules` with symlinks that point outside the plugin tree.
+- Symptoms:
+  - `openclaw plugin install <path>` fails — the gateway expects compiled JS, not `.ts` source.
+  - `openclaw plugin install --link <repo>/plugins/openclaw-hass-node-assist-tools` fails the safety scan — the scanner rejects symlinks that resolve outside the plugin root (pnpm-hoisted deps hit this).
+- Workaround in use (see `docs/operations/LESSONS.md` — "Plugin packaging gap"): copy the plugin to a stable path outside the pnpm workspace, run `npm install` there for self-contained (non-symlinked) deps, then `openclaw plugin install --link <stable-path>`.
+- Required fix: add a `build` script to the plugin's `package.json` (`tsc --outDir dist`) and run it in CI / the release workflow so the plugin ships with a compiled `dist/`. Longer term, publish to npm or GHCR so `openclaw plugin install <package-name>` works without a local clone at all.
+- Acceptance: `openclaw plugin install --link plugins/openclaw-hass-node-assist-tools` succeeds directly from a fresh repo clone, with no manual copy or symlink workaround.
+
 ---
 
 ## Closed items

@@ -385,6 +385,81 @@ grep -rn -E "\bP[3-6]\.[0-9]+\b" \
   custom_components/ hacs.json
 ```
 
+## v2026.7.1b1 rollout gaps (2026-07-01)
+
+Two operational issues hit during the b1 rollout. Neither requires a code change to work around today; both need tracking for the fix path.
+
+### Plugin packaging gap (this repo — TODO #37)
+
+**Symptom A — `openclaw plugin install <path>` fails.** The gateway
+expects compiled JS; the plugin ships only TypeScript source (no `dist/`
+directory in `plugins/openclaw-hass-node-assist-tools/`).
+
+**Symptom B — `openclaw plugin install --link <repo>/plugins/...` fails
+the safety scan.** The pnpm workspace hoists `node_modules` and creates
+symlinks that resolve outside the plugin root. The gateway's link-install
+safety scan rejects any symlink that escapes the plugin tree, so the
+pnpm-managed `node_modules` triggers the block.
+
+**Workaround** (used for b1):
+
+1. Copy the plugin to a stable path outside the pnpm workspace, e.g.:
+   ```sh
+   cp -r ~/.openclaw/projects/openclaw-hass-node/plugins/openclaw-hass-node-assist-tools \
+         ~/.openclaw/plugins/openclaw-hass-node-assist-tools
+   ```
+2. Run `npm install` in that copy — produces self-contained, non-symlinked `node_modules`:
+   ```sh
+   cd ~/.openclaw/plugins/openclaw-hass-node-assist-tools
+   npm install
+   ```
+3. Install via link from the stable path:
+   ```sh
+   openclaw plugin install --link ~/.openclaw/plugins/openclaw-hass-node-assist-tools
+   ```
+
+**Fix required:** add `"build": "tsc --outDir dist"` to the plugin's
+`package.json` and run it in CI / the release workflow. Long-term,
+publish to npm or GHCR so `openclaw plugin install <package-name>` works
+from any fresh clone. Tracked in `docs/TODO.md` item #37.
+
+### Gateway `config.patch` false-positive on plugin-internal paths (upstream gateway quirk)
+
+**Symptom.** Patching
+`plugins.entries.openclaw-hass-node-assist-tools.config.nodes.hass.*`
+via `gateway config.patch` (or the MCP `config.patch` tool) is rejected:
+
+```
+Error: protected node config path
+```
+
+**Root cause.** The gateway's path-protection guard was written for
+`gateway.nodes.<id>.*` (the node registry). The pattern over-matches any
+config key that contains `nodes.<something>`, including the
+plugin-internal `config.nodes.*` sub-tree of a plugin entry. This is an
+upstream gateway bug, not a problem in this repo. We are NOT filing it
+upstream per Rob's instruction — we route around it locally and document
+it here.
+
+**Workaround:**
+
+1. Edit `~/.openclaw/openclaw.json` directly, setting the plugin config
+   keys by hand under `plugins.entries.openclaw-hass-node-assist-tools.config`.
+2. Validate the edited config:
+   ```sh
+   openclaw config validate
+   ```
+3. Restart the gateway for the new plugin config to take effect:
+   ```sh
+   openclaw gateway restart
+   ```
+
+**Do NOT use `gateway config.patch`** for any path that contains a
+`nodes.<id>` segment beneath a plugin entry — the guard will fire even
+though the path is a plugin-internal namespace, not a gateway node
+record. Direct JSON edit + validate + restart is the safe workaround
+until the upstream guard is narrowed to `gateway.nodes.*` only.
+
 ## Cross-agent code review applies to CI / scripts / workflows too
 
 Caught 2026-06-20 by Rob: PRs #155 (`scripts/bump-version.py` +
