@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("openclaw/plugin-sdk/plugin-config", () => ({
-  readPluginConfig: async () => ({}),
-}));
-
 const { createAssistToolsNodeInvokePolicy } = await import(
   "./node-invoke-policy.js"
 );

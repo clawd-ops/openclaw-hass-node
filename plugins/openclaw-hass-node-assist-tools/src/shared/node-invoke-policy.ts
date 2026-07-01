@@ -14,12 +14,9 @@ import type {
   OpenClawPluginNodeInvokePolicyContext,
   OpenClawPluginNodeInvokePolicyResult,
 } from "openclaw/plugin-sdk/plugin-entry";
-import { readPluginConfig } from "openclaw/plugin-sdk/plugin-config";
 import { decideGlobPolicy } from "./glob-policy.js";
 import { ASSIST_TOOLS_NODE_INVOKE_COMMANDS } from "./lazy-node-invoke-policy.js";
 import { readPerNodePolicy, type PerNodePolicy } from "./per-node-policy.js";
-
-const PLUGIN_ID = "openclaw-hass-node-assist-tools";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -108,11 +105,10 @@ async function forward(
   return await ctx.invokeNode({ params });
 }
 
-async function loadPolicyForNode(
+function loadPolicyForNode(
   ctx: OpenClawPluginNodeInvokePolicyContext,
-): Promise<PerNodePolicy | undefined> {
-  const cfg = ctx.pluginConfig ?? (await readPluginConfig(PLUGIN_ID));
-  return readPerNodePolicy(cfg, ctx.nodeId);
+): PerNodePolicy | undefined {
+  return readPerNodePolicy(ctx.pluginConfig, ctx.nodeId);
 }
 
 async function enforceCallService(
@@ -130,7 +126,7 @@ async function enforceCallService(
       "ha.call_service domain and service must be lowercase [a-z0-9_]+ (no URL delimiters)",
     );
   }
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   const decision = decideGlobPolicy({
     candidate: `${domain}.${service}`,
     allow: policy?.allowServices,
@@ -157,7 +153,7 @@ async function enforceReadEntity(
       "ha.get_state entity_id must match domain.object_id",
     );
   }
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   const decision = decideGlobPolicy({
     candidate: entityId,
     allow: policy?.allowReadEntities,
@@ -177,7 +173,7 @@ async function enforceListStates(
   // list_states returns all entities, so per-entity allowReadEntities
   // can't be matched against an input. Require allowReadEntities to be
   // non-empty as a coarse opt-in. Callers should filter results.
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   if (!policy?.allowReadEntities || policy.allowReadEntities.length === 0) {
     return deny(
       "ENTITY_DENIED",
@@ -197,7 +193,7 @@ async function enforceMetadataRead(
   // require *some* per-node policy entry (or wildcard '*') before
   // forwarding. Prevents raw node.invoke from exposing bulk HA metadata
   // for a node that has no policy at all.
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   if (!policy) {
     return deny(
       "METADATA_DENIED",
@@ -290,7 +286,7 @@ async function enforceEntityScopedRead(
       `${ctx.command} entity_id must match domain.object_id`,
     );
   }
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   const candidates: string[] = entityId
     ? [entityId]
     : entityIdsArray ?? [];
@@ -344,7 +340,7 @@ async function enforceConvenienceAction(
   params: Record<string, unknown>,
   serviceCandidate: string,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   const decision = decideGlobPolicy({
     candidate: serviceCandidate,
     allow: policy?.allowServices,
@@ -362,7 +358,7 @@ async function enforceAdminOp(
   params: Record<string, unknown>,
   requireSlug: boolean,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   if (!policy?.allowAdminOps) {
     return deny(
       "ADMIN_DENIED",
@@ -425,7 +421,7 @@ async function enforceCalendarGetEvents(
     const denial = validateTimeParam(params, key, ctx.command);
     if (denial) return denial;
   }
-  const policy = await loadPolicyForNode(ctx);
+  const policy = loadPolicyForNode(ctx);
   const allowed = policy?.allowCalendars ?? [];
   if (!allowed.includes(entityId)) {
     return deny(

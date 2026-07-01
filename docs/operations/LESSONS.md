@@ -482,3 +482,42 @@ GitHub Actions YAML, shell/Python scripts under `scripts/`, Docker /
 build config, packaging metadata?" If yes → spawn the GPT-5.5 review
 pass. Docs-only direct-merge is for `.md` (and the equivalent
 README/STATUS/HANDOFF surface), not for anything executable.
+
+## assist-tools plugin was written against a removed SDK API (`plugin-config`)
+
+Caught 2026-07-01 when the post-b1 install produced `PLUGIN_POLICY_UNAVAILABLE`
+in the gateway health check and every Assist tool-call failed with
+`Cannot read properties of undefined (reading 'readPluginConfig')`.
+
+**Root cause.** The plugin was authored against an early OC plugin-SDK draft
+that exported `readPluginConfig(pluginId)` from
+`openclaw/plugin-sdk/plugin-config`. That subpath and symbol were removed before
+the stable SDK shipped. The installed OC core (`/app/dist/plugin-sdk/`) has no
+`plugin-config` module; the import silently resolves to `undefined`, making every
+call to `readPluginConfig(...)` throw at runtime.
+
+**Stable API (as of OC 2026.7.x).** Plugin config is available through two paths:
+
+1. **Policy handlers** — the SDK runtime injects `ctx.pluginConfig` into every
+   `OpenClawPluginNodeInvokePolicyContext`. Use it directly; no import needed.
+2. **Tool execute handlers** — no direct config access. Call
+   `callGatewayTool("config.get", gatewayOpts, {})` and pipe the response
+   through `resolvePluginConfigObject(result?.payload, PLUGIN_ID)` from
+   `openclaw/plugin-sdk/plugin-config-runtime`.
+
+**Migration applied in this repo (PR fix/assist-tools-sdk-migration, 2026-07-01):**
+
+- `src/shared/node-invoke-policy.ts`: removed `readPluginConfig` import + fallback;
+  policy handler uses `ctx.pluginConfig` exclusively (always populated by the SDK
+  runtime; fail-safe to `undefined` = deny-all if misconfigured).
+- `src/tools/node-tool-invoke.ts`: replaced `readPluginConfig(PLUGIN_ID)` with
+  `callGatewayTool("config.get", ...)` + `resolvePluginConfigObject(...)`.
+- `types/openclaw-plugin-sdk.d.ts`: replaced stale `plugin-config` declaration
+  with the correct `plugin-config-runtime` module declaration.
+- Test mock for the removed `plugin-config` module removed; tests now run without
+  mocking (policy context always carries `pluginConfig` directly).
+
+**Future-Clawd:** when writing a new OC plugin that needs its own config in a tool
+execute handler, do NOT try to import `readPluginConfig` or any similar
+single-step helper — it does not exist. Use the two-step
+`config.get` → `resolvePluginConfigObject` path shown above.

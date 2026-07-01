@@ -8,7 +8,7 @@ import {
   resolveNodeIdFromList,
   type NodeListNode,
 } from "openclaw/plugin-sdk/agent-harness-runtime";
-import { readPluginConfig } from "openclaw/plugin-sdk/plugin-config";
+import { resolvePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
 import { readPerNodePolicy, type PerNodePolicy } from "../shared/per-node-policy.js";
 
 export const PLUGIN_ID = "openclaw-hass-node-assist-tools";
@@ -33,7 +33,8 @@ export async function resolveNodeAndPolicy(input: {
   const nodeMeta = nodes.find((n) => n.nodeId === nodeId);
   const nodeDisplayName = nodeMeta?.displayName ?? input.nodeIdentifier;
 
-  const pluginConfig = await readPluginConfig(PLUGIN_ID);
+  const configResult = await callGatewayTool<{ payload?: unknown }>("config.get", input.gatewayOpts, {});
+  const pluginConfig = resolvePluginConfigObject(configResult?.payload, PLUGIN_ID);
   const policy = readPerNodePolicy(pluginConfig, input.nodeIdentifier) ??
     readPerNodePolicy(pluginConfig, nodeId);
 
