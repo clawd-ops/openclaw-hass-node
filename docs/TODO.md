@@ -110,7 +110,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Requested: 2026-06-28 by Rob.
 - Goal: create/apply a reusable agent skill that teaches Clawd/Codex/subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
 - Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
-- Final skill: `home-assistant-node`; repo mirror lives at `skills/home-assistant-node/SKILL.md`.
+- Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
 - Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
 
 ### 35. HA Assist active-chat tool usage still not visible
