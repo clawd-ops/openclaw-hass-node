@@ -49,6 +49,8 @@ plugins/openclaw-hass-node-assist-tools/
 ├── openclaw.plugin.json     # manifest; declares all 28 tools in contracts.tools
 ├── package.json
 ├── index.ts                 # plugin entry; lazy-registers all 28 ha_* tools
+├── examples/
+│   └── policy-hass-starter.json  # starter per-node policy (copy into openclaw.json)
 ├── src/
 │   ├── tools/
 │   │   ├── descriptors.ts                  # TypeBox schemas + tool metadata (28 descriptors)
@@ -67,3 +69,59 @@ plugins/openclaw-hass-node-assist-tools/
 │       └── lazy-node-invoke-policy.ts      # per-node policy resolver
 └── README.md
 ```
+
+## SDK API contract
+
+This plugin is built against the OpenClaw plugin SDK. The surface it relies
+on is narrow. If an SDK upgrade breaks the plugin, check these first:
+
+### Entry point (`openclaw/plugin-sdk/plugin-entry`)
+
+```ts
+import {
+  definePluginEntry,
+  type AnyAgentTool,
+  type OpenClawPluginNodeInvokePolicy,
+  type OpenClawPluginNodeInvokePolicyContext,
+  type OpenClawPluginNodeInvokePolicyResult,
+} from "openclaw/plugin-sdk/plugin-entry";
+```
+
+- **`definePluginEntry(descriptor)`** — registers the plugin with the gateway.
+  Required fields: `id` (string), `name` (string), `description` (string),
+  `register(api)` (function).
+- **`api.registerTool(tool: AnyAgentTool)`** — registers a tool that surfaces
+  in Assist sessions. `AnyAgentTool` requires `label`, `name`, `description`,
+  `parameters` (TypeBox schema), and `execute(toolCallId, args, signal, onUpdate)`.
+- **`api.registerNodeInvokePolicy(policy: OpenClawPluginNodeInvokePolicy)`** —
+  registers the security gate for raw `node.invoke` calls. Required shape:
+  `{ commands: string[], handle(ctx): Promise<result> }`.
+- **`OpenClawPluginNodeInvokePolicyContext`** — the `ctx` argument passed to
+  `policy.handle`:
+  - `ctx.command` — the `ha.*` command being invoked
+  - `ctx.nodeId` — the paired node's ID
+  - `ctx.params` — raw params from the caller (validate before forwarding)
+  - `ctx.pluginConfig` — plugin config object if pre-loaded (may be undefined;
+    fall back to `readPluginConfig`)
+  - `ctx.invokeNode({ params })` — forwards the call to the node after policy
+    check passes; returns `{ ok, payload?, error? }`
+
+### Config reader (`openclaw/plugin-sdk/plugin-config`)
+
+```ts
+import { readPluginConfig } from "openclaw/plugin-sdk/plugin-config";
+const cfg = await readPluginConfig("openclaw-hass-node-assist-tools");
+```
+
+Returns the plugin's own config object from the operator's `openclaw.json`
+(`plugins.entries.<id>.config`). Used to read per-node policy at call time.
+
+### What to check on SDK upgrades
+
+1. `definePluginEntry` signature and `register(api)` argument shape
+2. `AnyAgentTool.execute` parameter order and types
+3. `OpenClawPluginNodeInvokePolicy` — `commands` array still accepted, `handle`
+   still receives `OpenClawPluginNodeInvokePolicyContext` with `invokeNode`
+4. `readPluginConfig` — still resolves the plugin's own config subtree
+5. `ctx.invokeNode` return shape (`{ ok: boolean, payload?, error? }`) — the
+   policy handlers forward it directly to callers

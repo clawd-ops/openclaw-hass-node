@@ -1,0 +1,45 @@
+{
+  "_comment": "Starter per-node policy for openclaw-hass-node-assist-tools. Copy this into ~/.openclaw/openclaw.json under plugins.entries.openclaw-hass-node-assist-tools.config. Replace <your-node-id> with the paired node's ID (shown in `openclaw nodes status`). See the plugin README for the full config schema.",
+
+  "nodes": {
+    "<your-node-id>": {
+      "_comment": "Tier A only — Tier B admin ops disabled. Reads all entities and calendars. Services limited to common household controls.",
+
+      "allowReadEntities": ["*"],
+
+      "allowCalendars": [
+        "calendar.*"
+      ],
+
+      "allowServices": [
+        "light.*",
+        "switch.turn_on",
+        "switch.turn_off",
+        "switch.toggle",
+        "climate.*",
+        "cover.*",
+        "fan.*",
+        "media_player.play_media",
+        "media_player.pause",
+        "media_player.stop",
+        "media_player.volume_set",
+        "media_player.volume_up",
+        "media_player.volume_down",
+        "media_player.mute_volume",
+        "input_boolean.turn_on",
+        "input_boolean.turn_off",
+        "input_boolean.toggle",
+        "input_number.set_value",
+        "input_select.select_option",
+        "scene.turn_on",
+        "script.turn_on",
+        "homeassistant.update_entity",
+        "notify.*"
+      ],
+
+      "denyServices": [],
+
+      "allowAdminOps": false
+    }
+  }
+}
