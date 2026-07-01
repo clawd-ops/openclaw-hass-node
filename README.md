@@ -12,16 +12,16 @@
 > [`docs/STATUS.md`](docs/STATUS.md) for the first stable tag.
 
 > 🕷️ **With great power comes great responsibility.** Installing this
-> add-on hands an AI agent a direct line into your Home Assistant: it can
+> app hands an AI agent a direct line into your Home Assistant: it can
 > read entity state, call services, control devices, edit files under
-> `/config`, `/share`, and `/media`, fetch addon logs and metadata, and
+> `/config`, `/share`, and `/media`, fetch app logs and metadata, and
 > (gated behind `OPENCLAW_ADMIN_TOKEN`) reload HA core config or run
-> shell commands inside the addon container. We sandbox what we can —
-> path-traversal protection, a read-only addon surface that strips
+> shell commands inside the app container. We sandbox what we can —
+> path-traversal protection, a read-only app surface that strips
 > secrets at the boundary, admin tokens on the destructive commands —
 > but we are not a tinfoil hat. A misbehaving, jailbroken, or
 > well-meaning-but-overconfident agent CAN delete your automations, brick
-> an addon, leak configuration to a chat channel, or otherwise turn your
+> an app, leak configuration to a chat channel, or otherwise turn your
 > smart home into a smart pile of rubble. **If your agent vaporizes your
 > HA install, sets your living-room lights to disco at 3 AM, or your Pi
 > catches fire trying to render a chart, that is on you and your agent —
@@ -29,37 +29,63 @@
 > least-privilege agent. Pair this with a real backup integration. You
 > have been warned.
 
-Home Assistant add-on (app) + HACS integration that connects HA to an [OpenClaw][]
-gateway as a node. Lets your OpenClaw agent (Clawd or whichever agent
-you've routed to) answer HA Assist turns and run the full `ha.*`
+Four-piece bundle that connects Home Assistant to an [OpenClaw][]
+gateway as a node so your OpenClaw agent (Clawd or whichever agent
+you've routed to) can answer HA Assist turns and run the full `ha.*`
 control surface — read entity states, call services, control lights,
 read logbook/history, validate config — via the standard OpenClaw
 Gateway Protocol.
+
+### The four pieces
+
+Everything is prefixed `openclaw-hass-node-` and named for its role.
+See [`docs/design/COMPONENT-NAMING.md`](docs/design/COMPONENT-NAMING.md)
+for the full taxonomy and rationale.
+
+| Piece                             | Role                                                                                                 | Lives at                                            |
+|-----------------------------------|------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| `openclaw-hass-node-app`          | The HA **app**. Python service that pairs with the OpenClaw gateway and exposes the `ha.*` / `fs.*` / `system.*` node command surface. | [`app/`](app/)                                      |
+| `openclaw-hass-node-assist`       | The **HACS integration**. Registers the OpenClaw conversation entity inside HA core and proxies Assist turns to the app over local HTTP. | [`custom_components/openclaw_hass_node_assist/`](custom_components/openclaw_hass_node_assist/) |
+| `openclaw-hass-node-assist-tools` | The OpenClaw **gateway plugin**. Declares scoped per-tool wrappers (`ha_call_service`, `ha_get_state`, `ha_logbook`, …) so HA Assist sessions can operate the paired node without the operator-only `nodes.invoke` tool. | [`plugins/openclaw-hass-node-assist-tools/`](plugins/openclaw-hass-node-assist-tools/) |
+| `openclaw-hass-node-skill`        | The companion **skill** used by every non-Assist OC session (chat, cron, sub-agent) to drive `ha.*` / `fs.*` via `nodes.invoke`. | [`skills/openclaw-hass-node-skill/`](skills/openclaw-hass-node-skill/) |
+
+Only the first two install to your HA host. The plugin loads into your
+OpenClaw gateway config; the skill installs into your OpenClaw session
+skill registry.
+
+### End-to-end request flow
 
 ```
 HA Assist UI
     │ user turn
     ▼
-HACS integration (ConversationEntity)
+openclaw-hass-node-assist (HACS integration, ConversationEntity)
     │ POST /v1/conversation
     ▼
-OpenClaw HA node (this add-on)
-    │ chat.send + sessions.messages.subscribe   ◄── WORKING (operator-role websocket)
+openclaw-hass-node-app (this repo's HA app)
+    │ chat.send + sessions.messages.subscribe   ◄── operator-role websocket
     ▼
-OpenClaw gateway → configured agent
-    │ ha.* tool calls back via node.invoke      ◄── WORKING (node-role websocket)
+OpenClaw gateway → configured agent (Assist session)
+    │ scoped ha_* tool calls via openclaw-hass-node-assist-tools plugin
+    │ ha.* → node.invoke                        ◄── node-role websocket
     ▼
-Speech reply
+openclaw-hass-node-app runs the HA action, returns
+    ▼
+Speech reply back to Assist
 ```
 
-Both halves work end-to-end. The node opens two parallel gateway
+Both halves work end-to-end. The app opens two parallel gateway
 connections — node-role for invokes, operator-role for the
 conversation relay — sharing a single device identity. Pair the
 device with a dual-role profile via `openclaw qr`.
 
+Non-Assist OC sessions (chat, cron, sub-agent) have `nodes.invoke`
+directly and drive the same node command surface via the
+`openclaw-hass-node-skill` skill, bypassing the plugin.
+
 **New here?** Read **[`docs/design/PLAN.md`](docs/design/PLAN.md)** for
-what this is, what each part (add-on (app), HACS integration, gateway)
-does and why, the end-to-end request flow, and the security model.
+what this is, what each of the four pieces does and why, the
+end-to-end request flow, and the security model.
 
 ## Install
 
@@ -67,15 +93,23 @@ See **[`docs/INSTALL.md`](docs/INSTALL.md)** for the full end-to-end
 walkthrough, including the **required** `openclaw.json` patch on the
 gateway side. Short version:
 
-1. Patch `gateway.nodes.allowCommands` in your OpenClaw config (the
-   gateway silently drops unknown commands; without this the node
-   pairs but no commands work).
-2. Add this repo as an HA add-on (app) repository, install **OpenClaw Node**,
-   fill in `gateway_url` + `pairing_token` + `node_name`, start it.
+1. **OpenClaw gateway config** — patch `gateway.nodes.allowCommands`
+   (the gateway silently drops unknown commands; without this the node
+   pairs but no commands work). Load the
+   **`openclaw-hass-node-assist-tools`** plugin under
+   `plugins.entries` and add a per-node policy block with the allow
+   lists you want Assist to have (`allowServices`,
+   `allowReadEntities`, `allowCalendars`; optional `allowAdminOps` +
+   `adminToken` for Tier B). Install
+   **`openclaw-hass-node-skill`** into your OC session skill registry
+   so non-Assist sessions can drive the node too.
+2. **HA app** — add this repo as an HA app repository, install
+   **OpenClaw HA Node — App**, fill in `gateway_url` +
+   `pairing_token` + `node_name`, start it.
 3. `openclaw devices approve <request-id>` on the gateway.
-4. Install the **OpenClaw HA Node — Assist** HACS integration, point its config
-   flow at the add-on (app) socket.
-5. Pick it as your HA Assist conversation agent.
+4. **HACS integration** — install **OpenClaw HA Node — Assist**, point
+   its config flow at the app socket.
+5. Pick **OpenClaw HA Node — Assist** as your HA Assist conversation agent.
 
 > Standalone Docker (without HA Supervisor) is **not a supported install
 > path during beta**. The runtime entrypoint depends on
@@ -101,11 +135,11 @@ gateway side. Short version:
 
 ## Security model
 
-- **Outbound-only WSS.** The add-on opens the connection to the gateway. There is no inbound port for the gateway to attack.
-- **Signed handshake.** Pairing uses an Ed25519 key generated inside the add-on. The private key never leaves `/data`. Connect frames are signed (payload format v3); the gateway verifies the signature against the registered public key.
-- **Device-token persistence with self-heal.** After first pairing the add-on persists the device token. If the gateway later rejects it (`NOT_PAIRED`, `PAIRING_REQUIRED`, `AUTH_TOKEN_MISMATCH`, `token_mismatch`), the add-on drops the stored token and falls back to the pairing token, so a stale token doesn't lock you out.
-- **Gateway-side allowlist.** Even if the add-on were compromised, the gateway only honors commands listed in `gateway.nodes.allowCommands`. Removing a command from that list and restarting the gateway disables it everywhere.
-- **HA Supervisor isolation.** The add-on runs in its own container with explicit filesystem maps. Removing a map (e.g. `media:rw`) immediately removes the add-on's access to that area.
+- **Outbound-only WSS.** The app opens the connection to the gateway. There is no inbound port for the gateway to attack.
+- **Signed handshake.** Pairing uses an Ed25519 key generated inside the app. The private key never leaves `/data`. Connect frames are signed (payload format v3); the gateway verifies the signature against the registered public key.
+- **Device-token persistence with self-heal.** After first pairing the app persists the device token. If the gateway later rejects it (`NOT_PAIRED`, `PAIRING_REQUIRED`, `AUTH_TOKEN_MISMATCH`, `token_mismatch`), the app drops the stored token and falls back to the pairing token, so a stale token doesn't lock you out.
+- **Gateway-side allowlist.** Even if the app were compromised, the gateway only honors commands listed in `gateway.nodes.allowCommands`. Removing a command from that list and restarting the gateway disables it everywhere.
+- **HA Supervisor isolation.** The app runs in its own container with explicit filesystem maps. Removing a map (e.g. `media:rw`) immediately removes the app's access to that area.
 - **No agent reasoning happens here.** This node is purely an executor. Prompts, tool-choice, model selection, and policy all live in the gateway. The node does what the gateway tells it; the gateway does what the agent decides; the agent runs under whatever policy you configure upstream.
 
 ## What this is not
@@ -132,7 +166,7 @@ Release + versioning policy: [`docs/operations/RELEASE.md`](docs/operations/RELE
   resuming work after a context compaction.
 - [`docs/operations/LESSONS.md`](docs/operations/LESSONS.md) — gotchas from the install
   push. Read **before** changing the connect frame, Dockerfile, or
-  addon config.
+  app config.
 - [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — cross-provider review process.
 - [`docs/operations/QUALITY.md`](docs/operations/QUALITY.md) — CI gates and quality bar.
 

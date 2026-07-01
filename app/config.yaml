@@ -19,7 +19,7 @@
 #     Fixed in b10.
 # -------------------------------------------------------------------------
 ---
-name: OpenClaw Node
+name: OpenClaw HA Node — App
 version: "2026.6.29b1"
 slug: openclaw_hass_node
 description: >
