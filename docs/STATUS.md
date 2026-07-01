@@ -23,7 +23,7 @@ Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
   the other down. Device is paired as dual-role via the
   `openclaw qr` bootstrap-token flow.
 - **HA Assist streams.** Conversation turns route HA Assist → HACS
-  shim → node's `/v1/conversation` → operator-role WS → agent
+  integration → node's `/v1/conversation` → operator-role WS → agent
   session, with token-delta streaming back into HA. Mid-turn
   tool-named progress lines (e.g. `🔧 Calling weather...`) surface
   in the conversation UI while the agent is still working.
@@ -46,7 +46,7 @@ Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
   every non-public path returns `401 NO_TOKEN_CONFIGURED`; when set,
   every non-public path requires `Authorization: Bearer <token>`
   (compared with `hmac.compare_digest`). Public paths are `/health`,
-  `/v1/health`, `/v1/conversation/info` (HA addon probes + shim
+  `/v1/health`, `/v1/conversation/info` (HA addon probes + integration
   config-flow discovery), and health redacts identity details to
   counts/booleans rather than exposing HA UUIDs, agent mappings, or
   lifecycle policy. No host port mapping; the API is only reachable
@@ -111,13 +111,13 @@ None. The pipeline is live; remaining work is incremental.
   when impacted. Cross-validated by Codex reviewer. (Rob, issue #1
   round 2)
 - 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
-  thin `custom_components/openclaw_hass_node_assist/` HACS shim. Plan A
+  thin `custom_components/openclaw_hass_node_assist/` HACS integration. Plan A
   (add-on (app) alone) confirmed not viable; see
   `docs/research/CONVERSATION-AGENT.md`. (Clawd)
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
   gateway WS protocol; does not connect to agent-bridge directly. See
   `docs/research/AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd)
-- 2026-06-05 — Language: Python 3.13+ for node and shim. Quality
+- 2026-06-05 — Language: Python 3.13+ for node and integration. Quality
   gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
   (`ruff` D-rules + `pydoclint`), branch coverage gated at 95% via
   pytest, `ruff` lint/format, `bandit`, `pip-audit`. All gated in

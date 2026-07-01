@@ -13,7 +13,7 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.13-alpine3.20
 FROM ${BUILD_FROM}
 
-# Build context is the addon/ directory (Supervisor convention).
+# Build context is the app/ directory (Supervisor convention).
 COPY node /opt/openclaw-node
 COPY run.sh /run.sh
 

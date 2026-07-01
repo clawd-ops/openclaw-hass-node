@@ -53,9 +53,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
 - Status: OPEN
-- Today: release workflow extracts notes from a hand-written `addon/CHANGELOG.md` section per version heading. Conventional Commits is policy on every PR so the history stays machine-readable, but nothing reads it automatically.
-- Goal: extend `.github/workflows/release-on-version-bump.yml` (or a sibling step) so the release notes are derived from the Conventional Commit subjects since the previous tag, grouped by type (Features / Fixes / Refactor / Docs / etc.). Hand-written `addon/CHANGELOG.md` becomes optional embellishment rather than the source.
-- Constraints: must respect prerelease semantics (a/b/rc/.dev); must still produce a useful HA-Supervisor-rendered `addon/CHANGELOG.md` (Supervisor reads this file for the addon's Changelog tab); must not require a separate `release: <version>` PR if the changelog can be generated mid-flight.
+- Today: release workflow extracts notes from a hand-written `app/CHANGELOG.md` section per version heading. Conventional Commits is policy on every PR so the history stays machine-readable, but nothing reads it automatically.
+- Goal: extend `.github/workflows/release-on-version-bump.yml` (or a sibling step) so the release notes are derived from the Conventional Commit subjects since the previous tag, grouped by type (Features / Fixes / Refactor / Docs / etc.). Hand-written `app/CHANGELOG.md` becomes optional embellishment rather than the source.
+- Constraints: must respect prerelease semantics (a/b/rc/.dev); must still produce a useful HA-Supervisor-rendered `app/CHANGELOG.md` (Supervisor reads this file for the addon's Changelog tab); must not require a separate `release: <version>` PR if the changelog can be generated mid-flight.
 - Lands AFTER the doc cleanup + Phase 2 doc-architecture reshape, but BEFORE we'd want to take the project to 1.0.
 
 ### 20. Proposal-gated write path — agent-bridge UI wiring
@@ -97,7 +97,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: OPEN
 - Requested: 2026-06-28 by Rob.
 - Goal: addon option `show_tool_progress: true|false` (default `true`). When `false`, the relay skips emitting `🔧 Calling X...` deltas entirely (both the legacy immediate path and the `ToolProgressFrame` cap path). Lets users who want a quieter HA Assist UX suppress the per-tool progress lines without needing a different cap.
-- Scope: `addon/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
+- Scope: `app/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
 
 ### 33. Quiet `[relay-diag]` INFO noise in addon logs
 - Status: OPEN
@@ -119,7 +119,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Symptom: HA Assist turns that visibly run commands/tools still show no `🔧 Calling X...` lines in the active chat. Rob's expected behavior is explicit: every new tool call should push a visible active-chat line, so 25 tool calls means 25 visible tool-usage indications.
 - Why it matters: without mid-turn tool-use output, HA Assist can sit silent long enough to look like a timeout or failed response even when the backend is working.
 - Prior attempts: #179 added structured `tool_progress` frames, #184 restored no-cap legacy text, #186 pushed per-tool-start deltas, #188 handled hidden `stream=item` tool starts, and #190 suppressed raw HTML gateway errors. The user-facing result is still not verified/fixed.
-- Next investigation: confirm the installed add-on/shim version, capture the exact HA Assist event stream for a failing turn, and identify which event path is still bypassing `ChatRelay`'s visible tool-start delta.
+- Next investigation: confirm the installed add-on/integration version, capture the exact HA Assist event stream for a failing turn, and identify which event path is still bypassing `ChatRelay`'s visible tool-start delta.
 - Cross-link: item #32 (show/hide config) must wait until this works; hiding broken output is not useful.
 
 ### 36. Node command gaps discovered while migrating workspace HA scripts
@@ -142,7 +142,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
 - Status: CLOSED 2026-06-28 — shipped in PR #179.
-- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS shim. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; shim swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Legacy textual `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
+- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS integration. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; integration swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Legacy textual `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
 
 ### 1. User mapping / identity propagation
 - Status: CLOSED 2026-06-28 — addon side shipped via PRs #164–#167 + #177; design captured in [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md).
@@ -150,7 +150,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Out of scope for this repo (closing cleanly): hard concern-A enforcement comes from gateway-side agent inventories; hard concern-B invoke enforcement needs a future gateway invoke envelope that carries session/actor context. Track gateway-side work in the gateway repo, not here.
 
 ### 28. Documentation tab intro / glossary (prelude to per-option detail)
-- Status: CLOSED 2026-06-28 — `addon/DOCS.md` (shipped in PR #177) covers the substance.
+- Status: CLOSED 2026-06-28 — `app/DOCS.md` (shipped in PR #177) covers the substance.
 - Has: orientation paragraph, Quick start, per-option detail with purpose/example/default/security on every option, and a dedicated **Authorization model for the HA control surface** section that documents Tier A / Tier B and the explicit "There is no separate operator admin token for Tier B" line.
 - Residual polish (not a blocker, not opening a separate item preemptively): the three-token model is described inside each token's own option section rather than as one up-front glossary block. If a future operator still trips on the token-vs-token question, lift those three explanations into one prelude block then.
 
@@ -182,12 +182,12 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 2. Real per-tool progress events
 - Status: CLOSED 2026-06-20 (verified end-to-end on b6)
 - PRs #143 (tool capture + relay branch) → #147 (forward `agent` events through the WS dispatch filter) → #149 sync → b6 release. Rob's screenshot confirmed `🔧 Calling Bash...` mid-stream on a tool-heavy HA Assist turn.
-- Out of scope this round: multi-tool turns only label the first visible delta. Considered for a v2 with proper ephemeral status frames + HACS shim change.
+- Out of scope this round: multi-tool turns only label the first visible delta. Considered for a v2 with proper ephemeral status frames + HACS integration change.
 - Cross-link: item 8 partially addressed — when the model fakes a wait without a tool call, the user now sees the generic `Working on it...` instead of a tool name, which is a visible tell. Root-cause fix is still prompt-side.
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
-- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw HA Node — Assist`. User-facing surfaces are clean.
+- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `app/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw HA Node — Assist`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
 - Status: CLOSED 2026-06-20 (streaming variant fixed; non-streaming variant accepted as structural)
@@ -201,7 +201,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 6. Doc cleanup sweep (pre-1.0 hygiene)
 - Status: CLOSED 2026-06-20
-- PR #150 (sweep, 17 files), #151 (command-count off-by-one fix), #152 (post-review follow-up: handoff status + mapped roots), #153 (addon/config.yaml description), #154 (LESSONS user-facing surface inventory). Phase IDs and PR numbers stripped from user-facing prose. STATUS.md rewritten. RELEASE.md gained the manual procedure (later automated by PR #156). HACS title aligned with the integration manifest (PR #155).
+- PR #150 (sweep, 17 files), #151 (command-count off-by-one fix), #152 (post-review follow-up: handoff status + mapped roots), #153 (app/config.yaml description), #154 (LESSONS user-facing surface inventory). Phase IDs and PR numbers stripped from user-facing prose. STATUS.md rewritten. RELEASE.md gained the manual procedure (later automated by PR #156). HACS title aligned with the integration manifest (PR #155).
 
 ### 8. Prompt guard: no faked waiting/working
 - Status: CLOSED 2026-06-20 (out-of-repo; partial mitigation in-repo)
@@ -225,13 +225,13 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: CLOSED 2026-06-20
 - All six Tier A commands (`ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`) verified working end-to-end against the live `hass` node on 2026.6.20b4. Discovered + fixed a separate cache layer: the gateway's per-node `commands` array in `nodes/paired.json` is set at original pair time and is NOT refreshed by WS reconnect. `hassio.addon_restart` (full handshake) is what rewrites it. Recipe in `docs/operations/LESSONS.md` — "Gateway caches the node's advertised commands at pair time".
 
-### 15. Q1 — HACS shim default hostname hash
+### 15. Q1 — HACS integration default hostname hash
 - Status: CLOSED 2026-06-20 (mooted by PR #94)
-- PR #94 (merged 2026-06-08) added `_supervisor_addon_hostname` in `custom_components/openclaw_hass_node_assist/config_flow.py:50-90` — the shim asks HA's `hassio` integration for the addon's real hostname at config-flow time. The hardcoded `a0d7b954-openclaw-hass-node` in `const.py:14` is now only a last-resort fallback, not the canonical path. Worst case the user edits the URL once during config flow.
+- PR #94 (merged 2026-06-08) added `_supervisor_addon_hostname` in `custom_components/openclaw_hass_node_assist/config_flow.py:50-90` — the integration asks HA's `hassio` integration for the addon's real hostname at config-flow time. The hardcoded `a0d7b954-openclaw-hass-node` in `const.py:14` is now only a last-resort fallback, not the canonical path. Worst case the user edits the URL once during config flow.
 
 ### 16. Q2 — `pairing_token` addon option: remove or keep
 - Status: CLOSED 2026-06-20 (keep as-is)
-- After PR #93 accepted the `openclaw qr` setup-code envelope as a valid `pairing_token` value, the option is the canonical on-boarding path: the user pastes the setup code into the addon Configuration UI on first install, the node normalises it (`addon/node/src/openclaw_node/config.py:24-56`), pairs, and the gateway issues a real device token. No alternative bootstrap UI exists, so removing it would block first-install. Keep.
+- After PR #93 accepted the `openclaw qr` setup-code envelope as a valid `pairing_token` value, the option is the canonical on-boarding path: the user pastes the setup code into the addon Configuration UI on first install, the node normalises it (`app/node/src/openclaw_node/config.py:24-56`), pairs, and the gateway issues a real device token. No alternative bootstrap UI exists, so removing it would block first-install. Keep.
 
 ### 18. SUPERVISOR_TOKEN injection loop (`hass-node-supervisor-token` in open-loops.md)
 - Status: CLOSED 2026-06-20

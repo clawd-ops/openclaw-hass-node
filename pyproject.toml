@@ -6,7 +6,7 @@
 # definitions live in docs/QUALITY.md.
 
 [tool.uv.workspace]
-members = ["addon/node"]
+members = ["app/node"]
 
 [dependency-groups]
 dev = [
@@ -24,7 +24,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["addon/node/src", "addon/node/tests", "custom_components"]
+src = ["app/node/src", "app/node/tests", "custom_components"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "D", "RUF", "ARG", "PT", "RET", "TRY"]
@@ -49,13 +49,13 @@ convention = "google"
 python_version = "3.13"
 strict = true
 warn_unreachable = true
-files = ["addon/node/src", "addon/node/tests"]
+files = ["app/node/src", "app/node/tests"]
 
 # ---------------------------------------------------------------------------
 # pytest + coverage
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
-testpaths = ["addon/node/tests"]
+testpaths = ["app/node/tests"]
 addopts = "--cov=openclaw_node --cov-report=term-missing --cov-branch"
 asyncio_mode = "auto"
 

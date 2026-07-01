@@ -78,7 +78,7 @@ _DEFAULT_FORBIDDEN: Final[dict[Role, frozenset[str]]] = {
 
 @dataclass(frozen=True)
 class Actor:
-    """Human HA user identity forwarded by the HACS shim."""
+    """Human HA user identity forwarded by the HACS integration."""
 
     user_id: str
     is_admin: bool
@@ -110,7 +110,7 @@ def actor_from_signed_body(body: dict[str, Any], local_api_token: str) -> Actor 
 
     The local bearer token proves access to the node API, not which HA user
     originated an Assist turn. Role and per-user agent routing therefore trust
-    ``actor`` only when the HACS shim signs the actor plus turn fields with a
+    ``actor`` only when the HACS integration signs the actor plus turn fields with a
     key derived from the same local API token it already uses to authenticate to
     this node. The derivation keeps the signing concept separate in code
     without requiring the operator to configure a third shared secret.

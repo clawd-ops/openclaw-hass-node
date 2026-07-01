@@ -2,12 +2,12 @@
 
 There are five sources of truth that all have to match exactly:
 
-- ``addon/node/pyproject.toml`` — Python package version (PEP 440)
-- ``addon/node/src/openclaw_node/__init__.py`` — fallback literal used when
+- ``app/node/pyproject.toml`` — Python package version (PEP 440)
+- ``app/node/src/openclaw_node/__init__.py`` — fallback literal used when
   ``importlib.metadata`` cannot resolve the package (source/dev runs)
-- ``addon/config.yaml`` — Home Assistant add-on metadata
-- ``addon/build.yaml`` — Supervisor build label
-- ``custom_components/openclaw_hass_node_assist/manifest.json`` — HACS shim version
+- ``app/config.yaml`` — Home Assistant add-on metadata
+- ``app/build.yaml`` — Supervisor build label
+- ``custom_components/openclaw_hass_node_assist/manifest.json`` — HACS integration version
 
 Past versions drifted between these (e.g. UAT-PLAN expecting 2026.6.0 while
 code was on 2026.6.8). The user called it cosmetic at the time, but a
@@ -24,12 +24,12 @@ import tomllib
 from pathlib import Path
 
 # The repo root sits four levels above this test file:
-# addon/node/tests/test_version_sync.py → addon/node/tests → addon/node → addon → repo
+# app/node/tests/test_version_sync.py → app/node/tests → app/node → app → repo
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _read_pyproject_version() -> str:
-    raw = (_REPO_ROOT / "addon" / "node" / "pyproject.toml").read_bytes()
+    raw = (_REPO_ROOT / "app" / "node" / "pyproject.toml").read_bytes()
     data = tomllib.loads(raw.decode("utf-8"))
     project = data.get("project")
     assert isinstance(project, dict), "pyproject.toml missing [project] table"
@@ -45,7 +45,7 @@ def _read_init_fallback() -> str:
     short-circuit to the installed version and we explicitly want to assert
     the source-tree fallback also stays in sync.
     """
-    text = (_REPO_ROOT / "addon" / "node" / "src" / "openclaw_node" / "__init__.py").read_text(
+    text = (_REPO_ROOT / "app" / "node" / "src" / "openclaw_node" / "__init__.py").read_text(
         encoding="utf-8"
     )
     match = re.search(r'__version__ = "([^"]+)"', text)
@@ -54,16 +54,16 @@ def _read_init_fallback() -> str:
 
 
 def _read_addon_config_version() -> str:
-    text = (_REPO_ROOT / "addon" / "config.yaml").read_text(encoding="utf-8")
+    text = (_REPO_ROOT / "app" / "config.yaml").read_text(encoding="utf-8")
     match = re.search(r'^version:\s*"([^"]+)"', text, re.MULTILINE)
-    assert match, "no top-level version in addon/config.yaml"
+    assert match, "no top-level version in app/config.yaml"
     return match.group(1)
 
 
 def _read_build_yaml_version() -> str:
-    text = (_REPO_ROOT / "addon" / "build.yaml").read_text(encoding="utf-8")
+    text = (_REPO_ROOT / "app" / "build.yaml").read_text(encoding="utf-8")
     match = re.search(r'io\.hass\.version:\s*"([^"]+)"', text)
-    assert match, "no io.hass.version in addon/build.yaml"
+    assert match, "no io.hass.version in app/build.yaml"
     return match.group(1)
 
 
@@ -81,8 +81,8 @@ def test_version_sources_match() -> None:
     versions = {
         "pyproject.toml": _read_pyproject_version(),
         "__init__.py fallback": _read_init_fallback(),
-        "addon/config.yaml": _read_addon_config_version(),
-        "addon/build.yaml": _read_build_yaml_version(),
+        "app/config.yaml": _read_addon_config_version(),
+        "app/build.yaml": _read_build_yaml_version(),
         "custom_components/.../manifest.json": _read_manifest_version(),
     }
     distinct = set(versions.values())

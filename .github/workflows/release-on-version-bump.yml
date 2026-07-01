@@ -2,7 +2,7 @@ name: Auto-cut release on version bump
 
 # Runs after every push to main. If the current synced version literal
 # does not yet have a matching `v<version>` git tag, this job creates the
-# tag and a GitHub release with notes extracted from `addon/CHANGELOG.md`.
+# tag and a GitHub release with notes extracted from `app/CHANGELOG.md`.
 # Idempotent: if the tag exists, the job no-ops.
 #
 # Background: HA Supervisor's Update prompt reads from published GitHub
@@ -18,10 +18,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "addon/config.yaml"
-      - "addon/build.yaml"
-      - "addon/node/pyproject.toml"
-      - "addon/node/src/openclaw_node/__init__.py"
+      - "app/config.yaml"
+      - "app/build.yaml"
+      - "app/node/pyproject.toml"
+      - "app/node/src/openclaw_node/__init__.py"
       - "custom_components/openclaw_hass_node_assist/manifest.json"
       - ".github/workflows/release-on-version-bump.yml"
 
@@ -84,13 +84,13 @@ jobs:
               if (heading[2] == ver) { in_section = 1; next }
             }
             in_section { print }
-          ' addon/CHANGELOG.md > "$NOTES_FILE"
+          ' app/CHANGELOG.md > "$NOTES_FILE"
           if [[ ! -s "$NOTES_FILE" ]]; then
             echo "No CHANGELOG section found for $VERSION — using a stub." >&2
             printf '%s\n' \
               "Release $VERSION." \
               "" \
-              "Full changelog: https://github.com/${{ github.repository }}/blob/main/addon/CHANGELOG.md" \
+              "Full changelog: https://github.com/${{ github.repository }}/blob/main/app/CHANGELOG.md" \
               > "$NOTES_FILE"
           fi
           echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
@@ -123,7 +123,7 @@ jobs:
               print
               exit
             }
-          ' addon/CHANGELOG.md)
+          ' app/CHANGELOG.md)
           if [[ -z "$TITLE" ]]; then
             TITLE="$VERSION"
           fi

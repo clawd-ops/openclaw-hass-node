@@ -18,7 +18,7 @@ control surface. The manifest field reference is at
 3. Generate a pairing token from the gateway (`openclaw qr`) and paste
    it into `pairing_token`.
 4. Set `local_api_token` to a strong random value (used by the HACS
-   shim to authenticate Assist turns to the add-on).
+   integration to authenticate Assist turns to the add-on).
 5. Start the add-on. After successful pairing, leave
    `pairing_token` and `reset_pairing` alone unless you intentionally
    want to re-pair.
@@ -63,7 +63,7 @@ control surface. The manifest field reference is at
 
 ### `local_api_token`
 
-- **Purpose**: Shared bearer token used by the in-Supervisor HACS shim
+- **Purpose**: Shared bearer token used by the in-Supervisor HACS integration
   to authenticate Assist relay requests to this add-on's local HTTP
   API. The same value is also used to derive the HMAC subkey that
   signs the HA actor metadata forwarded on each Assist turn.
@@ -71,7 +71,7 @@ control surface. The manifest field reference is at
 - **Example**: `"a-long-random-string-from-openssl-rand-hex-32"`.
 - **Default**: `""`.
 - **Security**: The local API is reachable only on the Supervisor
-  add-on network (no host port mapping), but the HACS shim still
+  add-on network (no host port mapping), but the HACS integration still
   requires this token to talk to it. If it is unset, the actor-signing
   path is disabled and HA Assist turns degrade to anonymous role
   resolution (every caller resolves to `user`). Set this to a strong

@@ -4,7 +4,7 @@
 The project version literal lives in five files because the same code
 ships through three ecosystems (Python package, HA Supervisor add-on,
 HACS custom integration). Hand-editing five files is how versions drift
-(see PR #148/#149: addon/config.yaml was bumped to b6 while the other
+(see PR #148/#149: app/config.yaml was bumped to b6 while the other
 four stayed at b5). This script is the one command that does all five.
 
 Usage:
@@ -45,22 +45,22 @@ class VersionFile:
 # Order matters only for readable output — sources are independent.
 SOURCES: list[VersionFile] = [
     VersionFile(
-        path=REPO_ROOT / "addon" / "config.yaml",
+        path=REPO_ROOT / "app" / "config.yaml",
         pattern=re.compile(r'^version: "([^"]+)"$', re.MULTILINE),
         template='version: "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "addon" / "build.yaml",
+        path=REPO_ROOT / "app" / "build.yaml",
         pattern=re.compile(r'^  io\.hass\.version: "([^"]+)"$', re.MULTILINE),
         template='  io.hass.version: "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "addon" / "node" / "pyproject.toml",
+        path=REPO_ROOT / "app" / "node" / "pyproject.toml",
         pattern=re.compile(r'^version = "([^"]+)"$', re.MULTILINE),
         template='version = "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "addon" / "node" / "src" / "openclaw_node" / "__init__.py",
+        path=REPO_ROOT / "app" / "node" / "src" / "openclaw_node" / "__init__.py",
         pattern=re.compile(r'^    __version__ = "([^"]+)"$', re.MULTILINE),
         template='    __version__ = "{version}"',
     ),

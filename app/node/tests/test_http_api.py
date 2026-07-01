@@ -490,7 +490,7 @@ async def test_assist_turn_stream_yields_ndjson_deltas(tmp_path: Path) -> None:
 async def test_assist_turn_stream_emits_keepalive_frames(tmp_path: Path) -> None:
     """A StreamKeepalive sentinel yielded by the relay is translated to a
     `{"keepalive": true}` NDJSON frame on the wire — separate from
-    `{"delta": ...}` so the HA shim can skip it when accumulating the
+    `{"delta": ...}` so the HA integration can skip it when accumulating the
     assistant message text.
     """
     from openclaw_node.chat_relay import ChatRelay, StreamKeepalive

@@ -29,7 +29,7 @@
 > least-privilege agent. Pair this with a real backup integration. You
 > have been warned.
 
-Home Assistant add-on (app) + HACS shim that connects HA to an [OpenClaw][]
+Home Assistant add-on (app) + HACS integration that connects HA to an [OpenClaw][]
 gateway as a node. Lets your OpenClaw agent (Clawd or whichever agent
 you've routed to) answer HA Assist turns and run the full `ha.*`
 control surface — read entity states, call services, control lights,
@@ -40,7 +40,7 @@ Gateway Protocol.
 HA Assist UI
     │ user turn
     ▼
-HACS shim (ConversationEntity)
+HACS integration (ConversationEntity)
     │ POST /v1/conversation
     ▼
 OpenClaw HA node (this add-on)

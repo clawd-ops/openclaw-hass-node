@@ -64,7 +64,7 @@ map:
   # fs.restore, fs.move, fs.delete) the actual write-protection
   # boundary is the software gate: `_is_protected("/config")` returns
   # True and each handler returns `PROPOSAL_REQUIRED` before any disk
-  # write/unlink/rename is attempted (see addon/node/src/openclaw_node/
+  # write/unlink/rename is attempted (see app/node/src/openclaw_node/
   # commands/fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
   # NOT gated: `system.run` (commands/system_run.py) is admin-token
   # gated (OPENCLAW_ADMIN_TOKEN) and can write anywhere the mount
@@ -120,7 +120,7 @@ options:
     user_agent_map: []
     # Empty preserves today's gateway-default routing.
     default_agent_id: ""
-    # HA actor metadata is signed by the HACS shim with a key derived from
+    # HA actor metadata is signed by the HACS integration with a key derived from
     # local_api_token, so there is no separate actor-signing secret to paste.
     # Advanced prompt-policy patches as JSON. Defaults are generated in code;
     # use add/remove to adjust a role without replacing the whole default list.
@@ -188,11 +188,11 @@ schema:
   hass_url: str?
   hass_token: password?
 # No `ports:` host-mapping. The local API is only reachable inside the
-# Supervisor add-on network (the HACS shim uses the add-on hostname). A
+# Supervisor add-on network (the HACS integration uses the add-on hostname). A
 # host-mapped port would expose the API to anything on the host network,
 # and the API is bearer-auth-gated only when local_api_token is set.
 ingress: false
 panel_icon: mdi:robot-happy
-# No `image:` key — Supervisor builds locally from addon/Dockerfile.
+# No `image:` key — Supervisor builds locally from app/Dockerfile.
 # Once P7 ships a release workflow that publishes per-arch images to
 # GHCR, re-add: image: ghcr.io/clawd-ops/openclaw-hass-node/{arch}

@@ -45,7 +45,7 @@ _UNAUTHED_PATHS: Final[frozenset[str]] = frozenset(
 )
 
 # Allowlist for commands callable over the local HTTP surface (#88/3).
-# The HACS shim never needs more than these for normal operation, and the
+# The HACS integration never needs more than these for normal operation, and the
 # gateway invokes powerful commands like fs.write / system.run over the WS
 # path (operator-authorized). Restricting the HTTP surface limits the blast
 # radius if `local_api_token` ever leaks.
@@ -115,7 +115,7 @@ async def _bearer_auth_middleware(request: web.Request, handler: _Handler) -> we
     must NOT mean an open API. Only the paths in :data:`_UNAUTHED_PATHS`
     (``/health``, ``/v1/health``, ``/v1/conversation/info``) are reachable
     without a token — they're needed by HA add-on health checks and the
-    HACS shim config-flow probe before the user has configured the
+    HACS integration config-flow probe before the user has configured the
     shared token.
 
     When ``runtime.config.local_api_token`` is empty, every non-public
@@ -445,7 +445,7 @@ async def assist_turn(request: web.Request) -> web.Response:
     if not conversation_id:
         return _assist_error(
             runtime,
-            "Missing conversation_id — the HA shim must send one.",
+            "Missing conversation_id — the HA integration must send one.",
             text,
         )
 
@@ -532,7 +532,7 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     - ``{"error": "<code>"}`` on a relay error; the body is closed after.
 
     HA's conversation API (``async_add_delta_content_stream``) consumes
-    chunks like this; the HACS shim adapts NDJSON deltas into the
+    chunks like this; the HACS integration adapts NDJSON deltas into the
     AsyncIterable HA expects.
 
     Capability negotiation (``client_caps`` body field):
@@ -553,9 +553,9 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
     text = str(body.get("text", "")).strip()
     conversation_id = str(body.get("conversation_id", ""))
     language = str(body.get("language", "en"))
-    # ``client_caps`` is a per-request capability list sent by the HACS shim
-    # to opt in to features that require coordinated addon + shim changes.
-    # The shim sends it as a JSON array in the request body, e.g.:
+    # ``client_caps`` is a per-request capability list sent by the HACS integration
+    # to opt in to features that require coordinated addon + integration changes.
+    # The integration sends it as a JSON array in the request body, e.g.:
     #   {"text": "...", "client_caps": ["tool-progress-frames"]}
     raw_caps = body.get("client_caps")
     client_caps: list[str] = (
@@ -597,18 +597,18 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
         ):
             if isinstance(chunk, StreamKeepalive):
                 # Transport-only — kept out of the assistant content
-                # stream the HA shim accumulates. Just writing bytes
+                # stream the HA integration accumulates. Just writing bytes
                 # on the wire is what HA actually needs (its read
                 # timer resets on any incoming bytes); the explicit
-                # marker also lets the shim cleanly distinguish the
+                # marker also lets the integration cleanly distinguish the
                 # frame and skip it without parsing fallback paths.
                 await response.write(b'{"keepalive":true}\n')
                 continue
             if isinstance(chunk, ToolProgressFrame):
                 # Structured tool-progress frame (``tool-progress-frames``
                 # cap active).  Serialised as a distinct frame type so the
-                # shim can distinguish it from a delta without relying on
-                # field presence.  The shim swallows these for now and
+                # integration can distinguish it from a delta without relying on
+                # field presence.  The integration swallows these for now and
                 # _LOGGER.debug()s them; the ChatLog has no ephemeral hook
                 # today so no UI update occurs yet.
                 frame: dict[str, object] = {
@@ -646,9 +646,9 @@ async def _stream_error(request: web.Request, code: str, status: int) -> web.Str
 
 
 async def conversation_info(request: web.Request) -> web.Response:
-    """Return Assist-shim diagnostic metadata.
+    """Return Assist-integration diagnostic metadata.
 
-    Used by the HACS shim's config flow to show pairing and gateway status
+    Used by the HACS integration's config flow to show pairing and gateway status
     without sending a full conversation turn.
 
     Args:
@@ -665,7 +665,7 @@ async def conversation_info(request: web.Request) -> web.Response:
             "paired": runtime.is_paired,
             "pairing_state": runtime.pairing_state.name,
             "gateway_connected": runtime.gateway_connected,
-            # HACS shim picks the streaming endpoint when this is true and
+            # HACS integration picks the streaming endpoint when this is true and
             # falls back to /v1/conversation otherwise.
             "supports_streaming": True,
             "streaming_endpoint": "/v1/conversation/stream",

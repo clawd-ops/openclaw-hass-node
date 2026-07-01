@@ -8,7 +8,7 @@
 > connect, gateway-side tool invokes, and Assist conversation relay
 > (dual websocket pair, streaming token deltas, tool-named progress)
 > all work end-to-end. Local HTTP API is fail-closed (a token is
-> required); HACS shim probes for the local API at config-flow time.
+> required); HACS integration probes for the local API at config-flow time.
 > The proposal/write flow is still planned.
 
 ## Phase A — Install
@@ -45,13 +45,13 @@
    approval the node logs the approval event.
 
 6. **Expected version line:** the version printed in the first log
-   line MUST equal what is in `addon/config.yaml`. CI gates on
+   line MUST equal what is in `app/config.yaml`. CI gates on
    `test_version_sync.py` keep this from drifting.
 
 7. **Failure modes to watch:**
    - "SUPERVISOR_TOKEN missing" → if running as an HA add-on (app), this
      is an add-on (app) permissions issue (check `hassio_api: true` and
-     `homeassistant_api: true` in `addon/config.yaml`). If running
+     `homeassistant_api: true` in `app/config.yaml`). If running
      standalone Docker, this is expected; the node falls back to a
      `/data` writability check.
    - "local_api_token is unset" warning → expected if you skipped the
@@ -70,7 +70,7 @@
    → OpenClaw HA Node — Assist**.
 5. Config flow asks for the add-on (app) socket; default points at
    the add-on hostname (`http://<addon-slug>:8099`). If you set
-   `local_api_token`, paste the same value here so the shim can
+   `local_api_token`, paste the same value here so the integration can
    call the local API.
 6. **Expect:** integration sets up clean; one conversation entity
    `conversation.openclaw_hass_node_assist` shows up under Settings → Voice
@@ -180,7 +180,7 @@ behind the proposal/agent-bridge flow.
 The node opens parallel node-role and operator-role gateway
 connections; the operator-role connection owns the conversation relay
 (`chat.send` + `sessions.messages.subscribe`), and selecting the
-OpenClaw HA Node — Assist shim as your Assist conversation agent streams real
+OpenClaw HA Node — Assist integration as your Assist conversation agent streams real
 responses back through the gateway. Pair the device with a dual-role
 profile via `openclaw qr`.
 
@@ -189,7 +189,7 @@ profile via `openclaw qr`.
 
 ### E2. Trigger a voice/text intent through Assist.
 
-- Verify it flows: HA Assist → shim ConversationEntity → add-on (app)
+- Verify it flows: HA Assist → integration ConversationEntity → add-on (app)
   socket → gateway → Clawd → response streams back.
 
 ### E3. Tool calling via Assist.

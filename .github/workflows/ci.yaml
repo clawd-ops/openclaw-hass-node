@@ -17,9 +17,9 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: ruff check
-        run: uv run ruff check addon/node/src addon/node/tests
+        run: uv run ruff check app/node/src app/node/tests
       - name: ruff format check
-        run: uv run ruff format --check addon/node/src addon/node/tests
+        run: uv run ruff format --check app/node/src app/node/tests
 
   typecheck:
     name: Type Check
@@ -32,7 +32,7 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: mypy --strict
-        run: uv run mypy --strict addon/node/src addon/node/tests
+        run: uv run mypy --strict app/node/src app/node/tests
 
   test:
     name: Test (node)
@@ -45,7 +45,7 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: pytest with branch coverage
-        run: uv run pytest addon/node/tests/
+        run: uv run pytest app/node/tests/
 
   security:
     name: Security
@@ -58,7 +58,7 @@ jobs:
       - name: Install workspace deps
         run: uv sync --all-extras
       - name: bandit
-        run: uv run bandit -r addon/node/src -ll
+        run: uv run bandit -r app/node/src -ll
       - name: pip-audit
         run: uv run pip-audit
 
@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Docker build smoke (amd64)
-        # Build context is addon/ — matches what Supervisor uses on-device.
+        # Build context is app/ — matches what Supervisor uses on-device.
         run: docker build addon
 
   version-sync:

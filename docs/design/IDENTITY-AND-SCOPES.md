@@ -2,7 +2,7 @@
 
 Design doc covering TODO #1 (user identity propagation).
 
-Status: **implemented in follow-up PRs.** PR #164 shipped shim
+Status: **implemented in follow-up PRs.** PR #164 shipped integration
 actor forwarding; the addon PR implements options parsing, role
 resolution, forbidden-list disclaimer injection, `agentId` routing,
 startup agent-list diagnostics, and Tier B lifecycle commands.
@@ -61,7 +61,7 @@ config; the routing is the addon's job.
 The clean addon-only mechanism. No gateway changes, no
 correlation-on-invoke-envelope dependency.
 
-### Step 1 — shim forwards HA user identity
+### Step 1 — integration forwards HA user identity
 
 HACS integration reads HA's conversation context and forwards
 identity on the existing `POST /v1/conversation/stream`:
@@ -85,7 +85,7 @@ exists → omit the `actor` field. Addon treats absence as
 anonymous (most-restrictive defaults — same forbidden list as
 `user`).
 
-**Filter all non-human user kinds.** The shim must omit `actor`
+**Filter all non-human user kinds.** The integration must omit `actor`
 (or treat the user as anonymous) for ALL of these — not just
 `system_generated`:
 
@@ -284,12 +284,12 @@ Resolution at chat.send time:
 3. No default configured → omit the `agentId` field (gateway picks
    its own default, today's behavior).
 
-The add-on trusts `actor` only when the HACS shim signs the actor plus
+The add-on trusts `actor` only when the HACS integration signs the actor plus
 turn fields with a signing key derived from `local_api_token`. If the
 local API token is unset, the signature is missing, or the signature
 fails, the add-on ignores the actor block and uses the restrictive
 anonymous/user policy. This keeps actor signing bound to the existing
-node/HACS-shim shared token without requiring operators to configure a
+node/HACS-integration shared token without requiring operators to configure a
 third secret.
 
 Addon adds `"agentId": "<resolved>"` to the `chat.send` `params`
@@ -398,7 +398,7 @@ protection. Add per-user mappings when concern-A agents exist.
 
 This design ONLY runs on conversation turns that arrive at the
 addon's `POST /v1/conversation/stream` endpoint (i.e. HA Assist
-turns coming through the HACS shim). It does NOT affect:
+turns coming through the HACS integration). It does NOT affect:
 
 - Discord / Signal / other chat channels whose `chat.send` is
   originated by gateway-side plugins (not the addon).
@@ -473,7 +473,7 @@ mitigation is to curate the agent's inventory.
   role's defaults table OR be tagged as `read_only_safe`.
 - **HA "Local" user types.** HA has a few special user kinds
   (long-lived access tokens, system users, OAuth clients). The
-  shim's `user.system_generated` check covers the obvious cases;
+  integration's `user.system_generated` check covers the obvious cases;
   edge cases need empirical testing during implementation.
 
 ## References

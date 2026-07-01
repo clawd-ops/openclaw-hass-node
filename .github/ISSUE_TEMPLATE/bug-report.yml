@@ -1,5 +1,5 @@
 name: Bug report
-description: The add-on, node, or HACS shim is misbehaving.
+description: The app, node, HACS integration, plugin, or skill is misbehaving.
 title: "[bug] "
 labels: ["bug"]
 body:
@@ -12,7 +12,7 @@ body:
     id: addon_version
     attributes:
       label: openclaw-hass-node version
-      description: Add-on / node version (e.g. `2026.6.8a3`). Visible in HA's add-on page.
+      description: App / node version (e.g. `2026.6.8a3`). Visible in HA's add-on page.
       placeholder: "2026.6.8a3"
     validations:
       required: true
@@ -30,9 +30,11 @@ body:
       label: Which component?
       multiple: true
       options:
-        - Add-on (node runs inside)
-        - Standalone node (no add-on)
-        - HACS shim (custom_components/openclaw_hass_node_assist)
+        - App (openclaw-hass-node-app, node runs inside)
+        - Standalone node (no app / no Supervisor)
+        - HACS integration (openclaw-hass-node-assist, custom_components/openclaw_hass_node_assist)
+        - Gateway plugin (openclaw-hass-node-assist-tools)
+        - Companion skill (openclaw-hass-node-skill)
         - Gateway pairing / connect
         - Assist conversation relay
         - fs.* / system.* / ha.* commands
@@ -51,7 +53,7 @@ body:
     attributes:
       label: Logs
       description: |
-        Node add-on logs and any relevant HA logs.
+        Node app logs and any relevant HA logs.
         Redact `wss://...` URLs / tokens if sensitive.
       render: text
     validations:

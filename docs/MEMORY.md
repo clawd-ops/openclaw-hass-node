@@ -20,7 +20,7 @@ If those four are current, you're current.
 HA Assist UI
     │ user turn
     ▼
-custom_components/openclaw_hass_node_assist/   ← HACS shim (ConversationEntity)
+custom_components/openclaw_hass_node_assist/   ← HACS integration (ConversationEntity)
     │ POST /v1/conversation
     ▼
 node/  (OpenClaw add-on)
@@ -47,7 +47,7 @@ These are the rules that surprise people. Front-loaded so you don't break them.
 - **HA URL is hard-pinned to `http://supervisor/core`** when `SUPERVISOR_TOKEN` is present, so a user-supplied `HASS_URL` never receives the privileged Supervisor token.
 - **Actor signing is derived from `local_api_token`** via HMAC label `openclaw-hass-node actor-signing v1`. There is no separate `actor_secret`.
 - **One node per HA instance.**
-- **HACS shim is required** because HA's conversation-agent registration is in-process Python only. See [`research/CONVERSATION-AGENT.md`](research/CONVERSATION-AGENT.md).
+- **HACS integration is required** because HA's conversation-agent registration is in-process Python only. See [`research/CONVERSATION-AGENT.md`](research/CONVERSATION-AGENT.md).
 
 ## Resume rituals
 

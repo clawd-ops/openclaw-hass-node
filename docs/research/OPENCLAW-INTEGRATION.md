@@ -67,7 +67,7 @@ Clawd handles the turn, uses ha.* tools as needed
     │  • ha.list_states / ha.light_turn_on / etc. via node.invoke
     │  • final assistant reply lands on the session
     ▼
-Reply flows back: session message → node subscription → /v1/conversation → shim → HA Assist speech
+Reply flows back: session message → node subscription → /v1/conversation → integration → HA Assist speech
 ```
 
 Same wire protocol the node already speaks. Same `ha.*` command surface
@@ -118,7 +118,7 @@ deleted:
   surface directly via an injected `ChatRelay` (or similar) backed by
   the gateway WS.
 
-The HACS shim, the `ha.*` command surface, the Ed25519 handshake on the
+The HACS integration, the `ha.*` command surface, the Ed25519 handshake on the
 node side, the device identity / pairing flow, the `/v1/conversation`
 endpoint shape — all **stay**. They were always right.
 
