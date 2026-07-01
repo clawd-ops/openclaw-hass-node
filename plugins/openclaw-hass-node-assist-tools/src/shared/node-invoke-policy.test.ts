@@ -464,6 +464,62 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(invokeNode).not.toHaveBeenCalled();
   });
 
+  it("ha.history rejects delimiter-smuggling entity_ids entry", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_ids: ["sensor.outdoor_temp,person.rob"] },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects delimiter-smuggling singular entity_id", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_id: "sensor.outdoor_temp,person.rob" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.logbook rejects delimiter-smuggling entity_id", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.logbook",
+      nodeId: "node-1",
+      params: { entity_id: "sensor.outdoor_temp person.rob" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.get_state rejects malformed entity_id syntax", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.get_state",
+      nodeId: "node-1",
+      params: { entity_id: "sensor.outdoor_temp,person.rob" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
   it("ha.logbook rejects entity_ids param (history-only field)", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
     const result = await runPolicy({

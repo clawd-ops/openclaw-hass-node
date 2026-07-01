@@ -33,6 +33,17 @@ function readString(params: Record<string, unknown>, key: string): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+// Home Assistant entity IDs are `domain.object_id`, where both parts are
+// lowercase alphanumeric + underscore. Reject anything else — in particular,
+// commas / whitespace / other delimiters — so a single "entity_id" cannot
+// smuggle multiple ids past the per-entity glob check by exploiting the
+// addon's `entity_ids.join(",")` serialization or an unencoded query string.
+const ENTITY_ID_PATTERN = /^[a-z0-9_]+\.[a-z0-9_]+$/;
+
+function isValidEntityId(value: string): boolean {
+  return ENTITY_ID_PATTERN.test(value);
+}
+
 function deny(
   code: string,
   message: string,
@@ -92,6 +103,12 @@ async function enforceReadEntity(
   const entityId = readString(params, "entity_id");
   if (!entityId) {
     return deny("INVALID_PARAMS", "ha.get_state requires entity_id");
+  }
+  if (!isValidEntityId(entityId)) {
+    return deny(
+      "INVALID_PARAMS",
+      "ha.get_state entity_id must match domain.object_id",
+    );
   }
   const policy = await loadPolicyForNode(ctx);
   const decision = decideGlobPolicy({
@@ -203,7 +220,19 @@ async function enforceEntityScopedRead(
         "ha.history entity_ids must contain non-empty strings",
       );
     }
+    if (!normalized.every(isValidEntityId)) {
+      return deny(
+        "INVALID_PARAMS",
+        "ha.history entity_ids must each match domain.object_id",
+      );
+    }
     entityIdsArray = normalized;
+  }
+  if (entityId && !isValidEntityId(entityId)) {
+    return deny(
+      "INVALID_PARAMS",
+      `${ctx.command} entity_id must match domain.object_id`,
+    );
   }
   const policy = await loadPolicyForNode(ctx);
   const candidates: string[] = entityId
@@ -326,6 +355,12 @@ async function enforceCalendarGetEvents(
     return deny(
       "INVALID_PARAMS",
       "ha.calendar_get_events requires entity_id",
+    );
+  }
+  if (!isValidEntityId(entityId)) {
+    return deny(
+      "INVALID_PARAMS",
+      "ha.calendar_get_events entity_id must match domain.object_id",
     );
   }
   const policy = await loadPolicyForNode(ctx);
