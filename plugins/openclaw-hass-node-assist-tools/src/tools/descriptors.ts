@@ -155,3 +155,255 @@ export const HA_LIST_ENTITY_REGISTRY_TOOL_DESCRIPTOR: AssistToolDescriptor = {
     "Enumerate the full entity registry on the paired hass node (entity_id, platform, device_id, area_id, disabled state, etc.).",
   parameters: HaListEntityRegistryToolSchema,
 };
+
+// --- Simple bulk-metadata reads (bind check only) ---
+
+const NodeOnlySchema = () =>
+  Type.Object({ node: Type.String({ description: PAIRED_NODE_DESCRIPTION }) });
+
+export const HA_LIST_SERVICES_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: list services",
+  name: "ha_list_services",
+  description:
+    "Enumerate all HA services (domain/service catalog) available on the paired hass node.",
+  parameters: NodeOnlySchema(),
+};
+
+export const HA_GET_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: get core config",
+  name: "ha_get_config",
+  description:
+    "Read HA core configuration (location, unit system, version, components) from the paired hass node.",
+  parameters: NodeOnlySchema(),
+};
+
+export const HA_LIST_EVENTS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: list events",
+  name: "ha_list_events",
+  description:
+    "Enumerate active event listeners on the paired hass node (event bus listener summary).",
+  parameters: NodeOnlySchema(),
+};
+
+export const HA_LIST_CONFIG_ENTRIES_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: list config entries",
+  name: "ha_list_config_entries",
+  description:
+    "Enumerate integration config entries on the paired hass node.",
+  parameters: NodeOnlySchema(),
+};
+
+export const HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: list automations",
+  name: "ha_list_automations",
+  description:
+    "Enumerate automations (entities with the 'automation.' prefix) on the paired hass node.",
+  parameters: Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    include_traces: Type.Optional(
+      Type.Boolean({
+        description: "Include recent traces per automation. Larger payload.",
+      }),
+    ),
+  }),
+};
+
+export const HA_CHECK_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: check config",
+  name: "ha_check_config",
+  description:
+    "Validate HA core configuration on the paired hass node without reloading.",
+  parameters: NodeOnlySchema(),
+};
+
+// --- Log reads (bounded on the addon side) ---
+
+export const HA_CORE_LOGS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: core logs",
+  name: "ha_core_logs",
+  description:
+    "Read HA core logs from the paired hass node (Supervisor-backed, bounded tail).",
+  parameters: Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    lines: Type.Optional(
+      Type.Number({
+        description: "Trailing lines to return, 1–5000 (default 200).",
+      }),
+    ),
+  }),
+};
+
+export const HA_ADDON_LOGS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon logs",
+  name: "ha_addon_logs",
+  description:
+    "Read Supervisor add-on logs (bounded 1 MiB tail) from the paired hass node.",
+  parameters: Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    slug: Type.String({ description: "Supervisor add-on slug." }),
+    lines: Type.Optional(
+      Type.Number({
+        description: "Trailing lines to return, 1–5000 (default 200).",
+      }),
+    ),
+  }),
+};
+
+// --- Entity-scoped history/activity reads ---
+
+export const HA_LOGBOOK_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: logbook",
+  name: "ha_logbook",
+  description:
+    "Read HA logbook entries. When entity_id is set, results are gated by per-node allowReadEntities/denyReadEntities; when omitted, requires allowReadEntities configured on the node.",
+  parameters: Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    entity_id: Type.Optional(
+      Type.String({ description: "Filter to a single entity_id." }),
+    ),
+    start: Type.Optional(
+      Type.String({ description: "ISO-8601 start (inclusive)." }),
+    ),
+    end: Type.Optional(
+      Type.String({ description: "ISO-8601 end (exclusive)." }),
+    ),
+  }),
+};
+
+export const HA_HISTORY_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: history",
+  name: "ha_history",
+  description:
+    "Read historical state changes. When entity_id is set, results are gated by per-node allowReadEntities/denyReadEntities; when omitted, requires allowReadEntities configured on the node.",
+  parameters: Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    entity_id: Type.Optional(
+      Type.String({ description: "Filter to a single entity_id." }),
+    ),
+    start: Type.Optional(
+      Type.String({ description: "ISO-8601 start (inclusive)." }),
+    ),
+    end: Type.Optional(
+      Type.String({ description: "ISO-8601 end (exclusive)." }),
+    ),
+  }),
+};
+
+// --- Addon metadata reads ---
+
+const AddonSlugSchema = () =>
+  Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    slug: Type.String({ description: "Supervisor add-on slug." }),
+  });
+
+export const HA_LIST_ADDONS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: list addons",
+  name: "ha_list_addons",
+  description:
+    "Enumerate Supervisor add-ons on the paired hass node (slug, name, state, version, version_latest, update_available). Read-only.",
+  parameters: NodeOnlySchema(),
+};
+
+export const HA_ADDON_INFO_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon info",
+  name: "ha_addon_info",
+  description:
+    "Per-addon metadata (name, state, version, boot, startup, ingress). Sensitive fields (options, schema, repository) are dropped by the addon.",
+  parameters: AddonSlugSchema(),
+};
+
+export const HA_ADDON_STATS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon stats",
+  name: "ha_addon_stats",
+  description:
+    "Allowlisted utilisation metrics for an add-on (cpu_percent, memory_usage/limit/percent, network_rx/tx, blk_read/write). Read-only.",
+  parameters: AddonSlugSchema(),
+};
+
+export const HA_ADDON_CHANGELOG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon changelog",
+  name: "ha_addon_changelog",
+  description:
+    "Add-on changelog markdown (bounded 1 MiB tail).",
+  parameters: AddonSlugSchema(),
+};
+
+export const HA_ADDON_DOCUMENTATION_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon documentation",
+  name: "ha_addon_documentation",
+  description:
+    "Add-on documentation markdown (bounded 1 MiB tail).",
+  parameters: AddonSlugSchema(),
+};
+
+// --- Convenience action wrappers (gated by allowServices) ---
+
+const LightTargetSchema = () =>
+  Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    entity_id: Type.Optional(
+      Type.Union([Type.String(), Type.Array(Type.String())]),
+    ),
+    area_id: Type.Optional(
+      Type.Union([Type.String(), Type.Array(Type.String())]),
+    ),
+    device_id: Type.Optional(
+      Type.Union([Type.String(), Type.Array(Type.String())]),
+    ),
+  });
+
+export const HA_LIGHT_TURN_ON_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: light turn on",
+  name: "ha_light_turn_on",
+  description:
+    "Convenience wrapper for light.turn_on. Requires allowServices to permit 'light.turn_on'.",
+  parameters: LightTargetSchema(),
+};
+
+export const HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: light turn off",
+  name: "ha_light_turn_off",
+  description:
+    "Convenience wrapper for light.turn_off. Requires allowServices to permit 'light.turn_off'.",
+  parameters: LightTargetSchema(),
+};
+
+// --- Tier B admin (require allowAdminOps + adminToken in per-node config) ---
+
+export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: reload config",
+  name: "ha_reload_config",
+  description:
+    "Reload a HA config domain (e.g. 'automation', 'template'). Tier B: requires allowAdminOps + adminToken configured on the node.",
+  parameters: Type.Object({
+    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+    domain: Type.String({
+      description: "HA config domain to reload (e.g. 'automation').",
+    }),
+  }),
+};
+
+export const HA_ADDON_START_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon start",
+  name: "ha_addon_start",
+  description:
+    "Start a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'.",
+  parameters: AddonSlugSchema(),
+};
+
+export const HA_ADDON_STOP_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon stop",
+  name: "ha_addon_stop",
+  description:
+    "Stop a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'.",
+  parameters: AddonSlugSchema(),
+};
+
+export const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon restart",
+  name: "ha_addon_restart",
+  description:
+    "Restart a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'.",
+  parameters: AddonSlugSchema(),
+};
