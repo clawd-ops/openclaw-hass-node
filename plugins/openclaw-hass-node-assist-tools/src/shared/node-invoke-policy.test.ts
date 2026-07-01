@@ -306,6 +306,56 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     if (!result.ok) expect(result.code).toBe("ENTITY_DENIED");
   });
 
+  it("ha.history translates entity_id/start/end into node-shape params", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: { count: 0, history: [] } }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start: "2026-07-01T00:00:00",
+        end: "2026-07-02T00:00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+    const forwarded = invokeNode.mock.calls[0]?.[0]?.params ?? {};
+    expect(forwarded).toMatchObject({
+      entity_ids: ["sensor.outdoor_temp"],
+      start_time: "2026-07-01T00:00:00",
+      end_time: "2026-07-02T00:00:00",
+    });
+    expect(forwarded).not.toHaveProperty("entity_id");
+    expect(forwarded).not.toHaveProperty("start");
+    expect(forwarded).not.toHaveProperty("end");
+  });
+
+  it("ha.logbook translates start/end but keeps singular entity_id", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: { count: 0, entries: [] } }));
+    const result = await runPolicy({
+      command: "ha.logbook",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        start: "2026-07-01T00:00:00",
+        end: "2026-07-02T00:00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    const forwarded = invokeNode.mock.calls[0]?.[0]?.params ?? {};
+    expect(forwarded).toMatchObject({
+      entity_id: "sensor.outdoor_temp",
+      start_time: "2026-07-01T00:00:00",
+      end_time: "2026-07-02T00:00:00",
+    });
+    expect(forwarded).not.toHaveProperty("start");
+    expect(forwarded).not.toHaveProperty("end");
+  });
+
   it("ha.logbook without entity_id requires non-empty allowReadEntities", async () => {
     const result = await runPolicy({
       command: "ha.logbook",

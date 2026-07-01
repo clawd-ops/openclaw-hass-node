@@ -75,10 +75,19 @@ function createEntityScopedReadTool(input: {
         }
       }
 
+      // Translate Assist-shape params to the node's expected shape:
+      //   ha.logbook  → { entity_id, start_time, end_time }
+      //   ha.history  → { entity_ids: [entity_id], start_time, end_time }
+      // The node's HA handler ignores `entity_id`/`start`/`end`; sending
+      // those unfiltered would return the full history for the node.
       const commandParams: Record<string, unknown> = {};
-      if (entityId) commandParams.entity_id = entityId;
-      if (start) commandParams.start = start;
-      if (end) commandParams.end = end;
+      if (input.command === "ha.history") {
+        if (entityId) commandParams.entity_ids = [entityId];
+      } else if (entityId) {
+        commandParams.entity_id = entityId;
+      }
+      if (start) commandParams.start_time = start;
+      if (end) commandParams.end_time = end;
 
       const payload = await invokeHaCommand({
         nodeId,

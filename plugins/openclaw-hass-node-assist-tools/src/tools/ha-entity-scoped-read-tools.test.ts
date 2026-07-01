@@ -67,14 +67,29 @@ for (const T of TOOLS) {
         () => undefined,
       );
       expect(invokeMock).toHaveBeenCalledTimes(1);
+      const expectedParams =
+        T.command === "ha.history"
+          ? {
+              entity_ids: ["light.kitchen"],
+              start_time: "2026-07-01T00:00:00",
+              end_time: "2026-07-02T00:00:00",
+            }
+          : {
+              entity_id: "light.kitchen",
+              start_time: "2026-07-01T00:00:00",
+              end_time: "2026-07-02T00:00:00",
+            };
       expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
         command: T.command,
-        commandParams: {
-          entity_id: "light.kitchen",
-          start: "2026-07-01T00:00:00",
-          end: "2026-07-02T00:00:00",
-        },
+        commandParams: expectedParams,
       });
+      // Sanity: the raw Assist keys must NOT be forwarded to the node.
+      const forwarded = invokeMock.mock.calls[0]?.[0]?.commandParams ?? {};
+      expect(forwarded).not.toHaveProperty("start");
+      expect(forwarded).not.toHaveProperty("end");
+      if (T.command === "ha.history") {
+        expect(forwarded).not.toHaveProperty("entity_id");
+      }
       expect(result.isError).toBeUndefined();
     });
 

@@ -181,7 +181,24 @@ async function enforceEntityScopedRead(
       );
     }
   }
-  return await forward(ctx, params);
+  // Translate Assist-shape params (entity_id/start/end) to the node's
+  // expected shape before forwarding. Without this, `ha.history {entity_id}`
+  // would pass the entity check but reach the node with no filter and
+  // return unfiltered history.
+  const forwarded: Record<string, unknown> = { ...params };
+  const start = readString(params, "start");
+  const end = readString(params, "end");
+  if (start && !("start_time" in forwarded)) forwarded.start_time = start;
+  if (end && !("end_time" in forwarded)) forwarded.end_time = end;
+  delete forwarded.start;
+  delete forwarded.end;
+  if (ctx.command === "ha.history") {
+    if (entityId && !("entity_ids" in forwarded)) {
+      forwarded.entity_ids = [entityId];
+    }
+    delete forwarded.entity_id;
+  }
+  return await forward(ctx, forwarded);
 }
 
 async function enforceConvenienceAction(
