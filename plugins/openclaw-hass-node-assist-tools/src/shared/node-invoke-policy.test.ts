@@ -405,6 +405,37 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(invokeNode).not.toHaveBeenCalled();
   });
 
+  it("ha.history rejects entity_id + empty entity_ids array (no bypass)", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        entity_ids: [],
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects empty entity_ids array", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_ids: [] },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
   it("ha.history rejects non-array entity_ids", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
     const result = await runPolicy({

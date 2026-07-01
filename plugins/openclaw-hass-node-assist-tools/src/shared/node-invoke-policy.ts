@@ -176,10 +176,22 @@ async function enforceEntityScopedRead(
         `${ctx.command} does not accept entity_ids`,
       );
     }
+    if (entityId) {
+      return deny(
+        "INVALID_PARAMS",
+        "ha.history cannot receive both entity_id and entity_ids",
+      );
+    }
     if (!Array.isArray(rawEntityIds)) {
       return deny(
         "INVALID_PARAMS",
         "ha.history entity_ids must be an array of strings",
+      );
+    }
+    if (rawEntityIds.length === 0) {
+      return deny(
+        "INVALID_PARAMS",
+        "ha.history entity_ids must be a non-empty array",
       );
     }
     const normalized = rawEntityIds.map((v) =>
@@ -191,15 +203,7 @@ async function enforceEntityScopedRead(
         "ha.history entity_ids must contain non-empty strings",
       );
     }
-    if (normalized.length > 0) {
-      entityIdsArray = normalized;
-    }
-  }
-  if (entityId && entityIdsArray) {
-    return deny(
-      "INVALID_PARAMS",
-      "ha.history cannot receive both entity_id and entity_ids",
-    );
+    entityIdsArray = normalized;
   }
   const policy = await loadPolicyForNode(ctx);
   const candidates: string[] = entityId
@@ -240,11 +244,10 @@ async function enforceEntityScopedRead(
   delete forwarded.start;
   delete forwarded.end;
   if (ctx.command === "ha.history") {
-    if (entityId && !("entity_ids" in forwarded)) {
-      forwarded.entity_ids = [entityId];
-    }
     if (entityIdsArray) {
       forwarded.entity_ids = entityIdsArray;
+    } else if (entityId) {
+      forwarded.entity_ids = [entityId];
     }
     delete forwarded.entity_id;
   }
