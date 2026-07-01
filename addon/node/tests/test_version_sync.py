@@ -68,12 +68,7 @@ def _read_build_yaml_version() -> str:
 
 
 def _read_manifest_version() -> str:
-    manifest_path = (
-        _REPO_ROOT
-        / "custom_components"
-        / "openclaw_hass_node_assist"
-        / "manifest.json"
-    )
+    manifest_path = _REPO_ROOT / "custom_components" / "openclaw_hass_node_assist" / "manifest.json"
     raw = manifest_path.read_text(encoding="utf-8")
     data = json.loads(raw)
     version = data.get("version")

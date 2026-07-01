@@ -187,7 +187,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
-- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw HA Node — Assist (Beta)`. User-facing surfaces are clean.
+- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw HA Node — Assist`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
 - Status: CLOSED 2026-06-20 (streaming variant fixed; non-streaming variant accepted as structural)
