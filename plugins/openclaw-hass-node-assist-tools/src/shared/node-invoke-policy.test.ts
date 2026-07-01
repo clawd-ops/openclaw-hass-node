@@ -356,6 +356,97 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(forwarded).not.toHaveProperty("end");
   });
 
+  it("ha.history validates each entity_ids entry against allowReadEntities", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_ids: ["sensor.outdoor_temp", "person.rob"] },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("ENTITY_DENIED");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history forwards entity_ids-only when every id passes globs", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_ids: ["sensor.outdoor_temp", "light.kitchen"] },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+    const forwarded = invokeNode.mock.calls[0]?.[0]?.params ?? {};
+    expect(forwarded).toMatchObject({
+      entity_ids: ["sensor.outdoor_temp", "light.kitchen"],
+    });
+    expect(forwarded).not.toHaveProperty("entity_id");
+  });
+
+  it("ha.history rejects when both entity_id and entity_ids are set", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        entity_id: "sensor.outdoor_temp",
+        entity_ids: ["sensor.outdoor_temp"],
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects non-array entity_ids", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_ids: "sensor.outdoor_temp" },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects entity_ids with empty/non-string entries", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: { entity_ids: ["sensor.outdoor_temp", ""] },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.logbook rejects entity_ids param (history-only field)", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
+    const result = await runPolicy({
+      command: "ha.logbook",
+      nodeId: "node-1",
+      params: { entity_ids: ["sensor.outdoor_temp"] },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
   it("ha.logbook without entity_id requires non-empty allowReadEntities", async () => {
     const result = await runPolicy({
       command: "ha.logbook",

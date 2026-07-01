@@ -161,17 +161,64 @@ async function enforceEntityScopedRead(
   // ha.logbook / ha.history: entity_id is optional. When present, gate
   // through per-entity globs (same shape as get_state). When absent, fall
   // back to the coarse allowReadEntities opt-in (like list_states).
+  //
+  // ha.history additionally accepts a node-shape `entity_ids` array. Raw
+  // node.invoke must not be able to pass unvalidated `entity_ids`, so we
+  // validate each id against the same per-entity globs. Passing both
+  // `entity_id` and `entity_ids` is rejected as conflicting.
   const entityId = readString(params, "entity_id");
+  const rawEntityIds = params.entity_ids;
+  let entityIdsArray: string[] | undefined;
+  if (rawEntityIds !== undefined) {
+    if (ctx.command !== "ha.history") {
+      return deny(
+        "INVALID_PARAMS",
+        `${ctx.command} does not accept entity_ids`,
+      );
+    }
+    if (!Array.isArray(rawEntityIds)) {
+      return deny(
+        "INVALID_PARAMS",
+        "ha.history entity_ids must be an array of strings",
+      );
+    }
+    const normalized = rawEntityIds.map((v) =>
+      typeof v === "string" ? v.trim() : "",
+    );
+    if (normalized.some((v) => v.length === 0)) {
+      return deny(
+        "INVALID_PARAMS",
+        "ha.history entity_ids must contain non-empty strings",
+      );
+    }
+    if (normalized.length > 0) {
+      entityIdsArray = normalized;
+    }
+  }
+  if (entityId && entityIdsArray) {
+    return deny(
+      "INVALID_PARAMS",
+      "ha.history cannot receive both entity_id and entity_ids",
+    );
+  }
   const policy = await loadPolicyForNode(ctx);
-  if (entityId) {
-    const decision = decideGlobPolicy({
-      candidate: entityId,
-      allow: policy?.allowReadEntities,
-      deny: policy?.denyReadEntities,
-      subject: "entity",
-    });
-    if (!decision.allowed) {
-      return deny("ENTITY_DENIED", `${ctx.command} denied: ${decision.reason}`);
+  const candidates: string[] = entityId
+    ? [entityId]
+    : entityIdsArray ?? [];
+  if (candidates.length > 0) {
+    for (const candidate of candidates) {
+      const decision = decideGlobPolicy({
+        candidate,
+        allow: policy?.allowReadEntities,
+        deny: policy?.denyReadEntities,
+        subject: "entity",
+      });
+      if (!decision.allowed) {
+        return deny(
+          "ENTITY_DENIED",
+          `${ctx.command} denied: ${decision.reason}`,
+        );
+      }
     }
   } else {
     if (!policy?.allowReadEntities || policy.allowReadEntities.length === 0) {
@@ -195,6 +242,9 @@ async function enforceEntityScopedRead(
   if (ctx.command === "ha.history") {
     if (entityId && !("entity_ids" in forwarded)) {
       forwarded.entity_ids = [entityId];
+    }
+    if (entityIdsArray) {
+      forwarded.entity_ids = entityIdsArray;
     }
     delete forwarded.entity_id;
   }
