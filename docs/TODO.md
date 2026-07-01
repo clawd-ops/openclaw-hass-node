@@ -29,11 +29,12 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/design/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - 2026-06-28 overnight cutover progress: live OpenClaw config removed `mcp.servers.homeassistant` and `mcp.servers.homeassistant-readonly` after verifying `nodes.invoke` against the connected `hass` node with `ha.get_state`. Workspace AGENTS instructions now tell Clawd/HomeOps/PoolMaster/ReefMaster to use the `hass` node command surface instead of `mcp__homeassistant*`. Existing already-running sessions may still hold old MCP child processes until they exit; fresh-session validation remains required before closing.
+- **Assist-side enforcement (DONE):** the `openclaw-hass-node-assist-tools` plugin provides gateway-plugin-level enforcement for Assist contexts — `nodes.invoke` is not exposed in Assist turns, so Assist HA operations must go through the plugin's `ha_*` wrappers. This is Assist-side / gateway-plugin enforcement, NOT subagent-side enforcement.
+- **Subagent-side enforcement (OPEN):** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle, but the node dispatcher has no mechanism to distinguish subagent callers from main-session callers. The required work is: pass caller/session context into the dispatcher envelope so the node can apply the Tier A read-only allowlist specifically to background subagent sessions. Until this lands, the restriction is prompt-instructed only (SKILL.md guidance), not software-blocked.
 - Remaining (in order):
-  1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer). MUST land before any subagent path is wired to call these commands.
-  2. **Apply command-surface operating guidance for agents/subagents** so callers understand which `ha.*` node command replaces each legacy `mcp__homeassistant*` tool and do not fall back to MCP by habit. Tracked separately in item #34.
-  3. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*`.
-  4. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) gated by the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
+  1. **Subagent-side allowlist enforcement at the node** (`commands/dispatcher.py` or new policy layer) — needs caller/session context in the invoke envelope. MUST land before any subagent path can be considered software-blocked read-only.
+  2. **Wire the subagent path** to use the Tier A surface instead of `mcp__homeassistant__*` (Tier A command-surface operating guidance is already covered by item #34 / the shipped SKILL.md).
+  3. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) gated by the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) + audit log. Implemented in current PR; verify in release before closing.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 
 ### 12. Generated docs site for node command surface + protocols
@@ -50,6 +51,10 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles.
 - #78 — Auto-bootstrap API token between node and integration (enhancement).
 - #1 — Direction (catch-all, leave for Rob).
+- #199 — Active-chat tool-usage progress visibility gap (UX, carries forward from #35).
+- #200 — Tool-start delta not reaching HA Assist active-chat view (investigation/fix).
+- #201 — `ha_*` wrappers do not solve filesystem / file-transfer confusion in Assist (open, do NOT close — see #35 note).
+- #202 — `nodes.invoke` filtered in Assist by design; fix is enabling `openclaw-hass-node-assist-tools` plugin (CLOSED in this PR — see SKILL.md update).
 
 ### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
 - Status: OPEN
@@ -114,16 +119,13 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
 
 ### 35. HA Assist active-chat tool usage still not visible
-- Status: OPEN — regression/bug, not blocked by MCP sunset.
-- Reported: 2026-06-28 by Rob after releases through `v2026.6.28b5`.
-- Symptom: HA Assist turns that visibly run commands/tools still show no `🔧 Calling X...` lines in the active chat. Rob's expected behavior is explicit: every new tool call should push a visible active-chat line, so 25 tool calls means 25 visible tool-usage indications.
-- Why it matters: without mid-turn tool-use output, HA Assist can sit silent long enough to look like a timeout or failed response even when the backend is working.
-- Prior attempts: #179 added structured `tool_progress` frames, #184 restored no-cap legacy text, #186 pushed per-tool-start deltas, #188 handled hidden `stream=item` tool starts, and #190 suppressed raw HTML gateway errors. The user-facing result is still not verified/fixed.
-- Next investigation: confirm the installed add-on/integration version, capture the exact HA Assist event stream for a failing turn, and identify which event path is still bypassing `ChatRelay`'s visible tool-start delta.
+- Status: MOSTLY SUPERSEDED — the `tool_progress` frame path and per-tool-start delta logic were shipped in b3/b4 (PRs #179, #184, #186, #188, #190). The transport-level plumbing is in place.
+- Remaining UX gap: the tool-start delta may still not render visibly in HA Assist's active-chat view for all turn types. Tracked in GitHub issues #199 (progress visibility gap) and #200 (tool-start delta not reaching active-chat view).
+- Live-validation note: this item stays open until a real HA Assist turn with ≥1 tool call is confirmed to show `🔧 Calling X...` in the active-chat view on the currently installed version. Do not close based on code analysis alone — the prior attempts all had code in place but did not verify end-to-end.
 - Cross-link: item #32 (show/hide config) must wait until this works; hiding broken output is not useful.
 
 ### 36. Node command gaps discovered while migrating workspace HA scripts
-- Status: IMPLEMENTED-PENDING-LIVE-VALIDATION
+- Status: IMPLEMENTED-PENDING-LIVE-VALIDATION — keep OPEN until the live install/re-pair/allowCommands gate passes.
 - Reported: 2026-06-28 during MCP sunset / workspace script migration.
 - Context: workspace scripts were moved off direct `HASS_URL` / `HASS_TOKEN` where the node command surface already supports the required read path. Calendar/event and deeper HomeOps details now report explicit gaps instead of using the old token path.
 - Implemented command coverage:
@@ -133,7 +135,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   4. `/api/config/config_entries/entry` equivalent, so HomeOps status can report unhealthy config entries through the node.
   5. Home Assistant core log read equivalent, so HomeOps status can restore `core_log_attention` without direct REST.
 - Local validation: handlers, dispatcher registration, docs, and unit coverage are in place; workspace scripts now run through the HA node helper instead of `HASS_TOKEN`.
-- Remaining live gate: publish/install the updated node, restart/re-pair after `gateway.nodes.allowCommands` includes the new commands, then run the affected workspace scripts through `openclaw nodes invoke` against the connected node.
+- Remaining live gate: publish/install the updated node, restart/re-pair after `gateway.nodes.allowCommands` includes the new commands, then run the affected workspace scripts through `openclaw nodes invoke` against the connected node. Do NOT close this item based on local validation alone — live install + re-pair + allowCommands inclusion must be confirmed.
 - Acceptance: the affected workspace scripts run through `openclaw nodes invoke` / the HA node command surface by default, with no `HASS_TOKEN` path required for normal operation and no allowlist rejection for the new commands.
 
 ---
