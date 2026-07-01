@@ -117,6 +117,12 @@ declare module "openclaw/plugin-sdk/agent-harness-runtime" {
   ): Promise<T>;
 }
 
-declare module "openclaw/plugin-sdk/plugin-config" {
-  export function readPluginConfig(pluginId: string): Promise<unknown>;
+declare module "openclaw/plugin-sdk/plugin-config-runtime" {
+  export function resolvePluginConfigObject(config: unknown, pluginId: string): Record<string, unknown> | undefined;
+  export function resolveLivePluginConfigObject(
+    runtimeConfigLoader: (() => unknown) | undefined | null,
+    pluginId: string,
+    startupPluginConfig?: Record<string, unknown>,
+  ): Record<string, unknown> | undefined;
+  export function requireRuntimeConfig(config: unknown, context: string): asserts config is Record<string, unknown>;
 }
