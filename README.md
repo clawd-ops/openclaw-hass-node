@@ -136,4 +136,4 @@ Release + versioning policy: [`docs/operations/RELEASE.md`](docs/operations/RELE
 - [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — cross-provider review process.
 - [`docs/operations/QUALITY.md`](docs/operations/QUALITY.md) — CI gates and quality bar.
 
-[OpenClaw]: https://github.com/clawd-ops/openclaw
+[OpenClaw]: https://github.com/openclaw/openclaw
