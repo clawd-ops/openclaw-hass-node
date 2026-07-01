@@ -21,8 +21,12 @@ type Descriptor = Pick<
 
 export function createHaMetadataReadTool(input: {
   descriptor: Descriptor;
-  command: "ha.list_areas" | "ha.list_devices" | "ha.list_entity_registry";
+  command: string;
   label: string;
+  // Optional builder: pluck extra params from the tool args (e.g. slug,
+  // lines) into the forwarded command params. Return {} for pure node-only
+  // calls (list_areas etc).
+  buildCommandParams?: (args: Record<string, unknown>) => Record<string, unknown>;
 }): AnyAgentTool {
   return {
     ...input.descriptor,
@@ -53,10 +57,14 @@ export function createHaMetadataReadTool(input: {
         };
       }
 
+      const commandParams = input.buildCommandParams
+        ? input.buildCommandParams(params)
+        : {};
+
       const payload = await invokeHaCommand({
         nodeId,
         command: input.command,
-        commandParams: {},
+        commandParams,
         gatewayOpts,
       });
 

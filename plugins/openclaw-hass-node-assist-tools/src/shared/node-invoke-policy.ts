@@ -143,6 +143,110 @@ async function enforceMetadataRead(
   return await forward(ctx, params);
 }
 
+const ADMIN_ADDON_SLUG_DENYLIST: ReadonlyArray<string> = [
+  "homeassistant",
+  "supervisor",
+];
+
+function isAdminAddonSlugDenied(slug: string): boolean {
+  if (!slug) return true;
+  if (ADMIN_ADDON_SLUG_DENYLIST.includes(slug)) return true;
+  return slug.startsWith("core_");
+}
+
+async function enforceEntityScopedRead(
+  ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
+): Promise<OpenClawPluginNodeInvokePolicyResult> {
+  // ha.logbook / ha.history: entity_id is optional. When present, gate
+  // through per-entity globs (same shape as get_state). When absent, fall
+  // back to the coarse allowReadEntities opt-in (like list_states).
+  const entityId = readString(params, "entity_id");
+  const policy = await loadPolicyForNode(ctx);
+  if (entityId) {
+    const decision = decideGlobPolicy({
+      candidate: entityId,
+      allow: policy?.allowReadEntities,
+      deny: policy?.denyReadEntities,
+      subject: "entity",
+    });
+    if (!decision.allowed) {
+      return deny("ENTITY_DENIED", `${ctx.command} denied: ${decision.reason}`);
+    }
+  } else {
+    if (!policy?.allowReadEntities || policy.allowReadEntities.length === 0) {
+      return deny(
+        "ENTITY_DENIED",
+        `${ctx.command} without entity_id denied: no allowReadEntities configured for this node`,
+      );
+    }
+  }
+  return await forward(ctx, params);
+}
+
+async function enforceConvenienceAction(
+  ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
+  serviceCandidate: string,
+): Promise<OpenClawPluginNodeInvokePolicyResult> {
+  const policy = await loadPolicyForNode(ctx);
+  const decision = decideGlobPolicy({
+    candidate: serviceCandidate,
+    allow: policy?.allowServices,
+    deny: policy?.denyServices,
+    subject: "service",
+  });
+  if (!decision.allowed) {
+    return deny("SERVICE_DENIED", `${ctx.command} denied: ${decision.reason}`);
+  }
+  return await forward(ctx, params);
+}
+
+async function enforceAdminOp(
+  ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
+  requireSlug: boolean,
+): Promise<OpenClawPluginNodeInvokePolicyResult> {
+  const policy = await loadPolicyForNode(ctx);
+  if (!policy?.allowAdminOps) {
+    return deny(
+      "ADMIN_DENIED",
+      `${ctx.command} denied: allowAdminOps is not set for this node`,
+    );
+  }
+  const token = policy.adminToken;
+  if (typeof token !== "string" || token.length === 0) {
+    return deny(
+      "ADMIN_DENIED",
+      `${ctx.command} denied: adminToken is not configured for this node`,
+    );
+  }
+  if (requireSlug) {
+    const slug = readString(params, "slug");
+    if (!slug) {
+      return deny("INVALID_PARAMS", `${ctx.command} requires slug`);
+    }
+    if (isAdminAddonSlugDenied(slug)) {
+      return deny(
+        "ADMIN_SLUG_DENIED",
+        `${ctx.command} denied: slug '${slug}' is on the always-deny list (homeassistant / supervisor / core_*)`,
+      );
+    }
+  } else if (ctx.command === "ha.reload_config") {
+    const domain = readString(params, "domain");
+    if (!domain) {
+      return deny("INVALID_PARAMS", "ha.reload_config requires domain");
+    }
+  }
+  // Inject admin_token from per-node config, overriding any caller-supplied
+  // value. Callers must not be able to bypass the policy by passing their own.
+  const forwardedParams: Record<string, unknown> = {
+    ...params,
+    admin_token: token,
+  };
+  return await forward(ctx, forwardedParams);
+}
+
 async function enforceCalendarGetEvents(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
@@ -189,7 +293,33 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.list_areas":
         case "ha.list_devices":
         case "ha.list_entity_registry":
+        case "ha.list_services":
+        case "ha.get_config":
+        case "ha.list_events":
+        case "ha.list_config_entries":
+        case "ha.list_automations":
+        case "ha.check_config":
+        case "ha.core_logs":
+        case "ha.addon_logs":
+        case "ha.list_addons":
+        case "ha.addon_info":
+        case "ha.addon_stats":
+        case "ha.addon_changelog":
+        case "ha.addon_documentation":
           return await enforceMetadataRead(ctx, params);
+        case "ha.logbook":
+        case "ha.history":
+          return await enforceEntityScopedRead(ctx, params);
+        case "ha.light_turn_on":
+          return await enforceConvenienceAction(ctx, params, "light.turn_on");
+        case "ha.light_turn_off":
+          return await enforceConvenienceAction(ctx, params, "light.turn_off");
+        case "ha.reload_config":
+          return await enforceAdminOp(ctx, params, false);
+        case "ha.addon_start":
+        case "ha.addon_stop":
+        case "ha.addon_restart":
+          return await enforceAdminOp(ctx, params, true);
         default:
           return deny(
             "COMMAND_NOT_ALLOWED",

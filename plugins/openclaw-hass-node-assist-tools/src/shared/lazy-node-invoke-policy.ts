@@ -11,13 +11,41 @@
 import type { OpenClawPluginNodeInvokePolicy } from "openclaw/plugin-sdk/plugin-entry";
 
 export const ASSIST_TOOLS_NODE_INVOKE_COMMANDS: ReadonlyArray<string> = [
+  // Core state + service catalog
   "ha.call_service",
   "ha.get_state",
   "ha.list_states",
-  "ha.calendar_get_events",
+  "ha.list_services",
+  "ha.get_config",
+  "ha.list_events",
+  "ha.list_config_entries",
+  "ha.list_automations",
+  "ha.check_config",
+  // Registries / metadata
   "ha.list_areas",
   "ha.list_devices",
   "ha.list_entity_registry",
+  // Calendar + activity + history
+  "ha.calendar_get_events",
+  "ha.logbook",
+  "ha.history",
+  // Log tails
+  "ha.core_logs",
+  "ha.addon_logs",
+  // Addon read-only metadata
+  "ha.list_addons",
+  "ha.addon_info",
+  "ha.addon_stats",
+  "ha.addon_changelog",
+  "ha.addon_documentation",
+  // Convenience action wrappers
+  "ha.light_turn_on",
+  "ha.light_turn_off",
+  // Tier B admin
+  "ha.reload_config",
+  "ha.addon_start",
+  "ha.addon_stop",
+  "ha.addon_restart",
 ];
 
 type LoadAssistToolsNodeInvokePolicy = () => Promise<OpenClawPluginNodeInvokePolicy>;

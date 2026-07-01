@@ -14,6 +14,11 @@ export type PerNodePolicy = {
   allowReadEntities?: ReadonlyArray<string>;
   denyReadEntities?: ReadonlyArray<string>;
   allowCalendars?: ReadonlyArray<string>;
+  // Tier B admin gate. Both flags must be set to invoke reload_config /
+  // addon_start / addon_stop / addon_restart. `adminToken` is forwarded
+  // to the addon's admin_token check.
+  allowAdminOps?: boolean;
+  adminToken?: string;
 };
 
 export type AssistToolsPluginConfig = {
