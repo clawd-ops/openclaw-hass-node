@@ -62,14 +62,14 @@ jobs:
       - name: pip-audit
         run: uv run pip-audit
 
-  addon-smoke:
-    name: Build Add-on (amd64 smoke)
+  app-smoke:
+    name: Build App (amd64 smoke)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Docker build smoke (amd64)
         # Build context is app/ — matches what Supervisor uses on-device.
-        run: docker build addon
+        run: docker build app
 
   version-sync:
     name: Version Sync

@@ -214,4 +214,4 @@ profile via `openclaw qr`.
   on `clawd-ops/openclaw-hass-node` — there should be a Codex
   reviewer comment with `LGTM` or `LGTM with notes`.
 - Every PR has all CI gates green (ruff check + format, mypy strict,
-  pytest with branch coverage gated at 95%, security, addon-build).
+  pytest with branch coverage gated at 95%, security, app-smoke).

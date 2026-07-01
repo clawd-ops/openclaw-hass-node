@@ -61,7 +61,7 @@ Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
   token reset.
 - **Tests pass with branch coverage gated at 95%**; all CI gates
   green (ruff check + format, mypy strict, pytest coverage,
-  bandit, pip-audit, addon-build).
+  bandit, pip-audit, app-smoke).
 
 ## What's not shipped yet
 

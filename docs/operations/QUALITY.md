@@ -107,7 +107,7 @@ green:
    drops below 95 %.
 6. `security` — `bandit`, `pip-audit`.
 7. `docs-build` — markdown lint + dead-link check on `docs/`.
-8. `addon-build` — HA add-on (app) build for `amd64`, `aarch64`, `armv7`
+8. `app-smoke` — HA app (add-on) build for `amd64`, `aarch64`, `armv7`
    via the official `home-assistant/builder` action (smoke build,
    not published).
 9. `cross-review` — when the PR is opened by the Claude generator

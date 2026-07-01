@@ -19,7 +19,7 @@
    `python:3.13-alpine` is silently ignored and Supervisor falls back to
    `*-base` (no Python). Use
    `ghcr.io/home-assistant/{arch}-base-python:3.13-alpine3.20`.
-4. **CI's addon-smoke job must use `docker build addon`, not `docker
+4. **CI's app-smoke job must use `docker build app`, not `docker
    build -f app/Dockerfile .`.** The latter passes if the Dockerfile
    compiles but lies about whether Supervisor's invocation will work.
    The former mirrors Supervisor exactly.
