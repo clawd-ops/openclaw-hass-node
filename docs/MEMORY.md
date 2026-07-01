@@ -20,7 +20,7 @@ If those four are current, you're current.
 HA Assist UI
     │ user turn
     ▼
-custom_components/openclaw_gateway/   ← HACS shim (ConversationEntity)
+custom_components/openclaw_hass_node_assist/   ← HACS shim (ConversationEntity)
     │ POST /v1/conversation
     ▼
 node/  (OpenClaw add-on)

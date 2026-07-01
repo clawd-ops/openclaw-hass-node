@@ -23,7 +23,7 @@ so the changelog you write groups cleanly. See
 
 The project carries the version string in five places (`pyproject.toml`,
 `__init__.py` fallback, `addon/config.yaml`, `addon/build.yaml`,
-`custom_components/openclaw_gateway/manifest.json`). Use
+`custom_components/openclaw_hass_node_assist/manifest.json`). Use
 `scripts/bump-version.py <new-version>` — it updates all five together.
 `test_version_sync.py` keeps them honest in CI; a drift in any of the
 five fails the Version Sync gate on the PR. The version stays on a

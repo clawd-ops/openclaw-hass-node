@@ -9,7 +9,7 @@
 
 The project carries the version string in five places (`pyproject.toml`,
 `addon/config.yaml`, `addon/build.yaml`, `__init__.py` fallback,
-`custom_components/openclaw_gateway/manifest.json`) and ships through
+`custom_components/openclaw_hass_node_assist/manifest.json`) and ships through
 two ecosystems (HA Supervisor add-on, HACS custom integration).
 Cutting a release is one command, not five careful edits.
 
@@ -87,7 +87,7 @@ The five files are:
 - `addon/build.yaml`
 - `addon/node/pyproject.toml`
 - `addon/node/src/openclaw_node/__init__.py`
-- `custom_components/openclaw_gateway/manifest.json`
+- `custom_components/openclaw_hass_node_assist/manifest.json`
 
 Hand-editing them is how drift happens. Use the script:
 
@@ -153,9 +153,9 @@ not from `main`, so this is what users actually see.
   Documentation / Changelog tab from Settings → Add-ons.
 - **HACS (integration)** renders the repo `README.md` on the
   integration's detail page (the "Open in HACS" view in Settings →
-  Devices & Integrations → HACS → OpenClaw Gateway) and surfaces the
+  Devices & Integrations → HACS → OpenClaw HA Node — Assist) and surfaces the
   GitHub *release notes* (the body of the most recent tag) below it.
-  There is no separate `custom_components/openclaw_gateway/info.md`
+  There is no separate `custom_components/openclaw_hass_node_assist/info.md`
   today; if one is ever added, HACS will pick it up automatically.
 
 ## Manual fallback (when the workflow is down)

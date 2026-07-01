@@ -187,7 +187,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 3. Strip "alpha" wording everywhere
 - Status: CLOSED 2026-06-20
-- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw Gateway (Beta)`. User-facing surfaces are clean.
+- Remaining grep hits are only historical-track explanations (`docs/operations/RELEASE.md`, `docs/design/PLAN.md`, `addon/CHANGELOG.md`) and an unrelated `base64url alphabet` comment. HACS title is `OpenClaw HA Node — Assist`. User-facing surfaces are clean.
 
 ### 4. #128 / #129 turn-boundary stale-trailer race
 - Status: CLOSED 2026-06-20 (streaming variant fixed; non-streaming variant accepted as structural)
@@ -227,7 +227,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 15. Q1 — HACS shim default hostname hash
 - Status: CLOSED 2026-06-20 (mooted by PR #94)
-- PR #94 (merged 2026-06-08) added `_supervisor_addon_hostname` in `custom_components/openclaw_gateway/config_flow.py:50-90` — the shim asks HA's `hassio` integration for the addon's real hostname at config-flow time. The hardcoded `a0d7b954-openclaw-hass-node` in `const.py:14` is now only a last-resort fallback, not the canonical path. Worst case the user edits the URL once during config flow.
+- PR #94 (merged 2026-06-08) added `_supervisor_addon_hostname` in `custom_components/openclaw_hass_node_assist/config_flow.py:50-90` — the shim asks HA's `hassio` integration for the addon's real hostname at config-flow time. The hardcoded `a0d7b954-openclaw-hass-node` in `const.py:14` is now only a last-resort fallback, not the canonical path. Worst case the user edits the URL once during config flow.
 
 ### 16. Q2 — `pairing_token` addon option: remove or keep
 - Status: CLOSED 2026-06-20 (keep as-is)

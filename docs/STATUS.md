@@ -111,7 +111,7 @@ None. The pipeline is live; remaining work is incremental.
   when impacted. Cross-validated by Codex reviewer. (Rob, issue #1
   round 2)
 - 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
-  thin `custom_components/openclaw_gateway/` HACS shim. Plan A
+  thin `custom_components/openclaw_hass_node_assist/` HACS shim. Plan A
   (add-on (app) alone) confirmed not viable; see
   `docs/research/CONVERSATION-AGENT.md`. (Clawd)
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the

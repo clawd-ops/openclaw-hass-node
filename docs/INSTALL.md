@@ -204,7 +204,7 @@ first successful pairing** — it's consumed.
 
 1. HACS → Integrations → Custom repositories → add this repo URL,
    category Integration.
-2. Install **OpenClaw Gateway** from HACS.
+2. Install **OpenClaw HA Node — Assist** from HACS.
 3. Restart HA.
 4. Settings → Devices & Services → **Add Integration** → OpenClaw
    Gateway. The config flow asks for:
@@ -217,7 +217,7 @@ first successful pairing** — it's consumed.
      you set in the add-on config (step 2). The field renders as a
      password. The local API is fail-closed; if you skip this, the
      shim will get `401 NO_TOKEN_CONFIGURED` on every Assist turn.
-5. Settings → **Voice assistants** → set OpenClaw Gateway as the
+5. Settings → **Voice assistants** → set OpenClaw HA Node — Assist as the
    conversation agent for whichever assistant you want.
 
 ## Verifying end-to-end

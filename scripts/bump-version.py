@@ -65,7 +65,7 @@ SOURCES: list[VersionFile] = [
         template='    __version__ = "{version}"',
     ),
     VersionFile(
-        path=REPO_ROOT / "custom_components" / "openclaw_gateway" / "manifest.json",
+        path=REPO_ROOT / "custom_components" / "openclaw_hass_node_assist" / "manifest.json",
         pattern=re.compile(r'^  "version": "([^"]+)"$', re.MULTILINE),
         template='  "version": "{version}"',
     ),

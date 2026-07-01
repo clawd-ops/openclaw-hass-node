@@ -54,10 +54,10 @@ Every conversation-agent project surveyed — `openai_conversation` and `anthrop
 
 ## Plan B (recommended)
 
-Ship a tiny HACS-installable `custom_components/openclaw_gateway/` with:
+Ship a tiny HACS-installable `custom_components/openclaw_hass_node_assist/` with:
 
 - `manifest.json` (single dependency on `conversation`),
-- a config flow capturing the add-on (app)'s local socket (e.g. `http://a0d7b954-openclaw-gateway:8099`),
+- a config flow capturing the add-on (app)'s local socket (e.g. `http://a0d7b954-openclaw-hass-node-assist:8099`),
 - one `ConversationEntity` subclass whose `async_process` proxies the turn over HTTP/WS to the add-on (app), streaming tokens back via `chat_log`.
 
 This is ~150 LOC and is the minimum HA core requires.

@@ -1,4 +1,4 @@
-"""Conversation entity for OpenClaw Gateway."""
+"""Conversation entity for OpenClaw HA Node — Assist."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ async def async_setup_entry(
 class OpenClawConversationEntity(ConversationEntity):
     """Conversation agent that forwards turns to the OpenClaw Node add-on."""
 
-    _attr_name = "OpenClaw Gateway"
+    _attr_name = "OpenClaw HA Node — Assist"
     _attr_supported_features = ConversationEntityFeature.CONTROL
     # HA Assist UI renders the reply incrementally when this is True. The
     # node addon exposes /v1/conversation/stream as an NDJSON stream of
@@ -145,7 +145,7 @@ class OpenClawConversationEntity(ConversationEntity):
         """
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "OpenClaw Gateway",
+            "name": "OpenClaw HA Node — Assist",
             "manufacturer": "OpenClaw",
             "model": "Home Assistant Node",
         }
@@ -283,7 +283,7 @@ class OpenClawConversationEntity(ConversationEntity):
                         )
                     else:
                         speech = (
-                            "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
+                            "OpenClaw HA Node — Assist is installed, but the OpenClaw Node add-on "
                             f"returned HTTP {response.status}."
                         )
                     chat_log.async_add_assistant_content_without_tools(
@@ -402,13 +402,13 @@ class OpenClawConversationEntity(ConversationEntity):
                 _REQUEST_SOCK_READ_TIMEOUT_S,
             )
             speech = (
-                "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
+                "OpenClaw HA Node — Assist is installed, but the OpenClaw Node add-on "
                 f"stream went quiet for {int(_REQUEST_SOCK_READ_TIMEOUT_S)} seconds."
             )
         except aiohttp.ClientError as exc:
             _LOG.warning("OpenClaw Node network error at %s: %s", url, exc)
             speech = (
-                "OpenClaw Gateway is installed, but the OpenClaw Node add-on "
+                "OpenClaw HA Node — Assist is installed, but the OpenClaw Node add-on "
                 f"is not reachable at {socket_url}."
             )
         except (ValueError, TypeError) as exc:

@@ -219,7 +219,7 @@ HA Assist → ConversationEntity shim → node /v1/conversation
 
 Three pieces, only one of which is bespoke:
 
-1. **HACS shim** (`custom_components/openclaw_gateway/`, ~150 LOC).
+1. **HACS shim** (`custom_components/openclaw_hass_node_assist/`, ~150 LOC).
    `ConversationEntity` subclass whose `async_process` POSTs to the
    add-on (app)'s local HTTP endpoint. Distributed via HACS. Required by HA
    core because conversation-agent registration is in-process Python
@@ -377,7 +377,7 @@ openclaw-hass-node/
 │       │   └── commands/            # Command registry + handlers
 │       └── tests/
 └── custom_components/
-    └── openclaw_gateway/            # HACS integration (conversation shim)
+    └── openclaw_hass_node_assist/            # HACS integration (conversation shim)
         ├── __init__.py
         ├── manifest.json
         ├── config_flow.py

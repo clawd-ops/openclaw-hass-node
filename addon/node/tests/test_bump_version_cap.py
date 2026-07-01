@@ -74,7 +74,7 @@ def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedPr
         "addon/build.yaml": '  io.hass.version: "2026.6.20b9"\n',
         "addon/node/pyproject.toml": 'version = "2026.6.20b9"\n',
         "addon/node/src/openclaw_node/__init__.py": '    __version__ = "2026.6.20b9"\n',
-        "custom_components/openclaw_gateway/manifest.json": '  "version": "2026.6.20b9"\n',
+        "custom_components/openclaw_hass_node_assist/manifest.json": '  "version": "2026.6.20b9"\n',
     }
     for rel, content in layout.items():
         target = tmp_path / rel

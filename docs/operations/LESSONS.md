@@ -368,11 +368,11 @@ same staleness patterns:
 - `README.md` and everything under `docs/` (the obvious ones)
 - `addon/config.yaml` — `description:` field; rendered by Supervisor
 - `addon/build.yaml` labels (rarely user-visible but worth a glance)
-- `custom_components/openclaw_gateway/manifest.json` — `name` field;
+- `custom_components/openclaw_hass_node_assist/manifest.json` — `name` field;
   shown in HA Integrations list. (As of 2026-06-20 the manifest reads
-  "OpenClaw Gateway"; HACS reads "OpenClaw Gateway (Beta)" from
+  "OpenClaw HA Node — Assist"; HACS reads "OpenClaw HA Node — Assist (Beta)" from
   `hacs.json`. Mild inconsistency, intentionally left.)
-- `custom_components/openclaw_gateway/strings.json` — config-flow UI
+- `custom_components/openclaw_hass_node_assist/strings.json` — config-flow UI
   copy shown during integration setup
 - `hacs.json` — `name` field; shown in HACS catalog
 - GitHub repo description (`gh repo view ... --json description`)

@@ -368,8 +368,8 @@ Editing YAML in the addon's Configuration tab is fine for the
 first cut, but eventually this belongs in the HA UI as a proper
 config flow:
 
-- A new options screen on the OpenClaw Gateway integration
-  (`custom_components/openclaw_gateway/`) that lets the operator:
+- A new options screen on the OpenClaw HA Node — Assist integration
+  (`custom_components/openclaw_hass_node_assist/`) that lets the operator:
   1. Pick from a **populated dropdown of HA users** (HA's auth
      manager exposes the list — no UUID typing required).
   2. Pick from a **populated dropdown of gateway agents** (queried
