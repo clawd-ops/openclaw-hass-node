@@ -55,6 +55,14 @@
               "type": "array",
               "items": { "type": "string" },
               "description": "Calendar entity_ids ha_calendar_get_events may query."
+            },
+            "allowAdminOps": {
+              "type": "boolean",
+              "description": "Tier B admin gate. Must be true (with adminToken) to invoke reload_config / addon_start / addon_stop / addon_restart."
+            },
+            "adminToken": {
+              "type": "string",
+              "description": "Tier B admin token forwarded to the app's admin_token check. Required alongside allowAdminOps."
             }
           }
         }

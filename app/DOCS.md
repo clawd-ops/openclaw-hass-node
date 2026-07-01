@@ -275,7 +275,7 @@ Read-only Supervisor metadata that does not change add-on state:
 - `ha.addon_documentation`
 
 These are gated only by the local API bearer (`local_api_token`) and
-by Supervisor's own role limits on this add-on. The add-on manifest
+by Supervisor's own role limits on this app. The app manifest
 asks for `hassio_role: manager`, which is narrower than `admin` but
 covers add-on management read endpoints.
 

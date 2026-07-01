@@ -44,7 +44,7 @@ for the full taxonomy and rationale.
 
 | Piece                             | Role                                                                                                 | Lives at                                            |
 |-----------------------------------|------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| `openclaw-hass-node-app`          | The HA **app** (Supervisor add-on). Python service that pairs with the OpenClaw gateway and exposes the `ha.*` / `fs.*` / `system.*` node command surface. | [`app/`](app/)                                      |
+| `openclaw-hass-node-app`          | The HA **app**. Python service that pairs with the OpenClaw gateway and exposes the `ha.*` / `fs.*` / `system.*` node command surface. | [`app/`](app/)                                      |
 | `openclaw-hass-node-assist`       | The **HACS integration**. Registers the OpenClaw conversation entity inside HA core and proxies Assist turns to the app over local HTTP. | [`custom_components/openclaw_hass_node_assist/`](custom_components/openclaw_hass_node_assist/) |
 | `openclaw-hass-node-assist-tools` | The OpenClaw **gateway plugin**. Declares scoped per-tool wrappers (`ha_call_service`, `ha_get_state`, `ha_logbook`, …) so HA Assist sessions can operate the paired node without the operator-only `nodes.invoke` tool. | [`plugins/openclaw-hass-node-assist-tools/`](plugins/openclaw-hass-node-assist-tools/) |
 | `openclaw-hass-node-skill`        | The companion **skill** used by every non-Assist OC session (chat, cron, sub-agent) to drive `ha.*` / `fs.*` via `nodes.invoke`. | [`skills/openclaw-hass-node-skill/`](skills/openclaw-hass-node-skill/) |
