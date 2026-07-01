@@ -123,6 +123,26 @@ async function enforceListStates(
   return await forward(ctx, params);
 }
 
+async function enforceMetadataRead(
+  ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
+): Promise<OpenClawPluginNodeInvokePolicyResult> {
+  // Metadata reads (list_areas / list_devices / list_entity_registry)
+  // don't take entity_id inputs, so per-entity globs can't be applied.
+  // Match the tool-layer coarse "plugin is bound to this node" opt-in:
+  // require *some* per-node policy entry (or wildcard '*') before
+  // forwarding. Prevents raw node.invoke from exposing bulk HA metadata
+  // for a node that has no policy at all.
+  const policy = await loadPolicyForNode(ctx);
+  if (!policy) {
+    return deny(
+      "METADATA_DENIED",
+      `${ctx.command} denied: no per-node policy configured for this node`,
+    );
+  }
+  return await forward(ctx, params);
+}
+
 async function enforceCalendarGetEvents(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
@@ -169,9 +189,7 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.list_areas":
         case "ha.list_devices":
         case "ha.list_entity_registry":
-          // Metadata reads (no entity payload); allow when the plugin
-          // is bound to the node, then forward to execute.
-          return await forward(ctx, params);
+          return await enforceMetadataRead(ctx, params);
         default:
           return deny(
             "COMMAND_NOT_ALLOWED",
