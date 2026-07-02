@@ -23,7 +23,9 @@ _AUTO_TOKEN = "auto-generated-token-abc123"
 _EXPLICIT_TOKEN = "operator-set-token-xyz"
 
 
-def _make_config(tmp_path: Path, *, token: str = _AUTO_TOKEN, addon_mode: bool = False) -> NodeConfig:
+def _make_config(
+    tmp_path: Path, *, token: str = _AUTO_TOKEN, addon_mode: bool = False
+) -> NodeConfig:
     return NodeConfig(
         addon_mode=addon_mode,
         gateway_url="wss://gw.test/ws",
