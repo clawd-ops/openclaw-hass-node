@@ -101,6 +101,43 @@ the only safe path until the upstream guard is narrowed to `gateway.nodes.*`.
 
 ---
 
+## 3. Plugin generates its own `idempotencyKey` for `node.invoke`
+
+**Status:** permanent local workaround; not being filed upstream per Rob's
+instruction.
+
+**Symptom:**
+
+All tool calls through the assist-tools plugin fail with:
+
+```
+invalid node.invoke params: must have required property "idempotencyKey"
+```
+
+**Root cause:** The gateway's `node.invoke` JSON schema marks `idempotencyKey`
+as a required field. The gateway's own CLI helpers (`buildNodeInvokeParams`,
+`randomIdempotencyKey`) inject this automatically. However, the plugin-sdk's
+`callGatewayTool` wrapper — used by `invokeHaCommand` in
+`src/tools/node-tool-invoke.ts` — does **not** inject `idempotencyKey`
+automatically; it passes params through verbatim to the gateway.
+
+The bug was latent from the start but was masked by an earlier regression
+(`PLUGIN_POLICY_UNAVAILABLE`) that blocked calls before they reached
+`node.invoke`. Once that block was cleared (PR #219), the missing key
+surfaced.
+
+**Fix (already applied in this repo):** `invokeHaCommand` now generates
+`idempotencyKey: randomUUID()` (from `node:crypto`) on every call before
+passing params to `callGatewayTool`. Each call gets a distinct UUID, which
+satisfies the schema requirement and prevents accidental replay suppression
+for back-to-back identical commands.
+
+The `node-invoke-policy.ts` `forward` path uses `ctx.invokeNode({ params })`
+(a gateway-bound helper), which does inject the key server-side. Only the
+direct `callGatewayTool("node.invoke", ...)` path was affected.
+
+---
+
 ## Re-running the install after a plugin update
 
 When a new version of the plugin ships:

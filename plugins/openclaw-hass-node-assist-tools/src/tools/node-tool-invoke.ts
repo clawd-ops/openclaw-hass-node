@@ -2,6 +2,7 @@
 // this plugin's tool handlers. Modeled on file-transfer's
 // node-tool-invoke.ts but simplified — no media/buffer plumbing.
 
+import { randomUUID } from "node:crypto";
 import {
   callGatewayTool,
   listNodes,
@@ -54,6 +55,10 @@ export async function invokeHaCommand<T = unknown>(input: {
       nodeId: input.nodeId,
       command: input.command,
       params: input.commandParams,
+      // The gateway's node.invoke schema requires idempotencyKey. The plugin-sdk
+      // callGatewayTool wrapper does not inject one automatically, so we generate
+      // a per-call UUID here. See docs/known-workarounds.md #3.
+      idempotencyKey: randomUUID(),
     },
   );
 
