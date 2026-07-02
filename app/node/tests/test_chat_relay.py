@@ -3022,13 +3022,16 @@ async def test_stream_turn_legacy_tool_end_emits_checkmark(
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
     assert "\n🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
-    assert " ✓" in text_chunks, (
+    assert " ✓\n" in text_chunks, (
         f"end checkmark missing — tool marker was never resolved (#200): {text_chunks!r}"
     )
-    # Checkmark must follow the start marker
+    # Checkmark must follow the start marker.
     start_idx = text_chunks.index("\n🔧 Calling dir_list...")
-    check_idx = text_chunks.index(" ✓")
+    check_idx = text_chunks.index(" ✓\n")
     assert start_idx < check_idx, f"checkmark appeared before start: {text_chunks!r}"
+    # Joined: trailing \n on checkmark prevents the next delta from glueing.
+    joined = "".join(text_chunks)
+    assert " ✓\n" in joined, f"checkmark must be newline-terminated: {joined!r}"
 
 
 @pytest.mark.asyncio
@@ -3097,9 +3100,11 @@ async def test_stream_turn_legacy_dedup_repeat_tool_calls(
     assert " (x2)..." in text_chunks, f"(x2) count missing: {text_chunks!r}"
     assert " (x3)..." in text_chunks, f"(x3) count missing: {text_chunks!r}"
     assert " (x4)..." in text_chunks, f"(x4) count missing: {text_chunks!r}"
-    # Each call resolves with ✓
-    checkmarks = [c for c in text_chunks if c == " ✓"]
+    # Each call resolves with a newline-terminated checkmark.
+    checkmarks = [c for c in text_chunks if c == " ✓\n"]
     assert len(checkmarks) == 4, f"expected 4 checkmarks (one per call): {text_chunks!r}"
+    joined = "".join(text_chunks)
+    assert joined.count(" ✓\n") == 4, f"expected 4 newline-terminated checkmarks: {joined!r}"
 
 
 @pytest.mark.asyncio
@@ -3175,6 +3180,111 @@ async def test_stream_turn_legacy_different_tools_reset_dedup(
     assert "\n🔧 Calling dir_fetch..." in text_chunks, (
         f"dir_fetch must get a fresh line after different tool: {text_chunks!r}"
     )
-    # All three calls resolve
-    checkmarks = [c for c in text_chunks if c == " ✓"]
+    # All three calls resolve with newline-terminated checkmarks.
+    checkmarks = [c for c in text_chunks if c == " ✓\n"]
     assert len(checkmarks) == 3, f"expected 3 checkmarks: {text_chunks!r}"
+    joined = "".join(text_chunks)
+    assert joined.count(" ✓\n") == 3, f"expected 3 newline-terminated checkmarks: {joined!r}"
+
+
+# ---------------------------------------------------------------------------
+# Error-phase handling (#228 finding 2) — legacy path
+# ---------------------------------------------------------------------------
+
+
+def _tool_error_event(
+    session_key: str,
+    name: str,
+    run_id: str,
+    error: str = "failed",
+    tool_id: str = "",
+) -> dict[str, Any]:
+    """Helper: gateway ``agent`` event with phase=error."""
+    data: dict[str, Any] = {"name": name, "phase": "error", "error": error}
+    if tool_id:
+        data["id"] = tool_id
+    return {
+        "type": "event",
+        "event": "agent",
+        "payload": {
+            "sessionKey": session_key,
+            "stream": "tool",
+            "runId": run_id,
+            "data": data,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_legacy_tool_error_emits_cross(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy path: a failed tool call emits ' ✗ <reason>' instead of a checkmark.
+
+    Without this branch, phase=error events were silently ignored, leaving
+    the marker spinning or emitting a false-success checkmark.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_ERROR_CROSS"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-err"}))
+        relay.handle_event(_tool_start_event(canonical, "dir_list", "run-err", "id-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            _tool_error_event(canonical, "dir_list", "run-err", "permission denied", "id-1")
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-err",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "list dirs"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    text_chunks = [c for c in chunks if isinstance(c, str)]
+    assert "\n🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
+    # No checkmark on error.
+    assert not any(" ✓" in c for c in text_chunks), (
+        f"checkmark must not appear on error: {text_chunks!r}"
+    )
+    # Error marker must be emitted with the reason text.
+    error_chunks = [c for c in text_chunks if " ✗" in c]
+    assert error_chunks, f"error marker missing: {text_chunks!r}"
+    assert any("permission denied" in c for c in error_chunks), (
+        f"error reason must appear in error chunk: {error_chunks!r}"
+    )
+    # Joined output: error marker is newline-terminated.
+    joined = "".join(text_chunks)
+    assert " ✗ permission denied\n" in joined, (
+        f"error marker must be newline-terminated: {joined!r}"
+    )

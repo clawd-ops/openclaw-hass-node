@@ -1161,12 +1161,22 @@ class ChatRelay:
                                 self._active_tool_id.pop(tool_canonical_key, None)
                                 self._active_tool_seq.pop(tool_canonical_key, None)
                         else:
-                            # Legacy path: emit " ✓" to resolve the last marker
-                            # (#200 — markers were left spinning because no
-                            # completion delta was ever pushed on tool end).
+                            # Legacy path: emit " ✓\n" to resolve the last
+                            # marker (#200). Trailing \n prevents the next
+                            # assistant delta from glueing onto the checkmark.
                             q = self._delta_queues.get(tool_canonical_key)
                             if q is not None:
-                                q.put_nowait(" ✓")
+                                q.put_nowait(" ✓\n")
+                            self._active_tool.pop(tool_canonical_key, None)
+                    elif phase == "error":
+                        # Legacy path: tool failed — emit " ✗ <reason>\n" so
+                        # the user sees a clear failure instead of a stale
+                        # spinner or a false-success checkmark.
+                        if not use_frames:
+                            q = self._delta_queues.get(tool_canonical_key)
+                            if q is not None:
+                                error_text = str(data.get("error") or "failed")
+                                q.put_nowait(f" ✗ {error_text}\n")
                             self._active_tool.pop(tool_canonical_key, None)
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
