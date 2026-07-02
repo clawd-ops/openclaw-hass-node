@@ -12,6 +12,7 @@ the integration's reconfigure flow handles that case manually.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import secrets
@@ -65,8 +66,6 @@ def _write_token(path: Path, token: str) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(token + "\n")
     except BaseException:
-        import contextlib
-
         with contextlib.suppress(OSError):
             os.close(fd)
         raise
