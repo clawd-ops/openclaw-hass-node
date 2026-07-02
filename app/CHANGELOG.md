@@ -1,5 +1,14 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.7.1b4 (2026-07-02) — Assist progress spacing cleanup
+
+### Fixes
+- **HA Assist progress lines render compactly.** Plain-text tool progress
+  now treats `Working on it...`, `🔧 Calling ...`, repeat counts, checkmarks,
+  and errors as one compact status block. The relay removes the remaining
+  double-newline gaps while still inserting a single separator before the
+  real assistant answer.
+
 ## 2026.7.1b3 (2026-07-02) — Bootstrap token rotation
 
 ### Security
