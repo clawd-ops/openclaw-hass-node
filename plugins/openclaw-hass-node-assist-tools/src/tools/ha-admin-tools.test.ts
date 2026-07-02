@@ -87,11 +87,12 @@ describe("ha_reload_config", () => {
   });
 });
 
-describe("addon lifecycle (start/stop/restart)", () => {
+describe("addon lifecycle (start/stop/restart/update)", () => {
   const lifecycle = [
     { factory: "createHaAddonStartTool", command: "ha.addon_start" },
     { factory: "createHaAddonStopTool", command: "ha.addon_stop" },
     { factory: "createHaAddonRestartTool", command: "ha.addon_restart" },
+    { factory: "createHaAddonUpdateTool", command: "ha.addon_update" },
   ];
 
   for (const l of lifecycle) {

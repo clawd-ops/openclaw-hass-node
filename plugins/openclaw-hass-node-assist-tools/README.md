@@ -68,7 +68,7 @@ is the Tier B admin gate:
 ### Tier B admin ops (optional)
 
 To enable `ha_reload_config`, `ha_addon_start`, `ha_addon_stop`,
-`ha_addon_restart`, set both flags under the node:
+`ha_addon_restart`, `ha_addon_update`, set both flags under the node:
 
 ```json
 "nodes": {
@@ -103,7 +103,7 @@ plugins/openclaw-hass-node-assist-tools/
 │   │   ├── ha-simple-read-tools.ts         # list_services, get_config, list_events, list_config_entries, list_automations, check_config, core_logs, addon_logs, list_addons, addon_info, addon_stats, addon_changelog, addon_documentation
 │   │   ├── ha-entity-scoped-read-tools.ts  # logbook, history
 │   │   ├── ha-light-tools.ts               # light_turn_on, light_turn_off
-│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart (Tier B)
+│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update (Tier B)
 │   └── shared/
 │       ├── node-invoke-policy.ts           # routing-only invoke policy with param validation
 │       ├── per-node-policy.ts              # PerNodePolicy type (admin gate only)

@@ -34,6 +34,8 @@ Commands in this module:
 - ``ha.addon_start``          — start an explicitly allowlisted add-on (Tier B).
 - ``ha.addon_stop``           — stop an explicitly allowlisted add-on (Tier B).
 - ``ha.addon_restart``        — restart an explicitly allowlisted add-on (Tier B).
+- ``ha.addon_update``         — update an explicitly allowlisted add-on to the latest available
+  version (Tier B).
 """
 
 from __future__ import annotations
@@ -1029,5 +1031,18 @@ async def handle_ha_addon_restart(params: dict[str, Any]) -> dict[str, Any]:
         params,
         command="ha.addon_restart",
         action="restart",
+        desired_state=None,
+    )
+
+
+async def handle_ha_addon_update(params: dict[str, Any]) -> dict[str, Any]:
+    """Update an explicitly allowlisted Supervisor add-on to the latest available version.
+
+    Tier B operation — requires an explicit addon slug in the lifecycle allowlist.
+    """
+    return await _handle_addon_lifecycle(
+        params,
+        command="ha.addon_update",
+        action="update",
         desired_state=None,
     )

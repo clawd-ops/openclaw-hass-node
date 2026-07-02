@@ -15,6 +15,7 @@ from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
 
 from .const import (
+    BOOTSTRAP_ENDPOINT,
     CONF_API_TOKEN,
     CONF_SOCKET_URL,
     CONVERSATION_INFO_ENDPOINT,
@@ -90,6 +91,30 @@ async def _supervisor_addon_url(hass: Any) -> str | None:
             _LOG.info("openclaw node hostname from Supervisor: %s", url)
             return url
     return None
+
+
+async def _fetch_bootstrap_token(session: aiohttp.ClientSession, url: str) -> str | None:
+    """Attempt to retrieve an auto-generated API token from the node bootstrap endpoint.
+
+    Returns the token string if the node reports one, or None if bootstrap is
+    disabled (operator set the token explicitly) or the request fails for any
+    reason. Failures are non-fatal — the config flow falls back to manual entry.
+    """
+    try:
+        async with session.get(
+            url + BOOTSTRAP_ENDPOINT,
+            timeout=aiohttp.ClientTimeout(total=PROBE_TIMEOUT_S),
+        ) as resp:
+            if resp.status != 200:
+                return None
+            data = await resp.json()
+            if not isinstance(data, dict) or not data.get("ok"):
+                return None
+            token = data.get("token")
+            return str(token) if isinstance(token, str) and token else None
+    except (aiohttp.ClientError, TimeoutError, OSError) as exc:
+        _LOG.debug("bootstrap token fetch from %s failed: %s", url, exc)
+        return None
 
 
 async def _probe_default_socket_url(
@@ -222,11 +247,12 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         session = aiohttp_client.async_get_clientsession(self.hass)
         suggested_url = await _probe_default_socket_url(session, self.hass)
+        suggested_token = await _fetch_bootstrap_token(session, suggested_url) or ""
         _pw = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
         schema = vol.Schema(
             {
                 vol.Required(CONF_SOCKET_URL, default=suggested_url): str,
-                vol.Optional(CONF_API_TOKEN, default=""): _pw,
+                vol.Optional(CONF_API_TOKEN, default=suggested_token): _pw,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors={})

@@ -410,3 +410,11 @@ export const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor = {
     "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
   parameters: AddonSlugSchema(),
 };
+
+export const HA_ADDON_UPDATE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: addon update",
+  name: "ha_addon_update",
+  description:
+    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'.",
+  parameters: AddonSlugSchema(),
+};

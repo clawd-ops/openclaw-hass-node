@@ -9,6 +9,7 @@ import {
   HA_ADDON_RESTART_TOOL_DESCRIPTOR,
   HA_ADDON_START_TOOL_DESCRIPTOR,
   HA_ADDON_STOP_TOOL_DESCRIPTOR,
+  HA_ADDON_UPDATE_TOOL_DESCRIPTOR,
   HA_RELOAD_CONFIG_TOOL_DESCRIPTOR,
 } from "./descriptors.js";
 import {
@@ -35,7 +36,8 @@ type AdminInput = {
     | "ha.reload_config"
     | "ha.addon_start"
     | "ha.addon_stop"
-    | "ha.addon_restart";
+    | "ha.addon_restart"
+    | "ha.addon_update";
   requireSlug: boolean;
   label: string;
 };
@@ -160,4 +162,12 @@ export const createHaAddonRestartTool = (): AnyAgentTool =>
     command: "ha.addon_restart",
     requireSlug: true,
     label: "Add-on restart",
+  });
+
+export const createHaAddonUpdateTool = (): AnyAgentTool =>
+  createAdminTool({
+    descriptor: HA_ADDON_UPDATE_TOOL_DESCRIPTOR,
+    command: "ha.addon_update",
+    requireSlug: true,
+    label: "Add-on update",
   });

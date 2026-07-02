@@ -46,6 +46,7 @@ export const ASSIST_TOOLS_NODE_INVOKE_COMMANDS: ReadonlyArray<string> = [
   "ha.addon_start",
   "ha.addon_stop",
   "ha.addon_restart",
+  "ha.addon_update",
 ];
 
 type LoadAssistToolsNodeInvokePolicy = () => Promise<OpenClawPluginNodeInvokePolicy>;

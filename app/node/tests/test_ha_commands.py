@@ -16,6 +16,7 @@ from openclaw_node.commands.ha import (
     handle_ha_addon_start,
     handle_ha_addon_stats,
     handle_ha_addon_stop,
+    handle_ha_addon_update,
     handle_ha_calendar_get_events,
     handle_ha_call_service,
     handle_ha_check_config,
@@ -1493,3 +1494,48 @@ async def test_addon_restart_posts_when_allowlisted(monkeypatch: pytest.MonkeyPa
     assert result["ok"] is True
     assert result["changed"] is True
     mock_post.assert_called_once_with("/addons/openclaw_hass_node/restart")
+
+
+# ---------------------------------------------------------------------------
+# ha.addon_update (Tier B)
+# ---------------------------------------------------------------------------
+
+
+async def test_addon_update_requires_allowlisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
+
+    result = await handle_ha_addon_update({"slug": "openclaw_hass_node"})
+
+    assert result["error"] == "PERMISSION_DENIED"
+    assert "allowlisted" in result["message"]
+
+
+async def test_addon_update_always_denies_core_slugs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["core_mosquitto"]')
+
+    result = await handle_ha_addon_update({"slug": "core_mosquitto"})
+
+    assert result["error"] == "PERMISSION_DENIED"
+    assert "core slug" in result["message"]
+
+
+async def test_addon_update_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            side_effect=[
+                {"data": {"state": "started"}},
+                {"data": {"state": "started"}},
+            ],
+        ),
+        patch("openclaw_node.commands.ha.supervisor_post_json", return_value={}) as mock_post,
+    ):
+        result = await handle_ha_addon_update({"slug": "openclaw_hass_node"})
+
+    assert result["ok"] is True
+    assert result["changed"] is True
+    mock_post.assert_called_once_with("/addons/openclaw_hass_node/update")

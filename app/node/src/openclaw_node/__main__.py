@@ -21,6 +21,7 @@ from openclaw_node.ha_client import HAClientError, ha_ws_call
 from openclaw_node.http_api import NodeRuntime, run_http_api
 from openclaw_node.identity import DeviceIdentity, load_or_generate
 from openclaw_node.pairing import PairingState
+from openclaw_node.token_store import load_or_generate_local_api_token
 
 logging.basicConfig(
     level=logging.INFO,
@@ -322,7 +323,9 @@ def _ha_user_name_candidates(raw: dict[str, Any]) -> tuple[str, ...]:
 
 
 def build_runtime(
-    config: NodeConfig, identity: DeviceIdentity
+    config: NodeConfig,
+    identity: DeviceIdentity,
+    bootstrap_token: str = "",
 ) -> tuple[NodeRuntime, GatewayClient, GatewayClient]:
     """Construct the runtime + both gateway clients with pairing wired through.
 
@@ -337,12 +340,15 @@ def build_runtime(
     Args:
         config: Loaded runtime configuration.
         identity: Device identity loaded or freshly generated.
+        bootstrap_token: Auto-generated local API token to expose via
+            ``GET /v1/bootstrap``. Empty string when the operator supplied
+            the token explicitly (bootstrap endpoint returns disabled).
 
     Returns:
         A ``(runtime, node_client, operator_client)`` tuple ready to be
         driven by :func:`_main`.
     """
-    runtime = NodeRuntime(config)
+    runtime = NodeRuntime(config, bootstrap_token=bootstrap_token)
 
     def _on_pairing_state(state: PairingState) -> None:
         runtime.pairing_state = state
@@ -406,13 +412,28 @@ async def _main() -> None:
     if config.reset_pairing != "none":
         _reset_pairing_state(config)
     _migrate_legacy_device_token(config)
-    if config.addon_mode and not config.local_api_token:
-        _LOG.warning(
-            "local_api_token is unset — the local HTTP API on port 8099 is "
-            "OPEN to anything that can reach it inside the Supervisor add-on "
-            "network. Set the `local_api_token` option to require a bearer "
-            "token for every endpoint except /health and /v1/conversation/info."
-        )
+    bootstrap_token = ""
+    if not config.local_api_token:
+        # Auto-generate a local API token so the HACS integration can fetch it
+        # via GET /v1/bootstrap without the operator manually copying it.
+        # Standalone mode also benefits: the token is persisted across restarts.
+        try:
+            auto_token, created = load_or_generate_local_api_token(config.data_dir)
+            config = replace(config, local_api_token=auto_token)
+            bootstrap_token = auto_token
+            if created:
+                _LOG.info(
+                    "Auto-generated local_api_token. The HACS integration can "
+                    "retrieve it via GET /v1/bootstrap during config-flow setup "
+                    "(no manual copy-paste required)."
+                )
+        except OSError as exc:
+            _LOG.warning(
+                "Could not auto-generate local_api_token (%s). "
+                "The local HTTP API on port 8099 will be OPEN to anything that "
+                "can reach it. Set the `local_api_token` add-on option to secure it.",
+                exc,
+            )
     config = await _resolve_identity_usernames(config)
 
     identity, created = load_or_generate(config.key_path)
@@ -421,7 +442,9 @@ async def _main() -> None:
     else:
         _LOG.info("Loaded existing device identity: %s", identity.device_id)
 
-    runtime, node_client, operator_client = build_runtime(config, identity)
+    runtime, node_client, operator_client = build_runtime(
+        config, identity, bootstrap_token=bootstrap_token
+    )
 
     async with asyncio.TaskGroup() as tg:
         tg.create_task(node_client.run(), name="gateway-ws-node")
