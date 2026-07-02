@@ -56,13 +56,6 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - #201 — `ha_*` wrappers do not solve filesystem / file-transfer confusion in Assist (open, do NOT close — see #35 note).
 - #202 — `nodes.invoke` filtered in Assist by design; fix is enabling `openclaw-hass-node-assist-tools` plugin (CLOSED in this PR — see SKILL.md update).
 
-### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
-- Status: OPEN
-- Today: release workflow extracts notes from a hand-written `app/CHANGELOG.md` section per version heading. Conventional Commits is policy on every PR so the history stays machine-readable, but nothing reads it automatically.
-- Goal: extend `.github/workflows/release-on-version-bump.yml` (or a sibling step) so the release notes are derived from the Conventional Commit subjects since the previous tag, grouped by type (Features / Fixes / Refactor / Docs / etc.). Hand-written `app/CHANGELOG.md` becomes optional embellishment rather than the source.
-- Constraints: must respect prerelease semantics (a/b/rc/.dev); must still produce a useful HA-Supervisor-rendered `app/CHANGELOG.md` (Supervisor reads this file for the addon's Changelog tab); must not require a separate `release: <version>` PR if the changelog can be generated mid-flight.
-- Lands AFTER the doc cleanup + Phase 2 doc-architecture reshape, but BEFORE we'd want to take the project to 1.0.
-
 ### 20. Proposal-gated write path — agent-bridge UI wiring
 - Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; the actual `propose_edit` → `resolve_proposal` round-trip through the agent-bridge UI is not wired.
 - Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `ha.config.*`.
@@ -151,6 +144,24 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ---
 
 ## Closed items
+
+### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
+- Status: CLOSED — shipped in PR #224.
+- `scripts/generate-release-notes.sh` groups Conventional Commit subjects since
+  the previous tag into Features / Fixes / Refactor / Performance / Docs / Other,
+  skipping `chore(release):` version-bump commits.
+- Workflow (`release-on-version-bump.yml`) now:
+  - Finds the previous tag automatically.
+  - Runs the script to generate grouped notes.
+  - If a hand-written `app/CHANGELOG.md` section exists for the version: uses it
+    as the primary body and appends the auto-derived commit list as a secondary
+    "Commits since X" block.
+  - If no hand-written section exists: uses auto-generated list as the sole body
+    AND commits a new section to `app/CHANGELOG.md` so HA Supervisor Changelog
+    tab always has content. (`app/CHANGELOG.md` is excluded from the trigger
+    `paths:`, so the commit-back does not cause a recursive re-run.)
+- Hand-written `app/CHANGELOG.md` sections are preserved and take precedence;
+  the auto-list augments rather than replaces them. No separate release PR needed.
 
 ### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
 - Status: CLOSED 2026-06-28 — shipped in PR #179.
