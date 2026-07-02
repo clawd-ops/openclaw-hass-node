@@ -153,20 +153,21 @@ import {
   - `ctx.command` — the `ha.*` command being invoked
   - `ctx.nodeId` — the paired node's ID
   - `ctx.params` — raw params from the caller (validate before forwarding)
-  - `ctx.pluginConfig` — plugin config object if pre-loaded (may be undefined;
-    fall back to `readPluginConfig`)
+  - `ctx.pluginConfig` — plugin config object (resolved at call time by the
+    gateway via `plugin-config-runtime`; may be `undefined` if not configured)
   - `ctx.invokeNode({ params })` — forwards the call to the node after policy
     check passes; returns `{ ok, payload?, error? }`
 
-### Config reader (`openclaw/plugin-sdk/plugin-config`)
+### Config reader (`openclaw/plugin-sdk/plugin-config-runtime`)
 
 ```ts
-import { readPluginConfig } from "openclaw/plugin-sdk/plugin-config";
-const cfg = await readPluginConfig("openclaw-hass-node-assist-tools");
+import { resolvePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
 ```
 
-Returns the plugin's own config object from the operator's `openclaw.json`
-(`plugins.entries.<id>.config`). Used to read per-node policy at call time.
+`ctx.pluginConfig` in the policy context is already the resolved config object
+for this plugin. For tool handlers that need the config at execute time, use
+`callGatewayTool("config.get", opts, {})` then `resolvePluginConfigObject(result?.payload, PLUGIN_ID)`.
+The old `readPluginConfig` from `openclaw/plugin-sdk/plugin-config` is removed.
 
 ### What to check on SDK upgrades
 
@@ -174,6 +175,7 @@ Returns the plugin's own config object from the operator's `openclaw.json`
 2. `AnyAgentTool.execute` parameter order and types
 3. `OpenClawPluginNodeInvokePolicy` — `commands` array still accepted, `handle`
    still receives `OpenClawPluginNodeInvokePolicyContext` with `invokeNode`
-4. `readPluginConfig` — still resolves the plugin's own config subtree
+4. `plugin-config-runtime` — `resolvePluginConfigObject` still resolves the
+   plugin's own config subtree from the raw gateway config payload
 5. `ctx.invokeNode` return shape (`{ ok: boolean, payload?, error? }`) — the
    policy handlers forward it directly to callers

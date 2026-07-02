@@ -83,12 +83,13 @@ for (const c of CASES) {
       expect(result.isError).toBeUndefined();
     });
 
-    it("refuses when no per-node policy is configured", async () => {
+    it("forwards even when no per-node policy is configured (routing-only)", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
         policy: undefined,
       });
+      invokeMock.mockResolvedValue({ ok: true });
       const tool = await load(c.factory);
       const result = await tool.execute(
         "call-2",
@@ -96,8 +97,8 @@ for (const c of CASES) {
         new AbortController().signal,
         () => undefined,
       );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(result.isError).toBe(true);
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(result.isError).toBeUndefined();
     });
   });
 }

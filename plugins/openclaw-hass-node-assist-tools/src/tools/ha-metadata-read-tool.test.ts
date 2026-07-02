@@ -59,7 +59,7 @@ for (const T of TOOL_LOADERS) {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: { allowReadEntities: ["light.*"] },
+        policy: {},
       });
       invokeMock.mockResolvedValue(T.sample);
 
@@ -79,12 +79,13 @@ for (const T of TOOL_LOADERS) {
       expect(result.isError).toBeUndefined();
     });
 
-    it("refuses when no per-node policy is configured", async () => {
+    it("forwards even when no per-node policy is configured (routing-only)", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
         policy: undefined,
       });
+      invokeMock.mockResolvedValue(T.sample);
 
       const tool = await T.load();
       const result = await tool.execute(
@@ -94,8 +95,8 @@ for (const T of TOOL_LOADERS) {
         () => undefined,
       );
 
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(result.isError).toBe(true);
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(result.isError).toBeUndefined();
     });
 
     it("throws when node missing", async () => {

@@ -4,9 +4,10 @@
 // operate against (typically the openclaw-hass-node-app instance running
 // in HA Supervisor). Other fields are tool-specific.
 //
-// All tools surface to Assist sessions; the per-node policy in the plugin
-// config (allowServices, allowReadEntities, ...) gates which operations the
-// session may actually invoke at execute-time.
+// Routing-only design: access control is delegated to the hass node's
+// tier/allowCommands policy and HA's own auth layer. Tier B admin tools
+// (reload_config, addon_start/stop/restart) additionally require
+// allowAdminOps + adminToken in the per-node plugin config.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
@@ -56,7 +57,7 @@ export const HA_CALL_SERVICE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: call service",
   name: "ha_call_service",
   description:
-    "Call a Home Assistant service (e.g. light.turn_on, switch.toggle) on the paired hass node. The plugin's per-node allowServices/denyServices gate which <domain>.<service> patterns are reachable; deny wins.",
+    "Call a Home Assistant service (e.g. light.turn_on, switch.toggle) on the paired hass node. Access control is enforced by the hass node's allowCommands tier policy and HA's own auth layer.",
   parameters: HaCallServiceToolSchema,
 };
 
@@ -73,7 +74,7 @@ export const HA_GET_STATE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: get entity state",
   name: "ha_get_state",
   description:
-    "Read the current state of a Home Assistant entity from the paired hass node. The plugin's per-node allowReadEntities/denyReadEntities gate which entity_id patterns are readable; deny wins.",
+    "Read the current state of a Home Assistant entity from the paired hass node. Access control is enforced by the hass node's allowCommands tier policy and HA's own auth layer.",
   parameters: HaGetStateToolSchema,
 };
 
@@ -84,7 +85,7 @@ export const HaListStatesToolSchema = Type.Object({
   entity_filter: Type.Optional(
     Type.String({
       description:
-        "Optional entity_id glob to filter the result (e.g. 'light.*'). Applied in addition to per-node allowReadEntities.",
+        "Optional entity_id glob to filter the result (e.g. 'light.*').",
     }),
   ),
 });
@@ -93,7 +94,7 @@ export const HA_LIST_STATES_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: list entity states",
   name: "ha_list_states",
   description:
-    "List current entity states from the paired hass node. Results are filtered through the plugin's per-node allowReadEntities/denyReadEntities policy.",
+    "List current entity states from the paired hass node. Access control is enforced by the hass node's allowCommands tier policy and HA's own auth layer.",
   parameters: HaListStatesToolSchema,
 };
 
@@ -116,7 +117,7 @@ export const HA_CALENDAR_GET_EVENTS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: calendar get events",
   name: "ha_calendar_get_events",
   description:
-    "Fetch events from a HA calendar entity in [start, end). Restricted to calendars listed in per-node allowCalendars (if configured).",
+    "Fetch events from a HA calendar entity in [start, end). Access control is enforced by the hass node's allowCommands tier policy and HA's own auth layer.",
   parameters: HaCalendarGetEventsToolSchema,
 };
 
@@ -255,7 +256,7 @@ export const HA_LOGBOOK_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: logbook",
   name: "ha_logbook",
   description:
-    "Read HA logbook entries. When entity_id is set, results are gated by per-node allowReadEntities/denyReadEntities; when omitted, requires allowReadEntities configured on the node.",
+    "Read HA logbook entries. Access control is enforced by the hass node's allowCommands tier policy and HA's own auth layer.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     entity_id: Type.Optional(
@@ -274,7 +275,7 @@ export const HA_HISTORY_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: history",
   name: "ha_history",
   description:
-    "Read historical state changes. When entity_id is set, results are gated by per-node allowReadEntities/denyReadEntities; when omitted, requires allowReadEntities configured on the node.",
+    "Read historical state changes. Access control is enforced by the hass node's allowCommands tier policy and HA's own auth layer.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     entity_id: Type.Optional(
@@ -357,7 +358,7 @@ export const HA_LIGHT_TURN_ON_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: light turn on",
   name: "ha_light_turn_on",
   description:
-    "Convenience wrapper for light.turn_on. Requires allowServices to permit 'light.turn_on'.",
+    "Convenience wrapper for light.turn_on. Routes to the hass node; access control is enforced by the node's allowCommands tier policy.",
   parameters: LightTargetSchema(),
 };
 
@@ -365,7 +366,7 @@ export const HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: light turn off",
   name: "ha_light_turn_off",
   description:
-    "Convenience wrapper for light.turn_off. Requires allowServices to permit 'light.turn_off'.",
+    "Convenience wrapper for light.turn_off. Routes to the hass node; access control is enforced by the node's allowCommands tier policy.",
   parameters: LightTargetSchema(),
 };
 

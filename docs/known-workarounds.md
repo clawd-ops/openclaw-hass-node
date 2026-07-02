@@ -50,8 +50,10 @@ openclaw plugins install --link ~/.openclaw/plugins/openclaw-hass-node-assist-to
 openclaw gateway restart
 ```
 
-Then configure the per-node policy (see below and
-`plugins/openclaw-hass-node-assist-tools/examples/policy-hass-starter.json`).
+Then configure the plugin (see
+`plugins/openclaw-hass-node-assist-tools/examples/policy-hass-starter.json`
+for a minimal routing-only example — only `nodeId: "hass"` is required;
+no entity/service allowlists needed).
 
 **Fix path:** add `"build": "tsc --outDir dist"` to the plugin's `package.json`
 and compile in CI / the release workflow. Long-term, publish to npm so
