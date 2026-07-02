@@ -40,11 +40,11 @@ describe("ha_call_service descriptor", () => {
 });
 
 describe("ha_call_service execute", () => {
-  it("invokes ha.call_service when the service matches allowServices", async () => {
+  it("invokes ha.call_service and forwards to the node", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowServices: ["light.*"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue({ ok: true });
 
@@ -68,49 +68,6 @@ describe("ha_call_service execute", () => {
       commandParams: expect.objectContaining({ domain: "light", service: "turn_on" }),
     });
     expect(result.isError).toBeUndefined();
-  });
-
-  it("refuses without invoking when allowServices is empty", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: {},
-    });
-
-    const tool = await loadTool();
-    const result = await tool.execute(
-      "call-2",
-      { node: "hass", domain: "light", service: "turn_on" },
-      new AbortController().signal,
-      () => undefined,
-    );
-
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("not allowed");
-  });
-
-  it("denies when the service matches denyServices, even if also in allowServices (deny wins)", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: {
-        allowServices: ["homeassistant.*"],
-        denyServices: ["homeassistant.restart"],
-      },
-    });
-
-    const tool = await loadTool();
-    const result = await tool.execute(
-      "call-3",
-      { node: "hass", domain: "homeassistant", service: "restart" },
-      new AbortController().signal,
-      () => undefined,
-    );
-
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("deny pattern");
   });
 
   it("throws when required params are missing", async () => {

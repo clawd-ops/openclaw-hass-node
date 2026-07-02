@@ -1,19 +1,11 @@
 // Per-node policy loader for openclaw-hass-node-assist-tools.
 //
 // The plugin's configSchema (see openclaw.plugin.json) places per-node
-// policy under `nodes.<nodeId>`. Each entry can declare:
-//   - allowServices / denyServices (globs over '<domain>.<service>')
-//   - allowReadEntities / denyReadEntities (globs over entity_id)
-//   - allowCalendars (exact entity_ids)
-//   - ask: 'off' | 'on-miss' | 'always'   (reserved for future use)
+// policy under `nodes.<nodeId>`. Entity/service/calendar access control
+// lives at the hass node's own tier/allowCommands + HA's auth layer —
+// not here. The only plugin-scoped policy is the Tier B admin gate.
 
 export type PerNodePolicy = {
-  ask?: "off" | "on-miss" | "always";
-  allowServices?: ReadonlyArray<string>;
-  denyServices?: ReadonlyArray<string>;
-  allowReadEntities?: ReadonlyArray<string>;
-  denyReadEntities?: ReadonlyArray<string>;
-  allowCalendars?: ReadonlyArray<string>;
   // Tier B admin gate. Both flags must be set to invoke reload_config /
   // addon_start / addon_stop / addon_restart. `adminToken` is forwarded
   // to the addon's admin_token check.

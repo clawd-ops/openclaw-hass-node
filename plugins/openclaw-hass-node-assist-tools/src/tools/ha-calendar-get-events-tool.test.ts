@@ -36,11 +36,11 @@ describe("ha_calendar_get_events descriptor", () => {
 });
 
 describe("ha_calendar_get_events execute", () => {
-  it("fetches events when calendar is in allowCalendars", async () => {
+  it("fetches events and forwards to the node", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowCalendars: ["calendar.family"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue([
       { summary: "soccer", start: "2026-07-01T10:00:00" },
@@ -71,12 +71,13 @@ describe("ha_calendar_get_events execute", () => {
     expect(result.isError).toBeUndefined();
   });
 
-  it("refuses when calendar is not in allowCalendars", async () => {
+  it("forwards any calendar entity_id (no allowCalendars filter at tool layer)", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowCalendars: ["calendar.family"] },
+      policy: {},
     });
+    invokeMock.mockResolvedValue([]);
 
     const tool = await loadTool();
     const result = await tool.execute(
@@ -91,32 +92,8 @@ describe("ha_calendar_get_events execute", () => {
       () => undefined,
     );
 
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-  });
-
-  it("refuses when allowCalendars missing", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: {},
-    });
-
-    const tool = await loadTool();
-    const result = await tool.execute(
-      "call-3",
-      {
-        node: "hass",
-        entity_id: "calendar.family",
-        start_date_time: "2026-07-01T00:00:00",
-        end_date_time: "2026-07-08T00:00:00",
-      },
-      new AbortController().signal,
-      () => undefined,
-    );
-
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(result.isError).toBeUndefined();
   });
 
   it("throws when entity_id missing", async () => {

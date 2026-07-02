@@ -1,10 +1,10 @@
-// Shared implementation for the three "metadata read" handlers:
-//   ha_list_areas, ha_list_devices, ha_list_entity_registry.
+// Shared implementation for the "metadata read" handlers:
+//   ha_list_areas, ha_list_devices, ha_list_entity_registry,
+//   and all simple bulk-read tools (ha_list_services, ha_get_config, etc.).
 //
-// These have no per-entity policy gate (HA doesn't return entity_id-keyed
-// payloads for areas/devices, and the registry list is bulk metadata).
-// We require the node to have *some* policy entry (or a wildcard '*'
-// entry) as a coarse "plugin is bound to this node" opt-in.
+// Routing-only: no per-entity or per-node policy check required. Access
+// control is delegated to the hass node's tier/allowCommands + HA auth.
+// Only Tier B admin tools (ha-admin-tools.ts) require a policy entry.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -36,26 +36,10 @@ export function createHaMetadataReadTool(input: {
       if (!nodeIdentifier) throw new Error("node required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      if (!policy) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `Refused ${input.command} on ${nodeDisplayName} (${nodeId}): ` +
-                `no per-node policy configured. ` +
-                `Add plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier} ` +
-                `(or a '*' default entry) to opt this node in.`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const commandParams = input.buildCommandParams
         ? input.buildCommandParams(params)

@@ -34,11 +34,11 @@ describe("ha_get_state descriptor", () => {
 });
 
 describe("ha_get_state execute", () => {
-  it("reads state when entity matches allowReadEntities", async () => {
+  it("reads state and forwards to the node", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: ["light.*"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue({ state: "on", attributes: {} });
 
@@ -58,12 +58,13 @@ describe("ha_get_state execute", () => {
     expect(result.isError).toBeUndefined();
   });
 
-  it("refuses when entity doesn't match allowReadEntities", async () => {
+  it("forwards any valid entity_id (no policy filter at tool layer)", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: ["light.*"] },
+      policy: {},
     });
+    invokeMock.mockResolvedValue({ state: "home" });
 
     const tool = await loadTool();
     const result = await tool.execute(
@@ -73,31 +74,8 @@ describe("ha_get_state execute", () => {
       () => undefined,
     );
 
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-  });
-
-  it("deny wins over allow", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: {
-        allowReadEntities: ["sensor.*"],
-        denyReadEntities: ["sensor.bedroom_*"],
-      },
-    });
-
-    const tool = await loadTool();
-    const result = await tool.execute(
-      "call-3",
-      { node: "hass", entity_id: "sensor.bedroom_temperature" },
-      new AbortController().signal,
-      () => undefined,
-    );
-
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-    expect(JSON.stringify(result.content)).toContain("deny pattern");
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(result.isError).toBeUndefined();
   });
 
   it("throws when entity_id missing", async () => {

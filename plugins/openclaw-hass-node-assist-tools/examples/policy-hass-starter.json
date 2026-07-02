@@ -1,0 +1,14 @@
+{
+  "plugins": {
+    "entries": {
+      "openclaw-hass-node-assist-tools": {
+        "enabled": true,
+        "config": {
+          "nodes": {
+            "hass": {}
+          }
+        }
+      }
+    }
+  }
+}

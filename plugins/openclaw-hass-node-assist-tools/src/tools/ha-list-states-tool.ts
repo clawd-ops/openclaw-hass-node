@@ -1,9 +1,9 @@
 // ha_list_states tool handler. Wraps ha.list_states on the bound hass
-// node, then filters the result through per-node allowReadEntities /
-// denyReadEntities. An optional entity_filter glob narrows further.
+// node. An optional caller-supplied entity_filter glob narrows the result.
+// Access control (which entities are visible) is at the node layer.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { decideGlobPolicy, matchesAnyGlob } from "../shared/glob-policy.js";
+import { matchesAnyGlob } from "../shared/entity-filter.js";
 import { HA_LIST_STATES_TOOL_DESCRIPTOR } from "./descriptors.js";
 import {
   invokeHaCommand,
@@ -56,25 +56,10 @@ export function createHaListStatesTool(): AnyAgentTool {
       if (!nodeIdentifier) throw new Error("node required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      if (!policy?.allowReadEntities || policy.allowReadEntities.length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `Refused ha_list_states on ${nodeDisplayName} (${nodeId}): ` +
-                `no allowReadEntities configured for this node. ` +
-                `Configure plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowReadEntities.`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const payload = await invokeHaCommand({
         nodeId,
@@ -84,18 +69,12 @@ export function createHaListStatesTool(): AnyAgentTool {
       });
 
       const all = extractStates(payload);
-      const filtered = all.filter((s) => {
-        const id = typeof s.entity_id === "string" ? s.entity_id : "";
-        if (!id) return false;
-        if (entityFilter && !matchesAnyGlob(id, [entityFilter])) return false;
-        const decision = decideGlobPolicy({
-          candidate: id,
-          allow: policy.allowReadEntities,
-          deny: policy.denyReadEntities,
-          subject: "entity",
-        });
-        return decision.allowed;
-      });
+      const filtered = entityFilter
+        ? all.filter((s) => {
+            const id = typeof s.entity_id === "string" ? s.entity_id : "";
+            return id && matchesAnyGlob(id, [entityFilter]);
+          })
+        : all;
 
       return {
         content: [
@@ -103,8 +82,8 @@ export function createHaListStatesTool(): AnyAgentTool {
             type: "text",
             text:
               `States on ${nodeDisplayName} (${nodeId}): ` +
-              `${filtered.length}/${all.length} entities after policy` +
-              `${entityFilter ? ` + filter '${entityFilter}'` : ""}.\n\n` +
+              `${filtered.length}/${all.length} entities` +
+              `${entityFilter ? ` matching filter '${entityFilter}'` : ""}.\n\n` +
               `${JSON.stringify(filtered, null, 2)}`,
           },
         ],

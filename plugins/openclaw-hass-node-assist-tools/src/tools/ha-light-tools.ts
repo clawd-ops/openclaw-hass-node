@@ -1,9 +1,7 @@
-// ha_light_turn_on / ha_light_turn_off convenience wrappers. Same
-// allowServices/denyServices gate as ha.call_service. Forwards a target
-// block { entity_id?, area_id?, device_id? } to the addon.
+// ha_light_turn_on / ha_light_turn_off convenience wrappers. Forwards a
+// target block { entity_id?, area_id?, device_id? } to the addon.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { decideGlobPolicy } from "../shared/glob-policy.js";
 import {
   HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR,
   HA_LIGHT_TURN_ON_TOOL_DESCRIPTOR,
@@ -28,7 +26,6 @@ function pickTarget(params: Record<string, unknown>): Record<string, unknown> {
 function createLightActionTool(input: {
   descriptor: Pick<AnyAgentTool, "label" | "name" | "description" | "parameters">;
   command: "ha.light_turn_on" | "ha.light_turn_off";
-  service: "light.turn_on" | "light.turn_off";
   label: string;
 }): AnyAgentTool {
   return {
@@ -39,30 +36,10 @@ function createLightActionTool(input: {
       if (!nodeIdentifier) throw new Error("node required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      const decision = decideGlobPolicy({
-        candidate: input.service,
-        allow: policy?.allowServices,
-        deny: policy?.denyServices,
-        subject: "service",
-      });
-      if (!decision.allowed) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `Refused ${input.command} on ${nodeDisplayName} (${nodeId}): ${decision.reason}. ` +
-                `Configure plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowServices.`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const target = pickTarget(params);
       if (Object.keys(target).length === 0) {
@@ -102,7 +79,6 @@ export const createHaLightTurnOnTool = (): AnyAgentTool =>
   createLightActionTool({
     descriptor: HA_LIGHT_TURN_ON_TOOL_DESCRIPTOR,
     command: "ha.light_turn_on",
-    service: "light.turn_on",
     label: "light.turn_on",
   });
 
@@ -110,6 +86,5 @@ export const createHaLightTurnOffTool = (): AnyAgentTool =>
   createLightActionTool({
     descriptor: HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR,
     command: "ha.light_turn_off",
-    service: "light.turn_off",
     label: "light.turn_off",
   });

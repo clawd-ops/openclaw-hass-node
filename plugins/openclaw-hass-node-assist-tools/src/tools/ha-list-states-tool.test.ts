@@ -42,39 +42,17 @@ describe("ha_list_states descriptor", () => {
 });
 
 describe("ha_list_states execute", () => {
-  it("refuses when no allowReadEntities configured", async () => {
+  it("forwards all states from the node", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: [] },
-    });
-
-    const tool = await loadTool();
-    const result = await tool.execute(
-      "call-1",
-      { node: "hass" },
-      new AbortController().signal,
-      () => undefined,
-    );
-
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-  });
-
-  it("filters results through allowReadEntities + denyReadEntities", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: {
-        allowReadEntities: ["light.*", "sensor.*"],
-        denyReadEntities: ["sensor.secret_*"],
-      },
+      policy: {},
     });
     invokeMock.mockResolvedValue(SAMPLE_STATES);
 
     const tool = await loadTool();
     const result = await tool.execute(
-      "call-2",
+      "call-1",
       { node: "hass" },
       new AbortController().signal,
       () => undefined,
@@ -85,24 +63,20 @@ describe("ha_list_states execute", () => {
     const text = result.content
       .map((c) => (c.type === "text" ? c.text : ""))
       .join("");
-    expect(text).toContain("light.kitchen");
-    expect(text).toContain("light.bedroom");
-    expect(text).toContain("sensor.outdoor_temp");
-    expect(text).not.toContain("sensor.secret_token");
-    expect(text).not.toContain("lock.front_door");
+    expect(text).toContain("5/5");
   });
 
-  it("applies optional entity_filter on top of allowReadEntities", async () => {
+  it("applies optional entity_filter to narrow results", async () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: ["light.*", "sensor.*"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue(SAMPLE_STATES);
 
     const tool = await loadTool();
     const result = await tool.execute(
-      "call-3",
+      "call-2",
       { node: "hass", entity_filter: "light.*" },
       new AbortController().signal,
       () => undefined,
@@ -120,7 +94,7 @@ describe("ha_list_states execute", () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: ["light.*"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue({
       ok: false,
@@ -143,7 +117,7 @@ describe("ha_list_states execute", () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: ["light.*"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue({ unexpected: true });
 
@@ -162,7 +136,7 @@ describe("ha_list_states execute", () => {
     resolveMock.mockResolvedValue({
       nodeId: "hass-001",
       nodeDisplayName: "Hass",
-      policy: { allowReadEntities: ["light.*"] },
+      policy: {},
     });
     invokeMock.mockResolvedValue({ states: SAMPLE_STATES });
 
@@ -178,7 +152,6 @@ describe("ha_list_states execute", () => {
       .map((c) => (c.type === "text" ? c.text : ""))
       .join("");
     expect(text).toContain("light.kitchen");
-    expect(text).toContain("light.bedroom");
-    expect(text).not.toContain("sensor.outdoor_temp");
+    expect(text).toContain("5/5");
   });
 });
