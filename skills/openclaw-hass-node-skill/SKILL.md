@@ -19,6 +19,18 @@ Good fits:
 
 The core rule: use `nodes.invoke` against the configured Home Assistant node, then choose the safest specific command family for the task. For normal Home Assistant work, use the node path rather than an MCP path.
 
+## Do NOT Confuse These Surfaces
+
+**`mcp__openclaw__*` tools ≠ hass node commands.** MCP tools prefixed `mcp__openclaw__` (e.g. `mcp__openclaw__dir_list`, `mcp__openclaw__dir_fetch`, `mcp__openclaw__file_fetch`, `mcp__openclaw__ha_get_state`) execute against the **OC host** — the Linux machine running the OpenClaw gateway. They do not target any node. Do not call them expecting to reach the hass node filesystem or HA API.
+
+**Node filesystem paths are on the hass node addon, not the OC host.** When an operator asks you to inspect `/config`, `/backup`, or any other path on the hass instance, those paths live inside the HA Supervisor environment on the node. They are not visible to `mcp__openclaw__dir_list` or any OC host tool. To list or read files on the hass node, use the file-transfer plugin (`fs.*` node commands) if it is enabled and the path is in its `allowReadPaths` — not any `mcp__openclaw__` tool.
+
+**`allowCommands` governs node commands only.** The gateway's `gateway.nodes.allowCommands` setting controls which `ha.*` / `fs.*` / `system.*` node commands are permitted. It has no effect on `mcp__openclaw__*` MCP tools. Telling an operator to add a command to `allowCommands` will not enable an MCP tool, and vice versa.
+
+**In Assist context, `nodes.invoke` is unavailable.** Assist turns (relayed through `openclaw-hass-node-app`) use the scoped `ha_*` wrappers from the `openclaw-hass-node-assist-tools` plugin. These wrappers ARE the node command surface for Assist — they internally route to the paired node. Do not attempt to call `nodes.invoke` in Assist; it is not in the tool filter.
+
+**When a request cannot be fulfilled, say so clearly.** If a filesystem or capability request cannot be satisfied by `ha.*` commands or the file-transfer plugin, say that clearly rather than inventing a config change. Never fabricate `allowCommands` entries or `allowReadPaths` adjustments without confirming the feature exists and the path is supported.
+
 The node ID is deployment-specific. It may be `hass` in one environment and something else in another. Discover or confirm the node ID before invoking commands.
 
 ## Invocation Pattern
