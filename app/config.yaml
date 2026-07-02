@@ -23,7 +23,7 @@ name: OpenClaw HA Node — App
 version: "2026.7.1b2"
 slug: openclaw_hass_node
 description: >
-  OpenClaw gateway peripheral for Home Assistant (beta). Connects this HA
+  OpenClaw gateway peripheral for Home Assistant. Connects this HA
   instance to the OpenClaw gateway as a node, exposing filesystem, shell,
   and HA control surfaces. The Assist conversation relay streams replies
   token-by-token through a parallel pair of node-role and operator-role
@@ -106,6 +106,13 @@ options:
   # Toggle back to false after the node re-pairs successfully - otherwise
   # every restart will wipe again.
   reset_pairing: false
+  # Bootstrap re-enable flag. Toggle to true if you need to re-run the
+  # auto-bootstrap flow (e.g. after reinstalling the HACS integration).
+  # On the next startup the bootstrap-consumed marker is cleared and the
+  # 300-second bootstrap window re-opens for one more fetch.
+  # Set back to false after the integration fetches its token — otherwise
+  # the marker is cleared on every restart.
+  reset_bootstrap: false
   identity:
     # HA usernames allowed to receive the super_admin prompt context.
     # The addon resolves usernames to HA user IDs at startup. HA admins
@@ -172,6 +179,7 @@ schema:
   # reachable via the OPENCLAW_RESET_PAIRING=identity env var for the
   # rare case the UI toggle is not enough.
   reset_pairing: bool?
+  reset_bootstrap: bool?
   identity:
     super_admins:
       - str

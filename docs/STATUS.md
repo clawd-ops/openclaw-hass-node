@@ -12,7 +12,7 @@
 
 ## Where we are
 
-Currently on **2026.6.20b7** (beta) in the shipped release; `main` is
+Currently on **2026.6.20b7** in the shipped release; `main` is
 `Unreleased → 2026.6.20b8` carrying the merged identity-routing hardening
 (PR #167) and this docs-reconciliation pass. The node ships:
 
@@ -113,10 +113,10 @@ None. The pipeline is live; remaining work is incremental.
 - 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
   thin `custom_components/openclaw_hass_node_assist/` HACS integration. Plan A
   (add-on (app) alone) confirmed not viable; see
-  `docs/research/CONVERSATION-AGENT.md`. (Clawd)
+  `docs/research/CONVERSATION-AGENT.md`. (agent)
 - 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
   gateway WS protocol; does not connect to agent-bridge directly. See
-  `docs/research/AGENT-BRIDGE-CONNECTIVITY.md`. (Clawd)
+  `docs/research/AGENT-BRIDGE-CONNECTIVITY.md`. (agent)
 - 2026-06-05 — Language: Python 3.13+ for node and integration. Quality
   gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
   (`ruff` D-rules + `pydoclint`), branch coverage gated at 95% via
@@ -130,11 +130,11 @@ None. The pipeline is live; remaining work is incremental.
   (Rob)
 - 2026-06-05 — Versioning: date-based `YYYY.M.PATCH` matching the HA
   release the node is tested against (e.g. `2026.6.0`). Patch
-  increments for fixes within a HA release. (Clawd recommendation,
+  increments for fixes within a HA release. (agent recommendation,
   Rob "ok either way")
 - 2026-06-08 — Conversation relay runs on two parallel gateway WS
   connections (`role: node` for invokes, `role: operator` for chat),
   not a single node-role connection. Gateway role policy is binary
   per-method; `chat.send` is operator-scope. Device paired as
-  dual-role via the `openclaw qr` bootstrap-token flow. (Clawd, after
+  dual-role via the `openclaw qr` bootstrap-token flow. (agent, after
   the single-connection ChatRelay failed verification.)

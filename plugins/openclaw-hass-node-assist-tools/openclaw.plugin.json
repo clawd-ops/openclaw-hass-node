@@ -35,7 +35,8 @@
       "ha_reload_config",
       "ha_addon_start",
       "ha_addon_stop",
-      "ha_addon_restart"
+      "ha_addon_restart",
+      "ha_addon_update"
     ]
   },
   "configSchema": {
@@ -50,7 +51,7 @@
           "properties": {
             "allowAdminOps": {
               "type": "boolean",
-              "description": "Tier B admin gate. Must be true (with adminToken) to invoke reload_config / addon_start / addon_stop / addon_restart."
+              "description": "Tier B admin gate. Must be true (with adminToken) to invoke reload_config / addon_start / addon_stop / addon_restart / addon_update."
             },
             "adminToken": {
               "type": "string",

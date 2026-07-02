@@ -10,9 +10,9 @@ OpenClaw 2026.3.31+ keeps node-originated conversation sessions on a
 event trust boundaries"). Concretely, the operator-only `nodes.invoke` tool
 is **not** exposed in Assist turns relayed from `openclaw-hass-node-app`.
 
-The agent that handles those Assist turns (Clawd) still has the full skill
+The agent that handles those Assist turns still has the full skill
 catalog including `openclaw-hass-node-skill`, but that skill needs
-`nodes.invoke` under the hood. Without it, Clawd-in-Assist knows it should
+`nodes.invoke` under the hood. Without it, the agent-in-Assist knows it should
 operate HA but has no path to actually call `ha.*` commands on the bound
 node.
 
@@ -24,7 +24,7 @@ including Assist.
 
 ## When it applies
 
-- **Assist sessions** (HA voice/text → OC Gateway → Clawd): require this plugin to operate HA.
+- **Assist sessions** (HA voice/text → OC Gateway → the agent): require this plugin to operate HA.
 - **Chat / cron / sub-agent sessions**: do not require this plugin. They have `nodes.invoke` and use `openclaw-hass-node-skill` on top.
 
 See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full
@@ -68,7 +68,7 @@ is the Tier B admin gate:
 ### Tier B admin ops (optional)
 
 To enable `ha_reload_config`, `ha_addon_start`, `ha_addon_stop`,
-`ha_addon_restart`, set both flags under the node:
+`ha_addon_restart`, `ha_addon_update`, set both flags under the node:
 
 ```json
 "nodes": {
@@ -103,7 +103,7 @@ plugins/openclaw-hass-node-assist-tools/
 │   │   ├── ha-simple-read-tools.ts         # list_services, get_config, list_events, list_config_entries, list_automations, check_config, core_logs, addon_logs, list_addons, addon_info, addon_stats, addon_changelog, addon_documentation
 │   │   ├── ha-entity-scoped-read-tools.ts  # logbook, history
 │   │   ├── ha-light-tools.ts               # light_turn_on, light_turn_off
-│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart (Tier B)
+│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update (Tier B)
 │   └── shared/
 │       ├── node-invoke-policy.ts           # routing-only invoke policy with param validation
 │       ├── per-node-policy.ts              # PerNodePolicy type (admin gate only)

@@ -444,7 +444,7 @@ class BackupStore:
         *,
         proposal_id: str,
         op: Op,
-        actor: str = "clawd",
+        actor: str = "agent",
     ) -> Version:
         """Record one new version for *path*.
 

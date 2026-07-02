@@ -18,9 +18,10 @@ from typing import Any
 from openclaw_node.config import NodeConfig, load_config
 from openclaw_node.gateway_ws import _OPERATOR_SCOPES, GatewayClient
 from openclaw_node.ha_client import HAClientError, ha_ws_call
-from openclaw_node.http_api import NodeRuntime, run_http_api
+from openclaw_node.http_api import NodeRuntime, _bootstrap_consumed_path, run_http_api
 from openclaw_node.identity import DeviceIdentity, load_or_generate
 from openclaw_node.pairing import PairingState
+from openclaw_node.token_store import load_or_generate_local_api_token
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,12 +32,16 @@ logging.basicConfig(
 _LOG = logging.getLogger(__name__)
 
 
+_RESET_CONSUMED_FILENAME = "reset-consumed"
+
+
 def _reset_pairing_state(config: NodeConfig) -> None:
     """Delete persisted pairing artifacts based on ``config.reset_pairing``.
 
     Modes:
 
-    - ``"none"``: no-op (caller normally short-circuits).
+    - ``"none"``: no-op. Clears any existing one-shot consumed marker so that
+      a subsequent toggle back to an active mode triggers a fresh wipe.
     - ``"token"``: wipe ``device-token`` only. Identity (``node-key.json``)
       stays so the SAME device record can re-pair with a freshly issued
       bootstrap. This is the safe default — a brand-new identity invalidates
@@ -50,26 +55,58 @@ def _reset_pairing_state(config: NodeConfig) -> None:
     Each target is constrained to ``data_dir``: a symlink at the target, or
     a resolved location outside ``data_dir``, is refused and logged rather
     than followed. Per-file failures are logged and swallowed.
+
+    One-shot behaviour: after the wipe runs, a marker file
+    ``<data_dir>/reset-consumed`` is written containing the mode string.
+    On the next start with the same mode value the wipe is skipped and a
+    warning is logged instead. The marker is cleared when ``reset_pairing``
+    is set back to ``"none"``, so toggling the option off then back on
+    requests a fresh wipe.
     """
     mode = config.reset_pairing
+    consumed_path = config.data_dir / _RESET_CONSUMED_FILENAME
+
     if mode == "none":
+        # Clear the consumed marker so a subsequent toggle-on fires a fresh wipe.
+        try:
+            if consumed_path.exists() and not consumed_path.is_symlink():
+                consumed_path.unlink()
+        except OSError as exc:
+            _LOG.warning("reset_pairing: failed to clear consumed marker: %s", exc)
         return
+
+    if mode not in ("token", "identity"):
+        _LOG.warning("reset_pairing: unknown mode %r; skipping wipe", mode)
+        return
+
+    # One-shot guard: skip if this exact mode was already consumed on a prior start.
+    try:
+        if consumed_path.exists() and consumed_path.read_text().strip() == mode:
+            _LOG.warning(
+                "reset_pairing=%r already consumed for this value; set it back to"
+                " 'none' then to the desired mode again to request another wipe.",
+                mode,
+            )
+            return
+    except OSError as exc:
+        _LOG.warning(
+            "reset_pairing: cannot read consumed marker (%s); proceeding with wipe",
+            exc,
+        )
+
     if mode == "token":
         targets: tuple[Path, ...] = (
             config.device_token_path,
             config.device_token_path_for("node"),
             config.device_token_path_for("operator"),
         )
-    elif mode == "identity":
+    else:
         targets = (
             config.device_token_path,
             config.device_token_path_for("node"),
             config.device_token_path_for("operator"),
             config.key_path,
         )
-    else:
-        _LOG.warning("reset_pairing: unknown mode %r; skipping wipe", mode)
-        return
     try:
         data_dir = config.data_dir.resolve(strict=False)
     except OSError as exc:
@@ -79,6 +116,7 @@ def _reset_pairing_state(config: NodeConfig) -> None:
             exc,
         )
         return
+    wipe_ok = True
     for path in targets:
         if not _safe_to_unlink_under(path, data_dir):
             continue
@@ -88,6 +126,22 @@ def _reset_pairing_state(config: NodeConfig) -> None:
                 _LOG.warning("reset_pairing[%s]: removed %s", mode, path)
         except OSError as exc:
             _LOG.warning("reset_pairing[%s]: failed to remove %s: %s", mode, path, exc)
+            wipe_ok = False
+
+    if not wipe_ok:
+        _LOG.warning(
+            "reset_pairing[%s]: one or more files could not be removed; consumed"
+            " marker NOT written — wipe will retry on next start.",
+            mode,
+        )
+        return
+
+    # Write consumed marker so subsequent starts skip the wipe.
+    try:
+        consumed_path.write_text(f"{mode}\n")
+    except OSError as exc:
+        _LOG.warning("reset_pairing: failed to write consumed marker: %s", exc)
+
     if mode == "identity":
         _LOG.warning(
             "reset_pairing=identity wiped the device identity. The previously "
@@ -96,9 +150,8 @@ def _reset_pairing_state(config: NodeConfig) -> None:
             "before the next restart."
         )
     _LOG.warning(
-        "reset_pairing was %r on startup. Set it back to false in add-on "
-        "options after the node re-pairs successfully — otherwise every "
-        "restart will wipe pairing again.",
+        "reset_pairing=%r consumed. The add-on can be left at this setting; the"
+        " wipe will not repeat unless you toggle the option to 'none' and back.",
         mode,
     )
 
@@ -128,6 +181,40 @@ def _safe_to_unlink_under(path: Path, data_dir: Path) -> bool:
         _LOG.warning("reset_pairing: %s is a symlink; skipping", path)
         return False
     return True
+
+
+def _reset_bootstrap_state(config: NodeConfig) -> None:
+    """Delete the bootstrap-consumed marker when ``config.reset_bootstrap`` is True.
+
+    Called on startup before the HTTP API starts.  Deleting the marker lets
+    the HACS integration call ``GET /v1/bootstrap`` once more during the
+    next ``BOOTSTRAP_WINDOW_SECONDS`` window.
+
+    After the integration re-fetches, the operator should set
+    ``reset_bootstrap = false`` in the add-on options — otherwise the marker
+    is cleared on every subsequent restart.
+    """
+    if not config.reset_bootstrap:
+        return
+    consumed_path = _bootstrap_consumed_path(config)
+    if not consumed_path.exists():
+        _LOG.info("reset_bootstrap: no consumed marker found; nothing to clear")
+        return
+    if consumed_path.is_symlink():
+        _LOG.warning("reset_bootstrap: %s is a symlink; refusing to remove", consumed_path)
+        return
+    try:
+        consumed_path.unlink()
+        _LOG.warning(
+            "reset_bootstrap: cleared bootstrap-consumed marker at %s. "
+            "The HACS integration can fetch the token once more within "
+            "the next %d-second window. Set reset_bootstrap=false in "
+            "add-on options after the integration re-fetches.",
+            consumed_path,
+            300,  # keep in sync with BOOTSTRAP_WINDOW_SECONDS
+        )
+    except OSError as exc:
+        _LOG.warning("reset_bootstrap: could not remove %s: %s", consumed_path, exc)
 
 
 def _migrate_legacy_device_token(config: NodeConfig) -> None:
@@ -322,7 +409,9 @@ def _ha_user_name_candidates(raw: dict[str, Any]) -> tuple[str, ...]:
 
 
 def build_runtime(
-    config: NodeConfig, identity: DeviceIdentity
+    config: NodeConfig,
+    identity: DeviceIdentity,
+    bootstrap_token: str = "",
 ) -> tuple[NodeRuntime, GatewayClient, GatewayClient]:
     """Construct the runtime + both gateway clients with pairing wired through.
 
@@ -337,12 +426,15 @@ def build_runtime(
     Args:
         config: Loaded runtime configuration.
         identity: Device identity loaded or freshly generated.
+        bootstrap_token: Auto-generated local API token to expose via
+            ``GET /v1/bootstrap``. Empty string when the operator supplied
+            the token explicitly (bootstrap endpoint returns disabled).
 
     Returns:
         A ``(runtime, node_client, operator_client)`` tuple ready to be
         driven by :func:`_main`.
     """
-    runtime = NodeRuntime(config)
+    runtime = NodeRuntime(config, bootstrap_token=bootstrap_token)
 
     def _on_pairing_state(state: PairingState) -> None:
         runtime.pairing_state = state
@@ -403,16 +495,31 @@ async def _main() -> None:
     )
     _LOG.info("Gateway URL: %s", config.gateway_url)
     _LOG.info("Data dir: %s", config.data_dir)
-    if config.reset_pairing != "none":
-        _reset_pairing_state(config)
+    _reset_pairing_state(config)
+    _reset_bootstrap_state(config)
     _migrate_legacy_device_token(config)
-    if config.addon_mode and not config.local_api_token:
-        _LOG.warning(
-            "local_api_token is unset — the local HTTP API on port 8099 is "
-            "OPEN to anything that can reach it inside the Supervisor add-on "
-            "network. Set the `local_api_token` option to require a bearer "
-            "token for every endpoint except /health and /v1/conversation/info."
-        )
+    bootstrap_token = ""
+    if not config.local_api_token:
+        # Auto-generate a local API token so the HACS integration can fetch it
+        # via GET /v1/bootstrap without the operator manually copying it.
+        # Standalone mode also benefits: the token is persisted across restarts.
+        try:
+            auto_token, created = load_or_generate_local_api_token(config.data_dir)
+            config = replace(config, local_api_token=auto_token)
+            bootstrap_token = auto_token
+            if created:
+                _LOG.info(
+                    "Auto-generated local_api_token. The HACS integration can "
+                    "retrieve it via GET /v1/bootstrap during config-flow setup "
+                    "(no manual copy-paste required)."
+                )
+        except OSError as exc:
+            _LOG.warning(
+                "Could not auto-generate local_api_token (%s). "
+                "The local HTTP API on port 8099 will be OPEN to anything that "
+                "can reach it. Set the `local_api_token` add-on option to secure it.",
+                exc,
+            )
     config = await _resolve_identity_usernames(config)
 
     identity, created = load_or_generate(config.key_path)
@@ -421,7 +528,9 @@ async def _main() -> None:
     else:
         _LOG.info("Loaded existing device identity: %s", identity.device_id)
 
-    runtime, node_client, operator_client = build_runtime(config, identity)
+    runtime, node_client, operator_client = build_runtime(
+        config, identity, bootstrap_token=bootstrap_token
+    )
 
     async with asyncio.TaskGroup() as tg:
         tg.create_task(node_client.run(), name="gateway-ws-node")

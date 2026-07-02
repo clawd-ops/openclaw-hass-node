@@ -9,11 +9,16 @@ read-only Home Assistant snapshot, and Assist turn forwarding placeholder.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hmac
+import ipaddress
 import json
 import logging
+import os
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Final
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
@@ -28,6 +33,7 @@ from openclaw_node.chat_relay import (
 )
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
+from openclaw_node.identity import _open_private_fd
 from openclaw_node.pairing import PairingState
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -41,8 +47,21 @@ _UNAUTHED_PATHS: Final[frozenset[str]] = frozenset(
         "/health",
         "/v1/health",
         "/v1/conversation/info",
+        "/v1/bootstrap",
     }
 )
+
+# How long (in seconds) after process startup the bootstrap endpoint remains
+# open.  After this window the endpoint returns 410 Gone regardless of whether
+# the token was consumed.  The HACS config-flow probe runs within seconds of
+# the user clicking "Add Integration", so 300s is generous.
+BOOTSTRAP_WINDOW_SECONDS: Final[int] = 300
+
+# HA Supervisor's internal add-on network.  In addon_mode the bootstrap
+# endpoint is restricted to source IPs within this range — the HACS
+# integration runs in the HA Core container which lives on this subnet.
+# Requests from outside the Supervisor network return 404, not 401.
+_SUPERVISOR_NETWORK: Final[ipaddress.IPv4Network] = ipaddress.IPv4Network("172.30.32.0/23")
 
 # Allowlist for commands callable over the local HTTP surface (#88/3).
 # The HACS integration never needs more than these for normal operation, and the
@@ -64,21 +83,34 @@ class NodeRuntime:
 
     Args:
         config: Immutable node configuration loaded at process start.
+        bootstrap_token: Auto-generated local API token to expose via
+            ``GET /v1/bootstrap``. Empty string when the operator supplied
+            the token explicitly — the bootstrap endpoint returns disabled
+            in that case so operator-configured tokens are never exposed.
 
     Attributes:
         config: Runtime configuration.
         pairing_state: Current gateway pairing state. The gateway WS client can
             update this later; the HTTP API defaults to UNKNOWN until then.
+        bootstrap_token: Token served by ``/v1/bootstrap``; empty when
+            bootstrap is disabled.
     """
 
-    def __init__(self, config: NodeConfig) -> None:
+    def __init__(self, config: NodeConfig, *, bootstrap_token: str = "") -> None:
         """Initialise the runtime with UNKNOWN pairing state.
 
         Args:
             config: Runtime configuration for this process.
+            bootstrap_token: Auto-generated token to expose on the bootstrap
+                endpoint. Pass empty string (the default) to disable bootstrap.
         """
         self.config = config
+        self.bootstrap_token: str = bootstrap_token
         self.pairing_state: PairingState = PairingState.UNKNOWN
+        # Monotonic clock at process start — used to enforce the bootstrap
+        # time-window.  Tests may set this to ``time.monotonic() - N`` to
+        # simulate an expired window without sleeping.
+        self.startup_time: float = time.monotonic()
         # Per-role liveness — the node runs two parallel gateway WS
         # connections (P5.13 #84) and either can be up while the other
         # is reconnecting. A single shared boolean would be racy
@@ -185,6 +217,7 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_post("/v1/conversation", assist_turn)
     app.router.add_post("/v1/conversation/stream", assist_turn_stream)
     app.router.add_get("/v1/conversation/info", conversation_info)
+    app.router.add_get("/v1/bootstrap", bootstrap)
     return app
 
 
@@ -671,6 +704,191 @@ async def conversation_info(request: web.Request) -> web.Response:
             "streaming_endpoint": "/v1/conversation/stream",
         },
         status=200,
+        headers=_JSON_HEADERS,
+    )
+
+
+def _bootstrap_consumed_path(config: NodeConfig) -> Path:
+    """Return the path to the one-shot bootstrap consumed marker.
+
+    Args:
+        config: Runtime configuration.
+
+    Returns:
+        Path to ``<data_dir>/bootstrap-consumed``.
+    """
+    return config.data_dir / "bootstrap-consumed"
+
+
+def _write_bootstrap_consumed(path: Path) -> None:
+    """Write the bootstrap-consumed marker with mode 0o600, refusing symlinks.
+
+    Args:
+        path: Destination path (must not be a symlink).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = _open_private_fd(path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f"{time.time()}\n")
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.close(fd)
+        raise
+
+
+def _is_supervisor_network(remote: str | None) -> bool:
+    """Return True when *remote* is an IPv4 address inside the Supervisor network.
+
+    Args:
+        remote: IP address string from ``request.remote``, or None.
+
+    Returns:
+        True when the address falls inside :data:`_SUPERVISOR_NETWORK`.
+    """
+    if not remote:
+        return False
+    try:
+        return ipaddress.ip_address(remote) in _SUPERVISOR_NETWORK
+    except ValueError:
+        return False
+
+
+async def bootstrap(request: web.Request) -> web.Response:
+    """Return the auto-generated local API token for zero-config integration setup.
+
+    The HACS integration calls this endpoint during config-flow to retrieve the
+    node's local API token automatically, eliminating the manual copy-paste step.
+
+    Security layers (applied in order):
+
+    1. **Network origin** — in ``addon_mode``, only requests whose source IP
+       falls inside the HA Supervisor network (``172.30.32.0/23``) are served.
+       Requests from any other address get 404 — the endpoint's existence is
+       not revealed.
+    2. **Time-window** — the endpoint is only open for the first
+       ``BOOTSTRAP_WINDOW_SECONDS`` (300 s) after process startup.  After
+       that it returns 410 Gone regardless of consumption state.
+    3. **One-shot** — the first successful fetch writes a
+       ``data_dir/bootstrap-consumed`` marker.  Any subsequent request
+       returns 410 Gone.  Set ``reset_bootstrap = true`` in add-on options and
+       restart to re-open a fresh window and clear the marker.
+
+    Layer 4 (token rotation after handoff) is tracked as a separate follow-up
+    issue.  The three layers above together make capturing the bootstrap token
+    meaningful only if the attacker can reach the Supervisor network within
+    the first 5 minutes of a restart AND before the HACS integration fetches
+    it — a very narrow window.
+
+    Args:
+        request: Incoming aiohttp request.
+
+    Returns:
+        JSON ``{"ok": true, "token": "<token>"}`` when a token is available
+        and all guards pass.  Returns 404 when bootstrap is disabled or the
+        caller is not in the Supervisor network; 410 when the window has
+        closed or the token was already consumed.
+    """
+    runtime = _runtime(request)
+
+    # Layer 1: Network-origin check (addon_mode only).
+    # Standalone-mode callers are local/trusted by definition (no Supervisor).
+    if runtime.config.addon_mode and not _is_supervisor_network(request.remote):
+        _LOG.debug(
+            "Bootstrap request from outside Supervisor network (remote=%s); returning 404",
+            request.remote,
+        )
+        raise web.HTTPNotFound()
+
+    # Disabled when operator supplied an explicit token.
+    # Check AFTER the consumed-marker and window checks so that a request
+    # arriving after the token was served (clearing runtime.bootstrap_token)
+    # correctly gets BOOTSTRAP_CONSUMED / BOOTSTRAP_EXPIRED rather than the
+    # misleading BOOTSTRAP_DISABLED (404) response.
+
+    # Layer 3: Time-window check.
+    elapsed = time.monotonic() - runtime.startup_time
+    if elapsed > BOOTSTRAP_WINDOW_SECONDS:
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_EXPIRED",
+                "detail": (
+                    f"Bootstrap window ({BOOTSTRAP_WINDOW_SECONDS}s) has closed. "
+                    "Restart the add-on to open a fresh window."
+                ),
+            },
+            status=410,
+            headers=_JSON_HEADERS,
+        )
+
+    # Layer 2: One-shot check (consumed marker on disk).
+    # Must come before the bootstrap_token check — after the first fetch
+    # the in-memory token is cleared, but the marker is the authoritative
+    # record that bootstrap was already consumed.
+    consumed_path = _bootstrap_consumed_path(runtime.config)
+    # Treat a symlink at this path as consumed (fail-closed): a planted symlink
+    # would otherwise bypass the gate because `exists() and not is_symlink()` is
+    # False for symlinks, while _write_bootstrap_consumed refuses to follow the
+    # symlink (O_NOFOLLOW), so the marker would never be written and every
+    # restart would re-open the window.
+    if consumed_path.is_symlink() or consumed_path.exists():
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_CONSUMED",
+                "detail": (
+                    "The bootstrap token has already been fetched. "
+                    "Set reset_bootstrap=true in add-on options and restart to re-open."
+                ),
+            },
+            status=410,
+            headers=_JSON_HEADERS,
+        )
+
+    # Disabled when operator supplied an explicit token (and the token was
+    # never auto-generated — no consumed marker and still no bootstrap_token
+    # means the operator opted out of auto-bootstrap).
+    if not runtime.bootstrap_token:
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_DISABLED",
+                "detail": (
+                    "Bootstrap is only available when local_api_token is not "
+                    "set explicitly. Configure the integration token manually."
+                ),
+            },
+            status=404,
+            headers=_JSON_HEADERS,
+        )
+
+    token = runtime.bootstrap_token
+
+    # Write the consumed marker BEFORE clearing the in-memory token so that
+    # even a concurrent request racing through this point finds either the
+    # marker or an empty runtime.bootstrap_token — not the live token.
+    try:
+        _write_bootstrap_consumed(consumed_path)
+    except OSError as exc:
+        _LOG.warning(
+            "bootstrap: could not write consumed marker at %s (%s); "
+            "clearing in-memory token anyway",
+            consumed_path,
+            exc,
+        )
+
+    # Clear from memory regardless of whether the file write succeeded.
+    runtime.bootstrap_token = ""
+
+    _LOG.info(
+        "Bootstrap token served to %s and consumed. "
+        "Set reset_bootstrap=true in add-on options and restart to re-open.",
+        request.remote,
+    )
+
+    return web.json_response(
+        {"ok": True, "token": token},
         headers=_JSON_HEADERS,
     )
 

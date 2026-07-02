@@ -76,7 +76,7 @@ def test_capture_writes_object_and_index_line(store: BackupStore) -> None:
     assert v.sha256 == _sha256(b"hello")
     assert v.size == 5
     assert v.op == "write"
-    assert v.actor == "clawd"
+    assert v.actor == "agent"
     assert v.prev_sha256 is None
     obj_path = store.root / "objects" / v.sha256[:2] / v.sha256
     assert obj_path.read_bytes() == b"hello"
@@ -284,7 +284,7 @@ def test_version_to_json_roundtrip() -> None:
         sha256="abc",
         size=4,
         op="delete",
-        actor="clawd",
+        actor="agent",
         prev_sha256=None,
         evicted=True,
     )

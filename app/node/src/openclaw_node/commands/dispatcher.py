@@ -34,6 +34,7 @@ from openclaw_node.commands.ha import (
     handle_ha_addon_start,
     handle_ha_addon_stats,
     handle_ha_addon_stop,
+    handle_ha_addon_update,
     handle_ha_calendar_get_events,
     handle_ha_call_service,
     handle_ha_check_config,
@@ -112,6 +113,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.addon_start": handle_ha_addon_start,
     "ha.addon_stop": handle_ha_addon_stop,
     "ha.addon_restart": handle_ha_addon_restart,
+    "ha.addon_update": handle_ha_addon_update,
 }
 
 

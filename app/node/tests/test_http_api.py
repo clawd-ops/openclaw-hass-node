@@ -291,8 +291,8 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
         local_api_token=_TEST_TOKEN,
         identity=IdentityConfig(
             super_admins=frozenset({"rob-uuid"}),
-            user_agent_map={"rob-uuid": "clawd"},
-            default_agent_id="clawd-household",
+            user_agent_map={"rob-uuid": "my-agent"},
+            default_agent_id="my-agent-household",
         ),
     )
     runtime = NodeRuntime(config)
@@ -331,7 +331,7 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
         assert response.status == 200
         authz = mock_relay.relay_turn.await_args.kwargs["authz"]
         assert authz.role == "super_admin"
-        assert authz.agent_id == "clawd"
+        assert authz.agent_id == "my-agent"
     finally:
         await tc.close()
 
@@ -354,8 +354,8 @@ async def test_assist_turn_ignores_unsigned_actor(tmp_path: Path) -> None:
         local_api_token=_TEST_TOKEN,
         identity=IdentityConfig(
             super_admins=frozenset({"rob-uuid"}),
-            user_agent_map={"rob-uuid": "clawd"},
-            default_agent_id="clawd-household",
+            user_agent_map={"rob-uuid": "my-agent"},
+            default_agent_id="my-agent-household",
         ),
     )
     runtime = NodeRuntime(config)
@@ -384,7 +384,7 @@ async def test_assist_turn_ignores_unsigned_actor(tmp_path: Path) -> None:
         assert response.status == 200
         authz = mock_relay.relay_turn.await_args.kwargs["authz"]
         assert authz.role == "user"
-        assert authz.agent_id == "clawd-household"
+        assert authz.agent_id == "my-agent-household"
     finally:
         await tc.close()
 

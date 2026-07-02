@@ -143,6 +143,11 @@ class NodeConfig:
     #                bootstrap minted for the old identity will be rejected
     #                with AUTH_TOKEN_MISMATCH).
     reset_pairing: str = "none"
+    # When True, the ``bootstrap-consumed`` marker under ``data_dir`` is
+    # deleted on startup, re-opening the one-shot bootstrap window for one
+    # more fetch.  Set back to False in add-on options after the integration
+    # re-fetches its token — otherwise the marker is cleared on every restart.
+    reset_bootstrap: bool = False
 
     @property
     def key_path(self) -> Path:
@@ -225,6 +230,8 @@ def load_config() -> NodeConfig:
         local_api_token=os.environ.get("OPENCLAW_LOCAL_API_TOKEN", ""),
         identity=_parse_identity_config(),
         reset_pairing=_parse_reset_pairing_env("OPENCLAW_RESET_PAIRING"),
+        reset_bootstrap=os.environ.get("OPENCLAW_RESET_BOOTSTRAP", "").strip().lower()
+        in {"1", "true", "yes", "on", "y"},
     )
 
 
