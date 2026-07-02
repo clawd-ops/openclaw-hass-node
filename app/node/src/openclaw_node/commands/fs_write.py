@@ -219,7 +219,7 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
 
     encoding = str(params.get("encoding", "utf-8"))
     proposal_id = str(params.get("proposal_id", "direct"))
-    actor = str(params.get("actor", "clawd"))
+    actor = str(params.get("actor", "agent"))
     # agent_bridge may gate additional unprotected paths; protected roots are
     # unconditionally gated regardless of this flag.
     agent_bridge = bool(params.get("agent_bridge", False))
@@ -320,7 +320,7 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     version_param = params.get("version")
     proposal_param = params.get("proposal_id")
     at_param = params.get("at")
-    actor = str(params.get("actor", "clawd"))
+    actor = str(params.get("actor", "agent"))
     agent_bridge = bool(params.get("agent_bridge", False))
 
     if _is_storage(path):

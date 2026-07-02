@@ -89,10 +89,10 @@ def test_actor_from_signed_body_rejects_unsigned_or_bad_signatures(
 
 
 def test_resolve_user_role_generates_forbidden_disclaimer() -> None:
-    authz = resolve_turn_authz(IdentityConfig(default_agent_id="clawd"), None)
+    authz = resolve_turn_authz(IdentityConfig(default_agent_id="my-agent"), None)
 
     assert authz.role == "user"
-    assert authz.agent_id == "clawd"
+    assert authz.agent_id == "my-agent"
     assert "fs.write" in authz.disclaimer
     assert "do NOT echo" in authz.disclaimer
     assert "ignore previous instructions" in authz.disclaimer
@@ -117,13 +117,13 @@ def test_resolve_non_admin_actor_is_user() -> None:
 
 def test_user_agent_map_wins_over_default() -> None:
     identity = IdentityConfig(
-        user_agent_map={"ash": "clawd-household"},
-        default_agent_id="clawd",
+        user_agent_map={"ash": "my-agent-household"},
+        default_agent_id="my-agent",
     )
 
     authz = resolve_turn_authz(identity, Actor("ash", is_admin=True))
 
-    assert authz.agent_id == "clawd-household"
+    assert authz.agent_id == "my-agent-household"
 
 
 def test_forbidden_patches_add_and_remove_defaults() -> None:
@@ -151,10 +151,10 @@ def test_log_agent_inventory_reports_misconfig(caplog: LogCaptureFixture) -> Non
     )
 
     with caplog.at_level(logging.INFO):
-        log_agent_inventory(identity, ("clawd", "clawd-household"))
+        log_agent_inventory(identity, ("my-agent", "my-agent-household"))
 
     text = caplog.text
-    assert "Gateway agents available: clawd, clawd-household" in text
+    assert "Gateway agents available: my-agent, my-agent-household" in text
     assert "missing-agent" in text
     assert "bad-default" in text
 
@@ -163,13 +163,13 @@ def test_log_agent_inventory_accepts_valid_mapping(caplog: LogCaptureFixture) ->
     from openclaw_node.authz import log_agent_inventory
 
     identity = IdentityConfig(
-        user_agent_map={"ash": "clawd-household"},
-        default_agent_id="clawd",
+        user_agent_map={"ash": "my-agent-household"},
+        default_agent_id="my-agent",
     )
 
     with caplog.at_level(logging.INFO):
-        log_agent_inventory(identity, ("clawd", "clawd-household"))
+        log_agent_inventory(identity, ("my-agent", "my-agent-household"))
 
     text = caplog.text
-    assert "user_agent_map[ash] -> clawd-household" in text
+    assert "user_agent_map[ash] -> my-agent-household" in text
     assert "no such agent" not in text

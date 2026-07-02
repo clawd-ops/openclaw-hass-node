@@ -2,7 +2,7 @@
 
 > Walk through this in order. Each step has exact actions and the
 > result you should see. If anything diverges, paste the diff into
-> the channel and Clawd will dig in.
+> the channel and the agent will dig in.
 >
 > **State as of the current beta (`2026.6.20b7`):** install, pair,
 > connect, gateway-side tool invokes, and Assist conversation relay
@@ -126,7 +126,7 @@ invoke ◀ ping ok id=abc12345 4ms
 
 ### C2. Read entity state
 
-Ask in a Clawd channel: "what is the state of `light.X`?" The agent
+Ask in an OpenClaw agent channel: "what is the state of `light.X`?" The agent
 should answer via `node.invoke ha.get_state` against this node, not
 the legacy MCP server.
 
@@ -165,13 +165,13 @@ behind the proposal/agent-bridge flow.
 
 ### D4. `.storage/` refusal.
 
-- Ask Clawd to "edit `.storage/core.config`". Expect refusal at the
+- Ask the agent to "edit `.storage/core.config`". Expect refusal at the
   command dispatcher with a clear error message and no proposal
   emitted.
 
 ### D5. Breaking-change verification.
 
-- Ask Clawd to apply a change that intersects a known recent HA
+- Ask the agent to apply a change that intersects a known recent HA
   breaking change. Expect the proposal body to cite the
   breaking-change entry and include a functional fix.
 
@@ -184,13 +184,13 @@ OpenClaw HA Node — Assist integration as your Assist conversation agent stream
 responses back through the gateway. Pair the device with a dual-role
 profile via `openclaw qr`.
 
-### E1. Set Clawd as your Assist conversation agent in
+### E1. Set the agent as your Assist conversation agent in
    **Settings → Voice Assistants**.
 
 ### E2. Trigger a voice/text intent through Assist.
 
 - Verify it flows: HA Assist → integration ConversationEntity → add-on (app)
-  socket → gateway → Clawd → response streams back.
+  socket → gateway → the agent → response streams back.
 
 ### E3. Tool calling via Assist.
 

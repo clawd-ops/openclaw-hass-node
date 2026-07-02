@@ -170,7 +170,7 @@ correctly.
 
 **Root cause (H2 — prompt over-triggering):**
 
-The OpenClaw gateway always injects a `## Heartbeats` section into the Clawd
+The OpenClaw gateway always injects a `## Heartbeats` section into the agent
 system prompt for the default agent:
 
 > If the current user message is a heartbeat poll and nothing needs attention,

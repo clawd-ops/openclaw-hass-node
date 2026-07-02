@@ -10,9 +10,9 @@ OpenClaw 2026.3.31+ keeps node-originated conversation sessions on a
 event trust boundaries"). Concretely, the operator-only `nodes.invoke` tool
 is **not** exposed in Assist turns relayed from `openclaw-hass-node-app`.
 
-The agent that handles those Assist turns (Clawd) still has the full skill
+The agent that handles those Assist turns still has the full skill
 catalog including `openclaw-hass-node-skill`, but that skill needs
-`nodes.invoke` under the hood. Without it, Clawd-in-Assist knows it should
+`nodes.invoke` under the hood. Without it, the agent-in-Assist knows it should
 operate HA but has no path to actually call `ha.*` commands on the bound
 node.
 
@@ -24,7 +24,7 @@ including Assist.
 
 ## When it applies
 
-- **Assist sessions** (HA voice/text → OC Gateway → Clawd): require this plugin to operate HA.
+- **Assist sessions** (HA voice/text → OC Gateway → the agent): require this plugin to operate HA.
 - **Chat / cron / sub-agent sessions**: do not require this plugin. They have `nodes.invoke` and use `openclaw-hass-node-skill` on top.
 
 See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full

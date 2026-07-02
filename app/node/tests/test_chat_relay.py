@@ -95,13 +95,13 @@ async def test_relay_turn_success() -> None:
         await asyncio.sleep(0.01)
 
         # Simulate session.message event (assistant reply) AFTER chat.send ack.
-        relay.handle_event(_session_message_event(session_key, "assistant", "Hello from Clawd!"))
+        relay.handle_event(_session_message_event(session_key, "assistant", "Hello from the agent!"))
 
     task = asyncio.create_task(_simulate_gateway())
     reply = await relay.relay_turn(conv_id, "Hello")
     await task
 
-    assert reply == "Hello from Clawd!"
+    assert reply == "Hello from the agent!"
     assert len(sender.frames) == 3
 
 
@@ -111,8 +111,8 @@ async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
     sender = FakeSender()
     identity = IdentityConfig(
         super_admins=frozenset({"rob"}),
-        user_agent_map={"rob": "clawd"},
-        default_agent_id="clawd-household",
+        user_agent_map={"rob": "my-agent"},
+        default_agent_id="my-agent-household",
     )
     relay = ChatRelay(sender.send, identity)
     authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
@@ -137,7 +137,7 @@ async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
 
     params = sender.frames[2]["params"]
     assert reply == "ok"
-    assert params["agentId"] == "clawd"
+    assert params["agentId"] == "my-agent"
     assert "OpenClaw authorization context" in params["message"]
     assert "restart the addon" in params["message"]
     assert "do NOT echo" in params["message"]
@@ -154,7 +154,7 @@ def test_build_ha_assist_message_no_authz_includes_context_marker() -> None:
 
 def test_build_ha_assist_message_with_authz_includes_both_blocks() -> None:
     """With authz, the message has HA Assist context AND authz disclaimer."""
-    identity = IdentityConfig(super_admins=frozenset({"rob"}), default_agent_id="clawd")
+    identity = IdentityConfig(super_admins=frozenset({"rob"}), default_agent_id="my-agent")
     authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
     msg = _build_ha_assist_message("turn on the lights", authz)
     assert _HA_ASSIST_CONTEXT in msg
@@ -242,7 +242,7 @@ async def test_stream_turn_chat_send_includes_ha_assist_context_no_authz() -> No
 async def test_log_gateway_agents_parses_agent_list(caplog: LogCaptureFixture) -> None:
     """Startup diagnostic logs mapped agent inventory."""
     sender = FakeSender()
-    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id="clawd"))
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id="my-agent"))
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -251,16 +251,16 @@ async def test_log_gateway_agents_parses_agent_list(caplog: LogCaptureFixture) -
         relay.handle_response(
             _ok_response(
                 req["id"],
-                {"agents": [{"id": "clawd"}, {"agentId": "clawd-household"}, "clawd-kid"]},
+                {"agents": [{"id": "my-agent"}, {"agentId": "my-agent-household"}, "my-agent-kid"]},
             )
         )
 
     with caplog.at_level(logging.INFO):
         await asyncio.gather(relay.log_gateway_agents(), _drive())
 
-    assert "clawd" in caplog.text
-    assert "clawd-household" in caplog.text
-    assert "clawd-kid" in caplog.text
+    assert "my-agent" in caplog.text
+    assert "my-agent-household" in caplog.text
+    assert "my-agent-kid" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -284,9 +284,9 @@ async def test_log_gateway_agents_warning_on_rpc_failure(
 
 def test_extract_agent_ids_accepts_common_response_shapes() -> None:
     """agents.list parsing tolerates list/item/data variants."""
-    assert _extract_agent_ids({"items": [{"name": "clawd"}, {"id": ""}, 123]}) == ()
-    assert _extract_agent_ids({"data": {"agents": [{"agentId": "clawd-household"}]}}) == (
-        "clawd-household",
+    assert _extract_agent_ids({"items": [{"name": "my-agent"}, {"id": ""}, 123]}) == ()
+    assert _extract_agent_ids({"data": {"agents": [{"agentId": "my-agent-household"}]}}) == (
+        "my-agent-household",
     )
     assert _extract_agent_ids({"data": {"agents": "bad"}}) == ()
 
@@ -303,7 +303,7 @@ async def test_relay_turn_waits_for_final_not_first_delta() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH92VMPH2FQYTEFZSRWDM40"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _simulate_gateway() -> None:
         await asyncio.sleep(0.01)
@@ -319,7 +319,7 @@ async def test_relay_turn_waits_for_final_not_first_delta() -> None:
         relay.handle_response(_ok_response(sender.frames[2]["id"]))  # chat.send ack
         await asyncio.sleep(0.01)
         # Streaming deltas — must NOT wake the reply waiter mid-stream.
-        for partial in ["I'm", "I'm Clawd", "I'm Clawd, Rob's"]:
+        for partial in ["I'm", "I'm the", "I'm the agent"]:
             relay.handle_event(
                 {
                     "type": "event",
@@ -343,7 +343,7 @@ async def test_relay_turn_waits_for_final_not_first_delta() -> None:
                     "state": "final",
                     "message": {
                         "role": "assistant",
-                        "content": "I'm Clawd, Rob's AI assistant.",
+                        "content": "I'm the agent.",
                     },
                 },
             }
@@ -354,7 +354,7 @@ async def test_relay_turn_waits_for_final_not_first_delta() -> None:
     await task
 
     # Must return the FINAL text, not the first delta.
-    assert reply == "I'm Clawd, Rob's AI assistant."
+    assert reply == "I'm the agent."
 
 
 @pytest.mark.asyncio
@@ -364,7 +364,7 @@ async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_OK"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -423,7 +423,7 @@ async def test_stream_turn_session_message_yields_full_text_when_no_deltas() -> 
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_SESSION_ONLY"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -459,7 +459,7 @@ async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_TAIL"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -522,7 +522,7 @@ async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.Mo
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_TIMEOUT"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -569,7 +569,7 @@ async def test_stream_turn_chat_send_generic_exception_becomes_relay_failed() ->
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_FAIL"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -608,7 +608,7 @@ async def test_stream_turn_chat_send_chatrelayerror_propagates() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_RELAYERR"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -642,7 +642,7 @@ async def test_relay_turn_chat_send_generic_exception_becomes_relay_failed() -> 
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_RELAY_FAIL"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -682,7 +682,7 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_STREAM_RESET"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -752,7 +752,7 @@ async def test_stream_turn_emits_keepalive_during_silent_gap(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_KEEPALIVE_GAP"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -838,7 +838,7 @@ async def test_stream_turn_no_keepalive_on_fast_turn(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_FAST_TURN"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -911,7 +911,7 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_TOOL_PROGRESS"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -1004,7 +1004,7 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_PROGRESS_NEWLINE"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -1088,7 +1088,7 @@ async def test_handle_event_tool_start_and_end_update_active_tool() -> None:
     """
     sender = FakeSender()
     relay = ChatRelay(sender.send)
-    s_k = "agent:clawd:ha-assist:01kvh_active_tool"
+    s_k = "agent:my-agent:ha-assist:01kvh_active_tool"
     relay._canonical_by_raw[s_k] = s_k
 
     relay.handle_event(
@@ -1150,7 +1150,7 @@ async def test_handle_event_tool_event_filtered_by_run_id() -> None:
     """
     sender = FakeSender()
     relay = ChatRelay(sender.send)
-    s_k = "agent:clawd:ha-assist:01kvh_tool_runid_filter"
+    s_k = "agent:my-agent:ha-assist:01kvh_tool_runid_filter"
     relay._canonical_by_raw[s_k] = s_k
 
     # Simulate an active turn: real runId installed, same-run event
@@ -1282,7 +1282,7 @@ async def test_relay_turn_delta_before_ack_does_not_truncate() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH9DELTAFIRST"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _simulate_gateway() -> None:
         await asyncio.sleep(0.01)
@@ -1337,7 +1337,7 @@ async def test_relay_turn_delta_before_ack_does_not_truncate() -> None:
 @pytest.mark.asyncio
 async def test_relay_turn_uses_canonical_key_from_subscribe_response() -> None:
     """Regression for #118: the gateway's subscribe response carries a
-    canonical sessionKey (e.g. ``agent:clawd:ha-assist:...`` lowercased) and
+    canonical sessionKey (e.g. ``agent:my-agent:ha-assist:...`` lowercased) and
     subsequent events arrive under that canonical form, NOT the raw key the
     addon sent. The relay must capture the canonical key and use it for
     internal state, otherwise the receive-side lookup fails and every turn
@@ -1346,7 +1346,7 @@ async def test_relay_turn_uses_canonical_key_from_subscribe_response() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH867BX32BYWJBQVGDCCG0V"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _simulate_gateway() -> None:
         await asyncio.sleep(0.01)
@@ -1898,7 +1898,7 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVHTWOTURNSTREAM"
-    canonical_session_key = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical_session_key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     chunks_t1: list[str | StreamKeepalive | ToolProgressFrame] = []
     chunks_t2: list[str | StreamKeepalive | ToolProgressFrame] = []
@@ -2235,7 +2235,7 @@ async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> 
     been observed before accepting a runId-less ``session.message`` as
     terminal."""
     relay = ChatRelay(FakeSender().send)
-    key = "agent:clawd:ha-assist:post-ack-race"
+    key = "agent:my-agent:ha-assist:post-ack-race"
 
     # Simulate post-ack state: real active_run installed, streaming
     # consumer present, no terminal captured yet, no same-run event yet.
@@ -2303,7 +2303,7 @@ async def test_session_message_without_run_id_after_terminal_is_filtered() -> No
     as a stale trailer from the prior turn and dropped, not allowed to
     overwrite the captured reply or re-fire the reply event."""
     relay = ChatRelay(FakeSender().send)
-    key = "agent:clawd:ha-assist:session-trailer"
+    key = "agent:my-agent:ha-assist:session-trailer"
 
     # Simulate post-ack state: real active_run, reply_event installed,
     # terminal already captured for this turn.
@@ -2340,7 +2340,7 @@ async def test_handle_response_chat_send_ack_applies_run_id_synchronously() -> N
     with new runId arrives and is accepted (would have been dropped if
     the sentinel were still in place)."""
     relay = ChatRelay(FakeSender().send)
-    canonical = "agent:clawd:ha-assist:sync-apply"
+    canonical = "agent:my-agent:ha-assist:sync-apply"
 
     # Simulate the pending sentinel state established by _stream_turn_locked.
     relay._active_run_id[canonical] = "__pending_chat_send_ack__"
@@ -2450,7 +2450,7 @@ async def test_stream_turn_no_tool_progress_frames_without_cap(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_NOCAP_FRAMES"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -2511,7 +2511,7 @@ async def test_stream_turn_no_cap_sequential_tools_each_emit_delta(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_NOCAP_SEQ"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -2594,7 +2594,7 @@ async def test_stream_turn_hidden_item_tool_starts_emit_delta(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_ITEM_TOOL"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -2653,7 +2653,7 @@ async def test_stream_turn_tool_progress_frames_with_cap(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_CAP_FRAMES"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -2737,7 +2737,7 @@ async def test_stream_turn_sequential_tool_calls_emit_frames_per_call(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_SEQ_TOOLS"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -2801,7 +2801,7 @@ async def test_tool_progress_end_race_skipped_on_low_seq() -> None:
     tool's label."""
     sender = FakeSender()
     relay = ChatRelay(sender.send)
-    s_k = "agent:clawd:ha-assist:01kvh_end_race"
+    s_k = "agent:my-agent:ha-assist:01kvh_end_race"
     relay._canonical_by_raw[s_k] = s_k
     relay._active_run_id[s_k] = "run-race"
     relay._seen_same_run_event[s_k] = True
@@ -2839,7 +2839,7 @@ async def test_tool_progress_end_id_aware_clearing() -> None:
     and pushes an end frame; one with a mismatched id is ignored."""
     sender = FakeSender()
     relay = ChatRelay(sender.send)
-    s_k = "agent:clawd:ha-assist:01kvh_id_clear"
+    s_k = "agent:my-agent:ha-assist:01kvh_id_clear"
     relay._canonical_by_raw[s_k] = s_k
     relay._active_run_id[s_k] = "run-id"
     relay._seen_same_run_event[s_k] = True
@@ -2875,7 +2875,7 @@ async def test_tool_progress_idless_end_does_not_clear_tool_with_id() -> None:
     name match) may clear the active slot."""
     sender = FakeSender()
     relay = ChatRelay(sender.send)
-    s_k = "agent:clawd:ha-assist:01kvh_idless_end"
+    s_k = "agent:my-agent:ha-assist:01kvh_idless_end"
     relay._canonical_by_raw[s_k] = s_k
     relay._active_run_id[s_k] = "run-idless"
     relay._seen_same_run_event[s_k] = True
@@ -2920,7 +2920,7 @@ async def test_tool_progress_idless_end_does_not_clear_same_name_active_with_id(
     """
     sender = FakeSender()
     relay = ChatRelay(sender.send)
-    s_k = "agent:clawd:ha-assist:01kvh_idless_same_name"
+    s_k = "agent:my-agent:ha-assist:01kvh_idless_same_name"
     relay._canonical_by_raw[s_k] = s_k
     relay._active_run_id[s_k] = "run-same"
     relay._seen_same_run_event[s_k] = True
@@ -2984,7 +2984,7 @@ async def test_stream_turn_legacy_tool_end_emits_checkmark(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_RESOLVE_CHECK"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -3050,7 +3050,7 @@ async def test_stream_turn_legacy_dedup_repeat_tool_calls(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_DEDUP_REPEAT"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)
@@ -3120,7 +3120,7 @@ async def test_stream_turn_legacy_different_tools_reset_dedup(
     relay = ChatRelay(sender.send)
 
     conv_id = "01KVH_DEDUP_RESET"
-    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
 
     async def _drive() -> None:
         await asyncio.sleep(0.01)

@@ -203,7 +203,7 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
         return _error("MISSING_PARAM", "dst is required")
 
     proposal_id = str(params.get("proposal_id", "direct"))
-    actor = str(params.get("actor", "clawd"))
+    actor = str(params.get("actor", "agent"))
     agent_bridge = bool(
         params.get("agent_bridge", _is_protected(src_raw) or _is_protected(dst_raw))
     )
@@ -331,7 +331,7 @@ def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
         return _error("MISSING_PARAM", "path is required")
 
     proposal_id = str(params.get("proposal_id", "direct"))
-    actor = str(params.get("actor", "clawd"))
+    actor = str(params.get("actor", "agent"))
     agent_bridge = bool(params.get("agent_bridge", False))
 
     err = _write_preflight(path, agent_bridge)

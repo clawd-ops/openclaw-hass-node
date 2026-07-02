@@ -5,8 +5,8 @@
 > what shipped; cross-check against `STATUS.md` and `docs/design/PLAN.md` for the
 > current state.
 
-> **Identity check.** Clawd is OpenClaw. The "brain" answering HA Assist
-> turns is Clawd running in OpenClaw — same agent that handles Discord,
+> **Identity check.** The agent is OpenClaw. The "brain" answering HA Assist
+> turns is the agent running in OpenClaw — same agent that handles Discord,
 > Signal, etc.
 >
 > **Architecture check.** The HA Assist integration is a **node**, not
@@ -61,9 +61,9 @@ openclaw-hass-node (Python, this repo)
     │  • services ha.* via node.invoke when the agent calls them
     ▼
 OpenClaw HA Node — Assist
-    │ routes session messages to the configured agent (Clawd)
+    │ routes session messages to the configured agent (the agent)
     ▼
-Clawd handles the turn, uses ha.* tools as needed
+The agent handles the turn, uses ha.* tools as needed
     │  • ha.list_states / ha.light_turn_on / etc. via node.invoke
     │  • final assistant reply lands on the session
     ▼

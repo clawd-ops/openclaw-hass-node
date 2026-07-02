@@ -6,7 +6,7 @@ behind an admin token. Tier C is explicitly out of scope.
 
 This file replaces the old `HANDOFF-2026-06-20-addon-command-surface.md`,
 which was deleted in the pre-1.0 doc sweep. The policy survives the
-handoff — capture it here so future-Clawd can find it.
+handoff — capture it here so the agent can find it.
 
 ## Why the tiering
 
@@ -55,7 +55,7 @@ Decide before iterating on `ha.addon_info`.
 
 ## Tier B — lifecycle, admin-gated, NEVER on the subagent allowlist
 
-Reserved for Clawd-as-Rob or Rob himself. Same `OPENCLAW_ADMIN_TOKEN`
+Reserved for the primary agent or Rob himself. Same `OPENCLAW_ADMIN_TOKEN`
 gate as `ha.reload_config`.
 
 Shipped surface:

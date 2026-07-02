@@ -142,7 +142,7 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
 
     dry_run = bool(params.get("dry_run", False))
     proposal_id = str(params.get("proposal_id", "direct"))
-    actor = str(params.get("actor", "clawd"))
+    actor = str(params.get("actor", "agent"))
     agent_bridge = bool(params.get("agent_bridge", False))
 
     if _is_storage(path):

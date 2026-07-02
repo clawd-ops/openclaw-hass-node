@@ -154,7 +154,7 @@ or `user` role for Assist turns.
   identity:
     user_agent_map:
       - ha_username: "bigrob8181"
-        agent_id: "clawd"
+        agent_id: "<your-agent-id>"
       - ha_username: "ash"
         agent_id: "household"
   ```
@@ -169,7 +169,7 @@ or `user` role for Assist turns.
 - **Purpose**: Gateway `agentId` to use for HA users not matched by
   `user_agent_map`. Empty preserves the gateway's own default routing.
 - **Type**: `str?`.
-- **Example**: `"clawd"`.
+- **Example**: `"my-agent"`.
 - **Default**: `""`.
 - **Security**: Same as `user_agent_map`: routing only.
 
