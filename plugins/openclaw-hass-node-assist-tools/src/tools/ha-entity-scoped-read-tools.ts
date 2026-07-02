@@ -1,9 +1,7 @@
-// ha_logbook / ha_history handlers. entity_id is optional; when provided
-// it's gated through allowReadEntities/denyReadEntities; when omitted the
-// call requires a non-empty allowReadEntities (bulk-read opt-in).
+// ha_logbook / ha_history handlers. Forwards to the node after
+// param translation (entity_id/start/end → node shape).
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { decideGlobPolicy } from "../shared/glob-policy.js";
 import {
   HA_HISTORY_TOOL_DESCRIPTOR,
   HA_LOGBOOK_TOOL_DESCRIPTOR,
@@ -31,49 +29,10 @@ function createEntityScopedReadTool(input: {
       const end = readTrimmedString(params, "end");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      if (entityId) {
-        const decision = decideGlobPolicy({
-          candidate: entityId,
-          allow: policy?.allowReadEntities,
-          deny: policy?.denyReadEntities,
-          subject: "entity",
-        });
-        if (!decision.allowed) {
-          return {
-            content: [
-              {
-                type: "text",
-                text:
-                  `Refused ${input.command} for ${entityId} on ${nodeDisplayName} (${nodeId}): ${decision.reason}. ` +
-                  `Configure plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowReadEntities.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      } else {
-        if (
-          !policy?.allowReadEntities ||
-          policy.allowReadEntities.length === 0
-        ) {
-          return {
-            content: [
-              {
-                type: "text",
-                text:
-                  `Refused ${input.command} (no entity_id) on ${nodeDisplayName} (${nodeId}): ` +
-                  `no allowReadEntities configured for this node.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      }
 
       // Translate Assist-shape params to the node's expected shape:
       //   ha.logbook  → { entity_id, start_time, end_time }
@@ -124,4 +83,3 @@ export const createHaHistoryTool = (): AnyAgentTool =>
     command: "ha.history",
     label: "History",
   });
-

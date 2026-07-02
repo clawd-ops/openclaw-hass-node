@@ -1,20 +1,19 @@
 // Node-invoke policy for openclaw-hass-node-assist-tools.
 //
-// This policy is the security gate for raw `node.invoke` calls against
-// the `ha.*` command names this plugin owns. It MUST enforce the
-// per-node allow/deny policy here, not only in the tool handlers —
-// otherwise any session with `node.invoke` could bypass the tool
-// handlers and hit `ha.call_service` / `ha.get_state` / ... directly.
+// Routing-only: validates parameter shape and format (anti-smuggling
+// defense-in-depth), then forwards every allowlisted ha.* command to
+// the node. Entity/service/calendar access control is NOT the plugin's
+// job — it lives at the hass node's tier/allowCommands + HA's own auth.
 //
-// Default-deny / deny-wins semantics, modeled on /app/extensions/
-// file-transfer/src/shared/node-invoke-policy.ts.
+// The only plugin-scoped gate is the Tier B admin surface
+// (allowAdminOps + adminToken), which is a shared secret between the
+// plugin and the node's admin handler.
 
 import type {
   OpenClawPluginNodeInvokePolicy,
   OpenClawPluginNodeInvokePolicyContext,
   OpenClawPluginNodeInvokePolicyResult,
 } from "openclaw/plugin-sdk/plugin-entry";
-import { decideGlobPolicy } from "./glob-policy.js";
 import { ASSIST_TOOLS_NODE_INVOKE_COMMANDS } from "./lazy-node-invoke-policy.js";
 import { readPerNodePolicy, type PerNodePolicy } from "./per-node-policy.js";
 
@@ -33,8 +32,8 @@ function readString(params: Record<string, unknown>, key: string): string {
 // Home Assistant entity IDs are `domain.object_id`, where both parts are
 // lowercase alphanumeric + underscore. Reject anything else — in particular,
 // commas / whitespace / other delimiters — so a single "entity_id" cannot
-// smuggle multiple ids past the per-entity glob check by exploiting the
-// addon's `entity_ids.join(",")` serialization or an unencoded query string.
+// smuggle multiple ids past validation by exploiting the addon's
+// `entity_ids.join(",")` serialization or an unencoded query string.
 const ENTITY_ID_PATTERN = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 
 function isValidEntityId(value: string): boolean {
@@ -42,10 +41,8 @@ function isValidEntityId(value: string): boolean {
 }
 
 // HA domain / service names are lowercase alphanumeric + underscore. Reject
-// anything else — same class of bug as entity_id smuggling: without this,
-// a caller could pass `service: "restart?x"` so the deny-glob check sees
-// `homeassistant.restart?x` (misses `homeassistant.restart` denylist entry)
-// while the addon builds `/api/services/homeassistant/restart?x`, which
+// anything else — without this, a caller could pass `service: "restart?x"`
+// so the addon builds `/api/services/homeassistant/restart?x`, which
 // aiohttp still routes to the real `homeassistant.restart` handler.
 const DOMAIN_OR_SERVICE_PATTERN = /^[a-z0-9_]+$/;
 
@@ -56,9 +53,7 @@ function isValidDomainOrService(value: string): boolean {
 // ISO-8601 datetime, strict. Rejects anything that could smuggle URL
 // delimiters (`&`, `?`, `/`, `#`, whitespace, `%`) into the addon's URL
 // builder, which interpolates timestamps unencoded into paths and query
-// strings for ha.history / ha.logbook. Allowed shape:
-//   YYYY-MM-DDTHH:MM:SS[.fraction][Z|±HH:MM]
-// Four-digit year only (no negative or expanded years), no unicode digits.
+// strings for ha.history / ha.logbook.
 const ISO_8601_DATETIME_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
 
@@ -93,9 +88,6 @@ async function forward(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  // After the per-node policy check passes, forward the call to the node
-  // so the HA command actually executes. Returning { ok: true } without
-  // invoking the node would swallow the call.
   if (!ctx.invokeNode) {
     return deny(
       "NODE_UNAVAILABLE",
@@ -126,16 +118,6 @@ async function enforceCallService(
       "ha.call_service domain and service must be lowercase [a-z0-9_]+ (no URL delimiters)",
     );
   }
-  const policy = loadPolicyForNode(ctx);
-  const decision = decideGlobPolicy({
-    candidate: `${domain}.${service}`,
-    allow: policy?.allowServices,
-    deny: policy?.denyServices,
-    subject: "service",
-  });
-  if (!decision.allowed) {
-    return deny("SERVICE_DENIED", `ha.call_service denied: ${decision.reason}`);
-  }
   return await forward(ctx, params);
 }
 
@@ -153,16 +135,6 @@ async function enforceReadEntity(
       "ha.get_state entity_id must match domain.object_id",
     );
   }
-  const policy = loadPolicyForNode(ctx);
-  const decision = decideGlobPolicy({
-    candidate: entityId,
-    allow: policy?.allowReadEntities,
-    deny: policy?.denyReadEntities,
-    subject: "entity",
-  });
-  if (!decision.allowed) {
-    return deny("ENTITY_DENIED", `ha.get_state denied: ${decision.reason}`);
-  }
   return await forward(ctx, params);
 }
 
@@ -170,16 +142,6 @@ async function enforceListStates(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  // list_states returns all entities, so per-entity allowReadEntities
-  // can't be matched against an input. Require allowReadEntities to be
-  // non-empty as a coarse opt-in. Callers should filter results.
-  const policy = loadPolicyForNode(ctx);
-  if (!policy?.allowReadEntities || policy.allowReadEntities.length === 0) {
-    return deny(
-      "ENTITY_DENIED",
-      "ha.list_states denied: no allowReadEntities configured for this node",
-    );
-  }
   return await forward(ctx, params);
 }
 
@@ -187,19 +149,6 @@ async function enforceMetadataRead(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  // Metadata reads (list_areas / list_devices / list_entity_registry)
-  // don't take entity_id inputs, so per-entity globs can't be applied.
-  // Match the tool-layer coarse "plugin is bound to this node" opt-in:
-  // require *some* per-node policy entry (or wildcard '*') before
-  // forwarding. Prevents raw node.invoke from exposing bulk HA metadata
-  // for a node that has no policy at all.
-  const policy = loadPolicyForNode(ctx);
-  if (!policy) {
-    return deny(
-      "METADATA_DENIED",
-      `${ctx.command} denied: no per-node policy configured for this node`,
-    );
-  }
   return await forward(ctx, params);
 }
 
@@ -218,19 +167,9 @@ async function enforceEntityScopedRead(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  // ha.logbook / ha.history: entity_id is optional. When present, gate
-  // through per-entity globs (same shape as get_state). When absent, fall
-  // back to the coarse allowReadEntities opt-in (like list_states).
-  //
-  // ha.history additionally accepts a node-shape `entity_ids` array. Raw
-  // node.invoke must not be able to pass unvalidated `entity_ids`, so we
-  // validate each id against the same per-entity globs. Passing both
-  // `entity_id` and `entity_ids` is rejected as conflicting.
-  // Validate any timestamp params before touching entity globs so a
-  // smuggled `end_time: "...&filter_entity_id=person.rob"` is rejected
-  // regardless of allowReadEntities scope. Both Assist-shape (start/end)
-  // and node-shape (start_time/end_time) are accepted on the raw invoke
-  // path; both need validation.
+  // Validate timestamps first to reject URL-smuggled delimiters.
+  // Both Assist-shape (start/end) and node-shape (start_time/end_time)
+  // are accepted on the raw invoke path; both need validation.
   for (const key of ["start", "end", "start_time", "end_time"]) {
     const denial = validateTimeParam(params, key, ctx.command);
     if (denial) return denial;
@@ -286,37 +225,9 @@ async function enforceEntityScopedRead(
       `${ctx.command} entity_id must match domain.object_id`,
     );
   }
-  const policy = loadPolicyForNode(ctx);
-  const candidates: string[] = entityId
-    ? [entityId]
-    : entityIdsArray ?? [];
-  if (candidates.length > 0) {
-    for (const candidate of candidates) {
-      const decision = decideGlobPolicy({
-        candidate,
-        allow: policy?.allowReadEntities,
-        deny: policy?.denyReadEntities,
-        subject: "entity",
-      });
-      if (!decision.allowed) {
-        return deny(
-          "ENTITY_DENIED",
-          `${ctx.command} denied: ${decision.reason}`,
-        );
-      }
-    }
-  } else {
-    if (!policy?.allowReadEntities || policy.allowReadEntities.length === 0) {
-      return deny(
-        "ENTITY_DENIED",
-        `${ctx.command} without entity_id denied: no allowReadEntities configured for this node`,
-      );
-    }
-  }
   // Translate Assist-shape params (entity_id/start/end) to the node's
   // expected shape before forwarding. Without this, `ha.history {entity_id}`
-  // would pass the entity check but reach the node with no filter and
-  // return unfiltered history.
+  // would reach the node with no filter and return unfiltered history.
   const forwarded: Record<string, unknown> = { ...params };
   const start = readString(params, "start");
   const end = readString(params, "end");
@@ -338,18 +249,7 @@ async function enforceEntityScopedRead(
 async function enforceConvenienceAction(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
-  serviceCandidate: string,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  const policy = loadPolicyForNode(ctx);
-  const decision = decideGlobPolicy({
-    candidate: serviceCandidate,
-    allow: policy?.allowServices,
-    deny: policy?.denyServices,
-    subject: "service",
-  });
-  if (!decision.allowed) {
-    return deny("SERVICE_DENIED", `${ctx.command} denied: ${decision.reason}`);
-  }
   return await forward(ctx, params);
 }
 
@@ -415,19 +315,11 @@ async function enforceCalendarGetEvents(
       "ha.calendar_get_events entity_id must match domain.object_id",
     );
   }
-  // Even though the addon posts these as JSON body (not URL-interpolated),
-  // validate as defense-in-depth so a smuggled param can't reach HA raw.
+  // Validate timestamps as defense-in-depth so a smuggled param can't
+  // reach HA raw even though the addon posts these as JSON body.
   for (const key of ["start_date_time", "end_date_time"]) {
     const denial = validateTimeParam(params, key, ctx.command);
     if (denial) return denial;
-  }
-  const policy = loadPolicyForNode(ctx);
-  const allowed = policy?.allowCalendars ?? [];
-  if (!allowed.includes(entityId)) {
-    return deny(
-      "CALENDAR_DENIED",
-      `ha.calendar_get_events denied: ${entityId} not in allowCalendars`,
-    );
   }
   return await forward(ctx, params);
 }
@@ -474,9 +366,8 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.history":
           return await enforceEntityScopedRead(ctx, params);
         case "ha.light_turn_on":
-          return await enforceConvenienceAction(ctx, params, "light.turn_on");
         case "ha.light_turn_off":
-          return await enforceConvenienceAction(ctx, params, "light.turn_off");
+          return await enforceConvenienceAction(ctx, params);
         case "ha.reload_config":
           return await enforceAdminOp(ctx, params, false);
         case "ha.addon_start":

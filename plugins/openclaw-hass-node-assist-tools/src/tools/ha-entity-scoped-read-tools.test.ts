@@ -47,11 +47,11 @@ for (const T of TOOLS) {
       expect(tool.name).toBe(T.name);
     });
 
-    it("forwards when entity_id matches allowReadEntities", async () => {
+    it("forwards with entity_id and translates params to node shape", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: { allowReadEntities: ["light.*"] },
+        policy: {},
       });
       invokeMock.mockResolvedValue([]);
       const tool = await T.load();
@@ -93,12 +93,13 @@ for (const T of TOOLS) {
       expect(result.isError).toBeUndefined();
     });
 
-    it("refuses when entity_id doesn't match allowReadEntities", async () => {
+    it("forwards when entity_id is any valid format (no policy filter)", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: { allowReadEntities: ["light.*"] },
+        policy: {},
       });
+      invokeMock.mockResolvedValue([]);
       const tool = await T.load();
       const result = await tool.execute(
         "c",
@@ -106,32 +107,15 @@ for (const T of TOOLS) {
         new AbortController().signal,
         () => undefined,
       );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(result.isError).toBe(true);
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(result.isError).toBeUndefined();
     });
 
-    it("refuses no-entity_id call when allowReadEntities empty", async () => {
+    it("forwards without entity_id", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
         policy: {},
-      });
-      const tool = await T.load();
-      const result = await tool.execute(
-        "c",
-        { node: "hass" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(result.isError).toBe(true);
-    });
-
-    it("allows no-entity_id call when allowReadEntities is non-empty", async () => {
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: { allowReadEntities: ["light.*"] },
       });
       invokeMock.mockResolvedValue([]);
       const tool = await T.load();

@@ -1,6 +1,6 @@
 // ha_calendar_get_events tool handler. Wraps ha.calendar_get_events on
-// the bound hass node, gated by per-node allowCalendars (exact entity_id
-// match; missing/empty = deny all).
+// the bound hass node. Parameter validation only; access control is at
+// the node layer (hass node tier/allowCommands + HA auth).
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import { HA_CALENDAR_GET_EVENTS_TOOL_DESCRIPTOR } from "./descriptors.js";
@@ -26,26 +26,10 @@ export function createHaCalendarGetEventsTool(): AnyAgentTool {
       if (!endDateTime) throw new Error("end_date_time required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      const allowed = policy?.allowCalendars ?? [];
-      if (!allowed.includes(entityId)) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `Refused to read ${entityId} on ${nodeDisplayName} (${nodeId}): ` +
-                `not in allowCalendars. ` +
-                `Configure plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowCalendars.`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const payload = await invokeHaCommand({
         nodeId,

@@ -1,7 +1,7 @@
 # openclaw-hass-node-assist-tools
 
-Scaffold for the OpenClaw gateway plugin that bridges HA Assist sessions to
-the paired `openclaw-hass-node-app` command surface.
+OpenClaw gateway plugin that bridges HA Assist sessions to the paired
+`openclaw-hass-node-app` command surface.
 
 ## Why this plugin exists
 
@@ -18,10 +18,9 @@ node.
 
 This plugin closes that gap the same way OpenClaw core closes the
 filesystem gap with `file-transfer` (`/app/extensions/file-transfer/`):
-the plugin holds operator privilege, declares scoped per-tool wrappers
-(`ha_call_service`, `ha_get_state`, etc.) with per-node config
-(`allowServices`, `allowReadEntities`, ...), and those tools surface to
-all session types including Assist.
+the plugin holds operator privilege and declares scoped per-tool wrappers
+(`ha_call_service`, `ha_get_state`, etc.) that surface to all session types
+including Assist.
 
 ## When it applies
 
@@ -33,14 +32,56 @@ See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full
 
 ## Status
 
-**Implemented.** 28 `ha_*` tools are registered in `index.ts` (PRs #206/#207
-landed the wrappers). The manifest (`openclaw.plugin.json`) declares the full
-tool surface and per-node config schema.
+**Implemented.** 28 `ha_*` tools are registered in `index.ts`. The manifest
+(`openclaw.plugin.json`) declares the full tool surface and per-node config schema.
 
-The plugin is `enabledByDefault: false`. Operators must explicitly enable it
-and provide per-node policy configuration (allowServices, allowReadEntities,
-allowCalendars, allowAdminOps/adminToken for Tier B) before any `ha_*` tool
-is usable in Assist turns.
+The plugin is `enabledByDefault: false`. Operators must explicitly enable it.
+No per-node allowlists are required — entity/service/calendar access control
+lives at the hass node's tier/allowCommands + HA's own auth layer.
+
+## Per-node config
+
+Config lives at `plugins.entries.openclaw-hass-node-assist-tools.config.nodes.<nodeId>`.
+
+**Routing-only design**: the plugin does not enumerate entities, services, or
+calendars. Access control is delegated entirely to the hass node's
+`allowCommands` tier policy and HA's own auth. The only plugin-scoped config
+is the Tier B admin gate:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "openclaw-hass-node-assist-tools": {
+        "enabled": true,
+        "config": {
+          "nodes": {
+            "hass": {}
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Tier B admin ops (optional)
+
+To enable `ha_reload_config`, `ha_addon_start`, `ha_addon_stop`,
+`ha_addon_restart`, set both flags under the node:
+
+```json
+"nodes": {
+  "hass": {
+    "allowAdminOps": true,
+    "adminToken": "<shared secret from hass node admin config>"
+  }
+}
+```
+
+`adminToken` is a shared secret between the plugin and the node's admin
+surface — it is NOT the HA long-lived access token. It is injected by the
+plugin and the caller cannot override it.
 
 ## Layout
 
@@ -64,6 +105,75 @@ plugins/openclaw-hass-node-assist-tools/
 │   │   ├── ha-light-tools.ts               # light_turn_on, light_turn_off
 │   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart (Tier B)
 │   └── shared/
-│       └── lazy-node-invoke-policy.ts      # per-node policy resolver
+│       ├── node-invoke-policy.ts           # routing-only invoke policy with param validation
+│       ├── per-node-policy.ts              # PerNodePolicy type (admin gate only)
+│       └── lazy-node-invoke-policy.ts      # command allowlist
 └── README.md
 ```
+
+## Local install
+
+Standard `openclaw plugins install` is blocked by two packaging gaps
+(missing `dist/`, pnpm workspace symlinks). Use the included workaround:
+
+```sh
+bash scripts/install-plugin-local.sh
+```
+
+See `docs/known-workarounds.md` for details and the upstream fix tracker.
+
+## SDK API contract
+
+This plugin is built against the OpenClaw plugin SDK. The surface it relies
+on is narrow. If an SDK upgrade breaks the plugin, check these first:
+
+### Entry point (`openclaw/plugin-sdk/plugin-entry`)
+
+```ts
+import {
+  definePluginEntry,
+  type AnyAgentTool,
+  type OpenClawPluginNodeInvokePolicy,
+  type OpenClawPluginNodeInvokePolicyContext,
+  type OpenClawPluginNodeInvokePolicyResult,
+} from "openclaw/plugin-sdk/plugin-entry";
+```
+
+- **`definePluginEntry(descriptor)`** — registers the plugin with the gateway.
+  Required fields: `id` (string), `name` (string), `description` (string),
+  `register(api)` (function).
+- **`api.registerTool(tool: AnyAgentTool)`** — registers a tool that surfaces
+  in Assist sessions. `AnyAgentTool` requires `label`, `name`, `description`,
+  `parameters` (TypeBox schema), and `execute(toolCallId, args, signal, onUpdate)`.
+- **`api.registerNodeInvokePolicy(policy: OpenClawPluginNodeInvokePolicy)`** —
+  registers the security gate for raw `node.invoke` calls. Required shape:
+  `{ commands: string[], handle(ctx): Promise<result> }`.
+- **`OpenClawPluginNodeInvokePolicyContext`** — the `ctx` argument passed to
+  `policy.handle`:
+  - `ctx.command` — the `ha.*` command being invoked
+  - `ctx.nodeId` — the paired node's ID
+  - `ctx.params` — raw params from the caller (validate before forwarding)
+  - `ctx.pluginConfig` — plugin config object if pre-loaded (may be undefined;
+    fall back to `readPluginConfig`)
+  - `ctx.invokeNode({ params })` — forwards the call to the node after policy
+    check passes; returns `{ ok, payload?, error? }`
+
+### Config reader (`openclaw/plugin-sdk/plugin-config`)
+
+```ts
+import { readPluginConfig } from "openclaw/plugin-sdk/plugin-config";
+const cfg = await readPluginConfig("openclaw-hass-node-assist-tools");
+```
+
+Returns the plugin's own config object from the operator's `openclaw.json`
+(`plugins.entries.<id>.config`). Used to read per-node policy at call time.
+
+### What to check on SDK upgrades
+
+1. `definePluginEntry` signature and `register(api)` argument shape
+2. `AnyAgentTool.execute` parameter order and types
+3. `OpenClawPluginNodeInvokePolicy` — `commands` array still accepted, `handle`
+   still receives `OpenClawPluginNodeInvokePolicyContext` with `invokeNode`
+4. `readPluginConfig` — still resolves the plugin's own config subtree
+5. `ctx.invokeNode` return shape (`{ ok: boolean, payload?, error? }`) — the
+   policy handlers forward it directly to callers

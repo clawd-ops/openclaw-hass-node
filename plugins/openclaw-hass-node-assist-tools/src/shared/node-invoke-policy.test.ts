@@ -18,15 +18,10 @@ type Ctx = {
   }) => Promise<InvokeNodeResult>;
 };
 
+// Minimal config — no entity/service/calendar lists needed after routing-only refactor.
 const nodeConfig = {
   nodes: {
-    "node-1": {
-      allowServices: ["light.*"],
-      denyServices: ["light.delete"],
-      allowReadEntities: ["sensor.*", "light.kitchen"],
-      denyReadEntities: ["sensor.secret_*"],
-      allowCalendars: ["calendar.family"],
-    },
+    "node-1": {},
   },
 };
 
@@ -54,18 +49,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     if (!result.ok) expect(result.code).toBe("COMMAND_NOT_ALLOWED");
   });
 
-  it("denies ha.call_service when no policy is configured", async () => {
-    const result = await runPolicy({
-      command: "ha.call_service",
-      nodeId: "node-1",
-      params: { domain: "light", service: "turn_on" },
-      pluginConfig: {},
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("SERVICE_DENIED");
-  });
-
-  it("allows ha.call_service when service matches allowServices", async () => {
+  it("forwards ha.call_service with valid domain and service", async () => {
     const result = await runPolicy({
       command: "ha.call_service",
       nodeId: "node-1",
@@ -75,29 +59,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("denies ha.call_service when service matches denyServices (deny wins)", async () => {
-    const result = await runPolicy({
-      command: "ha.call_service",
-      nodeId: "node-1",
-      params: { domain: "light", service: "delete" },
-      pluginConfig: nodeConfig,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("SERVICE_DENIED");
-  });
-
-  it("denies ha.get_state for entities not in allowReadEntities", async () => {
-    const result = await runPolicy({
-      command: "ha.get_state",
-      nodeId: "node-1",
-      params: { entity_id: "lock.front_door" },
-      pluginConfig: nodeConfig,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("ENTITY_DENIED");
-  });
-
-  it("allows ha.get_state for entities matching allowReadEntities", async () => {
+  it("forwards ha.get_state with valid entity_id", async () => {
     const result = await runPolicy({
       command: "ha.get_state",
       nodeId: "node-1",
@@ -107,45 +69,16 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("denies ha.get_state when entity matches denyReadEntities", async () => {
-    const result = await runPolicy({
-      command: "ha.get_state",
-      nodeId: "node-1",
-      params: { entity_id: "sensor.secret_token" },
-      pluginConfig: nodeConfig,
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  it("denies ha.list_states without allowReadEntities configured", async () => {
+  it("forwards ha.list_states without any config", async () => {
     const result = await runPolicy({
       command: "ha.list_states",
       nodeId: "node-1",
-      pluginConfig: { nodes: { "node-1": {} } },
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  it("allows ha.list_states when allowReadEntities is non-empty", async () => {
-    const result = await runPolicy({
-      command: "ha.list_states",
-      nodeId: "node-1",
-      pluginConfig: nodeConfig,
+      pluginConfig: {},
     });
     expect(result.ok).toBe(true);
   });
 
-  it("denies ha.calendar_get_events for calendars not in allowCalendars", async () => {
-    const result = await runPolicy({
-      command: "ha.calendar_get_events",
-      nodeId: "node-1",
-      params: { entity_id: "calendar.work" },
-      pluginConfig: nodeConfig,
-    });
-    expect(result.ok).toBe(false);
-  });
-
-  it("allows ha.calendar_get_events for an allowed calendar", async () => {
+  it("forwards ha.calendar_get_events with valid entity_id", async () => {
     const result = await runPolicy({
       command: "ha.calendar_get_events",
       nodeId: "node-1",
@@ -155,46 +88,20 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("allows metadata reads (ha.list_areas) when per-node policy exists", async () => {
+  it("forwards ha.list_areas without any per-node policy", async () => {
     const result = await runPolicy({
       command: "ha.list_areas",
       nodeId: "node-1",
-      pluginConfig: nodeConfig,
+      pluginConfig: {},
     });
     expect(result.ok).toBe(true);
   });
 
-  it("denies metadata reads when no per-node policy is configured", async () => {
-    const invokeNode = vi.fn(async () => ({
-      ok: true as const,
-      payload: {},
-    }));
+  it("forwards ha.list_services without any per-node policy", async () => {
     const result = await runPolicy({
-      command: "ha.list_areas",
-      nodeId: "unpolicied-node",
+      command: "ha.list_services",
+      nodeId: "unpolicied",
       pluginConfig: { nodes: {} },
-      invokeNode,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("METADATA_DENIED");
-    expect(invokeNode).not.toHaveBeenCalled();
-  });
-
-  it("allows metadata reads via wildcard '*' node entry", async () => {
-    const result = await runPolicy({
-      command: "ha.list_devices",
-      nodeId: "any-node",
-      pluginConfig: { nodes: { "*": { allowReadEntities: ["sensor.*"] } } },
-    });
-    expect(result.ok).toBe(true);
-  });
-
-  it("falls back to wildcard '*' node entry", async () => {
-    const result = await runPolicy({
-      command: "ha.get_state",
-      nodeId: "any-node",
-      params: { entity_id: "sensor.x" },
-      pluginConfig: { nodes: { "*": { allowReadEntities: ["sensor.*"] } } },
     });
     expect(result.ok).toBe(true);
   });
@@ -267,21 +174,22 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     if (!result.ok) expect(result.code).toBe("NODE_UNAVAILABLE");
   });
 
-  it("does not invoke the node when the policy denies the call", async () => {
+  it("does not invoke the node when param validation fails (invalid service)", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true as const }));
     const result = await runPolicy({
       command: "ha.call_service",
       nodeId: "node-1",
-      params: { domain: "light", service: "delete" },
+      params: { domain: "light", service: "delete?x" },
       pluginConfig: nodeConfig,
       invokeNode,
     });
     expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("INVALID_PARAMS");
     expect(invokeNode).not.toHaveBeenCalled();
   });
 
   // --- entity-scoped reads: logbook / history ---
-  it("ha.logbook forwards when entity_id matches allowReadEntities", async () => {
+  it("ha.logbook forwards with valid entity_id", async () => {
     const result = await runPolicy({
       command: "ha.logbook",
       nodeId: "node-1",
@@ -291,15 +199,14 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("ha.history denies when entity_id fails allowReadEntities", async () => {
+  it("ha.logbook forwards without entity_id", async () => {
     const result = await runPolicy({
-      command: "ha.history",
+      command: "ha.logbook",
       nodeId: "node-1",
-      params: { entity_id: "person.rob" },
+      params: {},
       pluginConfig: nodeConfig,
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("ENTITY_DENIED");
+    expect(result.ok).toBe(true);
   });
 
   it("ha.history translates entity_id/start/end into node-shape params", async () => {
@@ -352,21 +259,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(forwarded).not.toHaveProperty("end");
   });
 
-  it("ha.history validates each entity_ids entry against allowReadEntities", async () => {
-    const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
-    const result = await runPolicy({
-      command: "ha.history",
-      nodeId: "node-1",
-      params: { entity_ids: ["sensor.outdoor_temp", "person.rob"] },
-      pluginConfig: nodeConfig,
-      invokeNode,
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("ENTITY_DENIED");
-    expect(invokeNode).not.toHaveBeenCalled();
-  });
-
-  it("ha.history forwards entity_ids-only when every id passes globs", async () => {
+  it("ha.history forwards entity_ids-only when every id has valid format", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
     const result = await runPolicy({
       command: "ha.history",
@@ -530,18 +423,8 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(invokeNode).not.toHaveBeenCalled();
   });
 
-  it("ha.logbook without entity_id requires non-empty allowReadEntities", async () => {
-    const result = await runPolicy({
-      command: "ha.logbook",
-      nodeId: "node-1",
-      params: {},
-      pluginConfig: { nodes: { "node-1": {} } },
-    });
-    expect(result.ok).toBe(false);
-  });
-
   // --- convenience light actions ---
-  it("ha.light_turn_on allowed when light.turn_on matches allowServices", async () => {
+  it("ha.light_turn_on forwards", async () => {
     const result = await runPolicy({
       command: "ha.light_turn_on",
       nodeId: "node-1",
@@ -551,15 +434,14 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("ha.light_turn_off denied when service not in allowServices", async () => {
+  it("ha.light_turn_off forwards", async () => {
     const result = await runPolicy({
       command: "ha.light_turn_off",
       nodeId: "node-1",
       params: { entity_id: "light.kitchen" },
-      pluginConfig: { nodes: { "node-1": { allowServices: ["switch.*"] } } },
+      pluginConfig: nodeConfig,
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("SERVICE_DENIED");
+    expect(result.ok).toBe(true);
   });
 
   // --- Tier B admin ---
@@ -632,31 +514,14 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     if (!result.ok) expect(result.code).toBe("ADMIN_SLUG_DENIED");
   });
 
-  it("ha.list_services metadata read denied without per-node policy", async () => {
-    const result = await runPolicy({
-      command: "ha.list_services",
-      nodeId: "unpolicied",
-      pluginConfig: { nodes: {} },
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.code).toBe("METADATA_DENIED");
-  });
-
   // --- domain/service smuggling regression ---
-  it("ha.call_service rejects service with URL delimiters (deny-glob bypass)", async () => {
+  it("ha.call_service rejects service with URL delimiters (bypass attempt)", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
     const result = await runPolicy({
       command: "ha.call_service",
       nodeId: "node-1",
       params: { domain: "homeassistant", service: "restart?x" },
-      pluginConfig: {
-        nodes: {
-          "node-1": {
-            allowServices: ["homeassistant.*"],
-            denyServices: ["homeassistant.restart"],
-          },
-        },
-      },
+      pluginConfig: nodeConfig,
       invokeNode,
     });
     expect(result.ok).toBe(false);
@@ -850,12 +715,12 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(invokeNode).toHaveBeenCalledTimes(1);
   });
 
-  it("ha.addon_logs metadata read allowed via wildcard '*'", async () => {
+  it("ha.addon_logs metadata read forwards without any policy", async () => {
     const result = await runPolicy({
       command: "ha.addon_logs",
       nodeId: "any-node",
       params: { slug: "openclaw-hass-node" },
-      pluginConfig: { nodes: { "*": { allowReadEntities: ["light.*"] } } },
+      pluginConfig: {},
     });
     expect(result.ok).toBe(true);
   });

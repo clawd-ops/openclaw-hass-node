@@ -48,35 +48,6 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "ask": {
-              "type": "string",
-              "enum": ["off", "on-miss", "always"]
-            },
-            "allowServices": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Service-call patterns the plugin may invoke. Each item is a domain.service glob, e.g. 'light.*', 'switch.turn_*', 'homeassistant.update_entity'."
-            },
-            "denyServices": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Service-call patterns explicitly denied. Deny wins over allow."
-            },
-            "allowReadEntities": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Entity-id patterns ha_get_state / ha_list_states may return. Each item is an entity_id glob, e.g. 'light.*', 'sensor.living_room_*'."
-            },
-            "denyReadEntities": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Entity-id patterns explicitly hidden from reads. Deny wins."
-            },
-            "allowCalendars": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Calendar entity_ids ha_calendar_get_events may query."
-            },
             "allowAdminOps": {
               "type": "boolean",
               "description": "Tier B admin gate. Must be true (with adminToken) to invoke reload_config / addon_start / addon_stop / addon_restart."

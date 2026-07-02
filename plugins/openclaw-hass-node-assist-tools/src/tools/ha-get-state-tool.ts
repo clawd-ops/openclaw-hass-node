@@ -1,8 +1,7 @@
-// ha_get_state tool handler. Wraps ha.get_state on the bound hass node,
-// gated by per-node allowReadEntities / denyReadEntities policy.
+// ha_get_state tool handler. Wraps ha.get_state on the bound hass node.
+// Parameter validation only; access control is at the node layer.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { decideGlobPolicy } from "../shared/glob-policy.js";
 import { HA_GET_STATE_TOOL_DESCRIPTOR } from "./descriptors.js";
 import {
   invokeHaCommand,
@@ -22,32 +21,10 @@ export function createHaGetStateTool(): AnyAgentTool {
       if (!entityId) throw new Error("entity_id required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      const decision = decideGlobPolicy({
-        candidate: entityId,
-        allow: policy?.allowReadEntities,
-        deny: policy?.denyReadEntities,
-        subject: "entity",
-      });
-
-      if (!decision.allowed) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `Refused to read ${entityId} on ${nodeDisplayName} (${nodeId}): ${decision.reason}.\n` +
-                `Configure plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowReadEntities ` +
-                `to allow it, or .denyReadEntities to keep it blocked.`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const payload = await invokeHaCommand({
         nodeId,

@@ -1,8 +1,7 @@
 // ha_call_service tool handler. Wraps ha.call_service on the bound
-// hass node, gated by per-node allowServices / denyServices policy.
+// hass node. Parameter validation only; access control is at the node layer.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { decideGlobPolicy } from "../shared/glob-policy.js";
 import { HA_CALL_SERVICE_TOOL_DESCRIPTOR } from "./descriptors.js";
 import {
   invokeHaCommand,
@@ -37,33 +36,10 @@ export function createHaCallServiceTool(): AnyAgentTool {
       if (!service) throw new Error("service required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
         gatewayOpts,
       });
-
-      const candidate = `${domain}.${service}`;
-      const decision = decideGlobPolicy({
-        candidate,
-        allow: policy?.allowServices,
-        deny: policy?.denyServices,
-        subject: "service",
-      });
-
-      if (!decision.allowed) {
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                `Refused to call ${candidate} on ${nodeDisplayName} (${nodeId}): ${decision.reason}.\n` +
-                `Configure plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowServices ` +
-                `to allow it, or .denyServices to keep it blocked.`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const commandParams: Record<string, unknown> = {
         domain,
@@ -86,7 +62,7 @@ export function createHaCallServiceTool(): AnyAgentTool {
           {
             type: "text",
             text:
-              `Called ${candidate} on ${nodeDisplayName} (${nodeId}).\n\n` +
+              `Called ${domain}.${service} on ${nodeDisplayName} (${nodeId}).\n\n` +
               `--- payload ---\n${JSON.stringify(payload, null, 2)}`,
           },
         ],

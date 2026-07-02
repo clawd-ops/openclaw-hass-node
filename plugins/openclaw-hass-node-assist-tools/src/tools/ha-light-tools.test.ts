@@ -45,11 +45,11 @@ for (const t of T) {
       expect(tool.name).toBe(t.name);
     });
 
-    it("forwards when allowServices permits the service", async () => {
+    it("forwards to the node with the target block", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: { allowServices: ["light.*"] },
+        policy: {},
       });
       invokeMock.mockResolvedValue({ ok: true });
       const tool = await t.load();
@@ -67,28 +67,11 @@ for (const t of T) {
       expect(result.isError).toBeUndefined();
     });
 
-    it("refuses when service is not permitted", async () => {
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: { allowServices: ["switch.*"] },
-      });
-      const tool = await t.load();
-      const result = await tool.execute(
-        "c",
-        { node: "hass", entity_id: "light.kitchen" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(result.isError).toBe(true);
-    });
-
     it("refuses when no target (entity_id/area_id/device_id) provided", async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: { allowServices: ["light.*"] },
+        policy: {},
       });
       const tool = await t.load();
       const result = await tool.execute(
