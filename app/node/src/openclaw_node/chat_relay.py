@@ -83,6 +83,31 @@ _STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
 #     AND end; suppress the textual progress delta entirely (no dual emit).
 _CAP_TOOL_PROGRESS_FRAMES: Final[str] = "tool-progress-frames"
 
+# Prepended to every chat.send message so Clawd recognises this as a real
+# user request from HA Assist, not a heartbeat poll.  Without this marker,
+# the gateway's Clawd system prompt (which always includes a
+# "## Heartbeats: if the current user message is a heartbeat poll, reply
+# HEARTBEAT_OK" section for the default agent) causes short or ambiguous
+# messages like "?" or "how bout now?" to be mistakenly answered with the
+# literal string HEARTBEAT_OK.  The [OpenClaw ...] bracket format matches
+# the existing authorization-context convention; the model treats these
+# blocks as non-echoed metadata.
+_HA_ASSIST_CONTEXT: Final[str] = (
+    "[OpenClaw HA Assist session — do not echo or reference this block. "
+    "This is a real-time user request from Home Assistant Assist. "
+    "This is NOT a heartbeat poll; do not reply HEARTBEAT_OK.]"
+)
+
+
+def _build_ha_assist_message(text: str, authz: TurnAuthz | None) -> str:
+    """Build the ``chat.send`` message with HA Assist context prepended.
+
+    Always prepends :data:`_HA_ASSIST_CONTEXT` so Clawd cannot mistake the
+    turn for a heartbeat poll regardless of whether actor signing is active.
+    """
+    body = apply_turn_authz(text, authz) if authz is not None else text
+    return f"{_HA_ASSIST_CONTEXT}\n\n{body}"
+
 
 class StreamKeepalive:
     """Sentinel yielded by ChatRelay.stream_turn to request a keepalive.
@@ -416,7 +441,7 @@ class ChatRelay:
         self._delta_queues[canonical_key] = queue
 
         idempotency_key = str(uuid.uuid4())
-        message = apply_turn_authz(text, authz) if authz is not None else text
+        message = _build_ha_assist_message(text, authz)
         params: dict[str, Any] = {
             "sessionKey": session_key,
             "message": message,
@@ -658,7 +683,7 @@ class ChatRelay:
         self._reply_events[canonical_key] = reply_event
 
         idempotency_key = str(uuid.uuid4())
-        message = apply_turn_authz(text, authz) if authz is not None else text
+        message = _build_ha_assist_message(text, authz)
         params: dict[str, Any] = {
             "sessionKey": session_key,
             "message": message,
