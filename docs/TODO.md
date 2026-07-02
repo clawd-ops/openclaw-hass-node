@@ -105,7 +105,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Scope: `app/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
 
 ### 33. Quiet `[relay-diag]` INFO noise in addon logs
-- Status: OPEN
+- Status: CLOSED 2026-06-28 — moved `[relay-diag]` from INFO to DEBUG in PR #214 (shipped in v2026.7.1b1). TODO.md status lagged; corrected in 2026.7.1b2 release PR.
 - Requested: 2026-06-28 by Rob.
 - Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
 - Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.

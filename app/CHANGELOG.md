@@ -1,5 +1,44 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.7.1b2
+
+### Fixes
+- **Chat relay: HEARTBEAT_OK misclassification via bridge context prepend.** Short
+  HA Assist messages (e.g. `?`, `how bout now?`) were routed through Clawd's
+  heartbeat-poll detector and returned the literal string `HEARTBEAT_OK` instead
+  of a real answer. The fix prepends an HA Assist context header to every
+  relayed user turn so Clawd's prompt correctly identifies it as a chat message,
+  not a heartbeat poll. See PR #222, `docs/known-workarounds.md §4`.
+- **Chat relay: trailing newline removed from tool-call markers.** Tool-call
+  boundary markers embedded in streamed replies were followed by a blank line,
+  causing visual gaps in HA Assist text output. Fixed by stripping the trailing
+  newline from the marker string. Closes #199. See PR #221.
+- **Assist-tools plugin: `idempotencyKey` injected into `node.invoke` calls.**
+  Without an idempotency key, retry logic in the gateway could duplicate
+  side-effecting `ha.*` commands on transient failures. Every `node.invoke`
+  call now includes a per-call UUID as `idempotencyKey`. See PR #220.
+- **Assist-tools plugin: migrate off removed `plugin-config` SDK API to
+  `plugin-config-runtime`.** The `plugin-config` package was removed from the
+  plugin SDK; callers must use `plugin-config-runtime` instead. See PR #218.
+
+### Refactor
+- **Assist-tools plugin: routing-only — dropped entity/service/calendar
+  allowlists.** Per-entity and per-service allowlist enforcement was removed
+  from the plugin layer (it was duplicating gateway-level policy and adding
+  maintenance surface). The plugin now handles routing only; access policy
+  lives entirely in OpenClaw gateway config. See PR #219.
+
+### Docs
+- **v2026.7.1b1 rollout gaps documented.** Lessons learned from the b1
+  rollout — plugin packaging pitfalls and `config.patch` false-positive
+  behavior — documented in `docs/lessons/`. See PR #216.
+- **`docs/known-workarounds.md §4`** added covering the HEARTBEAT_OK
+  misclassification root cause, diagnosis steps, and the bridge context
+  prepend workaround shipped in this release.
+- **`docs/TODO.md #33`** closed: `[relay-diag]` log-level was already moved
+  from INFO to DEBUG in PR #214 (shipped in b1); status updated to reflect
+  reality.
+
 ## 2026.7.1b1
 
 ### Features
