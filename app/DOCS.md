@@ -97,6 +97,24 @@ control surface. The manifest field reference is at
   app container. The UI does not expose identity-mode because it is
   destructive enough to warrant an explicit out-of-band step.
 
+### `reset_bootstrap`
+
+- **Purpose**: Re-enable the one-shot bootstrap endpoint after it has
+  been consumed. When `true` on the next app startup, the
+  `bootstrap-consumed` marker is removed from `data_dir`, re-opening
+  a fresh 5-minute bootstrap window. Use this if you need to
+  reinstall or reconfigure the HACS integration and the bootstrap
+  endpoint is reporting `BOOTSTRAP_CONSUMED`.
+- **Type**: `bool?`.
+- **Example**: `true` (re-opens the window once on next restart).
+- **Default**: `false`.
+- **Security**: After the HACS integration fetches the token, set this
+  back to `false`. If left as `true`, the consumed marker is cleared
+  on every subsequent restart, which re-opens the 5-minute window each
+  time — anyone inside the Supervisor network could fetch the token
+  within those 5 minutes. See `docs/security-notes.md` for the full
+  bootstrap threat model.
+
 ### `identity.super_admins`
 
 - **Purpose**: List of Home Assistant usernames whose Assist turns

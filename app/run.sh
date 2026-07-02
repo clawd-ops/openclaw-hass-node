@@ -91,6 +91,12 @@ if isinstance(reset_pairing_raw, str):
         values['OPENCLAW_RESET_PAIRING'] = reset_pairing_raw
 elif reset_pairing_raw is True:
     values['OPENCLAW_RESET_PAIRING'] = 'true'
+# reset_bootstrap: when the operator toggles this to true, the bootstrap
+# consumed marker is cleared on startup so the HACS integration can fetch
+# the token once more within the next 300-second window.
+reset_bootstrap_raw = data.get('reset_bootstrap')
+if reset_bootstrap_raw is True:
+    values['OPENCLAW_RESET_BOOTSTRAP'] = 'true'
 # Optional HA credentials fallback. ha_client.py already reads HASS_URL
 # and HASS_TOKEN from env when SUPERVISOR_TOKEN is missing; surface them
 # only when the user actually filled the option in, so we don't clobber a
