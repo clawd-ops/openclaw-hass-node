@@ -23,7 +23,7 @@ name: OpenClaw HA Node — App
 version: "2026.7.1b2"
 slug: openclaw_hass_node
 description: >
-  OpenClaw gateway peripheral for Home Assistant (beta). Connects this HA
+  OpenClaw gateway peripheral for Home Assistant. Connects this HA
   instance to the OpenClaw gateway as a node, exposing filesystem, shell,
   and HA control surfaces. The Assist conversation relay streams replies
   token-by-token through a parallel pair of node-role and operator-role
