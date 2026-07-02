@@ -127,85 +127,10 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ## Closed items
 
-### 17a. Closed GitHub issues formerly listed under item #17
-- Status: CLOSED / moved out of the open issue rollup on 2026-07-02.
-- #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles. Closed 2026-07-02.
-- #78 — Auto-bootstrap API token between node and integration. Closed 2026-07-02 after the b3 bootstrap-claim rotation release.
-- #199 — Assist UX: too many newlines around tool-call markers. Closed 2026-07-02.
-- #200 — Assist UX: tool-call markers never resolve; show result/error and de-dup repeats. Closed 2026-07-02.
-- #201 — Assist correctness: model conflates `mcp__openclaw__*` tools with the HASS node command surface. Closed 2026-07-02.
-- #202 — Assist node-originated session had `nodes.invoke` filtered by design; fix path is the assist-tools plugin. Closed 2026-07-01.
-
-### 33. Quiet `[relay-diag]` INFO noise in addon logs
-- Status: CLOSED 2026-06-28 — moved `[relay-diag]` from INFO to DEBUG in PR #214 (shipped in v2026.7.1b1). TODO.md status lagged; corrected in 2026.7.1b2 release PR.
-- Requested: 2026-06-28 by Rob.
-- Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
-- Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
-
-### 34. Agent skill for HA node command-surface usage
-- Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
-- Requested: 2026-06-28 by Rob.
-- Goal: create/apply a reusable agent skill that teaches the agent, Codex, or subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
-- Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
-- Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
-- Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
-
-### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
-- Status: CLOSED — shipped in PR #224.
-- `scripts/generate-release-notes.sh` groups Conventional Commit subjects since
-  the previous tag into Features / Fixes / Refactor / Performance / Docs / Other,
-  skipping `chore(release):` version-bump commits.
-- Workflow (`release-on-version-bump.yml`) now:
-  - Finds the previous tag automatically.
-  - Runs the script to generate grouped notes.
-  - If a hand-written `app/CHANGELOG.md` section exists for the version: uses it
-    as the primary body and appends the auto-derived commit list as a secondary
-    "Commits since X" block.
-  - If no hand-written section exists: uses auto-generated list as the sole body
-    AND commits a new section to `app/CHANGELOG.md` so HA Supervisor Changelog
-    tab always has content. (`app/CHANGELOG.md` is excluded from the trigger
-    `paths:`, so the commit-back does not cause a recursive re-run.)
-- Hand-written `app/CHANGELOG.md` sections are preserved and take precedence;
-  the auto-list augments rather than replaces them. No separate release PR needed.
-
-### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
-- Status: CLOSED 2026-06-28 — shipped in PR #179.
-- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS integration. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; integration swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Plain-text `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
-
 ### 1. User mapping / identity propagation
 - Status: CLOSED 2026-06-28 — addon side shipped via PRs #164–#167 + #177; design captured in [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md).
 - Three-role model (`user`/`admin`/`super_admin`); HA `is_admin` drives auto-mapping for `user` and `admin`; `super_admin` is an explicit opt-in list in addon options. Shim forwards `actor`, addon resolves role, prepends a hardened per-turn authorization disclaimer, and optionally sends `agentId` from `identity.user_agent_map` / `default_agent_id`.
 - Out of scope for this repo (closing cleanly): hard concern-A enforcement comes from gateway-side agent inventories; hard concern-B invoke enforcement needs a future gateway invoke envelope that carries session/actor context. Track gateway-side work in the gateway repo, not here.
-
-### 28. Documentation tab intro / glossary (prelude to per-option detail)
-- Status: CLOSED 2026-06-28 — `app/DOCS.md` (shipped in PR #177) covers the substance.
-- Has: orientation paragraph, Quick start, per-option detail with purpose/example/default/security on every option, and a dedicated **Authorization model for the HA control surface** section that documents Tier A / Tier B and the explicit "There is no separate operator admin token for Tier B" line.
-- Residual polish (not a blocker, not opening a separate item preemptively): the three-token model is described inside each token's own option section rather than as one up-front glossary block. If a future operator still trips on the token-vs-token question, lift those three explanations into one prelude block then.
-
-### 30. GitHub Releases tab missing entries since b9
-- Status: CLOSED 2026-06-28 — not a real gap.
-- Re-checked 2026-06-28: GitHub Releases tab now shows all 8 releases matching all 8 tags (`v2026.6.20b4` through `v2026.6.20b11`); each Release entry exists with prerelease flag, title, and notes. The earlier observation was a tag-name string-sort artifact and/or browser cache — `b9` rendered later than `b10/b11` in the list view, making it look like the most recent.
-- The b9 prerelease cap from PR #177 will roll the date forward instead of going to `b10+` going forward, which sidesteps the string-sort confusion for future releases.
-- No workflow regression to fix.
-
-### 31. Add-on icon stopped rendering in HA after the doc / schema reshape
-- Status: CLOSED 2026-06-28 — resolved per Rob's observation on the b11 install (likely a Supervisor cache refresh after the b10/b11 manifest re-parse).
-- No repo-side change required. If the icon disappears again after a future schema change, re-open and trace `ha apps | grep -i openclaw` `logo:` against the manifest.
-
-### 26. Identity user options accept HA usernames
-- Status: CLOSED in PR #177.
-- `identity.super_admins` and `identity.user_agent_map` are configured
-  with HA usernames. On startup, the add-on calls HA WebSocket
-  `config/auth/list`, resolves names to HA user IDs, and keeps only the
-  resolved IDs in the in-memory policy used by signed Assist actor
-  checks and per-user agent routing.
-- Unknown usernames log a warning and are ignored for that run, so a
-  typo fails closed to the lower `admin` or `user` role without
-  blocking add-on startup; unresolved route mappings fall back to the
-  default agent route.
-- Out of scope: native HA Configuration-tab user dropdowns. The add-on
-  schema has no dynamic user selector; an ingress management UI remains
-  possible as a separate future feature if needed.
 
 ### 2. Real per-tool progress events
 - Status: CLOSED 2026-06-20 (verified end-to-end on b6)
@@ -261,9 +186,84 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: CLOSED 2026-06-20 (keep as-is)
 - After PR #93 accepted the `openclaw qr` setup-code envelope as a valid `pairing_token` value, the option is the canonical on-boarding path: the user pastes the setup code into the addon Configuration UI on first install, the node normalises it (`app/node/src/openclaw_node/config.py:24-56`), pairs, and the gateway issues a real device token. No alternative bootstrap UI exists, so removing it would block first-install. Keep.
 
+### 17a. Closed GitHub issues formerly listed under item #17
+- Status: CLOSED / moved out of the open issue rollup on 2026-07-02.
+- #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles. Closed 2026-07-02.
+- #78 — Auto-bootstrap API token between node and integration. Closed 2026-07-02 after the b3 bootstrap-claim rotation release.
+- #199 — Assist UX: too many newlines around tool-call markers. Closed 2026-07-02.
+- #200 — Assist UX: tool-call markers never resolve; show result/error and de-dup repeats. Closed 2026-07-02.
+- #201 — Assist correctness: model conflates `mcp__openclaw__*` tools with the HASS node command surface. Closed 2026-07-02.
+- #202 — Assist node-originated session had `nodes.invoke` filtered by design; fix path is the assist-tools plugin. Closed 2026-07-01.
+
 ### 18. SUPERVISOR_TOKEN injection loop (`hass-node-supervisor-token` in open-loops.md)
 - Status: CLOSED 2026-06-20
 - PRs #110 (`hassio_api: true`) and #116/#117 (`with-contenv` shebang) shipped. Streaming-followups handoff confirmed STALE. Live verification: b4 addon log shows `[run.sh] SUPERVISOR_TOKEN injected (len=112)` and the Tier A Supervisor calls now work, which transitively proves the token is being injected. Removed from open-loops.
+
+### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
+- Status: CLOSED — shipped in PR #224.
+- `scripts/generate-release-notes.sh` groups Conventional Commit subjects since
+  the previous tag into Features / Fixes / Refactor / Performance / Docs / Other,
+  skipping `chore(release):` version-bump commits.
+- Workflow (`release-on-version-bump.yml`) now:
+  - Finds the previous tag automatically.
+  - Runs the script to generate grouped notes.
+  - If a hand-written `app/CHANGELOG.md` section exists for the version: uses it
+    as the primary body and appends the auto-derived commit list as a secondary
+    "Commits since X" block.
+  - If no hand-written section exists: uses auto-generated list as the sole body
+    AND commits a new section to `app/CHANGELOG.md` so HA Supervisor Changelog
+    tab always has content. (`app/CHANGELOG.md` is excluded from the trigger
+    `paths:`, so the commit-back does not cause a recursive re-run.)
+- Hand-written `app/CHANGELOG.md` sections are preserved and take precedence;
+  the auto-list augments rather than replaces them. No separate release PR needed.
+
+### 26. Identity user options accept HA usernames
+- Status: CLOSED in PR #177.
+- `identity.super_admins` and `identity.user_agent_map` are configured
+  with HA usernames. On startup, the add-on calls HA WebSocket
+  `config/auth/list`, resolves names to HA user IDs, and keeps only the
+  resolved IDs in the in-memory policy used by signed Assist actor
+  checks and per-user agent routing.
+- Unknown usernames log a warning and are ignored for that run, so a
+  typo fails closed to the lower `admin` or `user` role without
+  blocking add-on startup; unresolved route mappings fall back to the
+  default agent route.
+- Out of scope: native HA Configuration-tab user dropdowns. The add-on
+  schema has no dynamic user selector; an ingress management UI remains
+  possible as a separate future feature if needed.
+
+### 28. Documentation tab intro / glossary (prelude to per-option detail)
+- Status: CLOSED 2026-06-28 — `app/DOCS.md` (shipped in PR #177) covers the substance.
+- Has: orientation paragraph, Quick start, per-option detail with purpose/example/default/security on every option, and a dedicated **Authorization model for the HA control surface** section that documents Tier A / Tier B and the explicit "There is no separate operator admin token for Tier B" line.
+- Residual polish (not a blocker, not opening a separate item preemptively): the three-token model is described inside each token's own option section rather than as one up-front glossary block. If a future operator still trips on the token-vs-token question, lift those three explanations into one prelude block then.
+
+### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
+- Status: CLOSED 2026-06-28 — shipped in PR #179.
+- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS integration. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; integration swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Plain-text `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
+
+### 30. GitHub Releases tab missing entries since b9
+- Status: CLOSED 2026-06-28 — not a real gap.
+- Re-checked 2026-06-28: GitHub Releases tab now shows all 8 releases matching all 8 tags (`v2026.6.20b4` through `v2026.6.20b11`); each Release entry exists with prerelease flag, title, and notes. The earlier observation was a tag-name string-sort artifact and/or browser cache — `b9` rendered later than `b10/b11` in the list view, making it look like the most recent.
+- The b9 prerelease cap from PR #177 will roll the date forward instead of going to `b10+` going forward, which sidesteps the string-sort confusion for future releases.
+- No workflow regression to fix.
+
+### 31. Add-on icon stopped rendering in HA after the doc / schema reshape
+- Status: CLOSED 2026-06-28 — resolved per Rob's observation on the b11 install (likely a Supervisor cache refresh after the b10/b11 manifest re-parse).
+- No repo-side change required. If the icon disappears again after a future schema change, re-open and trace `ha apps | grep -i openclaw` `logo:` against the manifest.
+
+### 33. Quiet `[relay-diag]` INFO noise in addon logs
+- Status: CLOSED 2026-06-28 — moved `[relay-diag]` from INFO to DEBUG in PR #214 (shipped in v2026.7.1b1). TODO.md status lagged; corrected in 2026.7.1b2 release PR.
+- Requested: 2026-06-28 by Rob.
+- Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
+- Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
+
+### 34. Agent skill for HA node command-surface usage
+- Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
+- Requested: 2026-06-28 by Rob.
+- Goal: create/apply a reusable agent skill that teaches the agent, Codex, or subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
+- Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
+- Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
+- Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
 
 ---
 
