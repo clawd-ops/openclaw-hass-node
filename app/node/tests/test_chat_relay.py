@@ -806,22 +806,22 @@ async def test_stream_turn_emits_keepalive_during_silent_gap(
 
     await asyncio.gather(_consume(), _drive())
 
-    progress_idxs = [i for i, c in enumerate(chunks) if c == "Working on it...\n\n"]
+    progress_idxs = [i for i, c in enumerate(chunks) if c == "Working on it..."]
     keepalive_idxs = [i for i, c in enumerate(chunks) if isinstance(c, StreamKeepalive)]
-    real_idxs = [i for i, c in enumerate(chunks) if c == "Real reply"]
+    real_idxs = [i for i, c in enumerate(chunks) if c == "\nReal reply"]
     assert progress_idxs == [0], (
         f"expected one visible progress delta during silent gap, got: {chunks!r}"
     )
     assert keepalive_idxs, (
         f"expected at least one StreamKeepalive sentinel during silent gap, got: {chunks!r}"
     )
-    assert real_idxs == [chunks.index("Real reply")], f"real reply lost: {chunks!r}"
+    assert real_idxs == [chunks.index("\nReal reply")], f"real reply lost: {chunks!r}"
     # Progress + keepalive(s) precede the real reply.
     assert progress_idxs[0] < keepalive_idxs[0] < real_idxs[0]
     # The only visible status text is the single initial progress delta;
     # repeated keepalives stay transport-only.
     str_chunks = [c for c in chunks if isinstance(c, str)]
-    assert str_chunks == ["Working on it...\n\n", "Real reply"], chunks
+    assert str_chunks == ["Working on it...", "\nReal reply"], chunks
 
 
 @pytest.mark.asyncio
@@ -978,13 +978,13 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
 
     await asyncio.gather(_consume(), _drive())
 
-    assert "\n🔧 Calling weather..." in chunks, (
+    assert "🔧 Calling weather..." in chunks, (
         f"expected immediate tool-progress delta, got: {chunks!r}"
     )
-    assert "Working on it...\n\n" not in chunks, (
+    assert "Working on it..." not in chunks, (
         f"generic placeholder should be suppressed when tool name available: {chunks!r}"
     )
-    assert "Sunny" in chunks, f"real reply lost: {chunks!r}"
+    assert "\nSunny" in chunks, f"real reply lost: {chunks!r}"
 
 
 @pytest.mark.asyncio
@@ -2492,7 +2492,7 @@ async def test_stream_turn_no_tool_progress_frames_without_cap(
         f"ToolProgressFrame leaked without cap: {chunks!r}"
     )
     # Must have the immediate tool-named delta (emitted on start, not keepalive)
-    assert any(c == "\n🔧 Calling Bash..." for c in chunks), (
+    assert any(c == "🔧 Calling Bash..." for c in chunks), (
         f"expected immediate textual delta: {chunks!r}"
     )
 
@@ -2562,13 +2562,13 @@ async def test_stream_turn_no_cap_sequential_tools_each_emit_delta(
     assert not any(isinstance(c, ToolProgressFrame) for c in chunks), (
         f"ToolProgressFrame leaked without cap: {chunks!r}"
     )
-    assert "\n🔧 Calling Bash..." in text_chunks, f"Bash delta missing: {text_chunks!r}"
+    assert "🔧 Calling Bash..." in text_chunks, f"Bash delta missing: {text_chunks!r}"
     assert "\n🔧 Calling Python..." in text_chunks, (
         f"Python delta missing (second tool invisible — b2 regression): {text_chunks!r}"
     )
     assert "\n🔧 Calling weather..." in text_chunks, f"weather delta missing: {text_chunks!r}"
     # Verify order: Bash before Python before weather
-    bash_idx = text_chunks.index("\n🔧 Calling Bash...")
+    bash_idx = text_chunks.index("🔧 Calling Bash...")
     python_idx = text_chunks.index("\n🔧 Calling Python...")
     weather_idx = text_chunks.index("\n🔧 Calling weather...")
     assert bash_idx < python_idx < weather_idx, f"tool deltas out of order: {text_chunks!r}"
@@ -2633,7 +2633,7 @@ async def test_stream_turn_hidden_item_tool_starts_emit_delta(
     await asyncio.gather(_consume(), _drive())
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
-    assert "\n🔧 Calling ha.list_areas..." in text_chunks, text_chunks
+    assert "🔧 Calling ha.list_areas..." in text_chunks, text_chunks
     assert "\n🔧 Calling ha.get_state..." in text_chunks, text_chunks
 
 
@@ -2720,7 +2720,7 @@ async def test_stream_turn_tool_progress_frames_with_cap(
     assert not any(isinstance(c, str) and "🔧 Calling weather..." in c for c in chunks), (
         f"textual delta leaked with cap active: {chunks!r}"
     )
-    assert "Working on it...\n\n" not in chunks, f"generic placeholder leaked with cap: {chunks!r}"
+    assert "Working on it..." not in chunks, f"generic placeholder leaked with cap: {chunks!r}"
     assert "Sunny" in chunks
 
 
@@ -3023,17 +3023,18 @@ async def test_stream_turn_text_tool_end_emits_checkmark(
     await asyncio.gather(_consume(), _drive())
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
-    assert "\n🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
-    assert " ✓\n" in text_chunks, (
+    assert "🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
+    assert " ✓" in text_chunks, (
         f"end checkmark missing — tool marker was never resolved (#200): {text_chunks!r}"
     )
     # Checkmark must follow the start marker.
-    start_idx = text_chunks.index("\n🔧 Calling dir_list...")
-    check_idx = text_chunks.index(" ✓\n")
+    start_idx = text_chunks.index("🔧 Calling dir_list...")
+    check_idx = text_chunks.index(" ✓")
     assert start_idx < check_idx, f"checkmark appeared before start: {text_chunks!r}"
-    # Joined: trailing \n on checkmark prevents the next delta from glueing.
     joined = "".join(text_chunks)
-    assert " ✓\n" in joined, f"checkmark must be newline-terminated: {joined!r}"
+    assert "🔧 Calling dir_list... ✓\ndone" in joined, (
+        f"checkmark/status block must be separated from final text: {joined!r}"
+    )
 
 
 @pytest.mark.asyncio
@@ -3094,7 +3095,7 @@ async def test_stream_turn_text_dedup_repeat_tool_calls(
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
     # Exactly one fresh line for dir_list (de-dup collapses repeats inline)
-    fresh_lines = [c for c in text_chunks if c == "\n🔧 Calling dir_list..."]
+    fresh_lines = [c for c in text_chunks if c == "🔧 Calling dir_list..."]
     assert len(fresh_lines) == 1, (
         f"de-dup failed: expected 1 fresh line, got {len(fresh_lines)}: {text_chunks!r}"
     )
@@ -3102,11 +3103,12 @@ async def test_stream_turn_text_dedup_repeat_tool_calls(
     assert " (x2)..." in text_chunks, f"(x2) count missing: {text_chunks!r}"
     assert " (x3)..." in text_chunks, f"(x3) count missing: {text_chunks!r}"
     assert " (x4)..." in text_chunks, f"(x4) count missing: {text_chunks!r}"
-    # Each call resolves with a newline-terminated checkmark.
-    checkmarks = [c for c in text_chunks if c == " ✓\n"]
+    # Each call resolves with a checkmark.
+    checkmarks = [c for c in text_chunks if c == " ✓"]
     assert len(checkmarks) == 4, f"expected 4 checkmarks (one per call): {text_chunks!r}"
     joined = "".join(text_chunks)
-    assert joined.count(" ✓\n") == 4, f"expected 4 newline-terminated checkmarks: {joined!r}"
+    assert joined.count(" ✓") == 4, f"expected 4 checkmarks: {joined!r}"
+    assert "\n\n" not in joined, f"status block should not contain blank-line gaps: {joined!r}"
 
 
 @pytest.mark.asyncio
@@ -3175,18 +3177,19 @@ async def test_stream_turn_text_different_tools_reset_dedup(
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
     # First dir_list: fresh line
-    assert "\n🔧 Calling dir_list..." in text_chunks, text_chunks
+    assert "🔧 Calling dir_list..." in text_chunks, text_chunks
     # Second dir_list: inline count (x2)
     assert " (x2)..." in text_chunks, f"(x2) missing: {text_chunks!r}"
     # dir_fetch: fresh line (different tool resets counter)
     assert "\n🔧 Calling dir_fetch..." in text_chunks, (
         f"dir_fetch must get a fresh line after different tool: {text_chunks!r}"
     )
-    # All three calls resolve with newline-terminated checkmarks.
-    checkmarks = [c for c in text_chunks if c == " ✓\n"]
+    # All three calls resolve with checkmarks.
+    checkmarks = [c for c in text_chunks if c == " ✓"]
     assert len(checkmarks) == 3, f"expected 3 checkmarks: {text_chunks!r}"
     joined = "".join(text_chunks)
-    assert joined.count(" ✓\n") == 3, f"expected 3 newline-terminated checkmarks: {joined!r}"
+    assert joined.count(" ✓") == 3, f"expected 3 checkmarks: {joined!r}"
+    assert "\n\n" not in joined, f"status block should not contain blank-line gaps: {joined!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -3274,7 +3277,7 @@ async def test_stream_turn_text_tool_error_emits_cross(
     await asyncio.gather(_consume(), _drive())
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
-    assert "\n🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
+    assert "🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
     # No checkmark on error.
     assert not any(" ✓" in c for c in text_chunks), (
         f"checkmark must not appear on error: {text_chunks!r}"
@@ -3285,8 +3288,7 @@ async def test_stream_turn_text_tool_error_emits_cross(
     assert any("permission denied" in c for c in error_chunks), (
         f"error reason must appear in error chunk: {error_chunks!r}"
     )
-    # Joined output: error marker is newline-terminated.
     joined = "".join(text_chunks)
-    assert " ✗ permission denied\n" in joined, (
-        f"error marker must be newline-terminated: {joined!r}"
+    assert " ✗ permission denied\ndone" in joined, (
+        f"error/status block must be separated from final text: {joined!r}"
     )

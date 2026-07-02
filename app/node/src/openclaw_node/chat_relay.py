@@ -69,7 +69,7 @@ _PENDING_RUN_ID: Final[str] = "__pending_chat_send_ack__"
 # follow-up catch.
 _STREAM_FIRST_KEEPALIVE_S: Final[float] = 8.0
 _STREAM_KEEPALIVE_INTERVAL_S: Final[float] = 15.0
-_STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
+_STREAM_PROGRESS_DELTA: Final[str] = "Working on it..."
 
 # Capability token that the HACS integration sends in the ``client_caps`` body
 # field to opt in to ``tool_progress`` frames instead of the plain-text
@@ -107,6 +107,18 @@ def _build_ha_assist_message(text: str, authz: TurnAuthz | None) -> str:
     """
     body = apply_turn_authz(text, authz) if authz is not None else text
     return f"{_HA_ASSIST_CONTEXT}\n\n{body}"
+
+
+def _is_plain_text_status_chunk(text: str) -> bool:
+    """Return True when *text* is a relay-generated progress/status chunk."""
+    return (
+        text == _STREAM_PROGRESS_DELTA
+        or text.startswith("\n🔧 Calling ")
+        or text.startswith("🔧 Calling ")
+        or text.startswith(" (x")
+        or text == " ✓"
+        or text.startswith(" ✗ ")
+    )
 
 
 class StreamKeepalive:
@@ -277,6 +289,8 @@ class ChatRelay:
         # the second start appends " (xN)..." inline rather than a fresh line.
         self._text_tool_name: dict[str, str] = {}  # canonical keys
         self._text_tool_count: dict[str, int] = {}  # canonical keys
+        self._text_has_visible_output: dict[str, bool] = {}  # canonical keys
+        self._text_status_open: dict[str, bool] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -445,6 +459,8 @@ class ChatRelay:
         self._use_tool_frames[canonical_key] = use_tool_frames
         self._text_tool_name.pop(canonical_key, None)
         self._text_tool_count.pop(canonical_key, None)
+        self._text_has_visible_output[canonical_key] = False
+        self._text_status_open[canonical_key] = False
         self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
@@ -596,6 +612,8 @@ class ChatRelay:
                             prefix = "\n" if has_yielded_user_visible else ""
                             yield f"{prefix}{_STREAM_PROGRESS_DELTA}"
                             has_yielded_user_visible = True
+                            self._text_has_visible_output[canonical_key] = True
+                            self._text_status_open[canonical_key] = True
                     else:
                         # Yield the transport-only sentinel. http_api
                         # converts to a `{"keepalive": true}` NDJSON
@@ -628,6 +646,17 @@ class ChatRelay:
                 last_yield_time = loop.time()
                 sent_keepalive_count = 0
                 has_yielded_user_visible = True
+                is_status_chunk = isinstance(item, str) and _is_plain_text_status_chunk(item)
+                if (
+                    self._text_status_open.get(canonical_key, False)
+                    and isinstance(item, str)
+                    and item
+                    and not is_status_chunk
+                    and not item.startswith("\n")
+                ):
+                    item = f"\n{item}"
+                self._text_has_visible_output[canonical_key] = True
+                self._text_status_open[canonical_key] = is_status_chunk
                 yield item
         finally:
             self._delta_queues.pop(canonical_key, None)
@@ -638,6 +667,8 @@ class ChatRelay:
             self._active_tool_seq.pop(canonical_key, None)
             self._text_tool_name.pop(canonical_key, None)
             self._text_tool_count.pop(canonical_key, None)
+            self._text_has_visible_output.pop(canonical_key, None)
+            self._text_status_open.pop(canonical_key, None)
 
     async def relay_turn(
         self,
@@ -1098,8 +1129,8 @@ class ChatRelay:
                             # Push an immediate textual delta so every tool in
                             # a multi-tool turn gets its own visible line in
                             # HA Assist without waiting for the silence-gate
-                            # keepalive. Leading \n separates from any preamble
-                            # text already on screen. No trailing \n: consecutive
+                            # keepalive. A leading \n is added only after prior
+                            # visible text/status. No trailing \n: consecutive
                             # markers join with a single \n so they render as a
                             # compact list (no blank-line gap between them — #199).
                             #
@@ -1118,7 +1149,16 @@ class ChatRelay:
                                 else:
                                     self._text_tool_name[tool_canonical_key] = tool_name
                                     self._text_tool_count[tool_canonical_key] = 1
-                                    q.put_nowait(f"\n🔧 Calling {tool_name}...")
+                                    prefix = (
+                                        "\n"
+                                        if self._text_has_visible_output.get(
+                                            tool_canonical_key, False
+                                        )
+                                        else ""
+                                    )
+                                    q.put_nowait(f"{prefix}🔧 Calling {tool_name}...")
+                                    self._text_has_visible_output[tool_canonical_key] = True
+                                    self._text_status_open[tool_canonical_key] = True
                     elif phase == "end":
                         if use_frames:
                             # Race fix: gate the clear on id-match (when id is
@@ -1161,12 +1201,17 @@ class ChatRelay:
                                 self._active_tool_id.pop(tool_canonical_key, None)
                                 self._active_tool_seq.pop(tool_canonical_key, None)
                         else:
-                            # Plain-text path: emit " ✓\n" to resolve the last
-                            # marker (#200). Trailing \n prevents the next
-                            # assistant delta from glueing onto the checkmark.
+                            # Plain-text path: emit " ✓" to resolve the last
+                            # marker (#200). The stream loop inserts one
+                            # separator before the next real assistant delta,
+                            # while the next tool marker inserts its own
+                            # leading newline. This avoids " ✓\n" + "\n🔧"
+                            # rendering as a blank line in HA Assist.
                             q = self._delta_queues.get(tool_canonical_key)
                             if q is not None:
-                                q.put_nowait(" ✓\n")
+                                q.put_nowait(" ✓")
+                                self._text_has_visible_output[tool_canonical_key] = True
+                                self._text_status_open[tool_canonical_key] = True
                             self._active_tool.pop(tool_canonical_key, None)
                     elif phase == "error":
                         # Plain-text path: tool failed — emit " ✗ <reason>\n" so
@@ -1176,7 +1221,9 @@ class ChatRelay:
                             q = self._delta_queues.get(tool_canonical_key)
                             if q is not None:
                                 error_text = str(data.get("error") or "failed")
-                                q.put_nowait(f" ✗ {error_text}\n")
+                                q.put_nowait(f" ✗ {error_text}")
+                                self._text_has_visible_output[tool_canonical_key] = True
+                                self._text_status_open[tool_canonical_key] = True
                             self._active_tool.pop(tool_canonical_key, None)
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
@@ -1421,6 +1468,8 @@ class ChatRelay:
         self._use_tool_frames.clear()
         self._text_tool_name.clear()
         self._text_tool_count.clear()
+        self._text_has_visible_output.clear()
+        self._text_status_open.clear()
         self._turn_locks.clear()
 
 
