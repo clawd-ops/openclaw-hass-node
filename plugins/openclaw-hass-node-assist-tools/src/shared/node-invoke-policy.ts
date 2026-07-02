@@ -375,6 +375,8 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.addon_restart":
         case "ha.addon_update":
           return await enforceAdminOp(ctx, params, true);
+        case "ha.update_install":
+          return await enforceAdminOp(ctx, params, false);
         default:
           return deny(
             "COMMAND_NOT_ALLOWED",

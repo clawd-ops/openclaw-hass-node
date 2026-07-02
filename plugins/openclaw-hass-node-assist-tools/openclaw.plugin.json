@@ -36,7 +36,8 @@
       "ha_addon_start",
       "ha_addon_stop",
       "ha_addon_restart",
-      "ha_addon_update"
+      "ha_addon_update",
+      "ha_update_install"
     ]
   },
   "configSchema": {

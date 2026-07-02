@@ -156,3 +156,69 @@ describe("addon lifecycle (start/stop/restart/update)", () => {
     });
   }
 });
+
+describe("ha_update_install", () => {
+  it("forwards entity_id + admin_token to ha.update_install", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: OK_POLICY,
+    });
+    invokeMock.mockResolvedValue({ ok: true, entity_id: "update.hacs", changed_states: [] });
+    const tool = await load("createHaUpdateInstallTool");
+    const r = await tool.execute(
+      "c",
+      { node: "hass", entity_id: "update.hacs" },
+      new AbortController().signal,
+      () => undefined,
+    );
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
+      command: "ha.update_install",
+      commandParams: { entity_id: "update.hacs", admin_token: "T0P-S3CR3T" },
+    });
+    expect(r.isError).toBeUndefined();
+  });
+
+  it("forwards optional backup + version params", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: OK_POLICY,
+    });
+    invokeMock.mockResolvedValue({ ok: true, entity_id: "update.home_assistant_core_update", changed_states: [] });
+    const tool = await load("createHaUpdateInstallTool");
+    await tool.execute(
+      "c",
+      { node: "hass", entity_id: "update.home_assistant_core_update", backup: true, version: "2026.7.0" },
+      new AbortController().signal,
+      () => undefined,
+    );
+    expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
+      command: "ha.update_install",
+      commandParams: {
+        entity_id: "update.home_assistant_core_update",
+        backup: true,
+        version: "2026.7.0",
+        admin_token: "T0P-S3CR3T",
+      },
+    });
+  });
+
+  it("refuses when allowAdminOps is false", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: { allowAdminOps: false, adminToken: "T0P-S3CR3T" },
+    });
+    const tool = await load("createHaUpdateInstallTool");
+    const r = await tool.execute(
+      "c",
+      { node: "hass", entity_id: "update.hacs" },
+      new AbortController().signal,
+      () => undefined,
+    );
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(r.isError).toBe(true);
+  });
+});
