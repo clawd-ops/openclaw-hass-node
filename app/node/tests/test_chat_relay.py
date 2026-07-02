@@ -879,7 +879,7 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
 
     await asyncio.gather(_consume(), _drive())
 
-    assert "\n🔧 Calling weather...\n" in chunks, (
+    assert "\n🔧 Calling weather..." in chunks, (
         f"expected immediate tool-progress delta, got: {chunks!r}"
     )
     assert "Working on it...\n\n" not in chunks, (
@@ -974,12 +974,12 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
     # The preamble delta and the tool-progress chunk should BOTH be in
     # the stream, and the progress chunk must carry the leading newline.
     assert "Sure, running a few." in chunks, f"preamble lost: {chunks!r}"
-    assert "\n🔧 Calling Bash...\n" in chunks, (
+    assert "\n🔧 Calling Bash..." in chunks, (
         f"expected leading-newline-prefixed tool progress, got: {chunks!r}"
     )
-    # Chunk must always carry the leading \n (emitted immediately in handle_event).
-    assert "🔧 Calling Bash...\n\n" not in chunks, (
-        f"unexpected format (old keepalive format leaked through): {chunks!r}"
+    # Chunk must carry the leading \n but no trailing \n (compact format — #199).
+    assert "🔧 Calling Bash...\n" not in chunks, (
+        f"unexpected trailing newline in tool marker (causes blank-line gaps): {chunks!r}"
     )
 
 
@@ -2393,7 +2393,7 @@ async def test_stream_turn_no_tool_progress_frames_without_cap(
         f"ToolProgressFrame leaked without cap: {chunks!r}"
     )
     # Must have the immediate tool-named delta (emitted on start, not keepalive)
-    assert any(c == "\n🔧 Calling Bash...\n" for c in chunks), (
+    assert any(c == "\n🔧 Calling Bash..." for c in chunks), (
         f"expected immediate textual delta: {chunks!r}"
     )
 
@@ -2463,16 +2463,20 @@ async def test_stream_turn_no_cap_sequential_tools_each_emit_delta(
     assert not any(isinstance(c, ToolProgressFrame) for c in chunks), (
         f"ToolProgressFrame leaked without cap: {chunks!r}"
     )
-    assert "\n🔧 Calling Bash...\n" in text_chunks, f"Bash delta missing: {text_chunks!r}"
-    assert "\n🔧 Calling Python...\n" in text_chunks, (
+    assert "\n🔧 Calling Bash..." in text_chunks, f"Bash delta missing: {text_chunks!r}"
+    assert "\n🔧 Calling Python..." in text_chunks, (
         f"Python delta missing (second tool invisible — b2 regression): {text_chunks!r}"
     )
-    assert "\n🔧 Calling weather...\n" in text_chunks, f"weather delta missing: {text_chunks!r}"
+    assert "\n🔧 Calling weather..." in text_chunks, f"weather delta missing: {text_chunks!r}"
     # Verify order: Bash before Python before weather
-    bash_idx = text_chunks.index("\n🔧 Calling Bash...\n")
-    python_idx = text_chunks.index("\n🔧 Calling Python...\n")
-    weather_idx = text_chunks.index("\n🔧 Calling weather...\n")
+    bash_idx = text_chunks.index("\n🔧 Calling Bash...")
+    python_idx = text_chunks.index("\n🔧 Calling Python...")
+    weather_idx = text_chunks.index("\n🔧 Calling weather...")
     assert bash_idx < python_idx < weather_idx, f"tool deltas out of order: {text_chunks!r}"
+    # Verify no trailing newlines on any marker (compact format — #199).
+    assert not any("\n🔧 Calling" in c and c.endswith("\n") for c in text_chunks), (
+        f"tool markers must not carry trailing \\n: {text_chunks!r}"
+    )
 
 
 @pytest.mark.asyncio
@@ -2530,8 +2534,8 @@ async def test_stream_turn_hidden_item_tool_starts_emit_delta(
     await asyncio.gather(_consume(), _drive())
 
     text_chunks = [c for c in chunks if isinstance(c, str)]
-    assert "\n🔧 Calling ha.list_areas...\n" in text_chunks, text_chunks
-    assert "\n🔧 Calling ha.get_state...\n" in text_chunks, text_chunks
+    assert "\n🔧 Calling ha.list_areas..." in text_chunks, text_chunks
+    assert "\n🔧 Calling ha.get_state..." in text_chunks, text_chunks
 
 
 @pytest.mark.asyncio
@@ -2614,7 +2618,7 @@ async def test_stream_turn_tool_progress_frames_with_cap(
     assert ends[0].name == "weather"
     assert ends[0].seq == 1
     # Textual progress must be suppressed
-    assert "🔧 Calling weather...\n\n" not in chunks, (
+    assert not any(isinstance(c, str) and "🔧 Calling weather..." in c for c in chunks), (
         f"textual delta leaked with cap active: {chunks!r}"
     )
     assert "Working on it...\n\n" not in chunks, f"generic placeholder leaked with cap: {chunks!r}"

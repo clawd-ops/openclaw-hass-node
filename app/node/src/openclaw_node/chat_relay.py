@@ -1063,10 +1063,12 @@ class ChatRelay:
                             # a multi-tool turn gets its own visible line in
                             # HA Assist without waiting for the silence-gate
                             # keepalive. Leading \n separates from any preamble
-                            # text already on screen.
+                            # text already on screen. No trailing \n: consecutive
+                            # markers join with a single \n so they render as a
+                            # compact list (no blank-line gap between them — #199).
                             q = self._delta_queues.get(tool_canonical_key)
                             if q is not None:
-                                q.put_nowait(f"\n🔧 Calling {tool_name}...\n")
+                                q.put_nowait(f"\n🔧 Calling {tool_name}...")
                     elif phase == "end":
                         if use_frames:
                             # Race fix: gate the clear on id-match (when id is
