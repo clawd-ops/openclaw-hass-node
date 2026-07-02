@@ -270,6 +270,13 @@ class ChatRelay:
         # decide whether to push ToolProgressFrame items onto the queue
         # (cap on) or update _active_tool only (cap off, legacy path).
         self._use_tool_frames: dict[str, bool] = {}  # canonical keys
+        # De-dup tracking for the legacy (no-cap) tool-progress path.
+        # _legacy_tool_name: last tool name emitted as a marker this turn.
+        # _legacy_tool_count: consecutive repeat count for that tool name.
+        # When the same tool fires again without a different tool in between,
+        # the second start appends " (xN)..." inline rather than a fresh line.
+        self._legacy_tool_name: dict[str, str] = {}  # canonical keys
+        self._legacy_tool_count: dict[str, int] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -436,6 +443,8 @@ class ChatRelay:
         self._active_tool_id.pop(canonical_key, None)
         self._active_tool_seq.pop(canonical_key, None)
         self._use_tool_frames[canonical_key] = use_tool_frames
+        self._legacy_tool_name.pop(canonical_key, None)
+        self._legacy_tool_count.pop(canonical_key, None)
         self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
@@ -627,6 +636,8 @@ class ChatRelay:
             self._tool_progress_seq.pop(canonical_key, None)
             self._active_tool_id.pop(canonical_key, None)
             self._active_tool_seq.pop(canonical_key, None)
+            self._legacy_tool_name.pop(canonical_key, None)
+            self._legacy_tool_count.pop(canonical_key, None)
 
     async def relay_turn(
         self,
@@ -1091,9 +1102,23 @@ class ChatRelay:
                             # text already on screen. No trailing \n: consecutive
                             # markers join with a single \n so they render as a
                             # compact list (no blank-line gap between them — #199).
+                            #
+                            # De-dup (#200): when the same tool fires again
+                            # consecutively (e.g. 4x dir_list in a row),
+                            # append " (xN)..." inline instead of emitting a
+                            # fresh line — the user sees one marker that grows
+                            # with a count rather than N identical stacked lines.
                             q = self._delta_queues.get(tool_canonical_key)
                             if q is not None:
-                                q.put_nowait(f"\n🔧 Calling {tool_name}...")
+                                last = self._legacy_tool_name.get(tool_canonical_key, "")
+                                if last == tool_name:
+                                    count = self._legacy_tool_count.get(tool_canonical_key, 1) + 1
+                                    self._legacy_tool_count[tool_canonical_key] = count
+                                    q.put_nowait(f" (x{count})...")
+                                else:
+                                    self._legacy_tool_name[tool_canonical_key] = tool_name
+                                    self._legacy_tool_count[tool_canonical_key] = 1
+                                    q.put_nowait(f"\n🔧 Calling {tool_name}...")
                     elif phase == "end":
                         if use_frames:
                             # Race fix: gate the clear on id-match (when id is
@@ -1136,6 +1161,12 @@ class ChatRelay:
                                 self._active_tool_id.pop(tool_canonical_key, None)
                                 self._active_tool_seq.pop(tool_canonical_key, None)
                         else:
+                            # Legacy path: emit " ✓" to resolve the last marker
+                            # (#200 — markers were left spinning because no
+                            # completion delta was ever pushed on tool end).
+                            q = self._delta_queues.get(tool_canonical_key)
+                            if q is not None:
+                                q.put_nowait(" ✓")
                             self._active_tool.pop(tool_canonical_key, None)
             return
         # Issue #118 diagnostics: log every event the relay sees, with the
@@ -1378,6 +1409,8 @@ class ChatRelay:
         self._active_tool_id.clear()
         self._active_tool_seq.clear()
         self._use_tool_frames.clear()
+        self._legacy_tool_name.clear()
+        self._legacy_tool_count.clear()
         self._turn_locks.clear()
 
 
