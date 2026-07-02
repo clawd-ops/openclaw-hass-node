@@ -86,6 +86,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Replaces hand-edited YAML for the shapes HA's option-schema validators cannot express (no native dynamic enums for users or addon slugs).
 - Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
 - Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
+- Cross-link: shares the ingress surface with #38 (durable Assist transcript / resume UI) — prefer one coherent OpenClaw panel with tabs rather than separate single-purpose web apps.
 
 ### 32. Config option to show/hide tool usage in HA Assist
 - Status: OPEN
@@ -122,6 +123,18 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Workaround in use (see `docs/operations/LESSONS.md` — "Plugin packaging gap"): copy the plugin to a stable path outside the pnpm workspace, run `npm install` there for self-contained (non-symlinked) deps, then `openclaw plugins install --link <stable-path>`.
 - Required fix: add a `build` script to the plugin's `package.json` (`tsc --outDir dist`) and run it in CI / the release workflow so the plugin ships with a compiled `dist/`. Longer term, publish to npm or GHCR so `openclaw plugins install <package-name>` works without a local clone at all.
 - Acceptance: `openclaw plugins install --link plugins/openclaw-hass-node-assist-tools` from a fresh pnpm-installed repo clone succeeds (requires `dist/` present AND no symlinks escaping the plugin root), confirmed by `openclaw plugins inspect openclaw-hass-node-assist-tools --runtime` exiting 0.
+
+### 38. Durable Assist transcript / resume UI
+- Status: OPEN (design) — captured 2026-07-02 from HA Assist UX feedback.
+- Problem: long OpenClaw Assist outputs are fragile in the stock HA Assist popup. Rob reports that trying to scroll to the top of a long output can close the chat, and reopening through HA starts a fresh visible chat with no prior UI context.
+- Direction: use the already-planned add-on ingress GUI surface instead of relying on HA Assist as the only transcript surface. HA Assist remains the quick command/voice entry point; the OpenClaw panel becomes the durable place to read, scroll, resume, and inspect long turns.
+- Scope:
+  1. Persist recent Assist turn metadata and transcript chunks by HA `conversation_id` / gateway session key, with bounded retention and no secrets in logs.
+  2. Add read endpoints for recent conversations, individual transcript history, and the active/resumable session id.
+  3. Add an ingress panel tab that renders the transcript with stable scrolling, tool-progress grouping, copy/download affordances, and a "resume last Assist chat" action.
+  4. Keep Assist output concise for long/tool-heavy turns and link/point the operator to the durable panel for full details.
+- Cross-link: shares the ingress GUI shell with #27 (configuration UI) and #20 (proposal review pane); prefer one OpenClaw panel with tabs over multiple independent add-on web apps.
+- Acceptance: after a long HA Assist turn, closing/reopening HA Assist or the OpenClaw ingress panel does not lose the readable transcript, and a follow-up can resume the intended OpenClaw session instead of silently starting from scratch.
 
 ---
 
