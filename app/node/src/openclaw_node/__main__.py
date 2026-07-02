@@ -32,12 +32,16 @@ logging.basicConfig(
 _LOG = logging.getLogger(__name__)
 
 
+_RESET_CONSUMED_FILENAME = "reset-consumed"
+
+
 def _reset_pairing_state(config: NodeConfig) -> None:
     """Delete persisted pairing artifacts based on ``config.reset_pairing``.
 
     Modes:
 
-    - ``"none"``: no-op (caller normally short-circuits).
+    - ``"none"``: no-op. Clears any existing one-shot consumed marker so that
+      a subsequent toggle back to an active mode triggers a fresh wipe.
     - ``"token"``: wipe ``device-token`` only. Identity (``node-key.json``)
       stays so the SAME device record can re-pair with a freshly issued
       bootstrap. This is the safe default — a brand-new identity invalidates
@@ -51,26 +55,58 @@ def _reset_pairing_state(config: NodeConfig) -> None:
     Each target is constrained to ``data_dir``: a symlink at the target, or
     a resolved location outside ``data_dir``, is refused and logged rather
     than followed. Per-file failures are logged and swallowed.
+
+    One-shot behaviour: after the wipe runs, a marker file
+    ``<data_dir>/reset-consumed`` is written containing the mode string.
+    On the next start with the same mode value the wipe is skipped and a
+    warning is logged instead. The marker is cleared when ``reset_pairing``
+    is set back to ``"none"``, so toggling the option off then back on
+    requests a fresh wipe.
     """
     mode = config.reset_pairing
+    consumed_path = config.data_dir / _RESET_CONSUMED_FILENAME
+
     if mode == "none":
+        # Clear the consumed marker so a subsequent toggle-on fires a fresh wipe.
+        try:
+            if consumed_path.exists() and not consumed_path.is_symlink():
+                consumed_path.unlink()
+        except OSError as exc:
+            _LOG.warning("reset_pairing: failed to clear consumed marker: %s", exc)
         return
+
+    if mode not in ("token", "identity"):
+        _LOG.warning("reset_pairing: unknown mode %r; skipping wipe", mode)
+        return
+
+    # One-shot guard: skip if this exact mode was already consumed on a prior start.
+    try:
+        if consumed_path.exists() and consumed_path.read_text().strip() == mode:
+            _LOG.warning(
+                "reset_pairing=%r already consumed for this value; set it back to"
+                " 'none' then to the desired mode again to request another wipe.",
+                mode,
+            )
+            return
+    except OSError as exc:
+        _LOG.warning(
+            "reset_pairing: cannot read consumed marker (%s); proceeding with wipe",
+            exc,
+        )
+
     if mode == "token":
         targets: tuple[Path, ...] = (
             config.device_token_path,
             config.device_token_path_for("node"),
             config.device_token_path_for("operator"),
         )
-    elif mode == "identity":
+    else:
         targets = (
             config.device_token_path,
             config.device_token_path_for("node"),
             config.device_token_path_for("operator"),
             config.key_path,
         )
-    else:
-        _LOG.warning("reset_pairing: unknown mode %r; skipping wipe", mode)
-        return
     try:
         data_dir = config.data_dir.resolve(strict=False)
     except OSError as exc:
@@ -80,6 +116,7 @@ def _reset_pairing_state(config: NodeConfig) -> None:
             exc,
         )
         return
+    wipe_ok = True
     for path in targets:
         if not _safe_to_unlink_under(path, data_dir):
             continue
@@ -89,6 +126,22 @@ def _reset_pairing_state(config: NodeConfig) -> None:
                 _LOG.warning("reset_pairing[%s]: removed %s", mode, path)
         except OSError as exc:
             _LOG.warning("reset_pairing[%s]: failed to remove %s: %s", mode, path, exc)
+            wipe_ok = False
+
+    if not wipe_ok:
+        _LOG.warning(
+            "reset_pairing[%s]: one or more files could not be removed; consumed"
+            " marker NOT written — wipe will retry on next start.",
+            mode,
+        )
+        return
+
+    # Write consumed marker so subsequent starts skip the wipe.
+    try:
+        consumed_path.write_text(f"{mode}\n")
+    except OSError as exc:
+        _LOG.warning("reset_pairing: failed to write consumed marker: %s", exc)
+
     if mode == "identity":
         _LOG.warning(
             "reset_pairing=identity wiped the device identity. The previously "
@@ -97,9 +150,8 @@ def _reset_pairing_state(config: NodeConfig) -> None:
             "before the next restart."
         )
     _LOG.warning(
-        "reset_pairing was %r on startup. Set it back to false in add-on "
-        "options after the node re-pairs successfully — otherwise every "
-        "restart will wipe pairing again.",
+        "reset_pairing=%r consumed. The add-on can be left at this setting; the"
+        " wipe will not repeat unless you toggle the option to 'none' and back.",
         mode,
     )
 
@@ -409,8 +461,7 @@ async def _main() -> None:
     )
     _LOG.info("Gateway URL: %s", config.gateway_url)
     _LOG.info("Data dir: %s", config.data_dir)
-    if config.reset_pairing != "none":
-        _reset_pairing_state(config)
+    _reset_pairing_state(config)
     _migrate_legacy_device_token(config)
     bootstrap_token = ""
     if not config.local_api_token:
