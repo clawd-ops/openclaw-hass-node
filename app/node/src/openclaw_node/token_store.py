@@ -107,3 +107,21 @@ def load_or_generate_local_api_token(data_dir: Path) -> tuple[str, bool]:
         path,
     )
     return token, True
+
+
+def rotate_local_api_token(data_dir: Path) -> str:
+    """Replace the persisted auto-generated local API token.
+
+    Args:
+        data_dir: Node data directory (``NodeConfig.data_dir``).
+
+    Returns:
+        Fresh token persisted to ``<data_dir>/local-api-token``.
+
+    Raises:
+        OSError: If the token file cannot be written.
+    """
+    token = generate_local_api_token()
+    _write_token(token_path(data_dir), token)
+    _LOG.info("Rotated auto-bootstrap local-api-token")
+    return token

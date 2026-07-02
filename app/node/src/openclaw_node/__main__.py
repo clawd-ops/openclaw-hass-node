@@ -18,7 +18,12 @@ from typing import Any
 from openclaw_node.config import NodeConfig, load_config
 from openclaw_node.gateway_ws import _OPERATOR_SCOPES, GatewayClient
 from openclaw_node.ha_client import HAClientError, ha_ws_call
-from openclaw_node.http_api import NodeRuntime, _bootstrap_consumed_path, run_http_api
+from openclaw_node.http_api import (
+    NodeRuntime,
+    _bootstrap_claimed_path,
+    _bootstrap_consumed_path,
+    run_http_api,
+)
 from openclaw_node.identity import DeviceIdentity, load_or_generate
 from openclaw_node.pairing import PairingState
 from openclaw_node.token_store import load_or_generate_local_api_token
@@ -184,7 +189,7 @@ def _safe_to_unlink_under(path: Path, data_dir: Path) -> bool:
 
 
 def _reset_bootstrap_state(config: NodeConfig) -> None:
-    """Delete the bootstrap-consumed marker when ``config.reset_bootstrap`` is True.
+    """Delete bootstrap markers when ``config.reset_bootstrap`` is True.
 
     Called on startup before the HTTP API starts.  Deleting the marker lets
     the HACS integration call ``GET /v1/bootstrap`` once more during the
@@ -196,25 +201,30 @@ def _reset_bootstrap_state(config: NodeConfig) -> None:
     """
     if not config.reset_bootstrap:
         return
-    consumed_path = _bootstrap_consumed_path(config)
-    if not consumed_path.exists():
-        _LOG.info("reset_bootstrap: no consumed marker found; nothing to clear")
-        return
-    if consumed_path.is_symlink():
-        _LOG.warning("reset_bootstrap: %s is a symlink; refusing to remove", consumed_path)
-        return
-    try:
-        consumed_path.unlink()
+    cleared = False
+    for marker_path in (
+        _bootstrap_consumed_path(config),
+        _bootstrap_claimed_path(config),
+    ):
+        if not marker_path.exists() and not marker_path.is_symlink():
+            continue
+        if marker_path.is_symlink():
+            _LOG.warning("reset_bootstrap: %s is a symlink; refusing to remove", marker_path)
+            continue
+        try:
+            marker_path.unlink()
+            cleared = True
+            _LOG.info("reset_bootstrap: cleared marker at %s", marker_path)
+        except OSError as exc:
+            _LOG.warning("reset_bootstrap: could not remove %s: %s", marker_path, exc)
+    if cleared:
         _LOG.warning(
-            "reset_bootstrap: cleared bootstrap-consumed marker at %s. "
-            "The HACS integration can fetch the token once more within "
-            "the next %d-second window. Set reset_bootstrap=false in "
-            "add-on options after the integration re-fetches.",
-            consumed_path,
-            300,  # keep in sync with BOOTSTRAP_WINDOW_SECONDS
+            "reset_bootstrap: the HACS integration can fetch the token once more "
+            "within the next 300-second window. Set reset_bootstrap=false in "
+            "add-on options after the integration re-fetches."
         )
-    except OSError as exc:
-        _LOG.warning("reset_bootstrap: could not remove %s: %s", consumed_path, exc)
+    else:
+        _LOG.info("reset_bootstrap: no bootstrap markers found; nothing to clear")
 
 
 def _migrate_legacy_device_token(config: NodeConfig) -> None:

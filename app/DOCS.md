@@ -101,19 +101,20 @@ control surface. The manifest field reference is at
 
 - **Purpose**: Re-enable the one-shot bootstrap endpoint after it has
   been consumed. When `true` on the next app startup, the
-  `bootstrap-consumed` marker is removed from `data_dir`, re-opening
-  a fresh 5-minute bootstrap window. Use this if you need to
+  `bootstrap-consumed` and `bootstrap-claimed` markers are removed from
+  `data_dir`, re-opening a fresh 5-minute bootstrap window. Use this if you need to
   reinstall or reconfigure the HACS integration and the bootstrap
   endpoint is reporting `BOOTSTRAP_CONSUMED`.
 - **Type**: `bool?`.
 - **Example**: `true` (re-opens the window once on next restart).
 - **Default**: `false`.
 - **Security**: After the HACS integration fetches the token, set this
-  back to `false`. If left as `true`, the consumed marker is cleared
+  back to `false`. If left as `true`, the bootstrap markers are cleared
   on every subsequent restart, which re-opens the 5-minute window each
-  time — anyone inside the Supervisor network could fetch the token
-  within those 5 minutes. See `docs/security-notes.md` for the full
-  bootstrap threat model.
+  time. The integration claims a rotated operational token immediately
+  after fetching the bootstrap token, but the short bootstrap window should
+  still only be open intentionally. See `docs/security-notes.md` for the
+  full bootstrap threat model.
 
 ### `identity.super_admins`
 

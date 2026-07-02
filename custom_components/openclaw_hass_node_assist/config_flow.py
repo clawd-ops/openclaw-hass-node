@@ -93,12 +93,74 @@ async def _supervisor_addon_url(hass: Any) -> str | None:
     return None
 
 
-async def _fetch_bootstrap_token(session: aiohttp.ClientSession, url: str) -> str | None:
-    """Attempt to retrieve an auto-generated API token from the node bootstrap endpoint.
+async def _claim_bootstrap_token(
+    session: aiohttp.ClientSession,
+    url: str,
+    claim_endpoint: str,
+    bootstrap_token: str,
+) -> str | None:
+    """Claim and rotate a freshly fetched bootstrap token.
 
-    Returns the token string if the node reports one, or None if bootstrap is
-    disabled (operator set the token explicitly) or the request fails for any
-    reason. Failures are non-fatal — the config flow falls back to manual entry.
+    Args:
+        session: Shared HA aiohttp client session.
+        url: Base node local API URL.
+        claim_endpoint: Claim endpoint advertised by the node.
+        bootstrap_token: Token returned by ``GET /v1/bootstrap``.
+
+    Returns:
+        Rotated operational token when the node supports bootstrap claiming;
+        ``None`` when claim fails or is unsupported.
+    """
+    for _attempt in range(2):
+        try:
+            async with session.post(
+                url + claim_endpoint,
+                headers={"Authorization": f"Bearer {bootstrap_token}"},
+                timeout=aiohttp.ClientTimeout(total=PROBE_TIMEOUT_S),
+            ) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                if not isinstance(data, dict) or not data.get("ok"):
+                    return None
+                token = data.get("token")
+                return str(token) if isinstance(token, str) and token else None
+        except (aiohttp.ClientError, TimeoutError, OSError) as exc:
+            _LOG.debug("bootstrap token claim at %s failed: %s", url, exc)
+    return None
+
+
+def _claim_endpoint_from_bootstrap_response(data: dict[str, Any]) -> str | None:
+    """Return the node-advertised bootstrap claim endpoint, if present."""
+    endpoint = data.get("claim_endpoint")
+    if not isinstance(endpoint, str) or not endpoint.startswith("/"):
+        return None
+    return endpoint
+
+
+async def _bootstrap_token_from_response(
+    session: aiohttp.ClientSession, url: str, data: dict[str, Any]
+) -> str | None:
+    """Extract a bootstrap token and claim it when the node supports rotation."""
+    token = data.get("token")
+    if not isinstance(token, str) or not token:
+        return None
+    claim_endpoint = _claim_endpoint_from_bootstrap_response(data)
+    if claim_endpoint is None:
+        # Older nodes returned the operational token directly and had no claim
+        # endpoint. Keep that path only for non-advertising nodes.
+        return token
+    return await _claim_bootstrap_token(session, url, claim_endpoint, token)
+
+
+async def _fetch_bootstrap_token(session: aiohttp.ClientSession, url: str) -> str | None:
+    """Attempt to retrieve and claim an auto-generated node API token.
+
+    Returns the rotated operational token when the node supports the claim
+    endpoint. For older nodes that only support ``GET /v1/bootstrap``, returns
+    the fetched bootstrap token for backward compatibility. Returns ``None`` if
+    bootstrap is disabled (operator set the token explicitly) or the request
+    fails. Failures are non-fatal — the config flow falls back to manual entry.
     """
     try:
         async with session.get(
@@ -110,11 +172,10 @@ async def _fetch_bootstrap_token(session: aiohttp.ClientSession, url: str) -> st
             data = await resp.json()
             if not isinstance(data, dict) or not data.get("ok"):
                 return None
-            token = data.get("token")
-            return str(token) if isinstance(token, str) and token else None
     except (aiohttp.ClientError, TimeoutError, OSError) as exc:
         _LOG.debug("bootstrap token fetch from %s failed: %s", url, exc)
         return None
+    return await _bootstrap_token_from_response(session, url, data)
 
 
 async def _probe_default_socket_url(

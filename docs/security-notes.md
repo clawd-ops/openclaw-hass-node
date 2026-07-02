@@ -17,7 +17,7 @@ internet. The realistic threat surface is **other add-ons or integrations runnin
 the same Supervisor network** that could call the endpoint before the HACS integration
 does and obtain the API token.
 
-### Defense Layers (PR #230)
+### Defense Layers
 
 Four layers are applied, with decreasing coupling to the network topology:
 
@@ -50,13 +50,17 @@ reach the endpoint within the first 5 minutes of a restart AND before the HACS
 integration fetches it. The HACS config-flow probe runs immediately when the user
 clicks "Add Integration", so the attacker window is typically measured in seconds.
 
-#### Layer 4 — Token Rotation (follow-up)
+#### Layer 4 — Token Rotation
 
-After handoff, rotating the token (generating a fresh one and invalidating the
-announced token) would ensure a captured bootstrap token is useless post-consumption.
-This requires a coordinated change in both the add-on and the HACS integration
-(a two-step handshake). It is tracked as a separate issue and will be implemented
-in a follow-up PR.
+After `GET /v1/bootstrap` succeeds, the HACS integration immediately calls
+`POST /v1/bootstrap/claim` with `Authorization: Bearer <bootstrap-token>`.
+The claim endpoint writes a fresh `local-api-token`, updates the running API
+auth token, records the claimed state, and returns the rotated token for the
+integration to store. Retries with the original bootstrap bearer are
+idempotent within the same node runtime, so a lost claim response can recover
+the already-rotated token instead of rotating again. The original token
+announced by `GET /v1/bootstrap` stops working as a normal API bearer as soon
+as the claim succeeds.
 
 ### Operator Recovery: Re-Running Bootstrap
 
@@ -67,11 +71,13 @@ reinstalling the integration):
 2. Restart the add-on.
 3. Within 5 minutes, run through the HACS config-flow "Add Integration" step.
 4. Set **`reset_bootstrap: false`** in the add-on options after the integration
-   fetches its token. If left as `true`, the consumed marker is cleared on every
-   subsequent restart, which re-opens the 300-second window each time.
+   fetches and claims its token. If left as `true`, the bootstrap markers are
+   cleared on every subsequent restart, which re-opens the 300-second window
+   each time.
 
-Alternatively, you can delete the `bootstrap-consumed` file from `/data/openclaw/`
-via the HA File editor add-on, then restart the add-on.
+Alternatively, you can delete the `bootstrap-consumed` and `bootstrap-claimed`
+files from `/data/openclaw/` via the HA File editor add-on, then restart the
+add-on.
 
 ### Verifying the Endpoint is Locked Down
 

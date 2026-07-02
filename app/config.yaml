@@ -20,7 +20,7 @@
 # -------------------------------------------------------------------------
 ---
 name: OpenClaw HA Node — App
-version: "2026.7.1b2"
+version: "2026.7.1b3"
 slug: openclaw_hass_node
 description: >
   OpenClaw gateway peripheral for Home Assistant. Connects this HA
@@ -108,10 +108,10 @@ options:
   reset_pairing: false
   # Bootstrap re-enable flag. Toggle to true if you need to re-run the
   # auto-bootstrap flow (e.g. after reinstalling the HACS integration).
-  # On the next startup the bootstrap-consumed marker is cleared and the
-  # 300-second bootstrap window re-opens for one more fetch.
+  # On the next startup the bootstrap-consumed/bootstrap-claimed markers
+  # are cleared and the 300-second bootstrap window re-opens for one more fetch.
   # Set back to false after the integration fetches its token — otherwise
-  # the marker is cleared on every restart.
+  # the markers are cleared on every restart.
   reset_bootstrap: false
   identity:
     # HA usernames allowed to receive the super_admin prompt context.
