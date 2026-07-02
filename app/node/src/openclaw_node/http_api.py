@@ -41,6 +41,7 @@ _UNAUTHED_PATHS: Final[frozenset[str]] = frozenset(
         "/health",
         "/v1/health",
         "/v1/conversation/info",
+        "/v1/bootstrap",
     }
 )
 
@@ -64,20 +65,29 @@ class NodeRuntime:
 
     Args:
         config: Immutable node configuration loaded at process start.
+        bootstrap_token: Auto-generated local API token to expose via
+            ``GET /v1/bootstrap``. Empty string when the operator supplied
+            the token explicitly — the bootstrap endpoint returns disabled
+            in that case so operator-configured tokens are never exposed.
 
     Attributes:
         config: Runtime configuration.
         pairing_state: Current gateway pairing state. The gateway WS client can
             update this later; the HTTP API defaults to UNKNOWN until then.
+        bootstrap_token: Token served by ``/v1/bootstrap``; empty when
+            bootstrap is disabled.
     """
 
-    def __init__(self, config: NodeConfig) -> None:
+    def __init__(self, config: NodeConfig, *, bootstrap_token: str = "") -> None:
         """Initialise the runtime with UNKNOWN pairing state.
 
         Args:
             config: Runtime configuration for this process.
+            bootstrap_token: Auto-generated token to expose on the bootstrap
+                endpoint. Pass empty string (the default) to disable bootstrap.
         """
         self.config = config
+        self.bootstrap_token: str = bootstrap_token
         self.pairing_state: PairingState = PairingState.UNKNOWN
         # Per-role liveness — the node runs two parallel gateway WS
         # connections (P5.13 #84) and either can be up while the other
@@ -185,6 +195,7 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_post("/v1/conversation", assist_turn)
     app.router.add_post("/v1/conversation/stream", assist_turn_stream)
     app.router.add_get("/v1/conversation/info", conversation_info)
+    app.router.add_get("/v1/bootstrap", bootstrap)
     return app
 
 
@@ -671,6 +682,46 @@ async def conversation_info(request: web.Request) -> web.Response:
             "streaming_endpoint": "/v1/conversation/stream",
         },
         status=200,
+        headers=_JSON_HEADERS,
+    )
+
+
+async def bootstrap(request: web.Request) -> web.Response:
+    """Return the auto-generated local API token for zero-config integration setup.
+
+    The HACS integration calls this endpoint during config-flow to retrieve the
+    node's local API token automatically, eliminating the manual copy-paste step.
+
+    The endpoint is in ``_UNAUTHED_PATHS`` (accessible without a bearer token)
+    because the integration needs the token *before* it has one. It is only
+    reachable inside the HA Supervisor add-on network, which is not exposed to
+    the host. The endpoint is disabled when the operator has supplied an explicit
+    token via add-on options — operator-configured tokens are never exposed here.
+
+    Args:
+        request: Incoming aiohttp request.
+
+    Returns:
+        JSON ``{"ok": true, "token": "<token>"}`` when an auto-generated token
+        is available, or ``{"ok": false, "error": "BOOTSTRAP_DISABLED"}`` when
+        the operator has supplied the token explicitly.
+    """
+    runtime = _runtime(request)
+    if not runtime.bootstrap_token:
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_DISABLED",
+                "detail": (
+                    "Bootstrap is only available when local_api_token is not "
+                    "set explicitly. Configure the integration token manually."
+                ),
+            },
+            status=404,
+            headers=_JSON_HEADERS,
+        )
+    return web.json_response(
+        {"ok": True, "token": runtime.bootstrap_token},
         headers=_JSON_HEADERS,
     )
 

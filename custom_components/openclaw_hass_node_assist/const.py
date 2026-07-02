@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 DOMAIN: Final[str] = "openclaw_hass_node_assist"
+BOOTSTRAP_ENDPOINT: Final[str] = "/v1/bootstrap"
 # Hostname Supervisor exposes for the add-on inside the add-on network.
 # The ``a0d7b954-`` prefix is the deterministic-but-install-specific hash
 # Supervisor derives from the repository URL — it's NOT stable across

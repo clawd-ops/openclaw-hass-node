@@ -477,7 +477,7 @@ async def test_main_runs_reset_before_identity_load(
             await asyncio.sleep(0)
 
     def _build(
-        cfg: NodeConfig, _ident: DeviceIdentity
+        cfg: NodeConfig, _ident: DeviceIdentity, **_kwargs: object
     ) -> tuple[NodeRuntime, _StubClient, _StubClient]:
         runtime = NodeRuntime(cfg)
         return runtime, _StubClient(runtime), _StubClient(runtime)
@@ -534,7 +534,7 @@ async def test_main_starts_both_tasks_and_propagates_failure(
     built_runtime: list[NodeRuntime] = []
 
     def _build(
-        cfg: NodeConfig, ident: DeviceIdentity
+        cfg: NodeConfig, ident: DeviceIdentity, **_kwargs: object
     ) -> tuple[NodeRuntime, _StubClient, _StubClient]:
         runtime = NodeRuntime(cfg)
         built_runtime.append(runtime)
