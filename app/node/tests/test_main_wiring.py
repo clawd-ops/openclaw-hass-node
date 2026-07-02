@@ -396,7 +396,10 @@ def test_reset_pairing_state_unknown_mode_is_skipped(config: NodeConfig) -> None
 def test_reset_pairing_state_swallows_unlink_oserror(
     config: NodeConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A per-file OSError on unlink must be logged but not raised."""
+    """A per-file OSError on unlink must be logged but not raised, and the
+    consumed marker must NOT be written so the next start retries the wipe."""
+    from openclaw_node.__main__ import _RESET_CONSUMED_FILENAME
+
     config.data_dir.mkdir(parents=True, exist_ok=True)
     config.device_token_path.write_text("stale\n")
     object.__setattr__(config, "reset_pairing", "token")
@@ -410,7 +413,19 @@ def test_reset_pairing_state_swallows_unlink_oserror(
 
     monkeypatch.setattr(Path, "unlink", _boom)
     _reset_pairing_state(config)
-    # Did not raise — that's the assertion.
+    # Did not raise — wipe failure is non-fatal.
+
+    # Consumed marker must NOT exist when any unlink failed.
+    marker = config.data_dir / _RESET_CONSUMED_FILENAME
+    assert not marker.exists(), "marker must not be written when an unlink failed"
+
+    # A subsequent call (simulating next restart) must retry the wipe.
+    # Restore normal unlink so the retry can succeed.
+    monkeypatch.setattr(Path, "unlink", real_unlink)
+    _reset_pairing_state(config)
+    assert not config.device_token_path.exists(), "retry must remove the file"
+    assert marker.exists(), "marker written after successful retry"
+    assert marker.read_text().strip() == "token"
 
 
 def test_reset_pairing_state_identity_logs_setup_code_warning(

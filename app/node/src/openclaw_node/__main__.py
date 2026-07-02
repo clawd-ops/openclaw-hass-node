@@ -115,6 +115,7 @@ def _reset_pairing_state(config: NodeConfig) -> None:
             exc,
         )
         return
+    wipe_ok = True
     for path in targets:
         if not _safe_to_unlink_under(path, data_dir):
             continue
@@ -124,6 +125,15 @@ def _reset_pairing_state(config: NodeConfig) -> None:
                 _LOG.warning("reset_pairing[%s]: removed %s", mode, path)
         except OSError as exc:
             _LOG.warning("reset_pairing[%s]: failed to remove %s: %s", mode, path, exc)
+            wipe_ok = False
+
+    if not wipe_ok:
+        _LOG.warning(
+            "reset_pairing[%s]: one or more files could not be removed; consumed"
+            " marker NOT written — wipe will retry on next start.",
+            mode,
+        )
+        return
 
     # Write consumed marker so subsequent starts skip the wipe.
     try:
