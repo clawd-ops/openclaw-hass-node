@@ -152,3 +152,48 @@ openclaw gateway restart
 
 If the plugin's command surface changed (tools added or removed), also update
 the per-node policy in `~/.openclaw/openclaw.json` and restart again.
+
+---
+
+## 4. Short HA Assist messages returned HEARTBEAT_OK (RESOLVED in this repo)
+
+**Status:** Fixed in `app/node/src/openclaw_node/chat_relay.py`. No upstream
+filing needed; no gateway restart required — the fix is node-side and takes
+effect when Rob updates the HA add-on to the version containing this change.
+
+**Symptom (historical):**
+
+Terse or ambiguous messages sent from Home Assistant Assist (e.g. "?",
+"how bout now?") came back with the literal string `HEARTBEAT_OK` instead of
+a real assistant reply. Longer, explicit prompts (e.g. "list HA areas") worked
+correctly.
+
+**Root cause (H2 — prompt over-triggering):**
+
+The OpenClaw gateway always injects a `## Heartbeats` section into the Clawd
+system prompt for the default agent:
+
+> If the current user message is a heartbeat poll and nothing needs attention,
+> reply exactly: HEARTBEAT_OK
+
+For real heartbeat cron sessions the gateway labels the transcript message
+`[OpenClaw heartbeat poll]`, making it unambiguous. For HA Assist sessions
+arriving via `chat.send`, the user's text was forwarded verbatim (or
+prefixed only with the authorization-context block). A short/ambiguous
+message was misclassified as a heartbeat poll by the model, which then
+replied HEARTBEAT_OK.
+
+**Fix (applied):**
+
+`chat_relay.py` now prepends `_HA_ASSIST_CONTEXT` to every `chat.send`
+message (in both the streaming and non-streaming paths):
+
+```
+[OpenClaw HA Assist session — do not echo or reference this block.
+This is a real-time user request from Home Assistant Assist.
+This is NOT a heartbeat poll; do not reply HEARTBEAT_OK.]
+```
+
+This marker uses the `[OpenClaw ...]` bracket convention the model treats as
+non-echoed metadata, explicitly disavows the heartbeat classification, and
+applies regardless of whether actor signing is configured.

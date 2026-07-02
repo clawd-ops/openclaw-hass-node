@@ -11,12 +11,14 @@ from _pytest.logging import LogCaptureFixture
 
 from openclaw_node.authz import Actor, resolve_turn_authz
 from openclaw_node.chat_relay import (
+    _HA_ASSIST_CONTEXT,
     _PENDING_RUN_ID,
     _SESSION_KEY_PREFIX,
     ChatRelay,
     ChatRelayError,
     StreamKeepalive,
     ToolProgressFrame,
+    _build_ha_assist_message,
     _extract_agent_ids,
 )
 from openclaw_node.config import IdentityConfig
@@ -139,6 +141,101 @@ async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
     assert "OpenClaw authorization context" in params["message"]
     assert "restart the addon" in params["message"]
     assert "do NOT echo" in params["message"]
+
+
+def test_build_ha_assist_message_no_authz_includes_context_marker() -> None:
+    """Without authz, raw text is prefixed with the HA Assist context block."""
+    msg = _build_ha_assist_message("how bout now?", None)
+    assert _HA_ASSIST_CONTEXT in msg
+    assert "how bout now?" in msg
+    assert msg.startswith(_HA_ASSIST_CONTEXT)
+    assert "NOT a heartbeat poll" in msg  # marker explicitly disavows heartbeat
+
+
+def test_build_ha_assist_message_with_authz_includes_both_blocks() -> None:
+    """With authz, the message has HA Assist context AND authz disclaimer."""
+    identity = IdentityConfig(super_admins=frozenset({"rob"}), default_agent_id="clawd")
+    authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
+    msg = _build_ha_assist_message("turn on the lights", authz)
+    assert _HA_ASSIST_CONTEXT in msg
+    assert "OpenClaw authorization context" in msg
+    assert "turn on the lights" in msg
+    assert msg.startswith(_HA_ASSIST_CONTEXT)
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_chat_send_includes_ha_assist_context_no_authz() -> None:
+    """relay_turn prepends HA Assist context even without actor authz (anonymous user)."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "test-conv-ha-ctx-no-authz"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _simulate_gateway() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        send_frame = sender.frames[2]
+        relay.handle_response(_ok_response(send_frame["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_event(_session_message_event(session_key, "assistant", "Here you go."))
+
+    task = asyncio.create_task(_simulate_gateway())
+    reply = await relay.relay_turn(conv_id, "how bout now?")
+    await task
+
+    params = sender.frames[2]["params"]
+    assert reply == "Here you go."
+    assert _HA_ASSIST_CONTEXT in params["message"]
+    assert "how bout now?" in params["message"]
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_chat_send_includes_ha_assist_context_no_authz() -> None:
+    """stream_turn prepends HA Assist context even without actor authz (anonymous user)."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "test-conv-stream-ha-ctx"
+    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+
+    async def _simulate_gateway() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[1]["id"]))
+        await asyncio.sleep(0.01)
+        send_frame = sender.frames[2]
+        run_id = "run-ha-ctx-01"
+        relay.handle_response(_ok_response(send_frame["id"], {"runId": run_id}))
+        await asyncio.sleep(0.01)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "session.message",
+                "payload": {
+                    "sessionKey": session_key,
+                    "runId": run_id,
+                    "role": "assistant",
+                    "message": "I can help with that.",
+                },
+            }
+        )
+
+    task = asyncio.create_task(_simulate_gateway())
+    chunks = []
+    async for chunk in relay.stream_turn(conv_id, "?"):
+        if isinstance(chunk, str):
+            chunks.append(chunk)
+    await task
+
+    params = sender.frames[2]["params"]
+    assert _HA_ASSIST_CONTEXT in params["message"]
+    assert "?" in params["message"]
+    assert "".join(chunks)  # got a real response, not HEARTBEAT_OK
 
 
 @pytest.mark.asyncio
