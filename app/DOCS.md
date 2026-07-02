@@ -79,17 +79,18 @@ control surface. The manifest field reference is at
 
 ### `reset_pairing`
 
-- **Purpose**: One-shot recovery toggle. When `true` on next app
+- **Purpose**: One-shot recovery toggle. When `true` on the next app
   startup, the persisted device token is wiped while the device
   identity is kept. This lets a fresh setup-code from the *same*
   device record re-pair, which is the safe way out of an
-  `AUTH_TOKEN_MISMATCH` loop.
+  `AUTH_TOKEN_MISMATCH` loop. The wipe runs exactly once; subsequent
+  restarts with the option still set to `true` skip the wipe
+  automatically (a warning is logged). To request another wipe, toggle
+  the option to `false`, save, and back to `true`.
 - **Type**: `bool?`.
-- **Example**: `true` (one boot), then revert to `false`.
+- **Example**: `true` (fires once), no need to revert to `false` unless
+  you want to re-enable the one-shot for another wipe.
 - **Default**: `false`.
-- **Security**: Leaving it set to `true` will wipe the token on every
-  restart, forcing repeated re-pairings. Always toggle back to `false`
-  once recovery succeeds.
 - **Advanced**: A full identity wipe (also deletes `node-key.json`,
   forcing a brand-new gateway device record) is available out-of-band
   by setting the env var `OPENCLAW_RESET_PAIRING=identity` on the

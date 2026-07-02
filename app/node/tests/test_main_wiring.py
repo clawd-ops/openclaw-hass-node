@@ -445,6 +445,79 @@ def test_reset_pairing_state_refuses_symlink_targets(config: NodeConfig, tmp_pat
     assert outside.exists()
 
 
+# ---------------------------------------------------------------------------
+# One-shot consumed-marker tests (issue #107)
+# ---------------------------------------------------------------------------
+
+
+def test_reset_pairing_state_writes_consumed_marker(config: NodeConfig) -> None:
+    """After a successful wipe the consumed marker must be written with the mode."""
+    from openclaw_node.__main__ import _RESET_CONSUMED_FILENAME
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale-token\n")
+    object.__setattr__(config, "reset_pairing", "token")
+
+    _reset_pairing_state(config)
+
+    marker = config.data_dir / _RESET_CONSUMED_FILENAME
+    assert marker.exists(), "consumed marker must be written after wipe"
+    assert marker.read_text().strip() == "token"
+
+
+def test_reset_pairing_state_skips_wipe_when_marker_matches(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """With a matching consumed marker, wipe must be skipped and a warning logged."""
+    import logging
+
+    from openclaw_node.__main__ import _RESET_CONSUMED_FILENAME
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale-token\n")
+    (config.data_dir / _RESET_CONSUMED_FILENAME).write_text("token\n")
+    object.__setattr__(config, "reset_pairing", "token")
+
+    with caplog.at_level(logging.WARNING):
+        _reset_pairing_state(config)
+
+    assert config.device_token_path.exists(), "wipe must not run when marker matches"
+    assert any("already consumed" in rec.message for rec in caplog.records)
+
+
+def test_reset_pairing_state_wipes_when_marker_has_different_value(
+    config: NodeConfig,
+) -> None:
+    """With a marker for a different mode, the wipe must run and the marker updated."""
+    from openclaw_node.__main__ import _RESET_CONSUMED_FILENAME
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    config.device_token_path.write_text("stale-token\n")
+    config.key_path.write_text('{"fake":"identity"}\n')
+    marker = config.data_dir / _RESET_CONSUMED_FILENAME
+    marker.write_text("token\n")  # prior run consumed "token"
+    object.__setattr__(config, "reset_pairing", "identity")
+
+    _reset_pairing_state(config)
+
+    assert not config.device_token_path.exists(), "wipe must run for new mode value"
+    assert marker.read_text().strip() == "identity"
+
+
+def test_reset_pairing_state_none_clears_consumed_marker(config: NodeConfig) -> None:
+    """mode=none must clear the consumed marker so a toggle-on fires a fresh wipe."""
+    from openclaw_node.__main__ import _RESET_CONSUMED_FILENAME
+
+    config.data_dir.mkdir(parents=True, exist_ok=True)
+    marker = config.data_dir / _RESET_CONSUMED_FILENAME
+    marker.write_text("token\n")
+    object.__setattr__(config, "reset_pairing", "none")
+
+    _reset_pairing_state(config)
+
+    assert not marker.exists(), "consumed marker must be cleared when mode is none"
+
+
 @pytest.mark.asyncio
 async def test_main_runs_reset_before_identity_load(
     config: NodeConfig,
