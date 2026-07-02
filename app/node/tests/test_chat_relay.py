@@ -95,7 +95,9 @@ async def test_relay_turn_success() -> None:
         await asyncio.sleep(0.01)
 
         # Simulate session.message event (assistant reply) AFTER chat.send ack.
-        relay.handle_event(_session_message_event(session_key, "assistant", "Hello from the agent!"))
+        relay.handle_event(
+            _session_message_event(session_key, "assistant", "Hello from the agent!")
+        )
 
     task = asyncio.create_task(_simulate_gateway())
     reply = await relay.relay_turn(conv_id, "Hello")
@@ -2440,7 +2442,7 @@ async def test_stream_turn_no_tool_progress_frames_without_cap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Without the tool-progress-frames cap the relay yields no
-    ToolProgressFrame sentinels — only the legacy textual delta."""
+    ToolProgressFrame sentinels — only the plain-text progress delta."""
     from openclaw_node import chat_relay as _cr
 
     monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 0.05)
@@ -2479,13 +2481,13 @@ async def test_stream_turn_no_tool_progress_frames_without_cap(
     chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
-        # No client_caps → legacy path
+        # No client_caps -> plain-text progress path.
         async for chunk in relay.stream_turn(conv_id, "hi"):
             chunks.append(chunk)
 
     await asyncio.gather(_consume(), _drive())
 
-    # Legacy textual progress must appear (or keepalives), no ToolProgressFrame
+    # Plain-text progress must appear (or keepalives), no ToolProgressFrame.
     assert not any(isinstance(c, ToolProgressFrame) for c in chunks), (
         f"ToolProgressFrame leaked without cap: {chunks!r}"
     )
@@ -2961,15 +2963,15 @@ async def test_tool_progress_idless_end_does_not_clear_same_name_active_with_id(
 
 
 # ---------------------------------------------------------------------------
-# Issue #200 — tool-marker resolution and de-dup (legacy no-cap path)
+# Issue #200 — tool-marker resolution and de-dup (plain-text no-cap path)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_legacy_tool_end_emits_checkmark(
+async def test_stream_turn_text_tool_end_emits_checkmark(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Legacy path: a single tool call must resolve with ` ✓` after tool end.
+    """Plain-text path: a single tool call resolves with ` ✓` after tool end.
 
     Before #200 the tool-end event only cleared ``_active_tool`` internally
     and never pushed any text onto the stream, so the ``🔧 Calling X...``
@@ -3035,10 +3037,10 @@ async def test_stream_turn_legacy_tool_end_emits_checkmark(
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_legacy_dedup_repeat_tool_calls(
+async def test_stream_turn_text_dedup_repeat_tool_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Legacy path: repeated identical tool calls collapse to one labelled line.
+    """Plain-text path: repeated identical calls collapse to one labelled line.
 
     Four consecutive ``dir_list`` calls must produce one ``🔧 Calling dir_list...``
     line followed by inline ``(xN)...`` count updates rather than four
@@ -3108,10 +3110,10 @@ async def test_stream_turn_legacy_dedup_repeat_tool_calls(
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_legacy_different_tools_reset_dedup(
+async def test_stream_turn_text_different_tools_reset_dedup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Legacy path: switching to a different tool resets the de-dup counter.
+    """Plain-text path: switching to a different tool resets the de-dup counter.
 
     Sequence: dir_list x2, then dir_fetch. dir_fetch must appear as a fresh
     line (not a count update) because it is a different tool name.
@@ -3188,7 +3190,7 @@ async def test_stream_turn_legacy_different_tools_reset_dedup(
 
 
 # ---------------------------------------------------------------------------
-# Error-phase handling (#228 finding 2) — legacy path
+# Error-phase handling (#228 finding 2) — plain-text path
 # ---------------------------------------------------------------------------
 
 
@@ -3216,10 +3218,10 @@ def _tool_error_event(
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_legacy_tool_error_emits_cross(
+async def test_stream_turn_text_tool_error_emits_cross(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Legacy path: a failed tool call emits ' ✗ <reason>' instead of a checkmark.
+    """Plain-text path: a failed tool call emits ' ✗ <reason>'.
 
     Without this branch, phase=error events were silently ignored, leaving
     the marker spinning or emitting a false-success checkmark.

@@ -72,13 +72,13 @@ _STREAM_KEEPALIVE_INTERVAL_S: Final[float] = 15.0
 _STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
 
 # Capability token that the HACS integration sends in the ``client_caps`` body
-# field to opt in to ``tool_progress`` frames instead of the legacy
-# textual ``🔧 Calling X...`` delta.  The integration advertises this per-request
+# field to opt in to ``tool_progress`` frames instead of the plain-text
+# ``🔧 Calling X...`` delta.  The integration advertises this per-request
 # (not at handshake time) because the integration speaks HTTP, not WS.
 #
 # Cap semantics:
-#   - No cap → keep legacy textual ``🔧 Calling X...`` delta (current
-#     behavior).  The ``ToolProgressFrame`` sentinel is never yielded.
+#   - No cap -> keep the plain-text ``🔧 Calling X...`` delta (current HA
+#     Assist behavior).  The ``ToolProgressFrame`` sentinel is never yielded.
 #   - With cap → emit ``ToolProgressFrame`` sentinels on every tool start
 #     AND end; suppress the textual progress delta entirely (no dual emit).
 _CAP_TOOL_PROGRESS_FRAMES: Final[str] = "tool-progress-frames"
@@ -268,15 +268,15 @@ class ChatRelay:
         # Per-turn flag set by _stream_turn_locked when the caller opts in
         # to structured tool_progress frames.  handle_event checks this to
         # decide whether to push ToolProgressFrame items onto the queue
-        # (cap on) or update _active_tool only (cap off, legacy path).
+        # (cap on) or update _active_tool only (plain-text path).
         self._use_tool_frames: dict[str, bool] = {}  # canonical keys
-        # De-dup tracking for the legacy (no-cap) tool-progress path.
-        # _legacy_tool_name: last tool name emitted as a marker this turn.
-        # _legacy_tool_count: consecutive repeat count for that tool name.
+        # De-dup tracking for the plain-text (no-cap) tool-progress path.
+        # _text_tool_name: last tool name emitted as a marker this turn.
+        # _text_tool_count: consecutive repeat count for that tool name.
         # When the same tool fires again without a different tool in between,
         # the second start appends " (xN)..." inline rather than a fresh line.
-        self._legacy_tool_name: dict[str, str] = {}  # canonical keys
-        self._legacy_tool_count: dict[str, int] = {}  # canonical keys
+        self._text_tool_name: dict[str, str] = {}  # canonical keys
+        self._text_tool_count: dict[str, int] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
 
     async def stream_turn(
@@ -305,7 +305,7 @@ class ChatRelay:
         Capability negotiation (``client_caps``):
             The caller may pass ``client_caps=["tool-progress-frames"]``
             to opt in to structured ``ToolProgressFrame`` sentinels instead
-            of the legacy textual ``🔧 Calling X...`` delta.  When the cap
+            of the plain-text ``🔧 Calling X...`` delta.  When the cap
             is present:
 
             - A ``ToolProgressFrame(phase="start", ...)`` is yielded
@@ -316,7 +316,7 @@ class ChatRelay:
             - The textual ``🔧 Calling X...`` and ``Working on it...``
               progress deltas are suppressed (no dual emit).
 
-            Without the cap the legacy path is used unchanged.
+            Without the cap the current plain-text progress path is used.
 
         Args:
             conversation_id: HA conversation id.
@@ -443,8 +443,8 @@ class ChatRelay:
         self._active_tool_id.pop(canonical_key, None)
         self._active_tool_seq.pop(canonical_key, None)
         self._use_tool_frames[canonical_key] = use_tool_frames
-        self._legacy_tool_name.pop(canonical_key, None)
-        self._legacy_tool_count.pop(canonical_key, None)
+        self._text_tool_name.pop(canonical_key, None)
+        self._text_tool_count.pop(canonical_key, None)
         self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
@@ -574,7 +574,7 @@ class ChatRelay:
                     if loop.time() >= deadline:
                         return
                     if sent_keepalive_count == 0 and not use_tool_frames:
-                        # Legacy textual progress path (no tool-progress-frames
+                        # Plain-text progress path (no tool-progress-frames
                         # cap).  When a tool has already started, handle_event
                         # pushed an immediate ``🔧 Calling X...`` delta so we
                         # skip the textual emit here to avoid dual-emit.
@@ -636,8 +636,8 @@ class ChatRelay:
             self._tool_progress_seq.pop(canonical_key, None)
             self._active_tool_id.pop(canonical_key, None)
             self._active_tool_seq.pop(canonical_key, None)
-            self._legacy_tool_name.pop(canonical_key, None)
-            self._legacy_tool_count.pop(canonical_key, None)
+            self._text_tool_name.pop(canonical_key, None)
+            self._text_tool_count.pop(canonical_key, None)
 
     async def relay_turn(
         self,
@@ -1024,7 +1024,7 @@ class ChatRelay:
         #
         # Two paths depending on the per-request ``tool-progress-frames`` cap:
         #
-        # Legacy path (cap absent): push a textual ``🔧 Calling X...`` delta
+        # Plain-text path (cap absent): push a textual ``🔧 Calling X...`` delta
         # directly onto the session delta queue on every tool start so each
         # tool in a multi-tool turn gets its own visible line in real time.
         # ``_active_tool`` is still updated so the silence-gate keepalive can
@@ -1110,14 +1110,14 @@ class ChatRelay:
                             # with a count rather than N identical stacked lines.
                             q = self._delta_queues.get(tool_canonical_key)
                             if q is not None:
-                                last = self._legacy_tool_name.get(tool_canonical_key, "")
+                                last = self._text_tool_name.get(tool_canonical_key, "")
                                 if last == tool_name:
-                                    count = self._legacy_tool_count.get(tool_canonical_key, 1) + 1
-                                    self._legacy_tool_count[tool_canonical_key] = count
+                                    count = self._text_tool_count.get(tool_canonical_key, 1) + 1
+                                    self._text_tool_count[tool_canonical_key] = count
                                     q.put_nowait(f" (x{count})...")
                                 else:
-                                    self._legacy_tool_name[tool_canonical_key] = tool_name
-                                    self._legacy_tool_count[tool_canonical_key] = 1
+                                    self._text_tool_name[tool_canonical_key] = tool_name
+                                    self._text_tool_count[tool_canonical_key] = 1
                                     q.put_nowait(f"\n🔧 Calling {tool_name}...")
                     elif phase == "end":
                         if use_frames:
@@ -1161,7 +1161,7 @@ class ChatRelay:
                                 self._active_tool_id.pop(tool_canonical_key, None)
                                 self._active_tool_seq.pop(tool_canonical_key, None)
                         else:
-                            # Legacy path: emit " ✓\n" to resolve the last
+                            # Plain-text path: emit " ✓\n" to resolve the last
                             # marker (#200). Trailing \n prevents the next
                             # assistant delta from glueing onto the checkmark.
                             q = self._delta_queues.get(tool_canonical_key)
@@ -1169,7 +1169,7 @@ class ChatRelay:
                                 q.put_nowait(" ✓\n")
                             self._active_tool.pop(tool_canonical_key, None)
                     elif phase == "error":
-                        # Legacy path: tool failed — emit " ✗ <reason>\n" so
+                        # Plain-text path: tool failed — emit " ✗ <reason>\n" so
                         # the user sees a clear failure instead of a stale
                         # spinner or a false-success checkmark.
                         if not use_frames:
@@ -1419,8 +1419,8 @@ class ChatRelay:
         self._active_tool_id.clear()
         self._active_tool_seq.clear()
         self._use_tool_frames.clear()
-        self._legacy_tool_name.clear()
-        self._legacy_tool_count.clear()
+        self._text_tool_name.clear()
+        self._text_tool_count.clear()
         self._turn_locks.clear()
 
 

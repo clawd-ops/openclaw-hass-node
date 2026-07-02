@@ -576,9 +576,9 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
           tool-start and tool-end event it receives from the gateway.
         - Those sentinels are serialised here as
           ``{"tool_progress": true, "phase": ..., "name": ..., ...}``.
-        - The legacy textual ``🔧 Calling X...`` delta is suppressed.
+        - The plain-text ``🔧 Calling X...`` delta is suppressed.
 
-        Without the cap the legacy path is used unchanged and no
+        Without the cap the plain-text path is used unchanged and no
         ``tool_progress`` frames appear on the wire.
     """
     runtime = _runtime(request)

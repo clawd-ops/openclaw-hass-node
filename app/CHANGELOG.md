@@ -149,11 +149,11 @@
 ### Fixes
 - **HA Assist tool progress restored (regression fix for b1).** On b1 the
   integration advertised `client_caps: ["tool-progress-frames"]` which made the
-  addon suppress the legacy `🔧 Calling X...` textual delta in favour of
+  addon suppress the plain-text `🔧 Calling X...` progress delta in favour of
   structured `tool_progress` frames, but the integration has no ephemeral
   display hook in HA today so the frames were swallowed — HA Assist
   showed `...` for the entire tool-heavy turn. The integration no longer
-  advertises the cap; addon emits the legacy textual delta exactly as
+  advertises the cap; addon emits the plain-text progress delta exactly as
   on b6. The frame emission code stays in place for when HA exposes an
   ephemeral hook.
 

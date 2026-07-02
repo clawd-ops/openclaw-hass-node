@@ -94,7 +94,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 32. Config option to show/hide tool usage in HA Assist
 - Status: OPEN
 - Requested: 2026-06-28 by Rob.
-- Goal: addon option `show_tool_progress: true|false` (default `true`). When `false`, the relay skips emitting `🔧 Calling X...` deltas entirely (both the legacy immediate path and the `ToolProgressFrame` cap path). Lets users who want a quieter HA Assist UX suppress the per-tool progress lines without needing a different cap.
+- Goal: addon option `show_tool_progress: true|false` (default `true`). When `false`, the relay skips emitting `🔧 Calling X...` deltas entirely (both the plain-text immediate path and the `ToolProgressFrame` cap path). Lets users who want a quieter HA Assist UX suppress the per-tool progress lines without needing a different cap.
 - Scope: `app/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
 
 ### 33. Quiet `[relay-diag]` INFO noise in addon logs
@@ -165,7 +165,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
 - Status: CLOSED 2026-06-28 — shipped in PR #179.
-- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS integration. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; integration swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Legacy textual `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
+- Additive `tool_progress` NDJSON frames (`phase=start|end`, `name`, optional `id`, monotonic `seq`). Capability-negotiated per-request via `client_caps: ["tool-progress-frames"]` body field from the HACS integration. Addon emits `ToolProgressFrame` sentinels; HTTP API serialises them; integration swallows and `_LOGGER.debug`s them (ChatLog has no ephemeral hook today). Race fix: `phase=end` gated on `id`-match (when present) or `name`-match plus monotonic `seq` guard; an id-less `end` cannot clear an active tool that has an id. Plain-text `🔧 Calling X...` delta suppressed when cap is active (no dual emit). Tests cover: cap on vs off, sequential tool calls in one turn, end-before-newer-start race, id-aware clearing.
 
 ### 1. User mapping / identity propagation
 - Status: CLOSED 2026-06-28 — addon side shipped via PRs #164–#167 + #177; design captured in [`docs/design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md).

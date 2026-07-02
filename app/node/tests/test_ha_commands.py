@@ -1557,9 +1557,7 @@ async def test_update_install_no_env_token_denied(monkeypatch: pytest.MonkeyPatc
 
 async def test_update_install_wrong_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_update_install(
-        {"entity_id": "update.hacs", "admin_token": "wrong"}
-    )
+    result = await handle_ha_update_install({"entity_id": "update.hacs", "admin_token": "wrong"})
     assert result["error"] == "PERMISSION_DENIED"
 
 
@@ -1598,9 +1596,7 @@ async def test_update_install_happy_path(monkeypatch: pytest.MonkeyPatch) -> Non
     assert result["ok"] is True
     assert result["entity_id"] == "update.hacs"
     assert len(result["changed_states"]) == 1
-    mock_post.assert_called_once_with(
-        "/api/services/update/install", {"entity_id": "update.hacs"}
-    )
+    mock_post.assert_called_once_with("/api/services/update/install", {"entity_id": "update.hacs"})
 
 
 async def test_update_install_passes_backup_and_version(monkeypatch: pytest.MonkeyPatch) -> None:
