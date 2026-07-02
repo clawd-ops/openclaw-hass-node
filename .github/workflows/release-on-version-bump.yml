@@ -2,8 +2,21 @@ name: Auto-cut release on version bump
 
 # Runs after every push to main. If the current synced version literal
 # does not yet have a matching `v<version>` git tag, this job creates the
-# tag and a GitHub release with notes extracted from `app/CHANGELOG.md`.
-# Idempotent: if the tag exists, the job no-ops.
+# tag and a GitHub release with notes derived from Conventional Commits
+# since the previous tag, augmented by any hand-written section in
+# `app/CHANGELOG.md`.
+#
+# Release note strategy (TODO #19):
+#   1. Auto-generate grouped notes from `git log <prev>..HEAD --pretty="%s"`
+#      via `scripts/generate-release-notes.sh`.
+#   2. If app/CHANGELOG.md already has a hand-written section for this
+#      version: use that as the primary body, append the auto-generated
+#      commit list as a secondary "Commits" block.
+#   3. If no hand-written section exists: use the auto-generated list as
+#      the sole body AND commit a new section to app/CHANGELOG.md so the
+#      HA Supervisor Changelog tab always has content.
+#   app/CHANGELOG.md is NOT in the `paths:` trigger, so the commit-back
+#   does not cause a recursive re-run.
 #
 # Background: HA Supervisor's Update prompt reads from published GitHub
 # releases, not from main. Before this workflow, every `release:` PR
@@ -65,35 +78,96 @@ jobs:
             echo "Tag $TAG does not exist — will cut release."
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Extract changelog section for this version
+      - name: Find previous release tag
+        if: steps.tag_check.outputs.skip == 'false'
+        id: prev_tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          PREV=$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1 || true)
+          if [[ -z "$PREV" ]]; then
+            echo "No previous tag found (first release)."
+            echo "prev_tag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Previous tag: $PREV"
+            echo "prev_tag=$PREV" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build release notes (hand-written + auto-commits)
         if: steps.tag_check.outputs.skip == 'false'
         id: notes
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          PREV_TAG: ${{ steps.prev_tag.outputs.prev_tag }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Match a heading line like:
-          #   ## 2026.6.20b6 (2026-06-20) — short title
-          # and print everything until the next "## " heading.
-          NOTES_FILE=$(mktemp)
+
+          # 1. Extract any hand-written CHANGELOG section for this version.
+          # Matches headings like: ## 2026.7.1b2 (2026-07-01) — title
+          # and captures everything until the next "## " heading.
+          HANDWRITTEN=$(mktemp)
           awk -v ver="$VERSION" '
             BEGIN { in_section = 0 }
             /^## / {
               if (in_section) exit
-              split($0, heading, " ")
-              if (heading[2] == ver) { in_section = 1; next }
+              split($0, h, " ")
+              if (h[2] == ver) { in_section = 1; next }
             }
             in_section { print }
-          ' app/CHANGELOG.md > "$NOTES_FILE"
-          if [[ ! -s "$NOTES_FILE" ]]; then
-            echo "No CHANGELOG section found for $VERSION — using a stub." >&2
-            printf '%s\n' \
-              "Release $VERSION." \
-              "" \
-              "Full changelog: https://github.com/${{ github.repository }}/blob/main/app/CHANGELOG.md" \
-              > "$NOTES_FILE"
+          ' app/CHANGELOG.md > "$HANDWRITTEN"
+
+          # 2. Auto-generate grouped notes from Conventional Commits.
+          AUTO=$(mktemp)
+          bash scripts/generate-release-notes.sh "${PREV_TAG:-}" HEAD > "$AUTO"
+
+          # 3. Combine into the final release-notes file.
+          NOTES_FILE=$(mktemp)
+          CHANGELOG_UPDATED=false
+
+          if [[ -s "$HANDWRITTEN" ]]; then
+            # Hand-written section exists: use it as the primary body and
+            # append the auto-derived commit list as a secondary block.
+            cat "$HANDWRITTEN" > "$NOTES_FILE"
+            if [[ -s "$AUTO" ]]; then
+              printf '\n---\n### Commits since %s\n' "${PREV_TAG:-initial}" >> "$NOTES_FILE"
+              cat "$AUTO" >> "$NOTES_FILE"
+            fi
+          elif [[ -s "$AUTO" ]]; then
+            # No hand-written section: auto-generated list is the sole body.
+            cat "$AUTO" > "$NOTES_FILE"
+            # Also prepend a new section to app/CHANGELOG.md so HA Supervisor
+            # Changelog tab always has content. (CHANGELOG.md is not in the
+            # workflow trigger paths, so this commit does not re-run the job.)
+            {
+              printf '## %s\n\n' "$VERSION"
+              cat "$AUTO"
+              printf '\n'
+              cat app/CHANGELOG.md
+            } > app/CHANGELOG.md.new
+            mv app/CHANGELOG.md.new app/CHANGELOG.md
+            CHANGELOG_UPDATED=true
+          else
+            # Nothing to show — emit a minimal stub.
+            printf 'Release %s.\n\nFull changelog: https://github.com/%s/blob/main/app/CHANGELOG.md\n' \
+              "$VERSION" "$REPOSITORY" > "$NOTES_FILE"
           fi
+
           echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+          echo "changelog_updated=$CHANGELOG_UPDATED" >> "$GITHUB_OUTPUT"
+          echo "=== Release notes preview ==="
+          cat "$NOTES_FILE"
+      - name: Commit auto-generated CHANGELOG section
+        if: steps.tag_check.outputs.skip == 'false' && steps.notes.outputs.changelog_updated == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "clawd-ops[bot]"
+          git config user.email "clawd-ops@users.noreply.github.com"
+          git add app/CHANGELOG.md
+          git commit -m "docs(changelog): auto-generate release notes for $VERSION"
+          git push origin HEAD:main
       - name: Tag the release commit
         if: steps.tag_check.outputs.skip == 'false'
         env:
