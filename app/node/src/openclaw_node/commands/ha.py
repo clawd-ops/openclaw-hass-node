@@ -36,6 +36,8 @@ Commands in this module:
 - ``ha.addon_restart``        — restart an explicitly allowlisted add-on (Tier B).
 - ``ha.addon_update``         — update an explicitly allowlisted add-on to the latest available
   version (Tier B).
+- ``ha.update_install``       — install a pending update via HA's ``update.install`` service for
+  HACS integrations, HA core, add-ons, and any other ``update.*`` entity (Tier B admin).
 """
 
 from __future__ import annotations
@@ -1046,3 +1048,61 @@ async def handle_ha_addon_update(params: dict[str, Any]) -> dict[str, Any]:
         action="update",
         desired_state=None,
     )
+
+
+async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
+    """Install a pending update via Home Assistant's ``update.install`` service.
+
+    Covers HACS integrations, HACS frontend, HA Core, add-ons, and any other
+    entity in the ``update.*`` domain.  This is the general-purpose update path
+    and is distinct from ``ha.addon_update``, which targets Supervisor add-ons
+    directly via the Supervisor API (slug-based, allowlist-gated).
+
+    Tier B admin — requires ``OPENCLAW_ADMIN_TOKEN`` (same gate as
+    ``ha.reload_config``).
+
+    Params:
+        entity_id (str): Required; the ``update.*`` entity to install, e.g.
+            ``"update.home_assistant_core_update"`` or ``"update.hacs"``.
+            Must be in the ``update.`` domain.
+        backup (bool, optional): Whether HA should take a backup before
+            installing.  Defaults to HA's own default (omitted when not
+            provided).
+        version (str, optional): Specific version to install.  Defaults to
+            the latest available version.
+        admin_token (str): Required; must match ``OPENCLAW_ADMIN_TOKEN``.
+
+    Returns:
+        ``{ok: True, entity_id, changed_states}`` or an error dict.
+    """
+    denied = _admin_token_ok(params, "ha.update_install")
+    if denied is not None:
+        return denied
+
+    entity_id = str(params.get("entity_id", "")).strip()
+    if not entity_id:
+        return _error("MISSING_PARAM", "entity_id is required")
+    if not entity_id.startswith("update."):
+        return _error(
+            "INVALID_PARAM",
+            f"entity_id must be in the update.* domain, got: {entity_id!r}",
+        )
+
+    data: dict[str, Any] = {"entity_id": entity_id}
+    backup = params.get("backup")
+    if backup is not None:
+        if not isinstance(backup, bool):
+            return _error("INVALID_PARAM", "backup must be a boolean")
+        data["backup"] = backup
+    version = params.get("version")
+    if version is not None:
+        data["version"] = str(version)
+
+    _LOG.warning("Tier B ha.update_install invoked for entity_id=%s", entity_id)
+    try:
+        result = await ha_post("/api/services/update/install", data)
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    return {"ok": True, "entity_id": entity_id, "changed_states": changed}

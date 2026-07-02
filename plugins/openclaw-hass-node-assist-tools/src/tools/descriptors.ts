@@ -415,6 +415,34 @@ export const HA_ADDON_UPDATE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon update",
   name: "ha_addon_update",
   description:
-    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'.",
+    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'. For updating HACS integrations, HA Core, or other update.* entities, use ha_update_install instead.",
   parameters: AddonSlugSchema(),
+};
+
+// --- ha_update_install ---
+
+export const HaUpdateInstallSchema = Type.Object({
+  node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+  entity_id: Type.String({
+    description:
+      "The update.* entity to install, e.g. 'update.home_assistant_core_update' or 'update.hacs'. Must be in the update. domain.",
+  }),
+  backup: Type.Optional(
+    Type.Boolean({
+      description: "Whether HA should take a backup before installing. Defaults to HA's own default.",
+    }),
+  ),
+  version: Type.Optional(
+    Type.String({
+      description: "Specific version to install. Defaults to the latest available version.",
+    }),
+  ),
+});
+
+export const HA_UPDATE_INSTALL_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: install update",
+  name: "ha_update_install",
+  description:
+    "On the paired Home Assistant node: install a pending update via HA's update.install service. Covers HACS integrations, HACS frontend, HA Core, add-ons, and any other update.* entity. Tier B admin: requires allowAdminOps + adminToken. Distinct from ha_addon_update (which uses the Supervisor API for slugs).",
+  parameters: HaUpdateInstallSchema,
 };

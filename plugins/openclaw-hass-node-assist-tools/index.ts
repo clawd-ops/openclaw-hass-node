@@ -25,6 +25,7 @@ import {
   HA_ADDON_STATS_TOOL_DESCRIPTOR,
   HA_ADDON_STOP_TOOL_DESCRIPTOR,
   HA_ADDON_UPDATE_TOOL_DESCRIPTOR,
+  HA_UPDATE_INSTALL_TOOL_DESCRIPTOR,
   HA_CALENDAR_GET_EVENTS_TOOL_DESCRIPTOR,
   HA_CALL_SERVICE_TOOL_DESCRIPTOR,
   HA_CHECK_CONFIG_TOOL_DESCRIPTOR,
@@ -243,6 +244,14 @@ export default definePluginEntry({
           "./src/tools/ha-admin-tools.js"
         );
         return createHaAddonUpdateTool();
+      }),
+    );
+    api.registerTool(
+      createLazyTool(HA_UPDATE_INSTALL_TOOL_DESCRIPTOR, async () => {
+        const { createHaUpdateInstallTool } = await import(
+          "./src/tools/ha-admin-tools.js"
+        );
+        return createHaUpdateInstallTool();
       }),
     );
   },

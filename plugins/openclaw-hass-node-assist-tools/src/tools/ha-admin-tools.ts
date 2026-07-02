@@ -1,8 +1,8 @@
 // Tier B admin handlers: ha_reload_config / ha_addon_start /
-// ha_addon_stop / ha_addon_restart. Require per-node allowAdminOps=true
-// AND adminToken configured. The token is pulled from the plugin config,
-// never from the tool caller. Addon lifecycle also enforces a slug
-// deny-list (homeassistant / supervisor / core_*).
+// ha_addon_stop / ha_addon_restart / ha_addon_update / ha_update_install.
+// Require per-node allowAdminOps=true AND adminToken configured. The token
+// is pulled from the plugin config, never from the tool caller. Addon
+// lifecycle also enforces a slug deny-list (homeassistant / supervisor / core_*).
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -11,6 +11,7 @@ import {
   HA_ADDON_STOP_TOOL_DESCRIPTOR,
   HA_ADDON_UPDATE_TOOL_DESCRIPTOR,
   HA_RELOAD_CONFIG_TOOL_DESCRIPTOR,
+  HA_UPDATE_INSTALL_TOOL_DESCRIPTOR,
 } from "./descriptors.js";
 import {
   invokeHaCommand,
@@ -37,7 +38,8 @@ type AdminInput = {
     | "ha.addon_start"
     | "ha.addon_stop"
     | "ha.addon_restart"
-    | "ha.addon_update";
+    | "ha.addon_update"
+    | "ha.update_install";
   requireSlug: boolean;
   label: string;
 };
@@ -109,6 +111,16 @@ function createAdminTool(input: AdminInput): AnyAgentTool {
         const domain = readTrimmedString(params, "domain");
         if (!domain) throw new Error("domain required");
         commandParams.domain = domain;
+      } else if (input.command === "ha.update_install") {
+        const entityId = readTrimmedString(params, "entity_id");
+        if (!entityId) throw new Error("entity_id required");
+        commandParams.entity_id = entityId;
+        if (typeof params.backup === "boolean") {
+          commandParams.backup = params.backup;
+        }
+        if (typeof params.version === "string" && params.version) {
+          commandParams.version = params.version;
+        }
       }
 
       const payload = await invokeHaCommand({
@@ -170,4 +182,12 @@ export const createHaAddonUpdateTool = (): AnyAgentTool =>
     command: "ha.addon_update",
     requireSlug: true,
     label: "Add-on update",
+  });
+
+export const createHaUpdateInstallTool = (): AnyAgentTool =>
+  createAdminTool({
+    descriptor: HA_UPDATE_INSTALL_TOOL_DESCRIPTOR,
+    command: "ha.update_install",
+    requireSlug: false,
+    label: "Install update",
   });

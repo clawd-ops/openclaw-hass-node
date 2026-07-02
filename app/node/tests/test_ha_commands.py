@@ -37,6 +37,7 @@ from openclaw_node.commands.ha import (
     handle_ha_list_states,
     handle_ha_logbook,
     handle_ha_reload_config,
+    handle_ha_update_install,
 )
 from openclaw_node.ha_client import HAClientError
 
@@ -1539,3 +1540,108 @@ async def test_addon_update_posts_when_allowlisted(monkeypatch: pytest.MonkeyPat
     assert result["ok"] is True
     assert result["changed"] is True
     mock_post.assert_called_once_with("/addons/openclaw_hass_node/update")
+
+
+# ---------------------------------------------------------------------------
+# ha.update_install (Tier B admin)
+# ---------------------------------------------------------------------------
+
+
+async def test_update_install_no_env_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = await handle_ha_update_install(
+        {"entity_id": "update.home_assistant_core_update", "admin_token": "secret"}
+    )
+    assert result["error"] == "PERMISSION_DENIED"
+
+
+async def test_update_install_wrong_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_update_install(
+        {"entity_id": "update.hacs", "admin_token": "wrong"}
+    )
+    assert result["error"] == "PERMISSION_DENIED"
+
+
+async def test_update_install_missing_token_param_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_update_install({"entity_id": "update.hacs"})
+    assert result["error"] == "PERMISSION_DENIED"
+
+
+async def test_update_install_missing_entity_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_update_install({"admin_token": "secret"})
+    assert result["error"] == "MISSING_PARAM"
+    assert "entity_id" in result["message"]
+
+
+async def test_update_install_rejects_non_update_domain(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_update_install(
+        {"entity_id": "sensor.temperature", "admin_token": "secret"}
+    )
+    assert result["error"] == "INVALID_PARAM"
+    assert "update." in result["message"]
+
+
+async def test_update_install_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        return_value=[{"entity_id": "update.hacs", "state": "off"}],
+    ) as mock_post:
+        result = await handle_ha_update_install(
+            {"entity_id": "update.hacs", "admin_token": "secret"}
+        )
+
+    assert result["ok"] is True
+    assert result["entity_id"] == "update.hacs"
+    assert len(result["changed_states"]) == 1
+    mock_post.assert_called_once_with(
+        "/api/services/update/install", {"entity_id": "update.hacs"}
+    )
+
+
+async def test_update_install_passes_backup_and_version(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+        result = await handle_ha_update_install(
+            {
+                "entity_id": "update.home_assistant_core_update",
+                "backup": True,
+                "version": "2026.7.0",
+                "admin_token": "secret",
+            }
+        )
+
+    assert result["ok"] is True
+    mock_post.assert_called_once_with(
+        "/api/services/update/install",
+        {
+            "entity_id": "update.home_assistant_core_update",
+            "backup": True,
+            "version": "2026.7.0",
+        },
+    )
+
+
+async def test_update_install_invalid_backup_type(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    result = await handle_ha_update_install(
+        {"entity_id": "update.hacs", "backup": "yes", "admin_token": "secret"}
+    )
+    assert result["error"] == "INVALID_PARAM"
+    assert "backup" in result["message"]
+
+
+async def test_update_install_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_HTTP_ERROR", "500 Internal Server Error"),
+    ):
+        result = await handle_ha_update_install(
+            {"entity_id": "update.hacs", "admin_token": "secret"}
+        )
+    assert result["error"] == "HA_HTTP_ERROR"

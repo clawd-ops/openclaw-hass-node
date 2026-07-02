@@ -63,7 +63,8 @@ Shipped surface:
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
-- `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version
+- `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version (Supervisor API, slug-based)
+- `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Requires `OPENCLAW_ADMIN_TOKEN`. Entity ID must be in the `update.` domain.
 
 Additional constraints on top of the admin-token gate:
 
@@ -85,10 +86,11 @@ changelog, preserve options, take a backup, handle migrations). Out
 of scope until there's a specific, scoped ask. If a need surfaces,
 file a separate proposal — not an opportunistic add.
 
-Note: `ha.addon_update` (update to the latest available version) is intentionally
-Tier B rather than Tier C. It does not change which add-on is installed — only
-brings an existing installation forward. The same slug denylist and allowlist
-gate that governs start/stop/restart applies here.
+Note: `ha.addon_update` and `ha.update_install` are intentionally Tier B rather
+than Tier C. Both bring existing installations forward without changing which
+component is installed. `ha.update_install` is entity-scoped (must be `update.*`)
+and uses the `OPENCLAW_ADMIN_TOKEN` gate without a slug allowlist, since update
+entities are HA-registry objects rather than Supervisor slugs.
 
 ## Gateway allowlist sync — required, easy to forget
 

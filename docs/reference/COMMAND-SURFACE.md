@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 43 commands are registered.
+OpenClaw conventions where they exist. 44 commands are registered.
 
 Addon-management commands are tiered by blast radius. Tier A
 (read-only) is designated for subagent use; Tier B (lifecycle) is
@@ -87,6 +87,7 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `ha.addon_stop`           | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; idempotent when already stopped |
 | `ha.addon_restart`        | `slug`, `admin_token`; same Tier B gate as `ha.addon_start` |
 | `ha.addon_update`         | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
+| `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
 
 ## Planned (not yet registered)
 
