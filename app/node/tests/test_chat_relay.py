@@ -2958,3 +2958,223 @@ async def test_tool_progress_idless_end_does_not_clear_same_name_active_with_id(
     assert len(end_frames) == 0, (
         f"id-less end pushed an end frame for id='b' — must not clear: {end_frames!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #200 — tool-marker resolution and de-dup (legacy no-cap path)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_legacy_tool_end_emits_checkmark(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy path: a single tool call must resolve with ` ✓` after tool end.
+
+    Before #200 the tool-end event only cleared ``_active_tool`` internally
+    and never pushed any text onto the stream, so the ``🔧 Calling X...``
+    marker stayed unresolved forever.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_RESOLVE_CHECK"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-res"}))
+        relay.handle_event(_tool_start_event(canonical, "dir_list", "run-res", "id-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "dir_list", "run-res", "id-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-res",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "list dirs"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    text_chunks = [c for c in chunks if isinstance(c, str)]
+    assert "\n🔧 Calling dir_list..." in text_chunks, f"start marker missing: {text_chunks!r}"
+    assert " ✓" in text_chunks, (
+        f"end checkmark missing — tool marker was never resolved (#200): {text_chunks!r}"
+    )
+    # Checkmark must follow the start marker
+    start_idx = text_chunks.index("\n🔧 Calling dir_list...")
+    check_idx = text_chunks.index(" ✓")
+    assert start_idx < check_idx, f"checkmark appeared before start: {text_chunks!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_legacy_dedup_repeat_tool_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy path: repeated identical tool calls collapse to one labelled line.
+
+    Four consecutive ``dir_list`` calls must produce one ``🔧 Calling dir_list...``
+    line followed by inline ``(xN)...`` count updates rather than four
+    separate identical lines stacked in the transcript (#200 de-dup).
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_DEDUP_REPEAT"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-dd"}))
+        for i in range(1, 5):
+            relay.handle_event(_tool_start_event(canonical, "dir_list", "run-dd", f"id-{i}"))
+            await asyncio.sleep(0.005)
+            relay.handle_event(_tool_end_event(canonical, "dir_list", "run-dd", f"id-{i}"))
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-dd",
+                    "message": {"role": "assistant", "content": "all done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "list 4 dirs"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    text_chunks = [c for c in chunks if isinstance(c, str)]
+    # Exactly one fresh line for dir_list (de-dup collapses repeats inline)
+    fresh_lines = [c for c in text_chunks if c == "\n🔧 Calling dir_list..."]
+    assert len(fresh_lines) == 1, (
+        f"de-dup failed: expected 1 fresh line, got {len(fresh_lines)}: {text_chunks!r}"
+    )
+    # Subsequent starts emit inline count updates
+    assert " (x2)..." in text_chunks, f"(x2) count missing: {text_chunks!r}"
+    assert " (x3)..." in text_chunks, f"(x3) count missing: {text_chunks!r}"
+    assert " (x4)..." in text_chunks, f"(x4) count missing: {text_chunks!r}"
+    # Each call resolves with ✓
+    checkmarks = [c for c in text_chunks if c == " ✓"]
+    assert len(checkmarks) == 4, f"expected 4 checkmarks (one per call): {text_chunks!r}"
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_legacy_different_tools_reset_dedup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Legacy path: switching to a different tool resets the de-dup counter.
+
+    Sequence: dir_list x2, then dir_fetch. dir_fetch must appear as a fresh
+    line (not a count update) because it is a different tool name.
+    """
+    from openclaw_node import chat_relay as _cr
+
+    monkeypatch.setattr(_cr, "_STREAM_FIRST_KEEPALIVE_S", 5.0)
+    monkeypatch.setattr(_cr, "_STREAM_KEEPALIVE_INTERVAL_S", 5.0)
+
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+
+    conv_id = "01KVH_DEDUP_RESET"
+    canonical = f"agent:clawd:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-dreset"}))
+        # Two dir_list calls
+        relay.handle_event(_tool_start_event(canonical, "dir_list", "run-dreset", "id-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "dir_list", "run-dreset", "id-1"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_start_event(canonical, "dir_list", "run-dreset", "id-2"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "dir_list", "run-dreset", "id-2"))
+        await asyncio.sleep(0.005)
+        # Different tool: must be a fresh line
+        relay.handle_event(_tool_start_event(canonical, "dir_fetch", "run-dreset", "id-3"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(_tool_end_event(canonical, "dir_fetch", "run-dreset", "id-3"))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-dreset",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "list and fetch"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+
+    text_chunks = [c for c in chunks if isinstance(c, str)]
+    # First dir_list: fresh line
+    assert "\n🔧 Calling dir_list..." in text_chunks, text_chunks
+    # Second dir_list: inline count (x2)
+    assert " (x2)..." in text_chunks, f"(x2) missing: {text_chunks!r}"
+    # dir_fetch: fresh line (different tool resets counter)
+    assert "\n🔧 Calling dir_fetch..." in text_chunks, (
+        f"dir_fetch must get a fresh line after different tool: {text_chunks!r}"
+    )
+    # All three calls resolve
+    checkmarks = [c for c in text_chunks if c == " ✓"]
+    assert len(checkmarks) == 3, f"expected 3 checkmarks: {text_chunks!r}"
