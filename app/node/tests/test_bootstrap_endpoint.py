@@ -214,6 +214,41 @@ async def test_bootstrap_consumed_if_marker_pre_exists(
         await client.close()
 
 
+@pytest.mark.asyncio
+async def test_bootstrap_consumed_if_marker_is_symlink(
+    tmp_path: Path,
+) -> None:
+    """A symlink at the consumed marker path must fail-closed (returns 410, not the token).
+
+    Without this, an attacker with data_dir write access could plant a symlink to
+    prevent the marker from ever being written (O_NOFOLLOW rejects symlinks), causing
+    every restart to re-open the bootstrap window.  The fix: treat is_symlink() as
+    consumed.
+    """
+    config = _make_config(tmp_path)
+    consumed_path = _bootstrap_consumed_path(config)
+    consumed_path.parent.mkdir(parents=True, exist_ok=True)
+    # Symlink pointing to a non-existent target (dangling symlink).
+    symlink_target = tmp_path / "nonexistent"
+    consumed_path.symlink_to(symlink_target)
+    assert consumed_path.is_symlink()
+    assert not consumed_path.exists()  # dangling
+
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        resp = await client.get("/v1/bootstrap")
+        assert resp.status == 410
+        data = await resp.json()
+        assert data["error"] == "BOOTSTRAP_CONSUMED"
+        # Token must NOT appear in the body
+        assert _AUTO_TOKEN not in await resp.text()
+    finally:
+        await client.close()
+
+
 # ---------------------------------------------------------------------------
 # Layer 3: Time-window
 # ---------------------------------------------------------------------------

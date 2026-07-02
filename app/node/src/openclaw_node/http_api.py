@@ -827,7 +827,12 @@ async def bootstrap(request: web.Request) -> web.Response:
     # the in-memory token is cleared, but the marker is the authoritative
     # record that bootstrap was already consumed.
     consumed_path = _bootstrap_consumed_path(runtime.config)
-    if consumed_path.exists() and not consumed_path.is_symlink():
+    # Treat a symlink at this path as consumed (fail-closed): a planted symlink
+    # would otherwise bypass the gate because `exists() and not is_symlink()` is
+    # False for symlinks, while _write_bootstrap_consumed refuses to follow the
+    # symlink (O_NOFOLLOW), so the marker would never be written and every
+    # restart would re-open the window.
+    if consumed_path.is_symlink() or consumed_path.exists():
         return web.json_response(
             {
                 "ok": False,
