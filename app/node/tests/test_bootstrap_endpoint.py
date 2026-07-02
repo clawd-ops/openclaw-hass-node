@@ -15,9 +15,12 @@ from openclaw_node.config import NodeConfig
 from openclaw_node.http_api import (
     BOOTSTRAP_WINDOW_SECONDS,
     NodeRuntime,
+    _bootstrap_claimed_path,
     _bootstrap_consumed_path,
+    _is_supervisor_network,
     create_app,
 )
+from openclaw_node.token_store import token_path
 
 _AUTO_TOKEN = "auto-generated-token-abc123"
 _EXPLICIT_TOKEN = "operator-set-token-xyz"
@@ -194,6 +197,231 @@ async def test_bootstrap_token_cleared_from_memory_after_first_fetch(
 
 
 @pytest.mark.asyncio
+async def test_bootstrap_clears_memory_if_consumed_marker_write_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A marker-write failure must not leave the bootstrap token serveable."""
+    from openclaw_node import http_api
+
+    def _raise_marker_write(_path: Path) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(http_api, "_write_bootstrap_consumed", _raise_marker_write)
+
+    config = _make_config(tmp_path)
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        resp = await client.get("/v1/bootstrap")
+        assert resp.status == 200
+        assert runtime.bootstrap_token == ""
+
+        second = await client.get("/v1/bootstrap")
+        assert second.status == 404
+        data = await second.json()
+        assert data["error"] == "BOOTSTRAP_DISABLED"
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_claim_rotates_token_and_invalidates_old_bearer(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """POST /v1/bootstrap/claim swaps the bootstrap token for a fresh API token."""
+    from openclaw_node import token_store
+
+    rotated_token = "rotated-token-456"
+    monkeypatch.setattr(token_store, "generate_local_api_token", lambda: rotated_token)
+
+    config = _make_config(tmp_path)
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        first = await client.get("/v1/bootstrap")
+        assert first.status == 200
+
+        claim = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert claim.status == 200
+        data = await claim.json()
+        assert data["token"] == rotated_token
+        assert runtime.config.local_api_token == rotated_token
+        assert token_path(tmp_path).read_text(encoding="utf-8").strip() == rotated_token
+        assert _bootstrap_claimed_path(config).exists()
+
+        retry = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert retry.status == 200
+        retry_data = await retry.json()
+        assert retry_data["token"] == rotated_token
+
+        old_ping = await client.post(
+            "/v1/commands/ping",
+            json={},
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert old_ping.status == 403
+
+        new_ping = await client.post(
+            "/v1/commands/ping",
+            json={},
+            headers={"Authorization": f"Bearer {rotated_token}"},
+        )
+        assert new_ping.status == 200
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_claim_reports_rotation_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Claim returns a 500 if the token store cannot persist the replacement."""
+    from openclaw_node import http_api
+
+    def _raise_rotation(_data_dir: Path) -> str:
+        raise OSError("readonly")
+
+    monkeypatch.setattr(http_api, "rotate_local_api_token", _raise_rotation)
+
+    config = _make_config(tmp_path)
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        first = await client.get("/v1/bootstrap")
+        assert first.status == 200
+
+        claim = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert claim.status == 500
+        data = await claim.json()
+        assert data["error"] == "BOOTSTRAP_ROTATION_FAILED"
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_claim_returns_rotated_token_if_claim_marker_write_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A claimed-marker write failure must not strand a successfully rotated token."""
+    from openclaw_node import http_api, token_store
+
+    rotated_token = "rotated-token-456"
+    monkeypatch.setattr(token_store, "generate_local_api_token", lambda: rotated_token)
+    original_write_marker = http_api._write_bootstrap_consumed
+
+    def _write_marker_maybe_fail(path: Path) -> None:
+        if path.name == "bootstrap-claimed":
+            raise OSError("disk full")
+        original_write_marker(path)
+
+    monkeypatch.setattr(http_api, "_write_bootstrap_consumed", _write_marker_maybe_fail)
+
+    config = _make_config(tmp_path)
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        first = await client.get("/v1/bootstrap")
+        assert first.status == 200
+
+        claim = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert claim.status == 200
+        data = await claim.json()
+        assert data["token"] == rotated_token
+        assert runtime.config.local_api_token == rotated_token
+        assert not _bootstrap_claimed_path(config).exists()
+
+        retry = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert retry.status == 200
+        retry_data = await retry.json()
+        assert retry_data["token"] == rotated_token
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_claim_requires_prior_fetch(tmp_path: Path) -> None:
+    """The rotation endpoint is unavailable until /v1/bootstrap is consumed."""
+    config = _make_config(tmp_path)
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        claim = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert claim.status == 409
+        data = await claim.json()
+        assert data["error"] == "BOOTSTRAP_NOT_CONSUMED"
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_claim_is_one_shot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After claim succeeds, a second claim with the rotated token is rejected."""
+    from openclaw_node import token_store
+
+    rotated_token = "rotated-token-456"
+    monkeypatch.setattr(token_store, "generate_local_api_token", lambda: rotated_token)
+
+    config = _make_config(tmp_path)
+    runtime = NodeRuntime(config, bootstrap_token=_AUTO_TOKEN)
+    server = TestServer(create_app(runtime))
+    client: TestClient[Request, Application] = TestClient(server)
+    await client.start_server()
+    try:
+        first = await client.get("/v1/bootstrap")
+        assert first.status == 200
+        claim = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {_AUTO_TOKEN}"},
+        )
+        assert claim.status == 200
+
+        second = await client.post(
+            "/v1/bootstrap/claim",
+            headers={"Authorization": f"Bearer {rotated_token}"},
+        )
+        assert second.status == 409
+        data = await second.json()
+        assert data["error"] == "BOOTSTRAP_ALREADY_CLAIMED"
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
 async def test_bootstrap_consumed_if_marker_pre_exists(
     tmp_path: Path,
 ) -> None:
@@ -320,6 +548,13 @@ async def test_bootstrap_expired_does_not_write_consumed_marker(
 # ---------------------------------------------------------------------------
 # Layer 1: Network-origin check (addon_mode only)
 # ---------------------------------------------------------------------------
+
+
+def test_is_supervisor_network_handles_missing_invalid_and_valid_ip() -> None:
+    """Supervisor network parsing is fail-closed for missing or invalid remotes."""
+    assert _is_supervisor_network(None) is False
+    assert _is_supervisor_network("not-an-ip") is False
+    assert _is_supervisor_network("172.30.32.10") is True
 
 
 @pytest.mark.asyncio

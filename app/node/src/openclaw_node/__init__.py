@@ -18,4 +18,4 @@ except (
     # Fallback for editable/source-only runs where the package metadata is not
     # available. The CI gate `test_version_sources_match` keeps this in sync
     # with pyproject.toml, app/config.yaml, build.yaml, and manifest.json.
-    __version__ = "2026.7.1b2"
+    __version__ = "2026.7.1b3"

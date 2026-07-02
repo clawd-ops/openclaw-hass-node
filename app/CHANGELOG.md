@@ -1,5 +1,22 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.7.1b3 (2026-07-02) — Bootstrap token rotation
+
+### Security
+- **Bootstrap token rotates after HACS handoff.** Fresh installs now use a
+  two-step bootstrap flow: `GET /v1/bootstrap` returns a short-lived bootstrap
+  bearer and advertises `POST /v1/bootstrap/claim`; the HACS integration claims
+  that bearer immediately and stores the rotated operational API token. The
+  original bootstrap token stops working as a normal local API bearer after a
+  successful claim.
+- **Claim retries are idempotent.** If Home Assistant loses the claim response
+  after the node has already rotated the token, retrying with the original
+  bootstrap bearer returns the same rotated token instead of rotating again.
+
+### Docs
+- Updated bootstrap security notes, add-on docs, and `reset_bootstrap`
+  comments to cover both `bootstrap-consumed` and `bootstrap-claimed` state.
+
 ## 2026.7.1b2
 
 ### Fixes

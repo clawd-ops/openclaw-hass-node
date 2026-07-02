@@ -17,7 +17,7 @@ import logging
 import os
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -35,6 +35,7 @@ from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_asyn
 from openclaw_node.config import NodeConfig
 from openclaw_node.identity import _open_private_fd
 from openclaw_node.pairing import PairingState
+from openclaw_node.token_store import rotate_local_api_token
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _JSON_HEADERS: Final[dict[str, str]] = {"Cache-Control": "no-store"}
@@ -48,6 +49,7 @@ _UNAUTHED_PATHS: Final[frozenset[str]] = frozenset(
         "/v1/health",
         "/v1/conversation/info",
         "/v1/bootstrap",
+        "/v1/bootstrap/claim",
     }
 )
 
@@ -106,6 +108,8 @@ class NodeRuntime:
         """
         self.config = config
         self.bootstrap_token: str = bootstrap_token
+        self.bootstrap_claim_token: str = ""
+        self.bootstrap_claimed_token: str = ""
         self.pairing_state: PairingState = PairingState.UNKNOWN
         # Monotonic clock at process start — used to enforce the bootstrap
         # time-window.  Tests may set this to ``time.monotonic() - N`` to
@@ -218,6 +222,7 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_post("/v1/conversation/stream", assist_turn_stream)
     app.router.add_get("/v1/conversation/info", conversation_info)
     app.router.add_get("/v1/bootstrap", bootstrap)
+    app.router.add_post("/v1/bootstrap/claim", bootstrap_claim)
     return app
 
 
@@ -720,6 +725,18 @@ def _bootstrap_consumed_path(config: NodeConfig) -> Path:
     return config.data_dir / "bootstrap-consumed"
 
 
+def _bootstrap_claimed_path(config: NodeConfig) -> Path:
+    """Return the path to the bootstrap-token rotation claimed marker.
+
+    Args:
+        config: Runtime configuration.
+
+    Returns:
+        Path to ``<data_dir>/bootstrap-claimed``.
+    """
+    return config.data_dir / "bootstrap-claimed"
+
+
 def _write_bootstrap_consumed(path: Path) -> None:
     """Write the bootstrap-consumed marker with mode 0o600, refusing symlinks.
 
@@ -774,11 +791,11 @@ async def bootstrap(request: web.Request) -> web.Response:
        returns 410 Gone.  Set ``reset_bootstrap = true`` in add-on options and
        restart to re-open a fresh window and clear the marker.
 
-    Layer 4 (token rotation after handoff) is tracked as a separate follow-up
-    issue.  The three layers above together make capturing the bootstrap token
-    meaningful only if the attacker can reach the Supervisor network within
-    the first 5 minutes of a restart AND before the HACS integration fetches
-    it — a very narrow window.
+    After a successful fetch, the HACS integration immediately calls
+    ``POST /v1/bootstrap/claim`` using the served token. The claim endpoint
+    rotates the persisted local API token and returns the replacement token
+    the integration should store, so the announced bootstrap token stops being
+    useful after handoff.
 
     Args:
         request: Incoming aiohttp request.
@@ -880,6 +897,7 @@ async def bootstrap(request: web.Request) -> web.Response:
 
     # Clear from memory regardless of whether the file write succeeded.
     runtime.bootstrap_token = ""
+    runtime.bootstrap_claim_token = token
 
     _LOG.info(
         "Bootstrap token served to %s and consumed. "
@@ -887,6 +905,106 @@ async def bootstrap(request: web.Request) -> web.Response:
         request.remote,
     )
 
+    return web.json_response(
+        {"ok": True, "token": token, "claim_endpoint": "/v1/bootstrap/claim"},
+        headers=_JSON_HEADERS,
+    )
+
+
+async def bootstrap_claim(request: web.Request) -> web.Response:
+    """Rotate the auto-bootstrap token after the HACS integration claims it.
+
+    The expected bearer is the token returned by ``GET /v1/bootstrap``. Once
+    claimed, the node writes a fresh token to ``local-api-token``, updates
+    runtime config so the old bearer stops working immediately, and returns the
+    fresh token for the integration to save. Retries with the original
+    bootstrap bearer are idempotent within the same runtime: if the first claim
+    response was lost after rotation, the retry receives the same rotated token
+    rather than rotating again.
+
+    Args:
+        request: Incoming authenticated request.
+
+    Returns:
+        JSON ``{"ok": true, "token": "<rotated token>"}`` on success.
+        Returns 409 when bootstrap has not been consumed or has already been
+        claimed.
+    """
+    runtime = _runtime(request)
+    consumed_path = _bootstrap_consumed_path(runtime.config)
+    claimed_path = _bootstrap_claimed_path(runtime.config)
+    auth = request.headers.get("Authorization", "")
+    scheme, _, presented = auth.partition(" ")
+
+    if scheme.lower() != "bearer" or not presented:
+        return web.json_response(
+            {"ok": False, "error": "UNAUTHORIZED"},
+            status=401,
+            headers={**_JSON_HEADERS, "WWW-Authenticate": "Bearer"},
+        )
+    bootstrap_claim_token = runtime.bootstrap_claim_token
+    if bootstrap_claim_token and hmac.compare_digest(
+        presented.encode("utf-8"), bootstrap_claim_token.encode("utf-8")
+    ):
+        if runtime.bootstrap_claimed_token:
+            return web.json_response(
+                {"ok": True, "token": runtime.bootstrap_claimed_token},
+                headers=_JSON_HEADERS,
+            )
+    elif not hmac.compare_digest(
+        presented.encode("utf-8"), runtime.config.local_api_token.encode("utf-8")
+    ):
+        return web.json_response(
+            {"ok": False, "error": "FORBIDDEN"},
+            status=403,
+            headers=_JSON_HEADERS,
+        )
+
+    if not consumed_path.exists() or consumed_path.is_symlink():
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_NOT_CONSUMED",
+                "detail": "Fetch /v1/bootstrap before claiming a rotated token.",
+            },
+            status=409,
+            headers=_JSON_HEADERS,
+        )
+    if claimed_path.exists() or claimed_path.is_symlink():
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_ALREADY_CLAIMED",
+                "detail": "The bootstrap token has already been rotated.",
+            },
+            status=409,
+            headers=_JSON_HEADERS,
+        )
+
+    try:
+        token = rotate_local_api_token(runtime.config.data_dir)
+    except OSError as exc:
+        _LOG.warning("bootstrap claim: could not rotate local API token: %s", exc)
+        return web.json_response(
+            {
+                "ok": False,
+                "error": "BOOTSTRAP_ROTATION_FAILED",
+                "detail": "Could not rotate the local API token.",
+            },
+            status=500,
+            headers=_JSON_HEADERS,
+        )
+
+    runtime.config = replace(runtime.config, local_api_token=token)
+    runtime.bootstrap_claimed_token = token
+    try:
+        _write_bootstrap_consumed(claimed_path)
+    except OSError as exc:
+        _LOG.warning(
+            "bootstrap claim: rotated local API token but could not write claimed marker: %s",
+            exc,
+        )
+    _LOG.info("Bootstrap token claimed by %s; local API token rotated", request.remote)
     return web.json_response(
         {"ok": True, "token": token},
         headers=_JSON_HEADERS,

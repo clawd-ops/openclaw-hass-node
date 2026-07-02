@@ -10,6 +10,7 @@ import pytest
 from openclaw_node.token_store import (
     generate_local_api_token,
     load_or_generate_local_api_token,
+    rotate_local_api_token,
     token_path,
 )
 
@@ -51,6 +52,17 @@ def test_load_or_generate_persists_token(tmp_path: Path) -> None:
     assert token1 == token2
 
 
+def test_load_or_generate_replaces_empty_token_file(tmp_path: Path) -> None:
+    """An empty persisted token is treated as invalid and replaced."""
+    token_path(tmp_path).write_text("\n", encoding="utf-8")
+
+    token, created = load_or_generate_local_api_token(tmp_path)
+
+    assert created is True
+    assert token
+    assert token_path(tmp_path).read_text(encoding="utf-8").strip() == token
+
+
 def test_load_or_generate_file_mode(tmp_path: Path) -> None:
     """Persisted token file must have mode 0o600."""
     load_or_generate_local_api_token(tmp_path)
@@ -72,3 +84,27 @@ def test_load_or_generate_raises_on_symlink(tmp_path: Path) -> None:
 
     # The symlink target must not have been overwritten with the token.
     assert target.read_text() == "notatoken"
+
+
+def test_rotate_local_api_token_replaces_existing_token(tmp_path: Path) -> None:
+    """Rotation persists a fresh token and invalidates the prior value."""
+    first, _ = load_or_generate_local_api_token(tmp_path)
+    second = rotate_local_api_token(tmp_path)
+
+    assert second
+    assert second != first
+    assert token_path(tmp_path).read_text(encoding="utf-8").strip() == second
+
+
+def test_rotate_local_api_token_closes_fd_when_fdopen_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The low-level writer closes the raw fd if wrapping it raises."""
+
+    def _raise_fdopen(*_args: object, **_kwargs: object) -> object:
+        raise OSError("fdopen failed")
+
+    monkeypatch.setattr("openclaw_node.token_store.os.fdopen", _raise_fdopen)
+
+    with pytest.raises(OSError, match="fdopen failed"):
+        rotate_local_api_token(tmp_path)
