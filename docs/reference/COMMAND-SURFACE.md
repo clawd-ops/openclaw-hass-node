@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 42 commands are registered.
+OpenClaw conventions where they exist. 43 commands are registered.
 
 Addon-management commands are tiered by blast radius. Tier A
 (read-only) is designated for subagent use; Tier B (lifecycle) is
@@ -86,6 +86,7 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `ha.addon_start`          | `slug`, `admin_token`; Tier B lifecycle command. Requires matching `OPENCLAW_ADMIN_TOKEN`, explicit `addon_lifecycle.allowlist` opt-in, and is always denied for `homeassistant`, `supervisor`, and `core_*` slugs |
 | `ha.addon_stop`           | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; idempotent when already stopped |
 | `ha.addon_restart`        | `slug`, `admin_token`; same Tier B gate as `ha.addon_start` |
+| `ha.addon_update`         | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
 
 ## Planned (not yet registered)
 

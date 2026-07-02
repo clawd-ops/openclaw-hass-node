@@ -63,6 +63,7 @@ Shipped surface:
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
+- `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version
 
 Additional constraints on top of the admin-token gate:
 
@@ -77,12 +78,17 @@ Additional constraints on top of the admin-token gate:
   stopped should return `{ok: True, state: "<current>"}` rather than
   surfacing Supervisor's `400`.
 
-## Tier C — install / uninstall / update / rebuild — NOT adding
+## Tier C — install / uninstall / rebuild — NOT adding
 
 Easy to brick the HA instance. Sequencing requires careful UX (read
 changelog, preserve options, take a backup, handle migrations). Out
 of scope until there's a specific, scoped ask. If a need surfaces,
 file a separate proposal — not an opportunistic add.
+
+Note: `ha.addon_update` (update to the latest available version) is intentionally
+Tier B rather than Tier C. It does not change which add-on is installed — only
+brings an existing installation forward. The same slug denylist and allowlist
+gate that governs start/stop/restart applies here.
 
 ## Gateway allowlist sync — required, easy to forget
 
