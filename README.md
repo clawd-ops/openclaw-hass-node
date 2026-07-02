@@ -30,7 +30,7 @@
 > have been warned.
 
 Four-piece bundle that connects Home Assistant to an [OpenClaw][]
-gateway as a node so your OpenClaw agent (Clawd or whichever agent
+gateway as a node so your OpenClaw agent (whichever agent
 you've routed to) can answer HA Assist turns and run the full `ha.*`
 control surface — read entity states, call services, control lights,
 read logbook/history, validate config — via the standard OpenClaw
@@ -162,7 +162,7 @@ Release + versioning policy: [`docs/operations/RELEASE.md`](docs/operations/RELE
 ## For maintainers / contributors
 
 - [`docs/MEMORY.md`](docs/MEMORY.md) — durable build memory written for
-  the Clawd agent driving the implementation. Read it if you're
+  the agent driving the implementation. Read it if you're
   resuming work after a context compaction.
 - [`docs/operations/LESSONS.md`](docs/operations/LESSONS.md) — gotchas from the install
   push. Read **before** changing the connect frame, Dockerfile, or

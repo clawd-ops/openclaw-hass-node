@@ -51,7 +51,7 @@ plan.
       Update prompt. `test_version_sync.py` will refuse to let you
       bump some-but-not-all.
 - [ ] If the change touches the connect frame, the auth payload, or the
-      command surface — add a `docs/operations/LESSONS.md` entry so future-Clawd
+      command surface — add a `docs/operations/LESSONS.md` entry so the agent (future maintainer)
       doesn't relitigate the gotcha.
 - [ ] If the change requires gateway-side config (e.g. a new entry in
       `gateway.nodes.allowCommands`) — document it in `docs/INSTALL.md`

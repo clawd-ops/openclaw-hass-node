@@ -1,7 +1,7 @@
 # Build-time lessons (in-repo memory)
 
 > Each entry is a thing that bit us during the 2026-06-06 → 2026-06-07
-> install push. Future-Clawd: read this **before** editing the connect
+> install push. Future maintainer: read this **before** editing the connect
 > frame, the Dockerfile, or the addon config — every one of these was
 > a surprise the first time and an obvious-in-hindsight fix the second.
 
@@ -226,7 +226,7 @@ The b3→b4 bring-up did this once and the addon restart immediately
 overwrote it, which proved the proper fix was the fresh addon
 advertise/reapproval path.
 
-Future-Clawd: when a Tier B / new HA-domain command lands and "the node
+Future maintainer: when a Tier B / new HA-domain command lands and "the node
 does not support" shows up despite a green build and a config push,
 this is almost always why. Don't waste a session debugging the wire
 protocol — check `_NODE_COMMANDS`, restart the addon, then approve the
@@ -236,7 +236,7 @@ pending node reapproval.
 
 Investigated 2026-06-20 for TODO items #4, #9, #10. All three live in
 the gateway (`/app/dist/*.js`), not this repo. None are being patched
-upstream by this project — these are operational notes so future-Clawd
+upstream by this project — these are operational notes so future maintainer
 can recognise the symptoms instead of re-deriving them.
 
 ### #4 non-streaming stale-trailer (theoretical, structural)
@@ -476,7 +476,7 @@ their failure modes are silent until production: a bad regex in a
 `paths:` filter, a missing `permissions:` scope, an off-by-one in awk
 extraction — these don't surface in unit tests.
 
-Future-Clawd: before claiming a code PR is ready to merge, ask
+Future maintainer: before claiming a code PR is ready to merge, ask
 yourself "does this change touch any of: Python under `app/`,
 GitHub Actions YAML, shell/Python scripts under `scripts/`, Docker /
 build config, packaging metadata?" If yes → spawn the GPT-5.5 review
@@ -517,7 +517,7 @@ call to `readPluginConfig(...)` throw at runtime.
 - Test mock for the removed `plugin-config` module removed; tests now run without
   mocking (policy context always carries `pluginConfig` directly).
 
-**Future-Clawd:** when writing a new OC plugin that needs its own config in a tool
+**Future maintainer:** when writing a new OC plugin that needs its own config in a tool
 execute handler, do NOT try to import `readPluginConfig` or any similar
 single-step helper — it does not exist. Use the two-step
 `config.get` → `resolvePluginConfigObject` path shown above.

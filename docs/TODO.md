@@ -28,7 +28,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
 - Status: IN PROGRESS — Tier A done; Tier B shipped in #165 and registered in `commands/dispatcher.py`; subagent-side enforcement still open. **Tier policy + cadence: see `docs/design/COMMAND-TIERS.md`.**
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
-- 2026-06-28 overnight cutover progress: live OpenClaw config removed `mcp.servers.homeassistant` and `mcp.servers.homeassistant-readonly` after verifying `nodes.invoke` against the connected `hass` node with `ha.get_state`. Workspace AGENTS instructions now tell Clawd/HomeOps/PoolMaster/ReefMaster to use the `hass` node command surface instead of `mcp__homeassistant*`. Existing already-running sessions may still hold old MCP child processes until they exit; fresh-session validation remains required before closing.
+- 2026-06-28 overnight cutover progress: live OpenClaw config removed `mcp.servers.homeassistant` and `mcp.servers.homeassistant-readonly` after verifying `nodes.invoke` against the connected `hass` node with `ha.get_state`. Workspace AGENTS instructions now tell the domain agents to use the `hass` node command surface instead of `mcp__homeassistant*`. Existing already-running sessions may still hold old MCP child processes until they exit; fresh-session validation remains required before closing.
 - **Assist-side enforcement (DONE):** the `openclaw-hass-node-assist-tools` plugin provides gateway-plugin-level enforcement for Assist contexts — `nodes.invoke` is not exposed in Assist turns, so Assist HA operations must go through the plugin's `ha_*` wrappers. This is Assist-side / gateway-plugin enforcement, NOT subagent-side enforcement.
 - **Subagent-side enforcement (OPEN):** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle, but the node dispatcher has no mechanism to distinguish subagent callers from main-session callers. The required work is: pass caller/session context into the dispatcher envelope so the node can apply the Tier A read-only allowlist specifically to background subagent sessions. Until this lands, the restriction is prompt-instructed only (SKILL.md guidance), not software-blocked.
 - Remaining (in order):
@@ -41,7 +41,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: DEFERRED
 - GitHub Pages or similar once Tier A and #11 subagent allowlist land. Scope: command catalog, tier-A/B/C policy, role/identity model, addon ↔ gateway architecture diagram.
 
-### 13. Proactive GitHub event notifications to Clawd
+### 13. Proactive GitHub event notifications to the agent
 - Status: OPEN (design)
 - Webhook bridge GitHub → OpenClaw (likely `oc-hooks.landry.me/plugins/github-bridge`, following pocket/linear/agentmail pattern). Events: PR opened/synchronized/closed, check_suite completed, pull_request_review submitted, issues opened/labeled.
 - Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on Rob's gateway-flip approval.
@@ -106,7 +106,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 34. Agent skill for HA node command-surface usage
 - Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
 - Requested: 2026-06-28 by Rob.
-- Goal: create/apply a reusable agent skill that teaches Clawd/Codex/subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
+- Goal: create/apply a reusable agent skill that teaches the agent, Codex, or subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
 - Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
 - Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
 - Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
@@ -228,9 +228,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 8. Prompt guard: no faked waiting/working
 - Status: CLOSED 2026-06-20 (out-of-repo; partial mitigation in-repo)
-- The fix is a system-prompt rule on the agent side (Clawd's prompt), not in `openclaw-hass-node`. The model emitting "Timer's running. Waiting." with no tool call is the agent runtime's responsibility — this repo is just the transport.
+- The fix is a system-prompt rule on the agent side (the agent's prompt), not in `openclaw-hass-node`. The model emitting "Timer's running. Waiting." with no tool call is the agent runtime's responsibility — this repo is just the transport.
 - Partial in-repo mitigation shipped with item #2: tool-named progress (`🔧 Calling X...`) means a faked wait is now visible as either silence or a generic placeholder rather than the same UX as a real tool turn. If a faked wait recurs, the symptom is now diagnosable from HA Assist alone.
-- Action if it reproduces: file an issue against the Clawd agent system prompt, not this repo.
+- Action if it reproduces: file an issue against the agent system prompt, not this repo.
 
 ### 9. Cross-session subscriber bleed
 - Status: CLOSED 2026-06-20 (addon-defended; gateway leak documented, not actionable from this repo)

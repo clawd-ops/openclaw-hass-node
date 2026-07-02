@@ -5,7 +5,7 @@ the gateway's ``chat.send`` + ``sessions.messages.subscribe`` surface.
 Each HA ``conversation_id`` maps to a unique gateway session keyed as
 ``ha-assist:{conversation_id}``.
 
-Design decisions (2026-06-08, Clawd, for Rob's follow-up review):
+Design decisions (2026-06-08, the agent, for Rob's follow-up review):
 
 1. **Fresh session per conversation_id.** Matches HA's conversation
    model (each ``conversation_id`` is a self-contained thread); avoids
@@ -83,9 +83,9 @@ _STREAM_PROGRESS_DELTA: Final[str] = "Working on it...\n\n"
 #     AND end; suppress the textual progress delta entirely (no dual emit).
 _CAP_TOOL_PROGRESS_FRAMES: Final[str] = "tool-progress-frames"
 
-# Prepended to every chat.send message so Clawd recognises this as a real
+# Prepended to every chat.send message so the agent recognises this as a real
 # user request from HA Assist, not a heartbeat poll.  Without this marker,
-# the gateway's Clawd system prompt (which always includes a
+# the gateway's agent system prompt (which always includes a
 # "## Heartbeats: if the current user message is a heartbeat poll, reply
 # HEARTBEAT_OK" section for the default agent) causes short or ambiguous
 # messages like "?" or "how bout now?" to be mistakenly answered with the
@@ -102,7 +102,7 @@ _HA_ASSIST_CONTEXT: Final[str] = (
 def _build_ha_assist_message(text: str, authz: TurnAuthz | None) -> str:
     """Build the ``chat.send`` message with HA Assist context prepended.
 
-    Always prepends :data:`_HA_ASSIST_CONTEXT` so Clawd cannot mistake the
+    Always prepends :data:`_HA_ASSIST_CONTEXT` so the agent cannot mistake the
     turn for a heartbeat poll regardless of whether actor signing is active.
     """
     body = apply_turn_authz(text, authz) if authz is not None else text
@@ -205,7 +205,7 @@ class ChatRelay:
         # see the correct active run.
         self._chat_send_canonical: dict[str, str] = {}
         # Per #118: gateway emits session-message events under a canonical
-        # form of the key (e.g. ``agent:clawd:ha-assist:01kvh...`` lowercased)
+        # form of the key (e.g. ``agent:my-agent:ha-assist:01kvh...`` lowercased)
         # which differs from the raw ``ha-assist:01KVH...`` form the addon
         # sends on subscribe/chat.send. The subscribe response carries the
         # canonicalKey; we capture it and use it for ALL internal state so
@@ -786,7 +786,7 @@ class ChatRelay:
 
         Returns the gateway's CANONICAL session key — this is the form the
         gateway emits in subsequent ``session.message`` / ``chat`` events
-        (e.g. ``agent:clawd:ha-assist:01kvh...`` lowercased) and differs from
+        (e.g. ``agent:my-agent:ha-assist:01kvh...`` lowercased) and differs from
         the raw ``ha-assist:...`` key the addon sends on the request side.
         Storing internal state under the canonical key is what makes the
         receive-side lookup work (#118).

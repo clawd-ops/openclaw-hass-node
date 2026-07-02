@@ -39,7 +39,7 @@ versions for a path is one file read.
   "sha256": "8c2b...",
   "size": 4096,
   "op": "write",
-  "actor": "clawd",
+  "actor": "agent",
   "prev_sha256": "1a4f..."
 }
 ```

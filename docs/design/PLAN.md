@@ -19,7 +19,7 @@ surfaces in one process:
    automations, traces, logbook. Replaces the existing `homeassistant` +
    `homeassistant-readonly` MCP servers for this HA.
 3. **Assist conversation agent** — registers this gateway as a HA
-   conversation agent so Assist turns go to Clawd. Replaces the Anthropic
+   conversation agent so Assist turns go to the agent. Replaces the Anthropic
    conversation integration.
 
 The node speaks the standard OpenClaw gateway WS protocol over **two
@@ -42,7 +42,7 @@ Refactor tracked under **P5.13** / #84.
 ```
 +------------------+   WS #1 role: node (invoke surface)  +-----------------+
 |  OpenClaw GW     | <----------------------------------> |  HASS Node      |
-|  (Clawd model)   |   WS #2 role: operator (ChatRelay)   |  (this repo)    |
+|  (agent model)   |   WS #2 role: operator (ChatRelay)   |  (this repo)    |
 |                  | <----------------------------------> |                 |
 +------------------+                                      +--------+--------+
                                                                    |
@@ -197,7 +197,7 @@ or fix.
 **Architecture (corrected 2026-06-08 — P5.13):** the HA node is a
 **standard OpenClaw node** that relays Assist turns into an OpenClaw
 agent session using the *existing* gateway chat surface. There is no
-parallel brain, no custom event types, no plugin code. Clawd (the
+parallel brain, no custom event types, no plugin code. The agent (the
 agent) is the brain. The node maintains **two** parallel WS
 connections to the gateway — one as `role: node` for tool invokes,
 one as `role: operator` for ChatRelay's chat RPCs — because the
@@ -209,7 +209,7 @@ End-to-end flow:
 ```
 HA Assist → ConversationEntity integration → node /v1/conversation
          → node ChatRelay calls `chat.send` on its OPERATOR WS
-         → OpenClaw routes the message to the configured agent (Clawd)
+         → OpenClaw routes the message to the configured agent (the agent)
          → agent calls ha.* tools via node.invoke on the NODE WS (P4)
          → agent reply arrives on the session
          → node receives it via sessions.messages.subscribe (operator WS)
@@ -278,7 +278,7 @@ fits. The node carries no model knowledge.
     emit `propose_edit` to agent-bridge with the patch/content, return
     proposal ID. Apply only after `resolve_proposal(accepted)`.
   - If `agent_bridge=false` and path is outside protected roots
-    (`/tmp`, `/share/clawd-scratch`): apply directly.
+    (`/tmp`, `/share/agent-scratch`): apply directly.
 - Protected roots (always proposal-gated, no override):
   `/config`, `/addons`, `/ssl`.
 

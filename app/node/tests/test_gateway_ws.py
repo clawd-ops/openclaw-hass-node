@@ -1014,7 +1014,7 @@ async def test_event_loop_routes_agent_tool_event_to_relay() -> None:
     ws = AsyncMock()
     ws.send = AsyncMock()
     relay = ChatRelay(AsyncMock())
-    s_k = "agent:clawd:ha-assist:01kvh_agent_tool_event"
+    s_k = "agent:my-agent:ha-assist:01kvh_agent_tool_event"
     relay._canonical_by_raw[s_k] = s_k
 
     messages = [

@@ -28,7 +28,7 @@ by this doc, and changing it requires no addon code.
 
 When an operator wants a "household assistant" agent that can't
 modify OpenClaw's own state, they curate a separate `agentId`
-(e.g. `clawd-household`) with a restricted tool inventory in
+(e.g. `my-agent-household`) with a restricted tool inventory in
 their gateway config. The addon's only role in concern A is
 **which** `agentId` to use on `chat.send` (see "Agent selection
 on chat.send" below — this is the lone overlap with concern B).
@@ -257,11 +257,11 @@ Use cases (both real, both supported):
 
 - **Different permissions per member.** Household members route to
   agents that operator configured (in `openclaw.json`) with
-  restricted tool inventories — e.g. `clawd-household` lacks
-  `fs.write`/`system.run`, `clawd-readonly` lacks `ha.call_service`
+  restricted tool inventories — e.g. `my-agent-household` lacks
+  `fs.write`/`system.run`, `my-agent-readonly` lacks `ha.call_service`
   entirely. Belt-and-suspenders with the disclaimer.
 - **Different personalities per member.** Kids get a fun helper
-  agent; spouse gets a no-nonsense one; you get the full Clawd.
+  agent; spouse gets a no-nonsense one; you get the full agent.
   Nothing to do with security — just the right voice for the right
   person.
 
@@ -271,9 +271,9 @@ Addon options:
 identity:
   super_admins: [<rob-uuid>]
   user_agent_map:
-    "<ash-uuid>": "clawd-household"
-    "<kid-uuid>": "clawd-kid"
-  default_agent_id: "clawd"
+    "<ash-uuid>": "my-agent-household"
+    "<kid-uuid>": "my-agent-kid"
+  default_agent_id: "my-agent"
   # Unmapped users (incl. anonymous voice satellite turns) → default_agent_id
 ```
 
@@ -309,21 +309,21 @@ the operator.
    ping `agents.list` and log at INFO level:
 
    ```
-   [identity] Gateway agents available: clawd (default), clawd-household, clawd-kid
+   [identity] Gateway agents available: my-agent (default), my-agent-household, my-agent-kid
    [identity] Resolved user_agent_map:
-     <rob-uuid> → clawd
-     <ash-uuid> → clawd-household
-   [identity] default_agent_id: clawd
+     <rob-uuid> → my-agent
+     <ash-uuid> → my-agent-household
+   [identity] default_agent_id: my-agent
    ```
 
 2. **For each mapped `agentId` not present in `agents.list`**, log
    at WARNING:
 
    ```
-   [identity] WARNING: user_agent_map[<ash-uuid>] = "clawd-kid"
+   [identity] WARNING: user_agent_map[<ash-uuid>] = "my-agent-kid"
               but no such agent in gateway. Falling back to
-              default_agent_id ("clawd") for this user. Available
-              agents: clawd, clawd-household.
+              default_agent_id ("my-agent") for this user. Available
+              agents: my-agent, my-agent-household.
    ```
 
    Both the misconfigured value AND the available agents go in
@@ -333,18 +333,18 @@ the operator.
    the fallback that catches everything else):
 
    ```
-   [identity] ERROR: default_agent_id "clawd-foo" not in gateway
+   [identity] ERROR: default_agent_id "my-agent-foo" not in gateway
               agents list. Unmapped users will hit the gateway's
               own default agent (whatever that is). Available
-              agents: clawd, clawd-household.
+              agents: my-agent, my-agent-household.
    ```
 
 4. **Per-turn**, log at DEBUG the resolved actor + agent so
-   operators debugging "why did Clawd refuse" can see it:
+   operators debugging "why did the agent refuse" can see it:
 
    ```
    [identity] turn user_id=<rob-uuid> is_admin=true role=super_admin
-              agent=clawd forbidden_count=0
+              agent=my-agent forbidden_count=0
    ```
 
 5. **On UNCLASSIFIED_COMMAND deny** (Step 3a's fail-safe), log at
@@ -389,7 +389,7 @@ a follow-up after Step 1-6 ship. Tracked here so it's not
 forgotten when someone has bandwidth.
 
 For Rob's house: leave `user_agent_map` empty, set
-`default_agent_id: clawd`. Same as today, disclaimer is the only
+`default_agent_id: my-agent`. Same as today, disclaimer is the only
 protection. Add per-user mappings when concern-A agents exist.
 
 ---

@@ -27,7 +27,7 @@ BEFORE the webhook payload reaches any model:
 
 - **HMAC signature verification** against the configured `signingSecret`.
 - **Repo allowlist** via the `repoAllowlist` config; rejects events from other repos.
-- **Self-author filter** via the `selfLogins` config; drops events whose causal actor is one of Clawd's own GitHub identities.
+- **Self-author filter** via the `selfLogins` config; drops events whose causal actor is one of the agent's own GitHub identities.
 - **Recognized-event filter** — only `pull_request`, `pull_request_review`, `pull_request_review_comment`, `issues`, `issue_comment` are processed.
 - **Per-sender and global rate limiting** with a daily UTC reset and 429 cool-down response.
 - **Body size cap** matched to the gateway hook cap.

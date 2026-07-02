@@ -2,7 +2,7 @@
 
 > **This is not the user-facing README.** Users want
 > [`INSTALL.md`](INSTALL.md). This file is the post-compaction landing
-> page for the Clawd agent: minimal, pointer-heavy, so a fresh session
+> page for the agent: minimal, pointer-heavy, so a fresh session
 > can orient in seconds without re-deriving everything from code.
 
 ## When you resume, read these in order
@@ -52,5 +52,5 @@ These are the rules that surprise people. Front-loaded so you don't break them.
 ## Resume rituals
 
 - Bump version → `scripts/bump-version.py <version>` (touches all 5 sources together; CI fails on drift).
-- Cross-provider review is policy: Clawd writes, Codex (gpt-5.5) reviews before merge. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- Cross-provider review is policy: The agent writes, Codex (gpt-5.5) reviews before merge. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - After meaningful work, refresh this file if the diagram or invariants changed; otherwise leave it alone.

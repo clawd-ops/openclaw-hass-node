@@ -105,7 +105,7 @@ async def test_resolve_identity_usernames_maps_to_ids(
         config,
         identity=IdentityConfig(
             super_admins=frozenset({"BigRob8181"}),
-            user_agent_map={"Ash": "clawd-household"},
+            user_agent_map={"Ash": "my-agent-household"},
         ),
     )
 
@@ -123,7 +123,7 @@ async def test_resolve_identity_usernames_maps_to_ids(
     resolved = await _resolve_identity_usernames(config)
 
     assert resolved.identity.super_admins == frozenset({"rob-uuid"})
-    assert resolved.identity.user_agent_map == {"ash-uuid": "clawd-household"}
+    assert resolved.identity.user_agent_map == {"ash-uuid": "my-agent-household"}
 
 
 async def test_resolve_identity_usernames_drops_unknown_entries(
@@ -135,7 +135,7 @@ async def test_resolve_identity_usernames_drops_unknown_entries(
         config,
         identity=IdentityConfig(
             super_admins=frozenset({"bigrob8181", "unknown"}),
-            user_agent_map={"unknown-route": "clawd-household"},
+            user_agent_map={"unknown-route": "my-agent-household"},
         ),
     )
 
@@ -160,7 +160,7 @@ async def test_resolve_identity_usernames_fails_closed_on_timeout(
         config,
         identity=IdentityConfig(
             super_admins=frozenset({"bigrob8181"}),
-            user_agent_map={"ash": "clawd-household"},
+            user_agent_map={"ash": "my-agent-household"},
         ),
     )
 
