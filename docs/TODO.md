@@ -48,13 +48,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 17. Open GitHub issues (not otherwise tracked above)
 - Status: OPEN
-- #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles.
-- #78 — Auto-bootstrap API token between node and integration (enhancement).
 - #1 — Direction (catch-all, leave for Rob).
-- #199 — Active-chat tool-usage progress visibility gap (UX, carries forward from #35).
-- #200 — Tool-start delta not reaching HA Assist active-chat view (investigation/fix).
-- #201 — `ha_*` wrappers do not solve filesystem / file-transfer confusion in Assist (open, do NOT close — see #35 note).
-- #202 — `nodes.invoke` filtered in Assist by design; fix is enabling `openclaw-hass-node-assist-tools` plugin (CLOSED in this PR — see SKILL.md update).
+- Recently closed issues formerly listed here are now recorded in the closed
+  section below so this rollup only names live GitHub issues.
 
 ### 20. Proposal-gated write path — agent-bridge UI wiring
 - Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; the actual `propose_edit` → `resolve_proposal` round-trip through the agent-bridge UI is not wired.
@@ -97,24 +93,10 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Goal: addon option `show_tool_progress: true|false` (default `true`). When `false`, the relay skips emitting `🔧 Calling X...` deltas entirely (both the plain-text immediate path and the `ToolProgressFrame` cap path). Lets users who want a quieter HA Assist UX suppress the per-tool progress lines without needing a different cap.
 - Scope: `app/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
 
-### 33. Quiet `[relay-diag]` INFO noise in addon logs
-- Status: CLOSED 2026-06-28 — moved `[relay-diag]` from INFO to DEBUG in PR #214 (shipped in v2026.7.1b1). TODO.md status lagged; corrected in 2026.7.1b2 release PR.
-- Requested: 2026-06-28 by Rob.
-- Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
-- Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
-
-### 34. Agent skill for HA node command-surface usage
-- Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
-- Requested: 2026-06-28 by Rob.
-- Goal: create/apply a reusable agent skill that teaches the agent, Codex, or subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
-- Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
-- Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
-- Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
-
 ### 35. HA Assist active-chat tool usage still not visible
 - Status: MOSTLY SUPERSEDED — the `tool_progress` frame path and per-tool-start delta logic were shipped in b3/b4 (PRs #179, #184, #186, #188, #190). The transport-level plumbing is in place.
-- Remaining UX gap: the tool-start delta may still not render visibly in HA Assist's active-chat view for all turn types. Tracked in GitHub issues #199 (progress visibility gap) and #200 (tool-start delta not reaching active-chat view).
-- Live-validation note: this item stays open until a real HA Assist turn with ≥1 tool call is confirmed to show `🔧 Calling X...` in the active-chat view on the currently installed version. Do not close based on code analysis alone — the prior attempts all had code in place but did not verify end-to-end.
+- Remaining UX gap: the tool-start delta may still not render visibly in HA Assist's active-chat view for all turn types. The code-side GitHub issues that tracked this (#199/#200) are closed; this TODO item remains open only for live validation.
+- Live-validation note: this item stays open until a real HA Assist turn with >=1 tool call is confirmed to show `🔧 Calling X...` in the active-chat view on the currently installed version. Do not close based on code analysis alone — the prior attempts all had code in place but did not verify end-to-end.
 - Cross-link: item #32 (show/hide config) must wait until this works; hiding broken output is not useful.
 
 ### 36. Node command gaps discovered while migrating workspace HA scripts
@@ -144,6 +126,29 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ---
 
 ## Closed items
+
+### 17a. Closed GitHub issues formerly listed under item #17
+- Status: CLOSED / moved out of the open issue rollup on 2026-07-02.
+- #107 — `reset_pairing` should be one-shot: don't wipe again until the user toggles. Closed 2026-07-02.
+- #78 — Auto-bootstrap API token between node and integration. Closed 2026-07-02 after the b3 bootstrap-claim rotation release.
+- #199 — Assist UX: too many newlines around tool-call markers. Closed 2026-07-02.
+- #200 — Assist UX: tool-call markers never resolve; show result/error and de-dup repeats. Closed 2026-07-02.
+- #201 — Assist correctness: model conflates `mcp__openclaw__*` tools with the HASS node command surface. Closed 2026-07-02.
+- #202 — Assist node-originated session had `nodes.invoke` filtered by design; fix path is the assist-tools plugin. Closed 2026-07-01.
+
+### 33. Quiet `[relay-diag]` INFO noise in addon logs
+- Status: CLOSED 2026-06-28 — moved `[relay-diag]` from INFO to DEBUG in PR #214 (shipped in v2026.7.1b1). TODO.md status lagged; corrected in 2026.7.1b2 release PR.
+- Requested: 2026-06-28 by Rob.
+- Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
+- Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
+
+### 34. Agent skill for HA node command-surface usage
+- Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
+- Requested: 2026-06-28 by Rob.
+- Goal: create/apply a reusable agent skill that teaches the agent, Codex, or subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
+- Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
+- Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
+- Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
 
 ### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
 - Status: CLOSED — shipped in PR #224.
