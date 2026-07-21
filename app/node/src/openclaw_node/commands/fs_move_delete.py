@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import errno
+import hashlib
 import logging
 import os
 import shutil
@@ -70,13 +71,26 @@ def _trash_dir() -> Path:
     return Path(os.environ.get("OPENCLAW_TRASH_DIR", "/share/openclaw-trash"))
 
 
+def _path_slug(path: str) -> str:
+    """Return a short, stable path-identity slug for trash filenames.
+
+    Encodes the full absolute path (not just the basename) so two files with
+    the same basename living in different directories produce distinct
+    trash entries and can be purged independently (Codex-review #242
+    finding on ``purge_trash_entries_for``).
+    """
+    abspath = os.path.abspath(path)
+    return hashlib.sha1(abspath.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
+
+
 def purge_trash_entries_for(path: str) -> int:
     """Remove openclaw-managed trash entries for *path* (fallback trash only).
 
     Only touches the OpenClaw fallback trash directory (``_trash_dir()``),
     not the FreeDesktop system trash — ``send2trash`` handles system trash
-    lifecycle independently.  Matches entries by basename prefix
-    ``"<name>."`` since ``_trash_file`` appends a timestamp suffix.
+    lifecycle independently.  Entries are matched on the full-path slug
+    embedded in the filename (``<basename>.<slug>.<ts>``) so two files that
+    share a basename in different directories do not purge each other.
 
     Args:
         path: Absolute path whose trash entries should be purged.
@@ -90,10 +104,13 @@ def purge_trash_entries_for(path: str) -> int:
     trash = _trash_dir()
     if not trash.exists():
         return 0
+    slug = _path_slug(path)
+    # Match on both basename AND path slug so a file in /a/foo.txt does not
+    # purge an unrelated /b/foo.txt trash entry.
+    marker = f"{basename}.{slug}."
     removed = 0
-    prefix = f"{basename}."
     for entry in trash.iterdir():
-        if entry.name.startswith(prefix):
+        if entry.name.startswith(marker):
             try:
                 if entry.is_dir() and not entry.is_symlink():
                     shutil.rmtree(entry)
@@ -131,11 +148,15 @@ def _trash_file(path: Path) -> str:
     else:
         return "system trash"
 
-    # Fallback: move to the openclaw trash directory.
+    # Fallback: move to the openclaw trash directory.  The filename embeds
+    # a short slug of the full absolute source path so entries for two
+    # distinct paths with the same basename remain distinguishable, and so
+    # ``purge_trash_entries_for`` can match only the intended path.
     trash = _trash_dir()
     trash.mkdir(parents=True, exist_ok=True)
     ts = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%S%f")
-    dest = trash / f"{path.name}.{ts}"
+    slug = _path_slug(str(path))
+    dest = trash / f"{path.name}.{slug}.{ts}"
     shutil.move(str(path), str(dest))
     return str(dest)
 

@@ -344,6 +344,68 @@ def test_fs_patch_real_dry_run_leaves_file_unchanged(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Codex review #242 — regression: hunk-count validation and CRLF support
+# ---------------------------------------------------------------------------
+
+
+def test_apply_unified_diff_rejects_truncated_hunk() -> None:
+    """Header declares 3 old lines but body walks only 1 — must reject."""
+    original = b"a\nb\nc\n"
+    diff = "@@ -1,3 +1,3 @@\n-a\n+A\n"  # truncated: only one line, header says 3
+    with pytest.raises(PatchApplyError, match="hunk count mismatch"):
+        _apply_unified_diff(original, diff)
+
+
+def test_apply_unified_diff_rejects_declared_new_count_mismatch() -> None:
+    """Header declares 2 new lines but body only adds 1."""
+    original = b"a\n"
+    diff = "@@ -1,1 +1,2 @@\n-a\n+A\n"
+    with pytest.raises(PatchApplyError, match="hunk count mismatch"):
+        _apply_unified_diff(original, diff)
+
+
+def test_apply_unified_diff_rejects_empty_patch() -> None:
+    """A patch with no hunk headers must not silently no-op."""
+    with pytest.raises(PatchApplyError, match="no hunks"):
+        _apply_unified_diff(b"a\n", "")
+
+
+def test_apply_unified_diff_rejects_headers_only_patch() -> None:
+    """File headers without a hunk body must not count as a valid patch."""
+    with pytest.raises(PatchApplyError, match="no hunks"):
+        _apply_unified_diff(b"a\n", "--- a/x\n+++ b/x\n")
+
+
+def test_apply_unified_diff_preserves_crlf_line_endings() -> None:
+    """A patch generated from a CRLF file must round-trip CRLF endings."""
+    original = b"line one\r\nline two\r\nline three\r\n"
+    # The patch body carries the source's own \r on each context/delete line.
+    diff = (
+        "--- a/x\r\n"
+        "+++ b/x\r\n"
+        "@@ -1,3 +1,3 @@\r\n"
+        " line one\r\n"
+        "-line two\r\n"
+        "+LINE TWO\r\n"
+        " line three\r\n"
+    )
+    patched, hunks = _apply_unified_diff(original, diff)
+    assert patched == b"line one\r\nLINE TWO\r\nline three\r\n"
+    assert hunks == 1
+
+
+def test_fs_patch_rejects_truncated_hunk_via_handler(tmp_path: Path) -> None:
+    """The handler surfaces truncated-hunk failures as PATCH_FAILED."""
+    p = _allowed_file(tmp_path, "a.yaml", "a\nb\nc\n")
+    diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1,3 +1,3 @@\n-a\n+A\n"
+    result = handle_fs_patch({"path": str(p), "patch": diff})
+    assert result["error"] == "PATCH_FAILED"
+    assert "hunk count mismatch" in result["message"]
+    # File must be untouched after a rejected patch.
+    assert p.read_text() == "a\nb\nc\n"
+
+
 def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "v1\n")
     diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-v1\n+v2\n"

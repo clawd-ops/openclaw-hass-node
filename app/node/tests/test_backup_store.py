@@ -396,6 +396,42 @@ def test_append_line_fsync_failure_propagates(
         store.capture("/config/x.yaml", b"data", proposal_id="p1", op="write")
 
 
+def test_rename_history_no_source_returns_false(store: BackupStore) -> None:
+    """Renaming when src has no history is a silent no-op."""
+    assert store.rename_history("/config/no-history.yaml", "/config/dst.yaml") is False
+
+
+def test_rename_history_moves_to_empty_dst(store: BackupStore) -> None:
+    """Rename onto an empty destination transfers the history log."""
+    v = store.capture("/config/src.yaml", b"data", proposal_id="p1", op="write")
+    assert store.rename_history("/config/src.yaml", "/config/dst.yaml") is True
+    assert store.history("/config/src.yaml") == []
+    assert store.history("/config/dst.yaml") == [v]
+
+
+def test_rename_history_preserves_dst_as_newest_after_overwrite_move(
+    store: BackupStore,
+) -> None:
+    """Codex-review #242 blocking finding: after an overwrite-move,
+    ``fs.restore version=-1`` must return the pre-move destination
+    snapshot (so the caller can undo the overwrite), not the move-src
+    entry whose bytes are already live at dst.  ``rename_history`` must
+    therefore leave dst's captures at the end of the merged log.
+    """
+    src_path = "/config/src.yaml"
+    dst_path = "/config/dst.yaml"
+    # Match real fs.move ordering: dst pre-move capture first, then src.
+    dst_capture = store.capture(dst_path, b"dst bytes", proposal_id="pre-move", op="move-dst")
+    store.capture(src_path, b"src bytes", proposal_id="src-write", op="write")
+    store.capture(src_path, b"src bytes", proposal_id="src-move", op="move-src")
+
+    assert store.rename_history(src_path, dst_path) is True
+
+    hist = store.history(dst_path)
+    assert hist[-1].sha256 == dst_capture.sha256
+    assert hist[-1].proposal_id == "pre-move"
+
+
 def _sha256(data: bytes) -> str:
     import hashlib
 

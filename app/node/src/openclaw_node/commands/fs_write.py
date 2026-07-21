@@ -256,23 +256,27 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
 
     roots = allowed_roots_for_env()
 
-    # Capture prior bytes (empty if file does not yet exist) via a
-    # TOCTOU-safe fd read so a symlink at the path can't redirect the read
-    # between resolve and capture.
+    # Capture prior bytes via a TOCTOU-safe fd read.  Distinguish "file did
+    # not exist" from "file existed but was empty" so we can still record a
+    # restorable version for the empty-file case (Codex-review-blocking #242):
+    # without this distinction, restoring an overwritten empty file was
+    # impossible because the capture was skipped based on byte truthiness.
     try:
-        prior_bytes = read_bytes_safe(path, roots, missing_ok=True)
+        prior_bytes = read_bytes_safe(path, roots, missing_ok=False)
+        file_existed = True
     except OutOfBoundsError:
         return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
+    except FileNotFoundError:
+        prior_bytes = b""
+        file_existed = False
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read prior bytes: {exc}")
 
-    # Only capture a backup version when there is prior content to preserve.
-    # Fresh-create writes (empty prior) previously produced a spurious history
-    # entry with size=0 and the empty-string sha256; fs.restore against that
-    # entry would restore garbage.  Skip the capture so history begins with
-    # the state actually reachable via restore.
+    # Capture a backup version whenever the target file exists (including
+    # zero-length files).  Skip only fresh-create writes so history begins
+    # with the state actually reachable via restore.
     store = _get_store()
-    if prior_bytes:
+    if file_existed:
         try:
             store.capture(
                 path,

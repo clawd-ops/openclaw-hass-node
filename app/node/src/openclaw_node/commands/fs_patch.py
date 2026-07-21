@@ -100,11 +100,23 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
             lines do not match *original* at the expected position.
     """
     src_lines = _split_lines_keep_ends(original)
-    patch_lines = patch_text.splitlines(keepends=False)
+    # Split on "\n" only (not str.splitlines) so any trailing "\r" stays on
+    # the body — required to correctly round-trip patches produced from
+    # CRLF/mixed-newline source files (Codex-review #242 finding).
+    patch_lines = patch_text.split("\n")
+    # A trailing "\n" on the patch text produces a spurious empty element;
+    # drop it so it isn't misread as a blank context line.
+    if patch_lines and patch_lines[-1] == "":
+        patch_lines.pop()
 
-    # Fast-forward past file headers to the first hunk header.
+    # Fast-forward past file headers to the first hunk header.  Strip a
+    # trailing "\r" on control lines so ``startswith`` comparisons don't
+    # care about the patch file's own line endings.
+    def _control(line: str) -> str:
+        return line[:-1] if line.endswith("\r") else line
+
     i = 0
-    while i < len(patch_lines) and not patch_lines[i].startswith("@@"):
+    while i < len(patch_lines) and not _control(patch_lines[i]).startswith("@@"):
         i += 1
 
     out_lines: list[bytes] = []
@@ -112,14 +124,17 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
     hunks_applied = 0
 
     while i < len(patch_lines):
-        header = patch_lines[i]
+        header = _control(patch_lines[i])
         match = _HUNK_HEADER_RE.match(header)
         if not match:
             raise PatchApplyError(f"malformed hunk header: {header!r}")  # noqa: TRY003
         old_start = int(match.group("old_start"))
-        # Note: old_count / new_count are informational; we validate by
-        # walking the hunk body, so we don't need to enforce them here.
-        # A count of 0 means the range is empty (pure add or pure delete).
+        old_count_raw = match.group("old_count")
+        new_count_raw = match.group("new_count")
+        # Per unified-diff spec: omitted count means 1.  A count of 0 means
+        # the range is empty (pure add / pure delete).
+        declared_old = int(old_count_raw) if old_count_raw is not None else 1
+        declared_new = int(new_count_raw) if new_count_raw is not None else 1
 
         # Copy through any source lines between the previous hunk and this one.
         hunk_src_index = (old_start - 1) if old_start > 0 else 0
@@ -128,8 +143,14 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
         out_lines.extend(src_lines[src_cursor:hunk_src_index])
         src_cursor = hunk_src_index
 
+        # Track actual old/new counts walked by the hunk body so we can
+        # reject truncated / malformed hunks whose declared counts do not
+        # match the body (Codex-review #242 blocking finding).
+        actual_old = 0
+        actual_new = 0
+
         i += 1
-        while i < len(patch_lines) and not patch_lines[i].startswith("@@"):
+        while i < len(patch_lines) and not _control(patch_lines[i]).startswith("@@"):
             line = patch_lines[i]
             i += 1
             if not line:
@@ -142,12 +163,16 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
                     )
                 out_lines.append(expected)
                 src_cursor += 1
+                actual_old += 1
+                actual_new += 1
                 continue
             tag = line[0]
             body = line[1:]
             # Lookahead: if the next line is "\ No newline at end of file",
             # the current body has no trailing newline; otherwise append "\n".
-            no_newline = i < len(patch_lines) and patch_lines[i].startswith("\\ No newline")
+            no_newline = i < len(patch_lines) and _control(patch_lines[i]).startswith(
+                "\\ No newline"
+            )
             if no_newline:
                 i += 1
                 body_bytes = body.encode("utf-8")
@@ -162,6 +187,8 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
                     )
                 out_lines.append(body_bytes)
                 src_cursor += 1
+                actual_old += 1
+                actual_new += 1
             elif tag == "-":
                 if src_cursor >= len(src_lines) or src_lines[src_cursor] != body_bytes:
                     raise PatchApplyError(  # noqa: TRY003
@@ -170,8 +197,10 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
                         f"got {src_lines[src_cursor] if src_cursor < len(src_lines) else b''!r}"
                     )
                 src_cursor += 1
+                actual_old += 1
             elif tag == "+":
                 out_lines.append(body_bytes)
+                actual_new += 1
             elif tag == "\\":
                 # Bare "\ No newline" marker without an associated body line
                 # (should not happen with the lookahead above, but treated as
@@ -180,7 +209,24 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
                     raise PatchApplyError(f"unrecognised marker line: {line!r}")  # noqa: TRY003
             else:
                 raise PatchApplyError(f"unrecognised hunk line prefix: {line!r}")  # noqa: TRY003
+
+        # Verify the body matched the declared hunk counts.  Rejects
+        # truncated hunks (fewer body lines than declared) and hunks with
+        # inconsistent counts vs. body prefixes.
+        if actual_old != declared_old or actual_new != declared_new:
+            raise PatchApplyError(  # noqa: TRY003
+                f"hunk count mismatch at old_start={old_start}: "
+                f"header declared -{declared_old} +{declared_new}, "
+                f"body walked -{actual_old} +{actual_new}"
+            )
         hunks_applied += 1
+
+    # Reject patches that carry no hunks at all (empty or headers-only).
+    # Without this, ``fs.patch`` silently no-ops on garbage input and
+    # returns ``hunks_applied=0``, which callers cannot distinguish from
+    # "diff applied cleanly with no changes."
+    if hunks_applied == 0:
+        raise PatchApplyError("no hunks found in patch")  # noqa: TRY003
 
     # Copy any tail lines after the last hunk.
     out_lines.extend(src_lines[src_cursor:])

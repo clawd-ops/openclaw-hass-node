@@ -163,6 +163,36 @@ def test_fs_write_captures_prior_bytes(tmp_path: Path, live_file: Path) -> None:
     assert store.fetch_object(versions[0].sha256) == b"key: value\n"
 
 
+def test_fs_write_captures_empty_prior_file(tmp_path: Path) -> None:
+    """Overwriting an empty file must still record a restorable backup entry.
+
+    Codex-review #242 regression: a truthiness check on ``prior_bytes``
+    caused zero-length files to skip the capture, so restoring an
+    overwritten empty file was impossible.
+    """
+    target = tmp_path / "fs" / "empty.yaml"
+    target.write_bytes(b"")
+    result = handle_fs_write(
+        {
+            "path": str(target),
+            "content": "now: has-content\n",
+            "agent_bridge": False,
+            "proposal_id": "p-empty",
+        }
+    )
+    assert result["ok"] is True
+    store = _get_store()
+    versions = store.history(str(target))
+    assert len(versions) == 1
+    assert versions[0].size == 0
+    assert store.fetch_object(versions[0].sha256) == b""
+
+    # Restoring version=-1 must bring the file back to its empty state.
+    restore_result = handle_fs_restore({"path": str(target), "version": -1, "agent_bridge": False})
+    assert restore_result["ok"] is True
+    assert target.read_bytes() == b""
+
+
 def test_fs_write_overwrites_existing_file(tmp_path: Path, live_file: Path) -> None:
     handle_fs_write(
         {
@@ -839,14 +869,18 @@ def test_fs_restore_purges_matching_trash_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, live_file: Path
 ) -> None:
     """After a successful restore, matching entries in the fallback trash dir are removed."""
+    from openclaw_node.commands.fs_move_delete import _path_slug
+
     trash_dir = tmp_path / "trash"
     monkeypatch.setenv("OPENCLAW_TRASH_DIR", str(trash_dir))
     trash_dir.mkdir(parents=True, exist_ok=True)
+    slug = _path_slug(str(live_file))
     # Simulate two prior fs.delete calls leaving stale trash copies of this file.
-    (trash_dir / f"{live_file.name}.20260101T000000000000").write_text("stale1")
-    (trash_dir / f"{live_file.name}.20260102T000000000000").write_text("stale2")
-    # Unrelated trash entry that must not be removed.
-    (trash_dir / "other.txt.20260101T000000000000").write_text("keep")
+    (trash_dir / f"{live_file.name}.{slug}.20260101T000000000000").write_text("stale1")
+    (trash_dir / f"{live_file.name}.{slug}.20260102T000000000000").write_text("stale2")
+    # Unrelated trash entry (different path → different slug) must not be removed.
+    other_slug = _path_slug("/elsewhere/other.txt")
+    (trash_dir / f"other.txt.{other_slug}.20260101T000000000000").write_text("keep")
 
     # Seed a backup version we can restore from.
     handle_fs_write(
@@ -864,4 +898,4 @@ def test_fs_restore_purges_matching_trash_entries(
     assert result["trash_purged"] == 2
     # Matching entries gone; unrelated entry preserved.
     remaining = {p.name for p in trash_dir.iterdir()}
-    assert remaining == {"other.txt.20260101T000000000000"}
+    assert remaining == {f"other.txt.{other_slug}.20260101T000000000000"}

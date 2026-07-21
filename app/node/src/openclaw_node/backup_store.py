@@ -444,9 +444,14 @@ class BackupStore:
         Only the per-path append-only index (JSONL) is renamed.  Silently
         no-ops when *src* has no history yet.
 
-        If a history file already exists at *dst*, this method appends the
-        *src* entries onto it rather than overwriting, so the destination's
-        prior history is preserved.
+        If a history file already exists at *dst*, the source log is
+        prepended so the destination's existing captures (which include
+        the pre-move-dst snapshot) remain the newest entries.  Otherwise
+        ``fs.restore version=-1`` after an overwrite-move would return the
+        move-src capture — i.e., the bytes that are already live at dst —
+        instead of the pre-move destination snapshot (Codex-review #242
+        finding).  Written atomically to avoid two-phase corruption on
+        crash.
 
         Args:
             src: Source absolute path (existing history key).
@@ -462,17 +467,20 @@ class BackupStore:
         dst_index = self._index_path(dst)
         src_data = src_index.read_bytes()
         if dst_index.exists():
-            # Append src log onto dst so the destination's prior history is
-            # preserved.  Use a small in-memory concat + atomic replace to
-            # avoid two-phase corruption on crash.
             dst_data = dst_index.read_bytes()
-            merged = dst_data + src_data
+            # Guarantee both halves end with a newline so concatenation
+            # cannot glue two JSON objects onto the same line if the
+            # source log was written without a trailing "\n".
+            if src_data and not src_data.endswith(b"\n"):
+                src_data += b"\n"
+            if dst_data and not dst_data.endswith(b"\n"):
+                dst_data += b"\n"
+            merged = src_data + dst_data
             _atomic_write_bytes(dst_index, merged, self._tmp_dir)
+            src_index.unlink(missing_ok=True)
         else:
             dst_index.parent.mkdir(parents=True, exist_ok=True)
             os.replace(str(src_index), str(dst_index))
-            return True
-        src_index.unlink(missing_ok=True)
         return True
 
     def capture(

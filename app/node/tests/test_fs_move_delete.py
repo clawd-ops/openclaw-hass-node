@@ -550,24 +550,63 @@ def test_fs_move_history_moved_flag_true_after_capture(
 
 
 def test_purge_trash_entries_for_removes_matching_prefix(tmp_path: Path) -> None:
-    """purge_trash_entries_for removes '<basename>.*' entries, leaves others."""
-    from openclaw_node.commands.fs_move_delete import purge_trash_entries_for
+    """purge_trash_entries_for removes entries whose slug matches the path."""
+    import os
+
+    from openclaw_node.commands.fs_move_delete import (
+        _path_slug,
+        purge_trash_entries_for,
+    )
 
     trash = tmp_path / "trash"
     trash.mkdir(parents=True, exist_ok=True)
-    # Reconfigure the trash dir via the env var checked at call time.
-    import os
-
     os.environ["OPENCLAW_TRASH_DIR"] = str(trash)
 
-    (trash / "target.yaml.20260101T000000000000").write_text("a")
-    (trash / "target.yaml.20260102T000000000000").write_text("b")
-    (trash / "other.txt.20260101T000000000000").write_text("c")
+    target_path = "/some/dir/target.yaml"
+    slug = _path_slug(target_path)
+    (trash / f"target.yaml.{slug}.20260101T000000000000").write_text("a")
+    (trash / f"target.yaml.{slug}.20260102T000000000000").write_text("b")
+    # An entry from a different path with the same basename — must NOT be purged.
+    other_slug = _path_slug("/elsewhere/target.yaml")
+    (trash / f"target.yaml.{other_slug}.20260101T000000000000").write_text("c")
+    (trash / "other.txt.abc123abc123.20260101T000000000000").write_text("d")
 
-    n = purge_trash_entries_for("/some/dir/target.yaml")
+    n = purge_trash_entries_for(target_path)
     assert n == 2
     remaining = {p.name for p in trash.iterdir()}
-    assert remaining == {"other.txt.20260101T000000000000"}
+    assert remaining == {
+        f"target.yaml.{other_slug}.20260101T000000000000",
+        "other.txt.abc123abc123.20260101T000000000000",
+    }
+
+
+def test_purge_trash_entries_for_does_not_touch_unrelated_basename(
+    tmp_path: Path,
+) -> None:
+    """Two paths sharing a basename must have independent purge scopes."""
+    import os
+
+    from openclaw_node.commands.fs_move_delete import (
+        _path_slug,
+        purge_trash_entries_for,
+    )
+
+    trash = tmp_path / "trash"
+    trash.mkdir(parents=True, exist_ok=True)
+    os.environ["OPENCLAW_TRASH_DIR"] = str(trash)
+
+    a_path = "/a/dir/foo.txt"
+    b_path = "/b/dir/foo.txt"
+    a_slug = _path_slug(a_path)
+    b_slug = _path_slug(b_path)
+    assert a_slug != b_slug
+    (trash / f"foo.txt.{a_slug}.20260101T000000000000").write_text("a")
+    (trash / f"foo.txt.{b_slug}.20260101T000000000000").write_text("b")
+
+    n = purge_trash_entries_for(a_path)
+    assert n == 1
+    remaining = {p.name for p in trash.iterdir()}
+    assert remaining == {f"foo.txt.{b_slug}.20260101T000000000000"}
 
 
 def test_purge_trash_entries_for_missing_dir_is_noop(tmp_path: Path) -> None:
