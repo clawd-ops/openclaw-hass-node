@@ -70,6 +70,42 @@ def _trash_dir() -> Path:
     return Path(os.environ.get("OPENCLAW_TRASH_DIR", "/share/openclaw-trash"))
 
 
+def purge_trash_entries_for(path: str) -> int:
+    """Remove openclaw-managed trash entries for *path* (fallback trash only).
+
+    Only touches the OpenClaw fallback trash directory (``_trash_dir()``),
+    not the FreeDesktop system trash — ``send2trash`` handles system trash
+    lifecycle independently.  Matches entries by basename prefix
+    ``"<name>."`` since ``_trash_file`` appends a timestamp suffix.
+
+    Args:
+        path: Absolute path whose trash entries should be purged.
+
+    Returns:
+        Number of trash entries removed.
+    """
+    basename = os.path.basename(path)
+    if not basename:
+        return 0
+    trash = _trash_dir()
+    if not trash.exists():
+        return 0
+    removed = 0
+    prefix = f"{basename}."
+    for entry in trash.iterdir():
+        if entry.name.startswith(prefix):
+            try:
+                if entry.is_dir() and not entry.is_symlink():
+                    shutil.rmtree(entry)
+                else:
+                    entry.unlink()
+            except OSError as exc:
+                _LOG.warning("failed to purge trash entry %r: %s", entry, exc)
+                continue
+            removed += 1
+    return removed
+
+
 def _trash_file(path: Path) -> str:
     """Move *path* to the system trash or the OpenClaw fallback trash dir.
 
@@ -302,11 +338,22 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
             )
         return _error("MOVE_ERROR", f"Move failed: {exc}")
 
+    # Carry the version history log to the new path so fs.history/fs.restore
+    # against the destination sees the pre-move versions.  Failure to rename
+    # is logged but does not fail the move — the file has already been
+    # atomically renamed on disk.
+    try:
+        history_moved = store.rename_history(src_raw, dst_raw)
+    except BackupStoreError as exc:
+        _LOG.warning("history rename failed %r → %r: %s", src_raw, dst_raw, exc)
+        history_moved = False
+
     return {
         "ok": True,
         "src": src_raw,
         "dst": dst_raw,
         "size": len(src_bytes),
+        "history_moved": history_moved,
     }
 
 

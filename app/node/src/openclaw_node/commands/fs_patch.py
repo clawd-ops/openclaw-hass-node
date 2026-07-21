@@ -3,11 +3,10 @@
 Implements ``fs.patch`` — apply a unified diff to a file within the allowed
 roots, capturing prior bytes to the backup store before mutating.
 
-Uses the system ``patch`` binary (``/usr/bin/patch`` or whatever is on
-``PATH``) via :mod:`subprocess` so that hunk application is handled by a
-well-tested, standards-conformant implementation.  The diff is applied to a
-copy of the original in a temp directory; on success the result is written
-to the live path atomically via :func:`~openclaw_node.commands.fs_write._atomic_write`.
+Uses a **pure-Python** unified-diff applier so the command works on any
+add-on image without depending on the ``patch`` binary being installed.
+The applier accepts single-file unified diffs (any number of hunks),
+validates context lines, and applies hunks in order.
 
 Mutation policy is identical to ``fs.write``:
 
@@ -22,9 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import subprocess
-import tempfile
-from pathlib import Path
+import re
 from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError
@@ -44,13 +41,150 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 # Re-export for test convenience.
 reset_store_for_testing = _reset_store_for_testing
 
-_PATCH_TIMEOUT_S: Final[int] = 30
-
 
 def _get_store() -> BackupStore:
     from openclaw_node.commands.fs_write import _get_store as _fs_write_get_store
 
     return _fs_write_get_store()
+
+
+class PatchApplyError(RuntimeError):
+    """Raised when a unified diff cannot be applied to the source bytes."""
+
+
+_HUNK_HEADER_RE: Final[re.Pattern[str]] = re.compile(
+    r"^@@ -(?P<old_start>\d+)(?:,(?P<old_count>\d+))? "
+    r"\+(?P<new_start>\d+)(?:,(?P<new_count>\d+))? @@"
+)
+
+
+def _split_lines_keep_ends(data: bytes) -> list[bytes]:
+    """Split *data* on newline boundaries, keeping trailing newlines.
+
+    Unlike :func:`bytes.splitlines`, this preserves the terminator on each
+    line so we can round-trip through ``b"".join(...)`` without loss.  The
+    final chunk may be empty (when the input ends with a newline) or
+    unterminated (when it does not).
+    """
+    lines: list[bytes] = []
+    start = 0
+    length = len(data)
+    while start < length:
+        idx = data.find(b"\n", start)
+        if idx == -1:
+            lines.append(data[start:])
+            break
+        lines.append(data[start : idx + 1])
+        start = idx + 1
+    return lines
+
+
+def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
+    r"""Apply a unified diff to *original*, returning ``(patched, hunks)``.
+
+    The parser recognises the ``@@ -o,c +n,c @@`` hunk-header form and the
+    per-line prefixes ``" "`` (context), ``"-"`` (delete), ``"+"`` (add),
+    and ``"\\ No newline at end of file"`` (missing-final-newline marker).
+    File-header lines (``---``/``+++``) and any lines before the first
+    ``@@`` are ignored so callers can include or omit them freely.
+
+    Args:
+        original: Bytes to patch.
+        patch_text: Unified diff string.
+
+    Returns:
+        Tuple of ``(patched_bytes, hunks_applied)``.
+
+    Raises:
+        PatchApplyError: If the diff is malformed, or a hunk's context/delete
+            lines do not match *original* at the expected position.
+    """
+    src_lines = _split_lines_keep_ends(original)
+    patch_lines = patch_text.splitlines(keepends=False)
+
+    # Fast-forward past file headers to the first hunk header.
+    i = 0
+    while i < len(patch_lines) and not patch_lines[i].startswith("@@"):
+        i += 1
+
+    out_lines: list[bytes] = []
+    src_cursor = 0
+    hunks_applied = 0
+
+    while i < len(patch_lines):
+        header = patch_lines[i]
+        match = _HUNK_HEADER_RE.match(header)
+        if not match:
+            raise PatchApplyError(f"malformed hunk header: {header!r}")  # noqa: TRY003
+        old_start = int(match.group("old_start"))
+        # Note: old_count / new_count are informational; we validate by
+        # walking the hunk body, so we don't need to enforce them here.
+        # A count of 0 means the range is empty (pure add or pure delete).
+
+        # Copy through any source lines between the previous hunk and this one.
+        hunk_src_index = (old_start - 1) if old_start > 0 else 0
+        if hunk_src_index < src_cursor:
+            raise PatchApplyError(f"overlapping or out-of-order hunk at line {old_start}")  # noqa: TRY003
+        out_lines.extend(src_lines[src_cursor:hunk_src_index])
+        src_cursor = hunk_src_index
+
+        i += 1
+        while i < len(patch_lines) and not patch_lines[i].startswith("@@"):
+            line = patch_lines[i]
+            i += 1
+            if not line:
+                # An empty line inside a hunk is treated as a context blank
+                # line: a single "\n" that must be present in the source.
+                expected = b"\n"
+                if src_cursor >= len(src_lines) or src_lines[src_cursor] != expected:
+                    raise PatchApplyError(  # noqa: TRY003
+                        f"context mismatch at src line {src_cursor + 1}: expected blank line"
+                    )
+                out_lines.append(expected)
+                src_cursor += 1
+                continue
+            tag = line[0]
+            body = line[1:]
+            # Lookahead: if the next line is "\ No newline at end of file",
+            # the current body has no trailing newline; otherwise append "\n".
+            no_newline = i < len(patch_lines) and patch_lines[i].startswith("\\ No newline")
+            if no_newline:
+                i += 1
+                body_bytes = body.encode("utf-8")
+            else:
+                body_bytes = (body + "\n").encode("utf-8")
+            if tag == " ":
+                if src_cursor >= len(src_lines) or src_lines[src_cursor] != body_bytes:
+                    raise PatchApplyError(  # noqa: TRY003
+                        f"context mismatch at src line {src_cursor + 1}: "
+                        f"expected {body_bytes!r}, "
+                        f"got {src_lines[src_cursor] if src_cursor < len(src_lines) else b''!r}"
+                    )
+                out_lines.append(body_bytes)
+                src_cursor += 1
+            elif tag == "-":
+                if src_cursor >= len(src_lines) or src_lines[src_cursor] != body_bytes:
+                    raise PatchApplyError(  # noqa: TRY003
+                        f"delete mismatch at src line {src_cursor + 1}: "
+                        f"expected {body_bytes!r}, "
+                        f"got {src_lines[src_cursor] if src_cursor < len(src_lines) else b''!r}"
+                    )
+                src_cursor += 1
+            elif tag == "+":
+                out_lines.append(body_bytes)
+            elif tag == "\\":
+                # Bare "\ No newline" marker without an associated body line
+                # (should not happen with the lookahead above, but treated as
+                # a no-op for robustness).
+                if not line.startswith("\\ "):
+                    raise PatchApplyError(f"unrecognised marker line: {line!r}")  # noqa: TRY003
+            else:
+                raise PatchApplyError(f"unrecognised hunk line prefix: {line!r}")  # noqa: TRY003
+        hunks_applied += 1
+
+    # Copy any tail lines after the last hunk.
+    out_lines.extend(src_lines[src_cursor:])
+    return b"".join(out_lines), hunks_applied
 
 
 def _run_patch(
@@ -64,52 +198,20 @@ def _run_patch(
     Args:
         original: The original file bytes.
         patch_text: Unified diff string.
-        dry_run: If True, validate only; returned bytes are empty.
+        dry_run: If True, still validates the diff by applying it in-memory,
+            but returned bytes are empty so the caller does not overwrite.
 
     Returns:
         ``(patched_bytes, hunks_applied)`` where *hunks_applied* is the
-        number of hunks applied (estimated from ``patch`` stdout).
+        number of hunks applied.
 
     Raises:
-        FileNotFoundError: If the ``patch`` binary is not installed.
-        subprocess.TimeoutExpired: If patch takes longer than the timeout.
-        RuntimeError: If ``patch`` exits non-zero (hunk failures, etc.).
+        PatchApplyError: If the diff is malformed or does not apply cleanly.
     """
-    with tempfile.TemporaryDirectory(prefix="oc_patch_") as tmpdir:
-        orig_file = Path(tmpdir) / "original"
-        out_file = Path(tmpdir) / "patched"
-        orig_file.write_bytes(original)
-
-        cmd = [
-            "patch",
-            "--unified",
-            "--forward",
-            "--reject-file=-",  # discard reject files rather than writing to disk
-        ]
-        if dry_run:
-            cmd.append("--dry-run")
-        cmd += ["--output", str(out_file), str(orig_file)]
-
-        result = subprocess.run(
-            cmd,
-            input=patch_text.encode(),
-            capture_output=True,
-            timeout=_PATCH_TIMEOUT_S,
-        )
-
-        if result.returncode != 0:
-            stderr = result.stderr.decode(errors="replace").strip()
-            raise RuntimeError(stderr or "patch exited non-zero")
-
-        # Count applied hunks from stdout ("Hunk #N succeeded" lines).
-        stdout = result.stdout.decode(errors="replace")
-        hunks = stdout.count("succeeded") or stdout.count("Hunk #")
-
-        if dry_run:
-            return b"", hunks
-
-        patched = out_file.read_bytes()
-        return patched, hunks
+    patched, hunks = _apply_unified_diff(original, patch_text)
+    if dry_run:
+        return b"", hunks
+    return patched, hunks
 
 
 def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
@@ -179,13 +281,9 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     # pollute the store when the diff is malformed.
     try:
         patched_bytes, hunks = _run_patch(original_bytes, patch_text, dry_run=dry_run)
-    except FileNotFoundError:
-        return _error("PATCH_BINARY_NOT_FOUND", "The 'patch' binary is not installed")
-    except subprocess.TimeoutExpired:
-        return _error("PATCH_TIMEOUT", f"Patch did not complete within {_PATCH_TIMEOUT_S}s")
-    except RuntimeError as exc:
+    except PatchApplyError as exc:
         _LOG.error("patch failed for %r: %s", path, exc)
-        return _error("PATCH_FAILED", "Patch did not apply cleanly; check server logs for details")
+        return _error("PATCH_FAILED", f"Patch did not apply cleanly: {exc}")
 
     if dry_run:
         return {"ok": True, "path": path, "dry_run": True, "hunks_applicable": hunks}

@@ -200,6 +200,7 @@ def test_fs_move_simple(tmp_path: Path, src_file: Path, dst_file: Path) -> None:
 
 
 def test_fs_move_captures_src_to_store(tmp_path: Path, src_file: Path, dst_file: Path) -> None:
+    """After fs.move, the src capture is preserved and readable via dst's history."""
     handle_fs_move(
         {
             "src": str(src_file),
@@ -209,9 +210,12 @@ def test_fs_move_captures_src_to_store(tmp_path: Path, src_file: Path, dst_file:
         }
     )
     store = md_mod._get_store()
-    versions = store.history(str(src_file))
+    # History follows the file — it now lives under the dst key (issue #240).
+    versions = store.history(str(dst_file))
     assert len(versions) == 1
     assert store.fetch_object(versions[0].sha256) == b"src: content\n"
+    # Src's history log has been renamed away.
+    assert store.history(str(src_file)) == []
 
 
 def test_fs_move_overwrites_dst_and_captures(tmp_path: Path, src_file: Path) -> None:
@@ -498,3 +502,79 @@ def test_fs_delete_post_resolution_protected(
     result = handle_fs_delete({"path": "/tmp/link.yaml", "agent_bridge": False})
     assert result["ok"] is False
     assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+# ---------------------------------------------------------------------------
+# Regression: fs.move carries history to dst; purge_trash_entries_for helper
+# (issue #240)
+# ---------------------------------------------------------------------------
+
+
+def test_fs_move_carries_history_to_dst(tmp_path: Path, src_file: Path, dst_file: Path) -> None:
+    """fs.history at dst returns the pre-move versions after fs.move."""
+    from openclaw_node.commands.fs_write import handle_fs_history, handle_fs_write
+
+    # Seed one write on src so it has history to move.
+    handle_fs_write(
+        {
+            "path": str(src_file),
+            "content": "src: updated\n",
+            "agent_bridge": False,
+            "proposal_id": "seed-v1",
+        }
+    )
+    src_hist_before = handle_fs_history({"path": str(src_file)})
+    assert len(src_hist_before["versions"]) >= 1
+
+    move_result = handle_fs_move(
+        {"src": str(src_file), "dst": str(dst_file), "agent_bridge": False}
+    )
+    assert move_result["ok"] is True
+    assert move_result["history_moved"] is True
+
+    dst_hist = handle_fs_history({"path": str(dst_file)})
+    assert len(dst_hist["versions"]) >= 1
+
+    src_hist_after = handle_fs_history({"path": str(src_file)})
+    assert src_hist_after["versions"] == []
+
+
+def test_fs_move_history_moved_flag_true_after_capture(
+    tmp_path: Path, src_file: Path, dst_file: Path
+) -> None:
+    """fs.move always captures src bytes before rename, so history_moved is True."""
+    result = handle_fs_move({"src": str(src_file), "dst": str(dst_file), "agent_bridge": False})
+    assert result["ok"] is True
+    # The move-src capture creates a history entry, so rename_history returns True.
+    assert result["history_moved"] is True
+
+
+def test_purge_trash_entries_for_removes_matching_prefix(tmp_path: Path) -> None:
+    """purge_trash_entries_for removes '<basename>.*' entries, leaves others."""
+    from openclaw_node.commands.fs_move_delete import purge_trash_entries_for
+
+    trash = tmp_path / "trash"
+    trash.mkdir(parents=True, exist_ok=True)
+    # Reconfigure the trash dir via the env var checked at call time.
+    import os
+
+    os.environ["OPENCLAW_TRASH_DIR"] = str(trash)
+
+    (trash / "target.yaml.20260101T000000000000").write_text("a")
+    (trash / "target.yaml.20260102T000000000000").write_text("b")
+    (trash / "other.txt.20260101T000000000000").write_text("c")
+
+    n = purge_trash_entries_for("/some/dir/target.yaml")
+    assert n == 2
+    remaining = {p.name for p in trash.iterdir()}
+    assert remaining == {"other.txt.20260101T000000000000"}
+
+
+def test_purge_trash_entries_for_missing_dir_is_noop(tmp_path: Path) -> None:
+    """purge_trash_entries_for returns 0 when the trash dir does not exist."""
+    import os
+
+    from openclaw_node.commands.fs_move_delete import purge_trash_entries_for
+
+    os.environ["OPENCLAW_TRASH_DIR"] = str(tmp_path / "does-not-exist")
+    assert purge_trash_entries_for("/some/path/foo.txt") == 0

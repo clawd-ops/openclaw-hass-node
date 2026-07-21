@@ -48,6 +48,27 @@ versions for a path is one file read.
 For `delete`, the line records the prior bytes; the object is kept
 until evicted.
 
+## Behavioural notes
+
+- **Fresh-file writes record no history entry.** When `fs.write` targets
+  a path that does not yet exist, there is no prior content to preserve,
+  so no `write` version is appended. History for that path begins with
+  the first *overwrite* (i.e., the first write that had prior bytes to
+  back up). Rationale: a placeholder entry with `size=0` and the
+  empty-string sha256 could be misread by `fs.restore` as a legitimate
+  "restore to empty" target, which was never the caller's intent.
+- **`fs.move` carries history to `dst`.** After a successful move the
+  per-path index at `index/<src>.jsonl` is renamed to
+  `index/<dst>.jsonl` so `fs.history` and `fs.restore` at the
+  destination see the pre-move versions. Content-addressed object
+  bodies are shared and do not move. If `dst` already has history, the
+  `src` log is appended onto it (destination's prior history preserved).
+- **`fs.restore` purges matching OpenClaw fallback-trash entries.**
+  After a successful restore, any files under `OPENCLAW_TRASH_DIR`
+  whose basename matches `path` are removed and the count is returned
+  as `trash_purged`. System-trash entries (FreeDesktop `send2trash`)
+  are not touched — the OS trash lifecycle handles those independently.
+
 ## Write path
 
 1. Proposal accepted by user.

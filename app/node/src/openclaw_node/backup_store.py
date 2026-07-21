@@ -437,6 +437,44 @@ class BackupStore:
         """
         return self._index_dir / f"{_encode_path(path)}.jsonl"
 
+    def rename_history(self, src: str, dst: str) -> bool:
+        """Move the version history log from *src* to *dst*.
+
+        Content-addressed object bodies are shared and do not need to move.
+        Only the per-path append-only index (JSONL) is renamed.  Silently
+        no-ops when *src* has no history yet.
+
+        If a history file already exists at *dst*, this method appends the
+        *src* entries onto it rather than overwriting, so the destination's
+        prior history is preserved.
+
+        Args:
+            src: Source absolute path (existing history key).
+            dst: Destination absolute path (new history key).
+
+        Returns:
+            ``True`` if any history entries were moved; ``False`` if *src*
+            had no recorded history.
+        """
+        src_index = self._index_path(src)
+        if not src_index.exists():
+            return False
+        dst_index = self._index_path(dst)
+        src_data = src_index.read_bytes()
+        if dst_index.exists():
+            # Append src log onto dst so the destination's prior history is
+            # preserved.  Use a small in-memory concat + atomic replace to
+            # avoid two-phase corruption on crash.
+            dst_data = dst_index.read_bytes()
+            merged = dst_data + src_data
+            _atomic_write_bytes(dst_index, merged, self._tmp_dir)
+        else:
+            dst_index.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(str(src_index), str(dst_index))
+            return True
+        src_index.unlink(missing_ok=True)
+        return True
+
     def capture(
         self,
         path: str,

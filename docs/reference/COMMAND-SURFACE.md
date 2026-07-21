@@ -29,17 +29,17 @@ is prompt-instructed via SKILL.md, not hardware-blocked.
 
 | Command       | Args                                | Notes                     |
 |---------------|-------------------------------------|---------------------------|
-| `fs.read`     | `path`, `offset?`, `limit?`         |                           |
-| `fs.list`     | `path`, `recursive?`, `glob?`       |                           |
-| `fs.stat`     | `path`                              |                           |
-| `fs.glob`     | `pattern`, `cwd?`                   |                           |
-| `fs.write`    | `path`, `content`, `mode?`          |                           |
-| `fs.patch`    | `path`, `patch` (unified diff)      |                           |
-| `fs.move`     | `src`, `dst`                        |                           |
-| `fs.delete`   | `path`                              | Uses `send2trash` (FreeDesktop.org spec) with an OpenClaw-managed trash directory fallback |
-| `fs.restore`  | `trash_id?` or `path?`              | Restore from trash        |
-| `fs.history`  | `path`                              | Content-addressed backup history |
-| `fs.diff`     | `path`, `version?`                  | Diff against backup version |
+| `fs.read`     | `path`, `encoding?`, `max_bytes?`   | `encoding` = `utf-8` (default) or `base64`. Returns `{content, size, sha256}`. |
+| `fs.list`     | `path`, `hidden?`, `max_entries?`   | Non-recursive directory listing. `hidden?` includes dotfiles when true. |
+| `fs.stat`     | `path`                              | File metadata: `kind`, `size`, `mtime`, `ctime`, `mode`, `owner_uid`, `group_gid`, `is_symlink`, `link_target`. |
+| `fs.glob`     | `root`, `pattern`, `hidden?`, `max_matches?` | Glob under `root`. Result matches are `root`-relative. |
+| `fs.write`    | `path`, `content`, `encoding?`, `proposal_id?`, `actor?`, `agent_bridge?` | Returns `{path, size, sha256}` where `sha256` is of the bytes **just written**. Prior bytes captured to the backup store when the file previously had content. |
+| `fs.patch`    | `path`, `patch` (unified diff), `dry_run?`, `proposal_id?`, `actor?`, `agent_bridge?` | Applied by a pure-Python unified-diff engine (no `patch` binary dependency). |
+| `fs.move`     | `src`, `dst`, `proposal_id?`, `actor?`, `agent_bridge?` | Atomic single-filesystem rename. Backup-store history for `src` is renamed to `dst` so `fs.history`/`fs.restore` at the destination see pre-move versions. Cross-device moves return `CROSS_DEVICE`. |
+| `fs.delete`   | `path`, `proposal_id?`, `actor?`, `agent_bridge?` | Uses `send2trash` (FreeDesktop.org spec) with an OpenClaw-managed trash directory fallback (`OPENCLAW_TRASH_DIR`, default `/share/openclaw-trash`). |
+| `fs.restore`  | `path`, exactly one of `version`, `proposal_id`, or `at`, `actor?`, `agent_bridge?` | Restores from the content-addressed **backup store** (not the trash directory). Also purges any lingering OpenClaw fallback-trash entries whose basename matches `path`; returns `trash_purged` count. |
+| `fs.history`  | `path`                              | Content-addressed backup history for `path`. First-write of a fresh file records no entry (there is nothing to restore to). |
+| `fs.diff`     | `path`, `from_version`, `to_version?` | `from_version` / `to_version` are 1-indexed positions (`-1` = latest) or a sha256 hex digest. `to_version` omitted compares `from_version` against the current live bytes on disk. |
 
 All filesystem commands are scoped to the add-on's allowed roots
 (`/config`, `/share`, `/media` in add-on mode, matching the `map:`

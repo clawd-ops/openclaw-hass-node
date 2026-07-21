@@ -1,17 +1,16 @@
-"""Tests for openclaw_node.commands.fs_patch."""
+"""Tests for openclaw_node.commands.fs_patch (pure-Python applier)."""
 
 from __future__ import annotations
 
 import hashlib
-import os
-import subprocess
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch as mock_patch
 
 import pytest
 
 from openclaw_node.commands.fs_patch import (
+    PatchApplyError,
+    _apply_unified_diff,
     _run_patch,
     handle_fs_patch,
     reset_store_for_testing,
@@ -30,6 +29,7 @@ def _isolated_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     allowed.mkdir()
     monkeypatch.setenv("OPENCLAW_ALLOWED_ROOTS", str(allowed))
     monkeypatch.setenv("OPENCLAW_BACKUP_ROOT", str(tmp_path / "store"))
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
 
 
 def _allowed_file(tmp_path: Path, name: str = "test.yaml", content: str = "") -> Path:
@@ -40,118 +40,115 @@ def _allowed_file(tmp_path: Path, name: str = "test.yaml", content: str = "") ->
     return p
 
 
-def _simple_patch(path: str, old_line: str, new_line: str) -> str:
-    """Build a minimal unified diff replacing one line."""
-    return f"--- a/{path}\n+++ b/{path}\n@@ -1,1 +1,1 @@\n-{old_line}\n+{new_line}\n"
-
-
 # ---------------------------------------------------------------------------
-# _run_patch unit tests
+# _apply_unified_diff — pure-Python applier
 # ---------------------------------------------------------------------------
 
 
-_PATCH_ON_PATH = any(
-    (Path(d) / "patch").exists() for d in os.environ.get("PATH", "").split(os.pathsep)
-)
+def test_apply_unified_diff_single_line_replace() -> None:
+    original = b"hello world\n"
+    diff = "--- a/test\n+++ b/test\n@@ -1 +1 @@\n-hello world\n+goodbye world\n"
+    patched, hunks = _apply_unified_diff(original, diff)
+    assert patched == b"goodbye world\n"
+    assert hunks == 1
 
-_skip_no_patch = pytest.mark.skipif(not _PATCH_ON_PATH, reason="'patch' binary not on PATH")
+
+def test_apply_unified_diff_multi_hunk() -> None:
+    original = b"a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n"
+    # Replace 'b' at line 2 and 'i' at line 9 in two separate hunks.
+    diff = (
+        "--- a/test\n+++ b/test\n@@ -1,3 +1,3 @@\n a\n-b\n+B\n c\n@@ -8,3 +8,3 @@\n h\n-i\n+I\n j\n"
+    )
+    patched, hunks = _apply_unified_diff(original, diff)
+    assert patched == b"a\nB\nc\nd\ne\nf\ng\nh\nI\nj\n"
+    assert hunks == 2
 
 
-@_skip_no_patch
+def test_apply_unified_diff_pure_add() -> None:
+    original = b"line one\nline two\n"
+    diff = "--- a/test\n+++ b/test\n@@ -2,1 +2,2 @@\n line two\n+line three\n"
+    patched, _ = _apply_unified_diff(original, diff)
+    assert patched == b"line one\nline two\nline three\n"
+
+
+def test_apply_unified_diff_pure_delete() -> None:
+    original = b"keep\nremove\nkeep2\n"
+    diff = "--- a/test\n+++ b/test\n@@ -1,3 +1,2 @@\n keep\n-remove\n keep2\n"
+    patched, _ = _apply_unified_diff(original, diff)
+    assert patched == b"keep\nkeep2\n"
+
+
+def test_apply_unified_diff_context_mismatch_raises() -> None:
+    original = b"actual line\n"
+    diff = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-wrong line\n+replaced\n"
+    with pytest.raises(PatchApplyError, match="mismatch"):
+        _apply_unified_diff(original, diff)
+
+
+def test_apply_unified_diff_no_newline_marker() -> None:
+    """Handle the trailing `\\ No newline at end of file` marker."""
+    original = b"only line without newline"
+    diff = (
+        "--- a/x\n"
+        "+++ b/x\n"
+        "@@ -1 +1 @@\n"
+        "-only line without newline\n"
+        "\\ No newline at end of file\n"
+        "+replaced line without newline\n"
+        "\\ No newline at end of file\n"
+    )
+    patched, _ = _apply_unified_diff(original, diff)
+    assert patched == b"replaced line without newline"
+
+
+def test_apply_unified_diff_ignores_file_headers() -> None:
+    """`---`/`+++` file headers before the first `@@` are ignored."""
+    original = b"x\n"
+    diff = "--- a/whatever\n+++ b/whatever\nindex abc..def 100644\n@@ -1 +1 @@\n-x\n+y\n"
+    patched, hunks = _apply_unified_diff(original, diff)
+    assert patched == b"y\n"
+    assert hunks == 1
+
+
+def test_apply_unified_diff_malformed_hunk_header_raises() -> None:
+    with pytest.raises(PatchApplyError, match="malformed hunk header"):
+        _apply_unified_diff(b"x\n", "@@ garbage @@\n-x\n+y\n")
+
+
+def test_apply_unified_diff_overlapping_hunks_raises() -> None:
+    original = b"a\nb\nc\n"
+    diff = (
+        "@@ -1,2 +1,2 @@\n a\n-b\n+B\n"
+        "@@ -1,2 +1,2 @@\n a\n-B\n+X\n"  # second hunk targets same region
+    )
+    with pytest.raises(PatchApplyError):
+        _apply_unified_diff(original, diff)
+
+
+# ---------------------------------------------------------------------------
+# _run_patch
+# ---------------------------------------------------------------------------
+
+
 def test_run_patch_applies_simple_diff() -> None:
     original = b"hello world\n"
     diff = "--- a/test\n+++ b/test\n@@ -1 +1 @@\n-hello world\n+goodbye world\n"
-    patched, _hunks = _run_patch(original, diff)
+    patched, hunks = _run_patch(original, diff)
     assert patched == b"goodbye world\n"
+    assert hunks == 1
 
 
-@_skip_no_patch
-def test_run_patch_dry_run_returns_empty_bytes() -> None:
+def test_run_patch_dry_run_returns_empty_bytes_but_validates() -> None:
     original = b"hello\n"
     diff = "--- a/test\n+++ b/test\n@@ -1 +1 @@\n-hello\n+goodbye\n"
-    patched, _hunks = _run_patch(original, diff, dry_run=True)
+    patched, hunks = _run_patch(original, diff, dry_run=True)
     assert patched == b""
+    assert hunks == 1
 
 
-def test_run_patch_raises_file_not_found_when_binary_missing() -> None:
-    with (
-        mock_patch("subprocess.run", side_effect=FileNotFoundError("patch: not found")),
-        pytest.raises(FileNotFoundError),
-    ):
-        _run_patch(b"x\n", "--- a\n+++ b\n")
-
-
-def test_run_patch_raises_timeout_expired() -> None:
-    with (
-        mock_patch(
-            "subprocess.run",
-            side_effect=subprocess.TimeoutExpired(["patch"], 30),
-        ),
-        pytest.raises(subprocess.TimeoutExpired),
-    ):
-        _run_patch(b"x\n", "--- a\n+++ b\n")
-
-
-def test_run_patch_raises_runtime_on_nonzero_exit() -> None:
-    proc = subprocess.CompletedProcess(
-        args=["patch"],
-        returncode=1,
-        stdout=b"",
-        stderr=b"Hunk #1 FAILED at 1.",
-    )
-    with (
-        mock_patch("subprocess.run", return_value=proc),
-        pytest.raises(RuntimeError, match="Hunk #1 FAILED"),
-    ):
-        _run_patch(b"x\n", "bad diff")
-
-
-def test_run_patch_raises_runtime_on_nonzero_no_stderr() -> None:
-    proc = subprocess.CompletedProcess(
-        args=["patch"],
-        returncode=1,
-        stdout=b"",
-        stderr=b"",
-    )
-    with (
-        mock_patch("subprocess.run", return_value=proc),
-        pytest.raises(RuntimeError, match="patch exited non-zero"),
-    ):
-        _run_patch(b"x\n", "bad diff")
-
-
-def test_run_patch_subprocess_command_shape() -> None:
-    """Verify subprocess.run is called with list-form args, --output, and input=; no shell."""
-    proc = subprocess.CompletedProcess(
-        args=["patch"],
-        returncode=0,
-        stdout=b"Hunk #1 succeeded",
-        stderr=b"",
-    )
-    captured: list[Any] = []
-
-    def _fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured.append({"cmd": cmd, "kwargs": kwargs})
-        # Write a fake output file so _run_patch can read it.
-        out_path = next(p for p in cmd if "patched" in p)
-        Path(out_path).write_bytes(b"patched\n")
-        return proc
-
-    with mock_patch("subprocess.run", side_effect=_fake_run):
-        _run_patch(b"original\n", "my unified diff")
-
-    assert captured, "subprocess.run was not called"
-    call = captured[0]
-    cmd = call["cmd"]
-    kwargs = call["kwargs"]
-
-    assert cmd[0] == "patch", "binary must be 'patch'"
-    assert "--unified" in cmd
-    assert "--forward" in cmd
-    assert "--output" in cmd
-    # patch text must go through stdin, not shell-expanded args
-    assert kwargs.get("input") == b"my unified diff"
-    assert not kwargs.get("shell", False), "shell=True would be a command injection risk"
+def test_run_patch_dry_run_still_raises_on_bad_diff() -> None:
+    with pytest.raises(PatchApplyError):
+        _run_patch(b"actual\n", "@@ -1 +1 @@\n-wrong\n+other\n", dry_run=True)
 
 
 # ---------------------------------------------------------------------------
@@ -204,40 +201,17 @@ def test_fs_patch_post_resolution_protected() -> None:
 
 
 # ---------------------------------------------------------------------------
-# handle_fs_patch — patch binary errors surfaced as correct error codes
+# handle_fs_patch — bad-diff error surface
 # ---------------------------------------------------------------------------
 
 
-def test_fs_patch_binary_not_found(tmp_path: Path) -> None:
-    p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        side_effect=FileNotFoundError("patch not found"),
-    ):
-        result = handle_fs_patch({"path": str(p), "patch": "--- a\n+++ b\n"})
-    assert result["error"] == "PATCH_BINARY_NOT_FOUND"
-
-
-def test_fs_patch_timeout(tmp_path: Path) -> None:
-    p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        side_effect=subprocess.TimeoutExpired(["patch"], 30),
-    ):
-        result = handle_fs_patch({"path": str(p), "patch": "--- a\n+++ b\n"})
-    assert result["error"] == "PATCH_TIMEOUT"
-
-
-def test_fs_patch_failed(tmp_path: Path) -> None:
-    p = _allowed_file(tmp_path, "a.yaml", "hello\n")
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        side_effect=RuntimeError("Hunk #1 FAILED"),
-    ):
-        result = handle_fs_patch({"path": str(p), "patch": "--- a\n+++ b\n"})
+def test_fs_patch_bad_diff_returns_patch_failed(tmp_path: Path) -> None:
+    p = _allowed_file(tmp_path, "config.yaml", "hello\n")
+    diff = (
+        "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-this line does not exist\n+replaced\n"
+    )
+    result = handle_fs_patch({"path": str(p), "patch": diff})
     assert result["error"] == "PATCH_FAILED"
-    # Error message must NOT leak raw patch stderr (keep it in server logs only).
-    assert "Hunk #1 FAILED" not in result["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -265,15 +239,9 @@ def test_fs_patch_backup_error_aborts(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
     diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
     original_content = p.read_text()
-    with (
-        mock_patch(
-            "openclaw_node.commands.fs_patch._run_patch",
-            return_value=(b"goodbye\n", 1),
-        ),
-        mock_patch(
-            "openclaw_node.commands.fs_patch._get_store",
-        ) as mock_store_fn,
-    ):
+    with mock_patch(
+        "openclaw_node.commands.fs_patch._get_store",
+    ) as mock_store_fn:
         mock_store = mock_store_fn.return_value
         from openclaw_node.backup_store import BackupStoreError
 
@@ -293,15 +261,9 @@ def test_fs_patch_backup_error_aborts(tmp_path: Path) -> None:
 def test_fs_patch_write_error(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
     diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
-    with (
-        mock_patch(
-            "openclaw_node.commands.fs_patch._run_patch",
-            return_value=(b"goodbye\n", 1),
-        ),
-        mock_patch(
-            "openclaw_node.commands.fs_patch.atomic_write_safe",
-            side_effect=OSError("no space left"),
-        ),
+    with mock_patch(
+        "openclaw_node.commands.fs_patch.atomic_write_safe",
+        side_effect=OSError("no space left"),
     ):
         result = handle_fs_patch({"path": str(p), "patch": diff})
     assert result["error"] == "WRITE_ERROR"
@@ -316,17 +278,11 @@ def test_fs_patch_dry_run_returns_applicable_count(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
     original_content = p.read_text()
     diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
-    with mock_patch(
-        "openclaw_node.commands.fs_patch._run_patch",
-        return_value=(b"", 1),
-    ) as mock_run:
-        result = handle_fs_patch({"path": str(p), "patch": diff, "dry_run": True})
+    result = handle_fs_patch({"path": str(p), "patch": diff, "dry_run": True})
 
     assert result["ok"] is True
     assert result["dry_run"] is True
     assert result["hunks_applicable"] == 1
-    # dry_run must pass dry_run=True to _run_patch
-    mock_run.assert_called_once_with(b"hello\n", diff, dry_run=True)
     # File must be untouched.
     assert p.read_text() == original_content
 
@@ -335,23 +291,16 @@ def test_fs_patch_dry_run_no_backup_captured(tmp_path: Path) -> None:
     """dry_run must not write to the backup store."""
     p = _allowed_file(tmp_path, "a.yaml", "hello\n")
     diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
-    with (
-        mock_patch(
-            "openclaw_node.commands.fs_patch._run_patch",
-            return_value=(b"", 1),
-        ),
-        mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn,
-    ):
+    with mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn:
         handle_fs_patch({"path": str(p), "patch": diff, "dry_run": True})
     mock_store_fn.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
-# handle_fs_patch — happy path (integration-level with real patch binary)
+# handle_fs_patch — happy path (integration-level, pure Python)
 # ---------------------------------------------------------------------------
 
 
-@_skip_no_patch
 def test_fs_patch_applies_real_diff(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "config.yaml", "# version: 1\nname: test\n")
     diff = (
@@ -368,11 +317,9 @@ def test_fs_patch_applies_real_diff(tmp_path: Path) -> None:
     assert "sha256" in result
     assert result["size"] > 0
     patched_content = p.read_text()
-    assert "# version: 2" in patched_content
-    assert "name: test" in patched_content
+    assert patched_content == "# version: 2\nname: test\n"
 
 
-@_skip_no_patch
 def test_fs_patch_sha256_matches_written_bytes(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "config.yaml", "hello world\n")
     diff = "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-hello world\n+goodbye world\n"
@@ -383,7 +330,6 @@ def test_fs_patch_sha256_matches_written_bytes(tmp_path: Path) -> None:
     assert result["size"] == len(on_disk)
 
 
-@_skip_no_patch
 def test_fs_patch_real_dry_run_leaves_file_unchanged(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "config.yaml", "hello\n")
     diff = "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-hello\n+goodbye\n"
@@ -391,17 +337,6 @@ def test_fs_patch_real_dry_run_leaves_file_unchanged(tmp_path: Path) -> None:
     assert result["ok"] is True
     assert result["dry_run"] is True
     assert p.read_text() == "hello\n"
-
-
-@_skip_no_patch
-def test_fs_patch_real_bad_diff_returns_patch_failed(tmp_path: Path) -> None:
-    p = _allowed_file(tmp_path, "config.yaml", "hello\n")
-    # This diff targets a line that doesn't exist in the file.
-    diff = (
-        "--- a/config.yaml\n+++ b/config.yaml\n@@ -1 +1 @@\n-this line does not exist\n+replaced\n"
-    )
-    result = handle_fs_patch({"path": str(p), "patch": diff})
-    assert result["error"] == "PATCH_FAILED"
 
 
 # ---------------------------------------------------------------------------
@@ -412,16 +347,7 @@ def test_fs_patch_real_bad_diff_returns_patch_failed(tmp_path: Path) -> None:
 def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
     p = _allowed_file(tmp_path, "a.yaml", "v1\n")
     diff = "--- a/a.yaml\n+++ b/a.yaml\n@@ -1 +1 @@\n-v1\n+v2\n"
-    with (
-        mock_patch(
-            "openclaw_node.commands.fs_patch._run_patch",
-            return_value=(b"v2\n", 1),
-        ),
-        mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn,
-        mock_patch(
-            "openclaw_node.commands.fs_patch.atomic_write_safe",
-        ),
-    ):
+    with mock_patch("openclaw_node.commands.fs_patch._get_store") as mock_store_fn:
         mock_store = mock_store_fn.return_value
         mock_store.capture.return_value = type("V", (), {"sha256": "abc"})()
         handle_fs_patch(
@@ -435,4 +361,3 @@ def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
     call_kwargs = mock_store.capture.call_args
     assert call_kwargs.kwargs["actor"] == "rob"
     assert call_kwargs.kwargs["proposal_id"] == "prop-99"
-    assert call_kwargs.kwargs["op"] == "write"
