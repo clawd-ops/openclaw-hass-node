@@ -133,11 +133,7 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.addon_start",
         "ha.addon_stop",
         "ha.addon_restart",
-        "ha.config.lovelace.get",
-        "ha.config.lovelace.save",
-        "ha.config.lovelace.dashboards_list",
-        "ha.config.lovelace.resources_list",
-        "ha.config.lovelace.resources_create",
+        "ha.config.lovelace",
     ]
 
 

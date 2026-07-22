@@ -7,10 +7,20 @@
 > `--unsafe-storage` flag AND the user accepts the proposal. This is
 > not a guideline; it is enforced in the command layer.
 
-Each `ha.config.<domain>.*` command goes straight to HA's REST/WS
-config endpoint for that domain, regardless of whether the user's
-current setup stores it in YAML or `.storage/`. The node does **not**
-choose between yaml and storage edits — it asks HA.
+## Registered commands (naming convention)
+
+The `ha.config.*` surface is exposed as **one command per HA config
+domain**, with an `action` param selecting the operation
+(`ha.config.<domain>` + `action`, not
+`ha.config.<domain>.<verb>`). This keeps the dispatcher, gateway
+allowlist, and connect-surface advertisement compact as the six planned
+domains land. Missing / unknown `action` returns `INVALID_PARAM`.
+Mutating actions remain proposal-gated inside the handler.
+
+Each `ha.config.<domain>` command goes straight to HA's REST/WS config
+endpoint for that domain, regardless of whether the user's current setup
+stores it in YAML or `.storage/`. The node does **not** choose between
+yaml and storage edits — it asks HA.
 
 ## Decision: fs.patch vs ha.config.*
 
@@ -38,37 +48,49 @@ exists only as a fallback for things HA doesn't expose.
 
 ## Automations (HA-native)
 
-- List: `GET /api/config/automation/config` or WS
+Target shape: `ha.config.automation` with `action` in
+{`list`, `get`, `save`, `delete`}.
+
+- `action=list` → `GET /api/config/automation/config` or WS
   `config/automation/list`
-- Get: `GET /api/config/automation/config/<id>`
-- Set: `POST /api/config/automation/config/<id>` (proposal-gated)
-- Delete: `DELETE /api/config/automation/config/<id>` (proposal-gated)
+- `action=get` → `GET /api/config/automation/config/<id>`
+- `action=save` → `POST /api/config/automation/config/<id>`
+  (proposal-gated)
+- `action=delete` → `DELETE /api/config/automation/config/<id>`
+  (proposal-gated)
 - After mutation: `ha.call_service automation reload`
 
 ## Scripts (HA-native)
 
-- Same shape as automations under `/api/config/script/config/<id>`.
-- Reload: `script reload`.
+Target shape: `ha.config.script` with `action` in
+{`list`, `get`, `save`, `delete`}. Same shape as automations under
+`/api/config/script/config/<id>`. Reload: `script reload`.
 
 ## Scenes (HA-native)
 
-- `/api/config/scene/config/<id>`. Reload: `scene reload`.
+Target shape: `ha.config.scene` with `action` in
+{`list`, `get`, `save`, `delete`}. `/api/config/scene/config/<id>`.
+Reload: `scene reload`.
 
 ## Dashboards / Lovelace (HA-native WS)
 
-Registered commands (see `docs/reference/COMMAND-SURFACE.md`):
+Registered as a single command; see
+`docs/reference/COMMAND-SURFACE.md` for the full args table.
 
-- `ha.config.lovelace.get` — WS `lovelace/config` with an optional
-  `url_path` payload field (omit for the default dashboard).
-- `ha.config.lovelace.save` — WS `lovelace/config/save`. **Proposal-gated**:
-  caller must pass a non-empty `proposal_id` naming an agent-bridge
-  proposal. `proposal_id="direct"` is refused so every mutation is
-  traceable to a review record.
-- `ha.config.lovelace.dashboards_list` — WS `lovelace/dashboards/list`.
-- `ha.config.lovelace.resources_list` — WS `lovelace/resources`.
-- `ha.config.lovelace.resources_create` — WS `lovelace/resources/create`,
-  proposal-gated (same rules as `save`). `res_type` must be one of
-  `module`, `css`, `js`, `html`.
+`ha.config.lovelace` with `action` in {`get`, `save`,
+`dashboards_list`, `resources_list`, `resources_create`}. Actions:
+
+- `get` — WS `lovelace/config` with an optional `url_path` payload
+  field (omit for the default dashboard).
+- `save` — WS `lovelace/config/save`. **Proposal-gated**: caller must
+  pass a non-empty `proposal_id` naming an agent-bridge proposal.
+  `proposal_id="direct"` is refused so every mutation is traceable to a
+  review record.
+- `dashboards_list` — WS `lovelace/dashboards/list`.
+- `resources_list` — WS `lovelace/resources`.
+- `resources_create` — WS `lovelace/resources/create`, proposal-gated
+  (same rules as `save`). `res_type` must be one of `module`, `css`,
+  `js`, `html`.
 
 **Why HA-native, not fs.patch on `.storage/lovelace*`.** HA owns the
 lovelace `.storage/` files at runtime and rewrites them without warning.
@@ -80,21 +102,35 @@ dispatcher and callers are redirected here.
 
 ## Helpers (HA-native)
 
+Target shape: `ha.config.helpers` with `action` in
+{`list`, `get`, `create`, `update`, `delete`} plus a `helper_type` param
+selecting the underlying `input_boolean`, `counter`, `timer`, `schedule`,
+etc.
+
 - Read via state + entity registry.
 - Mutate via WS `config/<helper_type>/create|update|delete`
   (e.g. `config/input_boolean/create`).
 
 ## Area / device / entity registry (HA-native WS)
 
-- `config/area_registry/{list,create,update,delete}`
-- `config/device_registry/{list,update}`
-- `config/entity_registry/{list,get,update,remove}`
+Target shape: one command per registry.
+
+- `ha.config.area_registry` with `action` in
+  {`list`, `create`, `update`, `delete`} →
+  `config/area_registry/{list,create,update,delete}`
+- `ha.config.device_registry` with `action` in {`list`, `update`} →
+  `config/device_registry/{list,update}`
+- `ha.config.entity_registry` with `action` in
+  {`list`, `get`, `update`, `remove`} →
+  `config/entity_registry/{list,get,update,remove}`
 
 ## Integrations / config entries (HA-native WS)
 
-- `config_entries/get`, `config_entries/options/flow/...`,
-  `config_entries/disable|enable`.
-- Always cite a `docs.lookup` for the integration before mutating.
+Target shape: `ha.config.config_entries` with `action` in
+{`get`, `options_flow`, `disable`, `enable`} routing to
+`config_entries/get`, `config_entries/options/flow/...`,
+`config_entries/disable|enable`. Always cite a `docs.lookup` for the
+integration before mutating.
 
 ## Blueprints (fs)
 
