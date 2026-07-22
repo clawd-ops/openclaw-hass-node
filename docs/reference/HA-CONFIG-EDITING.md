@@ -56,11 +56,27 @@ exists only as a fallback for things HA doesn't expose.
 
 ## Dashboards / Lovelace (HA-native WS)
 
-- Get: WS `lovelace/config` (default) or
-  `lovelace_<dashboard>/config`.
-- Save: WS `lovelace/config/save` with proposal gating.
-- List dashboards: WS `lovelace/dashboards/list`.
-- Resources: WS `lovelace/resources` + `lovelace/resources/create`.
+Registered commands (see `docs/reference/COMMAND-SURFACE.md`):
+
+- `ha.config.lovelace.get` — WS `lovelace/config` for the default
+  dashboard, or `lovelace_<url_path>/config` when `url_path` is set.
+- `ha.config.lovelace.save` — WS `lovelace/config/save`. **Proposal-gated**:
+  caller must pass a non-empty `proposal_id` naming an agent-bridge
+  proposal. `proposal_id="direct"` is refused so every mutation is
+  traceable to a review record.
+- `ha.config.lovelace.dashboards_list` — WS `lovelace/dashboards/list`.
+- `ha.config.lovelace.resources_list` — WS `lovelace/resources`.
+- `ha.config.lovelace.resources_create` — WS `lovelace/resources/create`,
+  proposal-gated (same rules as `save`). `res_type` must be one of
+  `module`, `css`, `js`, `html`.
+
+**Why HA-native, not fs.patch on `.storage/lovelace*`.** HA owns the
+lovelace `.storage/` files at runtime and rewrites them without warning.
+Direct filesystem writes race with HA, skip the WS-level validation, and
+would be silently reverted on the next Frontend action. The
+`STORAGE_READONLY` refusal in `fs.write` / `fs.patch` still applies — any
+path-based mutation under `/config/.storage/` is refused at the
+dispatcher and callers are redirected here.
 
 ## Helpers (HA-native)
 

@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 44 commands are registered.
+OpenClaw conventions where they exist. 49 commands are registered.
 
 Addon-management commands are tiered by blast radius. Tier A
 (read-only) is designated for subagent use; Tier B (lifecycle) is
@@ -89,14 +89,34 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `ha.addon_update`         | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
 | `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
 
+## `ha.config.lovelace.*` — Lovelace dashboards (5 commands)
+
+HA-native WebSocket path for dashboards. See
+`docs/reference/HA-CONFIG-EDITING.md` for the fs.patch vs ha.config
+policy and the `.storage/` guardrail rationale.
+
+| Command                                 | Args / Notes                              |
+|-----------------------------------------|-------------------------------------------|
+| `ha.config.lovelace.get`                | `url_path?` (omit → default). Sends WS `lovelace/config` for the default dashboard or `lovelace_<url_path>/config` for a named one. Returns `{url_path, config}`. |
+| `ha.config.lovelace.save`               | `config` (dict, required), `url_path?`, `proposal_id` (required, non-empty, not `"direct"`). WS `lovelace/config/save`. Proposal-gated. |
+| `ha.config.lovelace.dashboards_list`    | WS `lovelace/dashboards/list`. Returns `{count, dashboards}`. |
+| `ha.config.lovelace.resources_list`     | WS `lovelace/resources`. Returns `{count, resources}`. |
+| `ha.config.lovelace.resources_create`   | `url` (required), `res_type` in {`module`,`css`,`js`,`html`}, `proposal_id` (required). WS `lovelace/resources/create`. Proposal-gated. |
+
+Guardrail: attempts to reach lovelace `.storage/` files via `fs.write` /
+`fs.patch` are refused with `STORAGE_READONLY` — callers must use the
+commands above.
+
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- **`ha.config.*`** — domain config editing (automations, scripts,
-  scenes, lovelace, blueprints). Detects YAML vs UI storage mode.
-  See `docs/reference/HA-CONFIG-EDITING.md`.
+- **`ha.config.*`** (remaining) — domain config editing (automations,
+  scripts, scenes, blueprints, helpers, area/device/entity registry,
+  integrations). Detects YAML vs UI storage mode. See
+  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace is now registered
+  (see the section above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,

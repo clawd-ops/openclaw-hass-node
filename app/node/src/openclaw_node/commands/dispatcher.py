@@ -57,6 +57,13 @@ from openclaw_node.commands.ha import (
     handle_ha_reload_config,
     handle_ha_update_install,
 )
+from openclaw_node.commands.ha_config_lovelace import (
+    handle_ha_config_lovelace_dashboards_list,
+    handle_ha_config_lovelace_get,
+    handle_ha_config_lovelace_resources_create,
+    handle_ha_config_lovelace_resources_list,
+    handle_ha_config_lovelace_save,
+)
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
 from openclaw_node.commands.system_run import handle_system_run
@@ -116,6 +123,11 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.addon_restart": handle_ha_addon_restart,
     "ha.addon_update": handle_ha_addon_update,
     "ha.update_install": handle_ha_update_install,
+    "ha.config.lovelace.get": handle_ha_config_lovelace_get,
+    "ha.config.lovelace.save": handle_ha_config_lovelace_save,
+    "ha.config.lovelace.dashboards_list": handle_ha_config_lovelace_dashboards_list,
+    "ha.config.lovelace.resources_list": handle_ha_config_lovelace_resources_list,
+    "ha.config.lovelace.resources_create": handle_ha_config_lovelace_resources_create,
 }
 
 
