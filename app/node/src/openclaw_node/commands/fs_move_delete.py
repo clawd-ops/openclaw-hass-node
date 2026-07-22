@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import errno
+import hashlib
 import logging
 import os
 import shutil
@@ -70,6 +71,58 @@ def _trash_dir() -> Path:
     return Path(os.environ.get("OPENCLAW_TRASH_DIR", "/share/openclaw-trash"))
 
 
+def _path_slug(path: str) -> str:
+    """Return a short, stable path-identity slug for trash filenames.
+
+    Encodes the full absolute path (not just the basename) so two files with
+    the same basename living in different directories produce distinct
+    trash entries and can be purged independently (Codex-review #242
+    finding on ``purge_trash_entries_for``).
+    """
+    abspath = os.path.abspath(path)
+    return hashlib.sha1(abspath.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
+
+
+def purge_trash_entries_for(path: str) -> int:
+    """Remove openclaw-managed trash entries for *path* (fallback trash only).
+
+    Only touches the OpenClaw fallback trash directory (``_trash_dir()``),
+    not the FreeDesktop system trash — ``send2trash`` handles system trash
+    lifecycle independently.  Entries are matched on the full-path slug
+    embedded in the filename (``<basename>.<slug>.<ts>``) so two files that
+    share a basename in different directories do not purge each other.
+
+    Args:
+        path: Absolute path whose trash entries should be purged.
+
+    Returns:
+        Number of trash entries removed.
+    """
+    basename = os.path.basename(path)
+    if not basename:
+        return 0
+    trash = _trash_dir()
+    if not trash.exists():
+        return 0
+    slug = _path_slug(path)
+    # Match on both basename AND path slug so a file in /a/foo.txt does not
+    # purge an unrelated /b/foo.txt trash entry.
+    marker = f"{basename}.{slug}."
+    removed = 0
+    for entry in trash.iterdir():
+        if entry.name.startswith(marker):
+            try:
+                if entry.is_dir() and not entry.is_symlink():
+                    shutil.rmtree(entry)
+                else:
+                    entry.unlink()
+            except OSError as exc:
+                _LOG.warning("failed to purge trash entry %r: %s", entry, exc)
+                continue
+            removed += 1
+    return removed
+
+
 def _trash_file(path: Path) -> str:
     """Move *path* to the system trash or the OpenClaw fallback trash dir.
 
@@ -95,11 +148,15 @@ def _trash_file(path: Path) -> str:
     else:
         return "system trash"
 
-    # Fallback: move to the openclaw trash directory.
+    # Fallback: move to the openclaw trash directory.  The filename embeds
+    # a short slug of the full absolute source path so entries for two
+    # distinct paths with the same basename remain distinguishable, and so
+    # ``purge_trash_entries_for`` can match only the intended path.
     trash = _trash_dir()
     trash.mkdir(parents=True, exist_ok=True)
     ts = _dt.datetime.now(_dt.UTC).strftime("%Y%m%dT%H%M%S%f")
-    dest = trash / f"{path.name}.{ts}"
+    slug = _path_slug(str(path))
+    dest = trash / f"{path.name}.{slug}.{ts}"
     shutil.move(str(path), str(dest))
     return str(dest)
 
@@ -302,11 +359,22 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
             )
         return _error("MOVE_ERROR", f"Move failed: {exc}")
 
+    # Carry the version history log to the new path so fs.history/fs.restore
+    # against the destination sees the pre-move versions.  Failure to rename
+    # is logged but does not fail the move — the file has already been
+    # atomically renamed on disk.
+    try:
+        history_moved = store.rename_history(src_raw, dst_raw)
+    except BackupStoreError as exc:
+        _LOG.warning("history rename failed %r → %r: %s", src_raw, dst_raw, exc)
+        history_moved = False
+
     return {
         "ok": True,
         "src": src_raw,
         "dst": dst_raw,
         "size": len(src_bytes),
+        "history_moved": history_moved,
     }
 
 

@@ -28,6 +28,7 @@ unless ``to_version`` is ``None`` (compare a stored version against disk).
 from __future__ import annotations
 
 import base64
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -255,28 +256,38 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
 
     roots = allowed_roots_for_env()
 
-    # Capture prior bytes (empty if file does not yet exist) via a
-    # TOCTOU-safe fd read so a symlink at the path can't redirect the read
-    # between resolve and capture.
+    # Capture prior bytes via a TOCTOU-safe fd read.  Distinguish "file did
+    # not exist" from "file existed but was empty" so we can still record a
+    # restorable version for the empty-file case (Codex-review-blocking #242):
+    # without this distinction, restoring an overwritten empty file was
+    # impossible because the capture was skipped based on byte truthiness.
     try:
-        prior_bytes = read_bytes_safe(path, roots, missing_ok=True)
+        prior_bytes = read_bytes_safe(path, roots, missing_ok=False)
+        file_existed = True
     except OutOfBoundsError:
         return _error("PATH_NOT_ALLOWED", f"Path is outside the allowed roots: {path!r}")
+    except FileNotFoundError:
+        prior_bytes = b""
+        file_existed = False
     except OSError as exc:
         return _error("READ_ERROR", f"Cannot read prior bytes: {exc}")
 
+    # Capture a backup version whenever the target file exists (including
+    # zero-length files).  Skip only fresh-create writes so history begins
+    # with the state actually reachable via restore.
     store = _get_store()
-    try:
-        version = store.capture(
-            path,
-            prior_bytes,
-            proposal_id=proposal_id,
-            op="write",
-            actor=actor,
-        )
-    except BackupStoreError as exc:
-        _LOG.error("backup capture failed for %r: %s", path, exc)
-        return _error("BACKUP_ERROR", "Backup capture failed; write aborted")
+    if file_existed:
+        try:
+            store.capture(
+                path,
+                prior_bytes,
+                proposal_id=proposal_id,
+                op="write",
+                actor=actor,
+            )
+        except BackupStoreError as exc:
+            _LOG.error("backup capture failed for %r: %s", path, exc)
+            return _error("BACKUP_ERROR", "Backup capture failed; write aborted")
 
     try:
         atomic_write_safe(path, roots, content_bytes)
@@ -286,11 +297,13 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
         _LOG.error("write failed for %r: %s", path, exc)
         return _error("WRITE_ERROR", f"Write failed: {exc}")
 
+    # Return the hash of the bytes actually written, not of the pre-write
+    # backup snapshot.  Callers use this to verify the write took effect.
     return {
         "ok": True,
         "path": path,
         "size": len(content_bytes),
-        "sha256": version.sha256,
+        "sha256": hashlib.sha256(content_bytes).hexdigest(),
         "proposal_id": proposal_id,
     }
 
@@ -415,12 +428,21 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
         _LOG.error("restore write failed for %r: %s", path, exc)
         return _error("WRITE_ERROR", f"Restore write failed: {exc}")
 
+    # After a successful restore, purge any lingering OpenClaw-managed trash
+    # entries for this path so the trash directory does not grow with stale
+    # copies of files that are now live again.  Local import avoids a circular
+    # dependency at module load time.
+    from openclaw_node.commands.fs_move_delete import purge_trash_entries_for
+
+    purged = purge_trash_entries_for(path)
+
     return {
         "ok": True,
         "path": path,
         "size": len(restore_bytes),
         "sha256": stored_version.sha256,
         "restored_from_proposal": stored_version.proposal_id,
+        "trash_purged": purged,
     }
 
 

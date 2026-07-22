@@ -437,6 +437,52 @@ class BackupStore:
         """
         return self._index_dir / f"{_encode_path(path)}.jsonl"
 
+    def rename_history(self, src: str, dst: str) -> bool:
+        """Move the version history log from *src* to *dst*.
+
+        Content-addressed object bodies are shared and do not need to move.
+        Only the per-path append-only index (JSONL) is renamed.  Silently
+        no-ops when *src* has no history yet.
+
+        If a history file already exists at *dst*, the source log is
+        prepended so the destination's existing captures (which include
+        the pre-move-dst snapshot) remain the newest entries.  Otherwise
+        ``fs.restore version=-1`` after an overwrite-move would return the
+        move-src capture — i.e., the bytes that are already live at dst —
+        instead of the pre-move destination snapshot (Codex-review #242
+        finding).  Written atomically to avoid two-phase corruption on
+        crash.
+
+        Args:
+            src: Source absolute path (existing history key).
+            dst: Destination absolute path (new history key).
+
+        Returns:
+            ``True`` if any history entries were moved; ``False`` if *src*
+            had no recorded history.
+        """
+        src_index = self._index_path(src)
+        if not src_index.exists():
+            return False
+        dst_index = self._index_path(dst)
+        src_data = src_index.read_bytes()
+        if dst_index.exists():
+            dst_data = dst_index.read_bytes()
+            # Guarantee both halves end with a newline so concatenation
+            # cannot glue two JSON objects onto the same line if the
+            # source log was written without a trailing "\n".
+            if src_data and not src_data.endswith(b"\n"):
+                src_data += b"\n"
+            if dst_data and not dst_data.endswith(b"\n"):
+                dst_data += b"\n"
+            merged = src_data + dst_data
+            _atomic_write_bytes(dst_index, merged, self._tmp_dir)
+            src_index.unlink(missing_ok=True)
+        else:
+            dst_index.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(str(src_index), str(dst_index))
+        return True
+
     def capture(
         self,
         path: str,

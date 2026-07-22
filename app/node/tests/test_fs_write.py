@@ -163,6 +163,36 @@ def test_fs_write_captures_prior_bytes(tmp_path: Path, live_file: Path) -> None:
     assert store.fetch_object(versions[0].sha256) == b"key: value\n"
 
 
+def test_fs_write_captures_empty_prior_file(tmp_path: Path) -> None:
+    """Overwriting an empty file must still record a restorable backup entry.
+
+    Codex-review #242 regression: a truthiness check on ``prior_bytes``
+    caused zero-length files to skip the capture, so restoring an
+    overwritten empty file was impossible.
+    """
+    target = tmp_path / "fs" / "empty.yaml"
+    target.write_bytes(b"")
+    result = handle_fs_write(
+        {
+            "path": str(target),
+            "content": "now: has-content\n",
+            "agent_bridge": False,
+            "proposal_id": "p-empty",
+        }
+    )
+    assert result["ok"] is True
+    store = _get_store()
+    versions = store.history(str(target))
+    assert len(versions) == 1
+    assert versions[0].size == 0
+    assert store.fetch_object(versions[0].sha256) == b""
+
+    # Restoring version=-1 must bring the file back to its empty state.
+    restore_result = handle_fs_restore({"path": str(target), "version": -1, "agent_bridge": False})
+    assert restore_result["ok"] is True
+    assert target.read_bytes() == b""
+
+
 def test_fs_write_overwrites_existing_file(tmp_path: Path, live_file: Path) -> None:
     handle_fs_write(
         {
@@ -771,3 +801,101 @@ def test_fs_diff_all_digit_sha256_treated_as_hash(tmp_path: Path, live_file: Pat
     # Pass the actual sha256 (which is lowercase hex); verify it resolves correctly.
     result = handle_fs_diff({"path": str(live_file), "from_version": sha, "to_version": None})
     assert result["ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Regression: sha256 correctness + fresh-file no backup (issue #240)
+# ---------------------------------------------------------------------------
+
+
+def test_fs_write_response_sha256_is_of_written_bytes(tmp_path: Path) -> None:
+    """Response sha256 must be of the bytes just written, not the prior backup snapshot."""
+    import hashlib
+
+    target = tmp_path / "fs" / "new.txt"
+    content = "line one\nline two\n"
+    result = handle_fs_write({"path": str(target), "content": content, "agent_bridge": False})
+    assert result["ok"] is True
+    expected_sha = hashlib.sha256(content.encode()).hexdigest()
+    assert result["sha256"] == expected_sha
+    # Not the empty-string sha (the bug's telltale signature).
+    empty_sha = hashlib.sha256(b"").hexdigest()
+    assert result["sha256"] != empty_sha
+
+
+def test_fs_write_response_sha256_matches_bytes_on_overwrite(
+    tmp_path: Path, live_file: Path
+) -> None:
+    """Overwrite response sha256 is of the new bytes, not the prior bytes."""
+    import hashlib
+
+    new_content = b"completely different bytes\n"
+    result = handle_fs_write(
+        {"path": str(live_file), "content": new_content.decode(), "agent_bridge": False}
+    )
+    assert result["ok"] is True
+    assert result["sha256"] == hashlib.sha256(new_content).hexdigest()
+    # Prior content was "key: value\n" — its sha must NOT be returned.
+    prior_sha = hashlib.sha256(b"key: value\n").hexdigest()
+    assert result["sha256"] != prior_sha
+
+
+def test_fs_write_fresh_file_records_no_history_entry(tmp_path: Path) -> None:
+    """Fresh-create writes should not spawn a size=0 empty-hash backup entry."""
+    target = tmp_path / "fs" / "brand_new.txt"
+    handle_fs_write({"path": str(target), "content": "first content\n", "agent_bridge": False})
+    store = fs_write_mod._get_store()
+    versions = store.history(str(target))
+    # No prior bytes existed → nothing to back up → no history entry.
+    assert versions == []
+
+
+def test_fs_write_existing_file_records_prior_content_only(tmp_path: Path, live_file: Path) -> None:
+    """Overwriting an existing file records exactly one backup (the prior content)."""
+    handle_fs_write({"path": str(live_file), "content": "new content\n", "agent_bridge": False})
+    store = fs_write_mod._get_store()
+    versions = store.history(str(live_file))
+    assert len(versions) == 1
+    assert versions[0].size == len(b"key: value\n")
+    assert store.fetch_object(versions[0].sha256) == b"key: value\n"
+
+
+# ---------------------------------------------------------------------------
+# Regression: fs.restore purges trash entries (issue #240)
+# ---------------------------------------------------------------------------
+
+
+def test_fs_restore_purges_matching_trash_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, live_file: Path
+) -> None:
+    """After a successful restore, matching entries in the fallback trash dir are removed."""
+    from openclaw_node.commands.fs_move_delete import _path_slug
+
+    trash_dir = tmp_path / "trash"
+    monkeypatch.setenv("OPENCLAW_TRASH_DIR", str(trash_dir))
+    trash_dir.mkdir(parents=True, exist_ok=True)
+    slug = _path_slug(str(live_file))
+    # Simulate two prior fs.delete calls leaving stale trash copies of this file.
+    (trash_dir / f"{live_file.name}.{slug}.20260101T000000000000").write_text("stale1")
+    (trash_dir / f"{live_file.name}.{slug}.20260102T000000000000").write_text("stale2")
+    # Unrelated trash entry (different path → different slug) must not be removed.
+    other_slug = _path_slug("/elsewhere/other.txt")
+    (trash_dir / f"other.txt.{other_slug}.20260101T000000000000").write_text("keep")
+
+    # Seed a backup version we can restore from.
+    handle_fs_write(
+        {
+            "path": str(live_file),
+            "content": "overwritten\n",
+            "agent_bridge": False,
+            "proposal_id": "p-restore-test",
+        }
+    )
+    result = handle_fs_restore(
+        {"path": str(live_file), "proposal_id": "p-restore-test", "agent_bridge": False}
+    )
+    assert result["ok"] is True
+    assert result["trash_purged"] == 2
+    # Matching entries gone; unrelated entry preserved.
+    remaining = {p.name for p in trash_dir.iterdir()}
+    assert remaining == {f"other.txt.{other_slug}.20260101T000000000000"}
