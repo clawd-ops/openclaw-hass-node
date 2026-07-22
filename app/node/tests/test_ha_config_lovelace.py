@@ -31,7 +31,7 @@ async def test_get_default_dashboard_calls_lovelace_config() -> None:
 
 
 async def test_get_named_dashboard_uses_prefixed_message() -> None:
-    config = {"views": []}
+    config: dict[str, object] = {"views": []}
     mock = AsyncMock(return_value=config)
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
         result = await handle_ha_config_lovelace_get({"url_path": "energy"})
@@ -119,7 +119,7 @@ async def test_save_default_dashboard_happy_path() -> None:
 
 
 async def test_save_named_dashboard_forwards_url_path() -> None:
-    config = {"views": []}
+    config: dict[str, object] = {"views": []}
     mock = AsyncMock(return_value=None)
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
         result = await handle_ha_config_lovelace_save(
