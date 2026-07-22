@@ -24,7 +24,7 @@ yaml and storage edits — it asks HA.
 
 ## Decision: fs.patch vs ha.config.*
 
-Use `ha.config.<domain>.*` (HA-native) for:
+Use `ha.config.<domain>` + `action` (HA-native) for:
 
 - Automations, scripts, scenes
 - Lovelace dashboards and views
@@ -51,8 +51,11 @@ exists only as a fallback for things HA doesn't expose.
 Target shape: `ha.config.automation` with `action` in
 {`list`, `get`, `save`, `delete`}.
 
-- `action=list` → `GET /api/config/automation/config` or WS
-  `config/automation/list`
+- `action=list` → `GET /api/config/automation/config` (REST). This is
+  the canonical path for the automation implementation; the WS
+  `config/automation/list` frame is not used here because HA's REST
+  endpoint returns the full configured list and keeps the node's HTTP
+  path aligned with `get`/`save`/`delete` below.
 - `action=get` → `GET /api/config/automation/config/<id>`
 - `action=save` → `POST /api/config/automation/config/<id>`
   (proposal-gated)

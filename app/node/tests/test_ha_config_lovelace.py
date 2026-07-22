@@ -22,8 +22,10 @@ async def test_missing_action() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
-async def test_action_wrong_type() -> None:
-    result = await handle_ha_config_lovelace({"action": 42})
+@pytest.mark.parametrize("bad_action", [42, [], {}, ["get"], {"action": "get"}])
+async def test_action_wrong_type(bad_action: object) -> None:
+    result = await handle_ha_config_lovelace({"action": bad_action})
+    assert result["ok"] is False
     assert result["error"] == "INVALID_PARAM"
 
 
