@@ -27,17 +27,17 @@ async def test_get_default_dashboard_calls_lovelace_config() -> None:
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
         result = await handle_ha_config_lovelace_get({})
     assert result == {"ok": True, "url_path": None, "config": config}
-    mock.assert_awaited_once_with("lovelace/config")
+    mock.assert_awaited_once_with("lovelace/config", {})
 
 
-async def test_get_named_dashboard_uses_prefixed_message() -> None:
+async def test_get_named_dashboard_forwards_url_path() -> None:
     config: dict[str, object] = {"views": []}
     mock = AsyncMock(return_value=config)
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
         result = await handle_ha_config_lovelace_get({"url_path": "energy"})
     assert result["ok"] is True
     assert result["url_path"] == "energy"
-    mock.assert_awaited_once_with("lovelace_energy/config")
+    mock.assert_awaited_once_with("lovelace/config", {"url_path": "energy"})
 
 
 async def test_get_empty_url_path_treated_as_default() -> None:
@@ -45,7 +45,7 @@ async def test_get_empty_url_path_treated_as_default() -> None:
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
         result = await handle_ha_config_lovelace_get({"url_path": "   "})
     assert result["url_path"] is None
-    mock.assert_awaited_once_with("lovelace/config")
+    mock.assert_awaited_once_with("lovelace/config", {})
 
 
 async def test_get_invalid_url_path_type() -> None:

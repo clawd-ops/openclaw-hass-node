@@ -86,17 +86,17 @@ async def handle_ha_config_lovelace_get(params: dict[str, Any]) -> dict[str, Any
     if err is not None:
         return err
 
-    # HA registers a distinct WS command per non-default dashboard; the
-    # default ``lovelace/config`` will not resolve named dashboards.
-    msg_type = "lovelace/config" if url_path is None else f"lovelace_{url_path}/config"
+    payload: dict[str, Any] = {}
+    if url_path is not None:
+        payload["url_path"] = url_path
 
     try:
-        result = await ha_ws_call(msg_type)
+        result = await ha_ws_call("lovelace/config", payload)
     except HAClientError as exc:
         return _to_error(exc)
 
     if not isinstance(result, dict):
-        return _error("HA_BAD_RESPONSE", f"Expected dict from {msg_type}")
+        return _error("HA_BAD_RESPONSE", "Expected dict from lovelace/config")
     return {"ok": True, "url_path": url_path, "config": result}
 
 
