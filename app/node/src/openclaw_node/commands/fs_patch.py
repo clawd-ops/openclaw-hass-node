@@ -137,7 +137,19 @@ def _apply_unified_diff(original: bytes, patch_text: str) -> tuple[bytes, int]:
         declared_new = int(new_count_raw) if new_count_raw is not None else 1
 
         # Copy through any source lines between the previous hunk and this one.
-        hunk_src_index = (old_start - 1) if old_start > 0 else 0
+        # Per unified-diff spec, when the old range is empty (pure add), old_start
+        # names the source line *after which* the insertion goes, so the cursor is
+        # `old_start` rather than `old_start - 1`.  old_start == 0 with an empty
+        # old range is the empty-file / prepend-to-empty case, cursor 0.
+        if declared_old == 0:
+            hunk_src_index = old_start if old_start > 0 else 0
+            if hunk_src_index > len(src_lines):
+                raise PatchApplyError(  # noqa: TRY003
+                    f"pure-add hunk at old_start={old_start} is beyond end of source "
+                    f"({len(src_lines)} lines)"
+                )
+        else:
+            hunk_src_index = (old_start - 1) if old_start > 0 else 0
         if hunk_src_index < src_cursor:
             raise PatchApplyError(f"overlapping or out-of-order hunk at line {old_start}")  # noqa: TRY003
         out_lines.extend(src_lines[src_cursor:hunk_src_index])

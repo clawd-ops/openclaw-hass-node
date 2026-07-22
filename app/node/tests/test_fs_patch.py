@@ -115,6 +115,43 @@ def test_apply_unified_diff_malformed_hunk_header_raises() -> None:
         _apply_unified_diff(b"x\n", "@@ garbage @@\n-x\n+y\n")
 
 
+def test_apply_unified_diff_context_free_pure_insertion() -> None:
+    """`old_count=0` insertions place the new lines *after* `old_start`.
+
+    Regenerates the exact diff shape emitted by `difflib.unified_diff(..., n=0)`
+    for a single-line insertion, which uses `@@ -1,0 +2 @@` — Codex-review
+    #242 pass-3 medium finding.
+    """
+    original = b"a\nb\n"
+    diff = "--- a/x\n+++ b/x\n@@ -1,0 +2 @@\n+x\n"
+    patched, hunks = _apply_unified_diff(original, diff)
+    assert patched == b"a\nx\nb\n"
+    assert hunks == 1
+
+
+def test_apply_unified_diff_pure_add_at_end_of_file() -> None:
+    """Pure-add hunk with `old_start` == source length appends cleanly."""
+    original = b"a\nb\n"
+    diff = "--- a/x\n+++ b/x\n@@ -2,0 +3 @@\n+c\n"
+    patched, _ = _apply_unified_diff(original, diff)
+    assert patched == b"a\nb\nc\n"
+
+
+def test_apply_unified_diff_pure_add_beyond_eof_raises() -> None:
+    """A pure-add hunk targeting past the source end must be rejected."""
+    original = b"a\nb\n"
+    diff = "--- a/x\n+++ b/x\n@@ -99,0 +100 @@\n+x\n"
+    with pytest.raises(PatchApplyError, match="beyond end of source"):
+        _apply_unified_diff(original, diff)
+
+
+def test_apply_unified_diff_pure_add_to_empty_file() -> None:
+    """`@@ -0,0 +1 @@` — canonical add-to-empty-file hunk."""
+    diff = "--- a/x\n+++ b/x\n@@ -0,0 +1 @@\n+first\n"
+    patched, _ = _apply_unified_diff(b"", diff)
+    assert patched == b"first\n"
+
+
 def test_apply_unified_diff_overlapping_hunks_raises() -> None:
     original = b"a\nb\nc\n"
     diff = (
