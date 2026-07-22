@@ -138,6 +138,10 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.config.lovelace.dashboards_list",
         "ha.config.lovelace.resources_list",
         "ha.config.lovelace.resources_create",
+        "ha.config.automation.list",
+        "ha.config.automation.get",
+        "ha.config.automation.save",
+        "ha.config.automation.delete",
     ]
 
 

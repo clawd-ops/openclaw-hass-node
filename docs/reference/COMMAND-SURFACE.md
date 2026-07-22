@@ -107,16 +107,34 @@ Guardrail: attempts to reach lovelace `.storage/` files via `fs.write` /
 `fs.patch` are refused with `STORAGE_READONLY` — callers must use the
 commands above.
 
+## `ha.config.automation.*` — Automations (4 commands)
+
+HA-native REST path for editing automations under
+`/api/config/automation/config[/<id>]`. See
+`docs/reference/HA-CONFIG-EDITING.md` for the fs.patch vs ha.config policy.
+
+| Command                       | Args / Notes                              |
+|-------------------------------|-------------------------------------------|
+| `ha.config.automation.list`   | No params. `GET /api/config/automation/config`. Returns `{count, automations}` with the raw list HA returned. |
+| `ha.config.automation.get`    | `id` (required, matches `^[A-Za-z0-9_.\-]{1,128}$`). `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
+| `ha.config.automation.save`   | `id` (required, same charset), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). `POST /api/config/automation/config/<id>`. Proposal-gated. Returns `{id, proposal_id, result}`. |
+| `ha.config.automation.delete` | `id` (required), `proposal_id` (required, non-empty, not `"direct"`). `DELETE /api/config/automation/config/<id>`. Proposal-gated. Returns `{id, proposal_id, result}`. |
+
+After a mutating call the caller should invoke
+`ha.call_service` with `domain=automation`, `service=reload` to apply the
+change without waiting for the next HA restart. This is intentionally not
+automated so callers can batch multiple saves before a single reload.
+
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- **`ha.config.*`** (remaining) — domain config editing (automations,
-  scripts, scenes, blueprints, helpers, area/device/entity registry,
+- **`ha.config.*`** (remaining) — domain config editing (scripts,
+  scenes, blueprints, helpers, area/device/entity registry,
   integrations). Detects YAML vs UI storage mode. See
-  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace is now registered
-  (see the section above).
+  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace and automations are
+  now registered (see sections above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,

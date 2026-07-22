@@ -38,12 +38,26 @@ exists only as a fallback for things HA doesn't expose.
 
 ## Automations (HA-native)
 
-- List: `GET /api/config/automation/config` or WS
-  `config/automation/list`
-- Get: `GET /api/config/automation/config/<id>`
-- Set: `POST /api/config/automation/config/<id>` (proposal-gated)
-- Delete: `DELETE /api/config/automation/config/<id>` (proposal-gated)
-- After mutation: `ha.call_service automation reload`
+Registered commands (see `docs/reference/COMMAND-SURFACE.md`):
+
+- `ha.config.automation.list` — `GET /api/config/automation/config`.
+- `ha.config.automation.get` — `GET /api/config/automation/config/<id>`,
+  requires `id`.
+- `ha.config.automation.save` — `POST /api/config/automation/config/<id>`.
+  **Proposal-gated**: caller must pass a non-empty `proposal_id`;
+  `"direct"` is refused. Body is the full automation config (`alias`,
+  `trigger`, `condition`, `action`, etc.).
+- `ha.config.automation.delete` — `DELETE
+  /api/config/automation/config/<id>`. Proposal-gated (same rules as
+  save).
+
+`id` is validated against `^[A-Za-z0-9_.\-]{1,128}$` so callers cannot
+build a URL that escapes the `/api/config/automation/config/` prefix.
+
+After a mutation, the caller invokes `ha.call_service` with
+`domain=automation`, `service=reload` to apply the change without waiting
+for the next HA restart. This is intentionally not automated so callers
+can batch multiple saves before a single reload.
 
 ## Scripts (HA-native)
 

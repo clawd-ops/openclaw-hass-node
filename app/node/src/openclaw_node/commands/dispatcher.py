@@ -57,6 +57,12 @@ from openclaw_node.commands.ha import (
     handle_ha_reload_config,
     handle_ha_update_install,
 )
+from openclaw_node.commands.ha_config_automation import (
+    handle_ha_config_automation_delete,
+    handle_ha_config_automation_get,
+    handle_ha_config_automation_list,
+    handle_ha_config_automation_save,
+)
 from openclaw_node.commands.ha_config_lovelace import (
     handle_ha_config_lovelace_dashboards_list,
     handle_ha_config_lovelace_get,
@@ -128,6 +134,10 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.config.lovelace.dashboards_list": handle_ha_config_lovelace_dashboards_list,
     "ha.config.lovelace.resources_list": handle_ha_config_lovelace_resources_list,
     "ha.config.lovelace.resources_create": handle_ha_config_lovelace_resources_create,
+    "ha.config.automation.list": handle_ha_config_automation_list,
+    "ha.config.automation.get": handle_ha_config_automation_get,
+    "ha.config.automation.save": handle_ha_config_automation_save,
+    "ha.config.automation.delete": handle_ha_config_automation_delete,
 }
 
 
