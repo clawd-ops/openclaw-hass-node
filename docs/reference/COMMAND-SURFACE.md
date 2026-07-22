@@ -97,7 +97,7 @@ policy and the `.storage/` guardrail rationale.
 
 | Command                                 | Args / Notes                              |
 |-----------------------------------------|-------------------------------------------|
-| `ha.config.lovelace.get`                | `url_path?` (omit → default). Sends WS `lovelace/config` for the default dashboard or `lovelace_<url_path>/config` for a named one. Returns `{url_path, config}`. |
+| `ha.config.lovelace.get`                | `url_path?` (omit → default). Sends WS `lovelace/config` with `{url_path}` in the payload when set (omit for default). Returns `{url_path, config}`. |
 | `ha.config.lovelace.save`               | `config` (dict, required), `url_path?`, `proposal_id` (required, non-empty, not `"direct"`). WS `lovelace/config/save`. Proposal-gated. |
 | `ha.config.lovelace.dashboards_list`    | WS `lovelace/dashboards/list`. Returns `{count, dashboards}`. |
 | `ha.config.lovelace.resources_list`     | WS `lovelace/resources`. Returns `{count, resources}`. |

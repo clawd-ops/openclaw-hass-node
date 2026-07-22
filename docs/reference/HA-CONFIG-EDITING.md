@@ -58,8 +58,8 @@ exists only as a fallback for things HA doesn't expose.
 
 Registered commands (see `docs/reference/COMMAND-SURFACE.md`):
 
-- `ha.config.lovelace.get` — WS `lovelace/config` for the default
-  dashboard, or `lovelace_<url_path>/config` when `url_path` is set.
+- `ha.config.lovelace.get` — WS `lovelace/config` with an optional
+  `url_path` payload field (omit for the default dashboard).
 - `ha.config.lovelace.save` — WS `lovelace/config/save`. **Proposal-gated**:
   caller must pass a non-empty `proposal_id` naming an agent-bridge
   proposal. `proposal_id="direct"` is refused so every mutation is

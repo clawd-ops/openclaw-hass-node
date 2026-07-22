@@ -74,9 +74,9 @@ async def handle_ha_config_lovelace_get(params: dict[str, Any]) -> dict[str, Any
 
     Params:
         url_path (str, optional): Dashboard ``url_path``. When omitted, the
-            default dashboard is returned. When provided, the WS message type
-            is ``lovelace_<url_path>/config`` (HA's convention for
-            non-default dashboards); ``url_path=None`` uses ``lovelace/config``.
+            default dashboard is returned. When provided, ``url_path`` is
+            forwarded in the ``lovelace/config`` payload; the WS message
+            type is always ``lovelace/config``.
 
     Returns:
         ``{ok: True, url_path, config}`` where ``config`` is the raw WS
