@@ -66,9 +66,10 @@ def _require_id(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | No
     """Extract required ``id`` (script id) from params; return ``(id, error)``.
 
     HA registers the script config endpoint with ``cv.slug`` validation on
-    the path key. Reject anything that would produce a malformed URL or
-    hit a different resource than intended (path separators, reserved
-    characters, whitespace, etc.).
+    the path key: ``id`` must match ``^[a-z0-9_]+$`` (lowercase letters,
+    digits, underscores). Reject anything that would produce a malformed
+    URL or hit a different resource than intended (path separators,
+    reserved characters, whitespace, etc.).
     """
     raw = params.get("id")
     if not isinstance(raw, str):

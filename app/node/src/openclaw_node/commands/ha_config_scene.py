@@ -66,8 +66,9 @@ def _require_id(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | No
     """Extract required ``id`` (scene id) from params; return ``(id, error)``.
 
     HA registers the scene config endpoint with ``cv.slug`` validation on
-    the path key. Reject anything that would produce a malformed URL or
-    hit a different resource than intended.
+    the path key: ``id`` must match ``^[a-z0-9_]+$`` (lowercase letters,
+    digits, underscores). Reject anything that would produce a malformed
+    URL or hit a different resource than intended.
     """
     raw = params.get("id")
     if not isinstance(raw, str):
