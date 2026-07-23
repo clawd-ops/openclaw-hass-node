@@ -1,5 +1,62 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.7.23b1 (2026-07-23) — HA-native domain-config editing (`ha.config.*`)
+
+### Features
+- **New `ha.config.*` command family.** Nine new node commands cover the
+  full HA-native config-editing surface: `ha.config.lovelace` (dashboards
+  + resources), `ha.config.automation`, `ha.config.script`,
+  `ha.config.scene`, `ha.config.helpers`, `ha.config.area_registry`,
+  `ha.config.device_registry`, `ha.config.entity_registry`, and
+  `ha.config.config_entries`. Each command takes an `action` parameter
+  so the whole surface adds only 9 dispatcher entries instead of ~35
+  per-verb commands.
+- **Proposal gating everywhere.** Every mutating action requires a
+  non-empty `proposal_id` naming the agent-bridge proposal that
+  authorized the change. `proposal_id="direct"` is refused so every
+  mutation traces to a review record.
+- **REST paths validated.** `ha.config.automation` / `script` / `scene`
+  reject any `id` that isn't an HA `cv.slug` (`^[a-z0-9_]+$`) before
+  building the REST path, matching HA's own path-key rule.
+- **WS shapes match HA reality.** Helpers use `<helper_type>_id` (e.g.
+  `input_boolean_id`) as the item key, not `entity_id`. Config entries
+  route `get` to `config_entries/get_single` and share the
+  `config_entries/disable` frame for both disable and re-enable (HA
+  registers no separate `enable` frame).
+- **Payload-shadow attack refused.** Helper `update` rejects `attrs`
+  containing the item key outright, so a caller can't log one id while
+  the WS frame targets a different one.
+
+### Fixes
+- **`fs.write` returns the correct sha256** of the bytes just written
+  (was empty-string hash on first write).
+- **`fs.write` skips backup capture on genuinely-fresh files** but still
+  captures pre-existing zero-length files before overwrite.
+- **`fs.patch` is now pure-Python** (no `patch(1)` binary dependency).
+  Enforces declared vs body hunk counts, preserves `\r` for
+  CRLF/mixed-newline sources, and correctly places context-free
+  pure-insertion hunks after `old_start` per the unified-diff spec.
+  Pure-add hunks whose insertion point is beyond the source end are
+  rejected with `PATCH_FAILED`.
+- **`fs.move` carries history.** The backup-store history for the
+  source is prepended to the destination's log so `fs.restore
+  version=-1` at the destination returns the pre-move destination
+  snapshot, not the moved-in source bytes.
+- **`fs.restore` purges fallback trash by full path.** Matches on the
+  full-path slug rather than basename, and reports the number of trash
+  entries removed via `trash_purged`.
+
+### Docs
+- README, STATUS, PLAN, COMMAND-SURFACE, and HA-CONFIG-EDITING refreshed
+  for the 53-command surface (`ping` + `fs.*` × 11 + `system.*` × 2 +
+  `ha.*` × 39 including the 9 `ha.config.*` editors).
+- Skill (SKILL.md) documents the `ha.config.*` family, its proposal
+  gating, slug rules, and safety guidance.
+- Assist-tools plugin manifest + README explicitly note that
+  `ha.config.*` is intentionally NOT surfaced for HA Assist voice
+  turns — those mutations belong in chat/cron/sub-agent flows via
+  `nodes.invoke`.
+
 ## 2026.7.1b4 (2026-07-02) — Assist progress spacing cleanup
 
 ### Fixes
