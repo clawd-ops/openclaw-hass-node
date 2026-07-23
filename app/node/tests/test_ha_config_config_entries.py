@@ -43,7 +43,7 @@ async def test_get_happy() -> None:
     with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
         result = await handle_ha_config_config_entries({"action": "get", "entry_id": "e1"})
     assert result["ok"] is True
-    mock.assert_awaited_once_with("config_entries/get", {"entry_id": "e1"})
+    mock.assert_awaited_once_with("config_entries/get_single", {"entry_id": "e1"})
 
 
 async def test_get_bad_response() -> None:
@@ -62,13 +62,13 @@ async def test_get_ha_error() -> None:
         ] == "HA_AUTH"
 
 
-@pytest.mark.parametrize("action", ["disable", "enable", "options_flow"])
+@pytest.mark.parametrize("action", ["disable", "enable"])
 async def test_mutating_needs_proposal(action: str) -> None:
     result = await handle_ha_config_config_entries({"action": action, "entry_id": "e1"})
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
-@pytest.mark.parametrize("action", ["disable", "enable", "options_flow"])
+@pytest.mark.parametrize("action", ["disable", "enable"])
 async def test_direct_proposal_refused(action: str) -> None:
     result = await handle_ha_config_config_entries(
         {"action": action, "entry_id": "e1", "proposal_id": "direct"}
@@ -88,47 +88,26 @@ async def test_disable_happy() -> None:
     )
 
 
-async def test_enable_happy() -> None:
+async def test_enable_uses_disable_frame_with_null() -> None:
+    """`enable` MUST route to `config_entries/disable` with disabled_by=null.
+
+    HA does not register a `config_entries/enable` frame — passing
+    `disabled_by: null` to the disable frame is the canonical enable
+    path.
+    """
     mock = AsyncMock(return_value={"disabled_by": None})
     with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
         result = await handle_ha_config_config_entries(
             {"action": "enable", "entry_id": "e1", "proposal_id": "p"}
         )
     assert result["ok"] is True
-    mock.assert_awaited_once_with("config_entries/enable", {"entry_id": "e1", "disabled_by": None})
+    mock.assert_awaited_once_with("config_entries/disable", {"entry_id": "e1", "disabled_by": None})
 
 
-async def test_options_flow_happy() -> None:
-    mock = AsyncMock(return_value={"flow_id": "f1", "type": "form"})
-    with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
-        result = await handle_ha_config_config_entries(
-            {"action": "options_flow", "entry_id": "e1", "proposal_id": "p"}
-        )
-    assert result["ok"] is True
-    mock.assert_awaited_once_with("config_entries/options/flow/init", {"handler": "e1"})
-
-
-async def test_options_flow_with_step() -> None:
-    mock = AsyncMock(return_value={"flow_id": "f1"})
-    with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
-        result = await handle_ha_config_config_entries(
-            {
-                "action": "options_flow",
-                "entry_id": "e1",
-                "proposal_id": "p",
-                "step": {"foo": "bar"},
-            }
-        )
-    assert result["ok"] is True
-    mock.assert_awaited_once_with(
-        "config_entries/options/flow/init",
-        {"handler": "e1", "step": {"foo": "bar"}},
-    )
-
-
-async def test_options_flow_bad_step_type() -> None:
+async def test_options_flow_action_rejected() -> None:
+    """options_flow needs an HTTP flow view; not yet supported."""
     result = await handle_ha_config_config_entries(
-        {"action": "options_flow", "entry_id": "e1", "proposal_id": "p", "step": "no"}
+        {"action": "options_flow", "entry_id": "e1", "proposal_id": "p"}
     )
     assert result["error"] == "INVALID_PARAM"
 
@@ -138,15 +117,6 @@ async def test_non_string_proposal() -> None:
         {"action": "disable", "entry_id": "e1", "proposal_id": 42}
     )
     assert result["error"] == "PROPOSAL_REQUIRED"
-
-
-async def test_options_flow_ha_error() -> None:
-    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
-    with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
-        result = await handle_ha_config_config_entries(
-            {"action": "options_flow", "entry_id": "e1", "proposal_id": "p"}
-        )
-    assert result["error"] == "HA_500"
 
 
 async def test_disable_ha_error() -> None:
