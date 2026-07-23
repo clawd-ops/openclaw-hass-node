@@ -188,16 +188,78 @@ missing `action` returns `INVALID_PARAM`.
 After a mutation, callers should follow up with
 `ha.call_service` `scene` / `reload` to pick up the new config.
 
+## `ha.config.helpers` — Helpers (1 command)
+
+HA-native WebSocket path for helper entities
+(`input_boolean`, `input_text`, `input_number`, `input_select`,
+`input_datetime`, `counter`, `timer`, `schedule`).
+
+Single command; the `action` param selects the operation. `helper_type`
+is required for every action. Unknown or missing `action` /
+`helper_type` returns `INVALID_PARAM`.
+
+| `action`   | Params                                                                                                            | Notes |
+|------------|-------------------------------------------------------------------------------------------------------------------|-------|
+| `list`     | `helper_type` (required).                                                                                         | WS `<helper_type>/list`. Returns `{helper_type, count, helpers}`. |
+| `get`      | `helper_type`, `entity_id`.                                                                                       | WS `<helper_type>/get`. Returns `{helper_type, entity_id, helper}`. |
+| `create`   | `helper_type`, `attrs` (dict, required), `proposal_id` (required, non-empty, not `"direct"`).                     | WS `<helper_type>/create`. Proposal-gated. |
+| `update`   | `helper_type`, `entity_id`, `attrs` (dict), `proposal_id`.                                                        | WS `<helper_type>/update` with `{entity_id, **attrs}`. Proposal-gated. |
+| `delete`   | `helper_type`, `entity_id`, `proposal_id`.                                                                        | WS `<helper_type>/delete`. Proposal-gated. |
+
+## `ha.config.area_registry` — Areas (1 command)
+
+WS `config/area_registry/{list,create,update,delete}`.
+
+| `action`   | Params                                                                                | Notes |
+|------------|---------------------------------------------------------------------------------------|-------|
+| `list`     | —                                                                                     | Returns `{count, areas}`. |
+| `create`   | `name` (required), optional `attrs` (dict), `proposal_id`.                            | Proposal-gated. |
+| `update`   | `area_id` (required), `attrs` (dict), `proposal_id`.                                  | Proposal-gated. |
+| `delete`   | `area_id` (required), `proposal_id`.                                                  | Proposal-gated. |
+
+## `ha.config.device_registry` — Devices (1 command)
+
+WS `config/device_registry/{list,update}`. HA does not expose create
+or delete for devices — they are populated by integrations.
+
+| `action`   | Params                                                                                | Notes |
+|------------|---------------------------------------------------------------------------------------|-------|
+| `list`     | —                                                                                     | Returns `{count, devices}`. |
+| `update`   | `device_id` (required), `attrs` (dict), `proposal_id`.                                | Proposal-gated. |
+
+## `ha.config.entity_registry` — Entities (1 command)
+
+WS `config/entity_registry/{list,get,update,remove}`.
+
+| `action`   | Params                                                                                | Notes |
+|------------|---------------------------------------------------------------------------------------|-------|
+| `list`     | —                                                                                     | Returns `{count, entities}`. |
+| `get`      | `entity_id` (required).                                                               | Returns `{entity_id, entity}`. |
+| `update`   | `entity_id`, `attrs` (dict), `proposal_id`.                                           | Proposal-gated. |
+| `remove`   | `entity_id`, `proposal_id`.                                                           | Proposal-gated. |
+
+## `ha.config.config_entries` — Integrations (1 command)
+
+WS `config_entries/get`, `config_entries/options/flow/init`,
+`config_entries/disable`, `config_entries/enable`.
+
+**Convention (soft)**: callers should cite a `docs.lookup` for the
+integration before mutating. The handler does not hard-enforce a
+`docs_lookup` token, but every mutating action is proposal-gated.
+
+| `action`         | Params                                                                                | Notes |
+|------------------|---------------------------------------------------------------------------------------|-------|
+| `get`            | `entry_id` (required).                                                                | Returns `{entry_id, entry}`. |
+| `options_flow`   | `entry_id`, optional `step` (dict), `proposal_id`.                                    | WS `config_entries/options/flow/init` with `{handler: entry_id, ?step}`. Proposal-gated. |
+| `disable`        | `entry_id`, `proposal_id`.                                                            | WS `config_entries/disable` with `{entry_id, disabled_by: "user"}`. Proposal-gated. |
+| `enable`         | `entry_id`, `proposal_id`.                                                            | WS `config_entries/enable` with `{entry_id, disabled_by: null}`. Proposal-gated. |
+
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- **`ha.config.*`** (remaining) — domain config editing (scenes,
-  blueprints, helpers, area/device/entity registry, integrations).
-  Detects YAML vs UI storage mode. See
-  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace, automations, and
-  scripts are now registered (see the sections above).
+- All six `ha.config.*` domains are now registered (see sections above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,

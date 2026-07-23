@@ -125,35 +125,37 @@ dispatcher and callers are redirected here.
 
 ## Helpers (HA-native)
 
-Target shape: `ha.config.helpers` with `action` in
-{`list`, `get`, `create`, `update`, `delete`} plus a `helper_type` param
-selecting the underlying `input_boolean`, `counter`, `timer`, `schedule`,
-etc.
+Registered as `ha.config.helpers` with `action` in
+{`list`, `get`, `create`, `update`, `delete`} plus a required
+`helper_type` param (`input_boolean`, `input_text`, `input_number`,
+`input_select`, `input_datetime`, `counter`, `timer`, `schedule`).
+See `COMMAND-SURFACE.md` for the full args table.
 
-- Read via state + entity registry.
-- Mutate via WS `config/<helper_type>/create|update|delete`
-  (e.g. `config/input_boolean/create`).
+- `list` / `get` → WS `<helper_type>/list` / `<helper_type>/get`
+- `create` / `update` / `delete` → WS `<helper_type>/{create,update,delete}`,
+  proposal-gated
 
 ## Area / device / entity registry (HA-native WS)
 
-Target shape: one command per registry.
+Registered as one command per registry. See `COMMAND-SURFACE.md` for
+per-action args.
 
-- `ha.config.area_registry` with `action` in
-  {`list`, `create`, `update`, `delete`} →
-  `config/area_registry/{list,create,update,delete}`
-- `ha.config.device_registry` with `action` in {`list`, `update`} →
-  `config/device_registry/{list,update}`
-- `ha.config.entity_registry` with `action` in
-  {`list`, `get`, `update`, `remove`} →
-  `config/entity_registry/{list,get,update,remove}`
+- `ha.config.area_registry` → `config/area_registry/{list,create,update,delete}`
+  (mutations proposal-gated)
+- `ha.config.device_registry` → `config/device_registry/{list,update}`
+  (HA does not expose create/delete — devices are integration-populated)
+- `ha.config.entity_registry` → `config/entity_registry/{list,get,update,remove}`
 
 ## Integrations / config entries (HA-native WS)
 
-Target shape: `ha.config.config_entries` with `action` in
-{`get`, `options_flow`, `disable`, `enable`} routing to
-`config_entries/get`, `config_entries/options/flow/...`,
-`config_entries/disable|enable`. Always cite a `docs.lookup` for the
-integration before mutating.
+Registered as `ha.config.config_entries` with `action` in
+{`get`, `options_flow`, `disable`, `enable`}. See `COMMAND-SURFACE.md`
+for per-action args. All mutating actions are proposal-gated.
+
+**Convention (soft)**: callers should cite a `docs.lookup` for the
+integration before mutating. The handler does not hard-enforce a
+`docs_lookup` token — that check remains a caller-side discipline
+enforced via prompt / proposal review.
 
 ## Blueprints (fs)
 
