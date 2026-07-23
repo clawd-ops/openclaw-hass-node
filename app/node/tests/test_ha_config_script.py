@@ -76,6 +76,24 @@ async def test_get_invalid_id_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.parametrize(
+    "bad_id",
+    [
+        "with/slash",
+        "with space",
+        "UPPERCASE",
+        "with?query",
+        "with-hyphen",
+        "with.dot",
+        "with%encoded",
+        "with#hash",
+    ],
+)
+async def test_get_id_slug_validation(bad_id: str) -> None:
+    result = await handle_ha_config_script({"action": "get", "id": bad_id})
+    assert result["error"] == "INVALID_PARAM"
+
+
 async def test_get_empty_id() -> None:
     result = await handle_ha_config_script({"action": "get", "id": "   "})
     assert result["error"] == "MISSING_PARAM"

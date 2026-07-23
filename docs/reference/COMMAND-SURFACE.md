@@ -6,12 +6,13 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 46 commands are registered.
+OpenClaw conventions where they exist. 53 commands are registered
+(`ping` + `fs.*` × 11 + `system.*` × 2 + `ha.*` × 39).
 
 Convention for the `ha.config.*` domain: **one command per HA config
 domain**, with an `action` parameter selecting the operation. This keeps
 the dispatcher, gateway allowlist, and connect-surface advertisement
-compact as the six planned domains land. Per-verb commands
+compact as the nine domains land. Per-verb commands
 (`ha.config.<domain>.<verb>`) are not the convention going forward.
 
 Addon-management commands are tiered by blast radius. Tier A
@@ -60,7 +61,13 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (28 commands)
+## `ha.*` — Home Assistant control (39 commands)
+
+Includes the base observability/control surface (28), Tier B addon
+lifecycle including update (1 extra), and the nine `ha.config.*`
+domain-config editors (9). Sections for each `ha.config.*` command
+follow the base surface below.
+
 
 | Command                   | Args / Notes                           |
 |---------------------------|----------------------------------------|
@@ -133,9 +140,9 @@ missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/automation/config/<id>`. Proposal-gated. |
-| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/automation/config/<id>`. Proposal-gated. |
+| `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/automation/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/automation/config/<id>`. Proposal-gated. |
 
 After a mutation, callers should follow up with
 `ha.call_service` `automation` / `reload` to pick up the new config.
@@ -157,9 +164,9 @@ missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/script/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/script/config/<id>`. Proposal-gated. |
-| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/script/config/<id>`. Proposal-gated. |
+| `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/script/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/script/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/script/config/<id>`. Proposal-gated. |
 
 After a mutation, callers should follow up with
 `ha.call_service` `script` / `reload` to pick up the new config.
@@ -181,9 +188,9 @@ missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/scene/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/scene/config/<id>`. Proposal-gated. |
-| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/scene/config/<id>`. Proposal-gated. |
+| `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/scene/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/scene/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/scene/config/<id>`. Proposal-gated. |
 
 After a mutation, callers should follow up with
 `ha.call_service` `scene` / `reload` to pick up the new config.
@@ -198,13 +205,19 @@ Single command; the `action` param selects the operation. `helper_type`
 is required for every action. Unknown or missing `action` /
 `helper_type` returns `INVALID_PARAM`.
 
+HA's storage-collection websocket surface registers `<helper_type>/list`,
+`<helper_type>/create`, `<helper_type>/update`, and `<helper_type>/delete`.
+There is **no** `<helper_type>/get` frame — single-item lookup goes
+through state and the entity registry, not this command. update/delete
+use the item key named `<helper_type>_id` (e.g. `input_boolean_id`),
+not `entity_id`.
+
 | `action`   | Params                                                                                                            | Notes |
 |------------|-------------------------------------------------------------------------------------------------------------------|-------|
 | `list`     | `helper_type` (required).                                                                                         | WS `<helper_type>/list`. Returns `{helper_type, count, helpers}`. |
-| `get`      | `helper_type`, `entity_id`.                                                                                       | WS `<helper_type>/get`. Returns `{helper_type, entity_id, helper}`. |
-| `create`   | `helper_type`, `attrs` (dict, required), `proposal_id` (required, non-empty, not `"direct"`).                     | WS `<helper_type>/create`. Proposal-gated. |
-| `update`   | `helper_type`, `entity_id`, `attrs` (dict), `proposal_id`.                                                        | WS `<helper_type>/update` with `{entity_id, **attrs}`. Proposal-gated. |
-| `delete`   | `helper_type`, `entity_id`, `proposal_id`.                                                                        | WS `<helper_type>/delete`. Proposal-gated. |
+| `create`   | `helper_type`, `attrs` (dict, required), `proposal_id` (required, non-empty, not `"direct"`).                     | WS `<helper_type>/create` with the `attrs` dict as payload. Proposal-gated. |
+| `update`   | `helper_type`, `<helper_type>_id` (required), `attrs` (dict), `proposal_id`.                                      | WS `<helper_type>/update` with `{<helper_type>_id, **attrs}`. Proposal-gated. |
+| `delete`   | `helper_type`, `<helper_type>_id` (required), `proposal_id`.                                                      | WS `<helper_type>/delete` with `{<helper_type>_id}`. Proposal-gated. |
 
 ## `ha.config.area_registry` — Areas (1 command)
 
@@ -240,8 +253,11 @@ WS `config/entity_registry/{list,get,update,remove}`.
 
 ## `ha.config.config_entries` — Integrations (1 command)
 
-WS `config_entries/get`, `config_entries/options/flow/init`,
-`config_entries/disable`, `config_entries/enable`.
+WS `config_entries/get_single` (single lookup) and
+`config_entries/disable` (both disable and re-enable — HA does not
+register a separate `config_entries/enable` frame). Options flows are
+served by HTTP flow views (`/api/config/config_entries/options/flow/...`)
+and are not yet exposed by this command.
 
 **Convention (soft)**: callers should cite a `docs.lookup` for the
 integration before mutating. The handler does not hard-enforce a
@@ -249,17 +265,16 @@ integration before mutating. The handler does not hard-enforce a
 
 | `action`         | Params                                                                                | Notes |
 |------------------|---------------------------------------------------------------------------------------|-------|
-| `get`            | `entry_id` (required).                                                                | Returns `{entry_id, entry}`. |
-| `options_flow`   | `entry_id`, optional `step` (dict), `proposal_id`.                                    | WS `config_entries/options/flow/init` with `{handler: entry_id, ?step}`. Proposal-gated. |
+| `get`            | `entry_id` (required).                                                                | WS `config_entries/get_single`. Returns `{entry_id, entry}`. |
 | `disable`        | `entry_id`, `proposal_id`.                                                            | WS `config_entries/disable` with `{entry_id, disabled_by: "user"}`. Proposal-gated. |
-| `enable`         | `entry_id`, `proposal_id`.                                                            | WS `config_entries/enable` with `{entry_id, disabled_by: null}`. Proposal-gated. |
+| `enable`         | `entry_id`, `proposal_id`.                                                            | Routes to WS `config_entries/disable` with `{entry_id, disabled_by: null}`. Proposal-gated. HA has no separate `enable` frame. |
 
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- All six `ha.config.*` domains are now registered (see sections above).
+- All nine `ha.config.*` domains are now registered (see sections above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,

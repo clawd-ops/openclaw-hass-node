@@ -27,16 +27,20 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
   session, with token-delta streaming back into HA. Mid-turn
   tool-named progress lines (e.g. `🔧 Calling weather...`) surface
   in the conversation UI while the agent is still working.
-- **42 commands** registered in the dispatcher:
-  - `ha.*` (28): list/get states, call service, list areas/devices/
+- **53 commands** registered in the dispatcher:
+  - `ha.*` (39): list/get states, call service, list areas/devices/
     services/entity-registry, config, events, config entries, core logs,
     calendar events, logbook, history, reload config,
-    light turn on/off, list automations, check config, and the
+    light turn on/off, list automations, check config, the
     Tier A read-only addon surface (`list_addons`, `addon_info`,
     `addon_stats`, `addon_logs`, `addon_changelog`,
-    `addon_documentation`) plus Tier B addon lifecycle
-    (`addon_start`, `addon_stop`, `addon_restart`) behind
-    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist.
+    `addon_documentation`), Tier B addon lifecycle
+    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) behind
+    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist, and the six
+    `ha.config.*` domain-config editors: `lovelace`, `automation`,
+    `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
+    `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
+    proposal-gated.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
   - `system.*` (2): `system.run` (admin-token-gated), `system.which`

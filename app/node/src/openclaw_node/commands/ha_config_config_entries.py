@@ -1,7 +1,15 @@
 """Home Assistant config_entries command (``ha.config.config_entries``).
 
-WS: ``config_entries/get``, ``config_entries/options/flow/...``,
-``config_entries/disable``, ``config_entries/enable``.
+WS: ``config_entries/get_single`` (single lookup) and
+``config_entries/disable`` (both disable-with-``disabled_by="user"`` and
+re-enable-with-``disabled_by=null``).
+
+HA does *not* register a ``config_entries/enable`` frame — the
+disable frame with ``disabled_by=null`` is the canonical enable path.
+Options flows are exposed as HTTP flow views under
+``/api/config/config_entries/options/flow/...``, not a registered
+websocket command; a websocket-only options flow is not supported by
+this handler yet.
 
 Callers should cite a ``docs.lookup`` for the integration before
 mutating (soft convention documented in COMMAND-SURFACE.md — the
@@ -18,8 +26,8 @@ from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
-_ACTIONS: Final[frozenset[str]] = frozenset({"get", "options_flow", "disable", "enable"})
-_MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"disable", "enable", "options_flow"})
+_ACTIONS: Final[frozenset[str]] = frozenset({"get", "disable", "enable"})
+_MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"disable", "enable"})
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -74,11 +82,11 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
 
     if action == "get":
         try:
-            result = await ha_ws_call("config_entries/get", {"entry_id": entry_id})
+            result = await ha_ws_call("config_entries/get_single", {"entry_id": entry_id})
         except HAClientError as exc:
             return _to_error(exc)
         if not isinstance(result, dict):
-            return _error("HA_BAD_RESPONSE", "Expected dict from config_entries/get")
+            return _error("HA_BAD_RESPONSE", "Expected dict from config_entries/get_single")
         return {"ok": True, "entry_id": entry_id, "entry": result}
 
     denied = _require_proposal(params, action)
@@ -86,30 +94,13 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
         return denied
     proposal_id = str(params["proposal_id"]).strip()
 
-    if action == "options_flow":
-        step = params.get("step")
-        if step is not None and not isinstance(step, dict):
-            return _error("INVALID_PARAM", "step must be a dict when provided")
-        payload: dict[str, Any] = {"handler": entry_id}
-        if step is not None:
-            payload["step"] = step
-        _LOG.warning(
-            "ha.config.config_entries options_flow entry=%s proposal=%s",
-            entry_id,
-            proposal_id,
-        )
-        try:
-            result = await ha_ws_call("config_entries/options/flow/init", payload)
-        except HAClientError as exc:
-            return _to_error(exc)
-        return {"ok": True, "entry_id": entry_id, "proposal_id": proposal_id, "flow": result}
-
-    ws_type = "config_entries/disable" if action == "disable" else "config_entries/enable"
+    # HA registers only config_entries/disable; enable is the same frame with
+    # disabled_by=null (there is no separate config_entries/enable command).
     disabled_by = "user" if action == "disable" else None
-    payload = {"entry_id": entry_id, "disabled_by": disabled_by}
+    payload: dict[str, Any] = {"entry_id": entry_id, "disabled_by": disabled_by}
     _LOG.warning("ha.config.config_entries %s entry=%s proposal=%s", action, entry_id, proposal_id)
     try:
-        result = await ha_ws_call(ws_type, payload)
+        result = await ha_ws_call("config_entries/disable", payload)
     except HAClientError as exc:
         return _to_error(exc)
     return {"ok": True, "entry_id": entry_id, "proposal_id": proposal_id, "result": result}

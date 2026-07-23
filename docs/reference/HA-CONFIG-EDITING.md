@@ -63,6 +63,10 @@ Target shape: `ha.config.automation` with `action` in
 - `action=delete` → `DELETE /api/config/automation/config/<id>`
   (proposal-gated)
 - After mutation: `ha.call_service automation reload`
+- **id validation**: the handler enforces `^[a-z0-9_]+$` (HA `cv.slug`)
+  on `id` before building the REST path. Hyphens, dots, uppercase, path
+  separators, query characters, and whitespace are all rejected with
+  `INVALID_PARAM` before HA is called.
 
 ## Scripts (HA-native)
 
@@ -80,6 +84,7 @@ Target shape: `ha.config.script` with `action` in
 - `action=delete` → `DELETE /api/config/script/config/<id>`
   (proposal-gated)
 - After mutation: `ha.call_service script reload`
+- **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
 ## Scenes (HA-native)
 
@@ -94,6 +99,7 @@ Target shape: `ha.config.scene` with `action` in
 - `action=save` → `POST /api/config/scene/config/<id>` (proposal-gated)
 - `action=delete` → `DELETE /api/config/scene/config/<id>` (proposal-gated)
 - After mutation: `ha.call_service scene reload`
+- **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
 ## Dashboards / Lovelace (HA-native WS)
 
@@ -126,14 +132,18 @@ dispatcher and callers are redirected here.
 ## Helpers (HA-native)
 
 Registered as `ha.config.helpers` with `action` in
-{`list`, `get`, `create`, `update`, `delete`} plus a required
-`helper_type` param (`input_boolean`, `input_text`, `input_number`,
-`input_select`, `input_datetime`, `counter`, `timer`, `schedule`).
-See `COMMAND-SURFACE.md` for the full args table.
+{`list`, `create`, `update`, `delete`} plus a required `helper_type`
+param (`input_boolean`, `input_text`, `input_number`, `input_select`,
+`input_datetime`, `counter`, `timer`, `schedule`). See
+`COMMAND-SURFACE.md` for the full args table.
 
-- `list` / `get` → WS `<helper_type>/list` / `<helper_type>/get`
-- `create` / `update` / `delete` → WS `<helper_type>/{create,update,delete}`,
-  proposal-gated
+- `list` → WS `<helper_type>/list`
+- `create` / `update` / `delete` → WS
+  `<helper_type>/{create,update,delete}`, proposal-gated
+- HA's storage-collection surface has no `<helper_type>/get` frame;
+  single-item lookup goes through state and the entity registry
+- update/delete require the item key `<helper_type>_id` (e.g.
+  `input_boolean_id`), not `entity_id`
 
 ## Area / device / entity registry (HA-native WS)
 
@@ -149,8 +159,12 @@ per-action args.
 ## Integrations / config entries (HA-native WS)
 
 Registered as `ha.config.config_entries` with `action` in
-{`get`, `options_flow`, `disable`, `enable`}. See `COMMAND-SURFACE.md`
-for per-action args. All mutating actions are proposal-gated.
+{`get`, `disable`, `enable`}. See `COMMAND-SURFACE.md` for per-action
+args. Mutating actions are proposal-gated. HA has no separate
+`config_entries/enable` frame — `enable` routes through
+`config_entries/disable` with `disabled_by=null`. Options flow support
+would need the HTTP flow views under
+`/api/config/config_entries/options/flow/...` and is not yet exposed.
 
 **Convention (soft)**: callers should cite a `docs.lookup` for the
 integration before mutating. The handler does not hard-enforce a

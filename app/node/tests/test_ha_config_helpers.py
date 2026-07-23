@@ -81,24 +81,12 @@ async def test_list_ha_error() -> None:
     assert result["error"] == "HA_AUTH"
 
 
-async def test_get_happy_path() -> None:
-    mock = AsyncMock(return_value={"id": "abc"})
-    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
-        result = await handle_ha_config_helpers(
-            {
-                "action": "get",
-                "helper_type": "counter",
-                "entity_id": "counter.foo",
-            }
-        )
-    assert result["ok"] is True
-    assert result["entity_id"] == "counter.foo"
-    mock.assert_awaited_once_with("counter/get", {"entity_id": "counter.foo"})
-
-
-async def test_get_missing_entity_id() -> None:
-    result = await handle_ha_config_helpers({"action": "get", "helper_type": "counter"})
-    assert result["error"] == "MISSING_PARAM"
+async def test_get_action_rejected() -> None:
+    """HA storage-collection surface has no `<domain>/get` frame."""
+    result = await handle_ha_config_helpers(
+        {"action": "get", "helper_type": "counter", "counter_id": "abc"}
+    )
+    assert result["error"] == "INVALID_PARAM"
 
 
 @pytest.mark.parametrize("action", ["create", "update", "delete"])
@@ -107,7 +95,7 @@ async def test_mutating_missing_proposal(action: str) -> None:
         {
             "action": action,
             "helper_type": "input_boolean",
-            "entity_id": "input_boolean.foo",
+            "input_boolean_id": "foo",
             "attrs": {"name": "foo"},
         }
     )
@@ -120,7 +108,7 @@ async def test_mutating_direct_proposal_refused(action: str) -> None:
         {
             "action": action,
             "helper_type": "input_boolean",
-            "entity_id": "input_boolean.foo",
+            "input_boolean_id": "foo",
             "attrs": {"name": "foo"},
             "proposal_id": "direct",
         }
@@ -155,14 +143,34 @@ async def test_create_missing_attrs() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
-async def test_update_happy_path() -> None:
+async def test_update_rejects_conflicting_item_key_in_attrs() -> None:
+    """`attrs` containing `<helper_type>_id` must be rejected outright.
+
+    Prevents a caller from logging one id but targeting a different helper
+    in the actual WS frame via dict-merge shadowing.
+    """
+    result = await handle_ha_config_helpers(
+        {
+            "action": "update",
+            "helper_type": "input_number",
+            "input_number_id": "expected",
+            "attrs": {"input_number_id": "other", "name": "x"},
+            "proposal_id": "p",
+        }
+    )
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_update_happy_path_uses_domain_id_key() -> None:
+    """update MUST use `<helper_type>_id`, not `entity_id`."""
     mock = AsyncMock(return_value={"updated": True})
     with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
         result = await handle_ha_config_helpers(
             {
                 "action": "update",
                 "helper_type": "input_number",
-                "entity_id": "input_number.foo",
+                "input_number_id": "abc",
                 "attrs": {"name": "renamed"},
                 "proposal_id": "prop-2",
             }
@@ -170,23 +178,24 @@ async def test_update_happy_path() -> None:
     assert result["ok"] is True
     mock.assert_awaited_once_with(
         "input_number/update",
-        {"entity_id": "input_number.foo", "name": "renamed"},
+        {"input_number_id": "abc", "name": "renamed"},
     )
 
 
-async def test_delete_happy_path() -> None:
+async def test_delete_happy_path_uses_domain_id_key() -> None:
+    """delete MUST use `<helper_type>_id`, not `entity_id`."""
     mock = AsyncMock(return_value=None)
     with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
         result = await handle_ha_config_helpers(
             {
                 "action": "delete",
                 "helper_type": "counter",
-                "entity_id": "counter.foo",
+                "counter_id": "abc",
                 "proposal_id": "prop-3",
             }
         )
     assert result["ok"] is True
-    mock.assert_awaited_once_with("counter/delete", {"entity_id": "counter.foo"})
+    mock.assert_awaited_once_with("counter/delete", {"counter_id": "abc"})
 
 
 async def test_ha_error_propagates() -> None:
@@ -196,7 +205,7 @@ async def test_ha_error_propagates() -> None:
             {
                 "action": "delete",
                 "helper_type": "counter",
-                "entity_id": "counter.foo",
+                "counter_id": "abc",
                 "proposal_id": "p",
             }
         )
@@ -227,13 +236,6 @@ async def test_attrs_wrong_type_on_create() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
-async def test_entity_id_wrong_type_on_get() -> None:
-    result = await handle_ha_config_helpers(
-        {"action": "get", "helper_type": "counter", "entity_id": 42}
-    )
-    assert result["error"] == "MISSING_PARAM"
-
-
 async def test_helper_type_wrong_type() -> None:
     result = await handle_ha_config_helpers({"action": "list", "helper_type": 42})
     assert result["error"] == "MISSING_PARAM"
@@ -242,24 +244,6 @@ async def test_helper_type_wrong_type() -> None:
 async def test_helper_type_empty_string() -> None:
     result = await handle_ha_config_helpers({"action": "list", "helper_type": "  "})
     assert result["error"] == "MISSING_PARAM"
-
-
-async def test_get_bad_response() -> None:
-    mock = AsyncMock(return_value="not a dict")
-    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
-        result = await handle_ha_config_helpers(
-            {"action": "get", "helper_type": "counter", "entity_id": "counter.a"}
-        )
-    assert result["error"] == "HA_BAD_RESPONSE"
-
-
-async def test_get_ha_error() -> None:
-    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
-    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
-        result = await handle_ha_config_helpers(
-            {"action": "get", "helper_type": "counter", "entity_id": "counter.a"}
-        )
-    assert result["error"] == "HA_500"
 
 
 async def test_create_ha_error() -> None:
@@ -276,7 +260,7 @@ async def test_create_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
-async def test_update_missing_entity_id() -> None:
+async def test_update_missing_item_id() -> None:
     result = await handle_ha_config_helpers(
         {
             "action": "update",
@@ -293,7 +277,7 @@ async def test_update_missing_attrs() -> None:
         {
             "action": "update",
             "helper_type": "counter",
-            "entity_id": "counter.a",
+            "counter_id": "abc",
             "proposal_id": "p",
         }
     )
@@ -307,7 +291,7 @@ async def test_update_ha_error() -> None:
             {
                 "action": "update",
                 "helper_type": "counter",
-                "entity_id": "counter.a",
+                "counter_id": "abc",
                 "attrs": {"name": "x"},
                 "proposal_id": "p",
             }
@@ -315,20 +299,13 @@ async def test_update_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
-async def test_delete_missing_entity_id() -> None:
+async def test_delete_missing_item_id() -> None:
     result = await handle_ha_config_helpers(
         {
             "action": "delete",
             "helper_type": "counter",
             "proposal_id": "p",
         }
-    )
-    assert result["error"] == "MISSING_PARAM"
-
-
-async def test_empty_helper_type_on_get() -> None:
-    result = await handle_ha_config_helpers(
-        {"action": "get", "helper_type": "", "entity_id": "x.y"}
     )
     assert result["error"] == "MISSING_PARAM"
 

@@ -18,6 +18,7 @@ via state (``scene.*`` entities from ``ha.list_states``).
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Final
 
 from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
@@ -58,14 +59,28 @@ def _require_proposal(params: dict[str, Any], action: str) -> dict[str, Any] | N
     return None
 
 
+_ID_RE: Final = re.compile(r"^[a-z0-9_]+$")
+
+
 def _require_id(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
-    """Extract required ``id`` (scene id) from params; return ``(id, error)``."""
+    """Extract required ``id`` (scene id) from params; return ``(id, error)``.
+
+    HA registers the scene config endpoint with ``cv.slug`` validation on
+    the path key: ``id`` must match ``^[a-z0-9_]+$`` (lowercase letters,
+    digits, underscores). Reject anything that would produce a malformed
+    URL or hit a different resource than intended.
+    """
     raw = params.get("id")
     if not isinstance(raw, str):
         return None, _error("MISSING_PARAM", "id must be a string and is required")
     trimmed = raw.strip()
     if not trimmed:
         return None, _error("MISSING_PARAM", "id must be a non-empty string")
+    if not _ID_RE.match(trimmed):
+        return None, _error(
+            "INVALID_PARAM",
+            "id must be an HA slug (lowercase letters, digits, underscores)",
+        )
     return trimmed, None
 
 
