@@ -156,8 +156,16 @@ async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
     attrs, err = _require_attrs(params)
     if err is not None or attrs is None:
         return err or _error("MISSING_PARAM", "attrs required")
-    proposal_id = str(params["proposal_id"]).strip()
     item_key = f"{ht}_id"
+    # Refuse `attrs` that carries the item key — otherwise a caller could
+    # log/return one id but actually target a different helper in the WS
+    # frame. Fail loud rather than silently pick a winner.
+    if item_key in attrs:
+        return _error(
+            "INVALID_PARAM",
+            f"attrs must not contain {item_key!r}; pass it as the top-level param",
+        )
+    proposal_id = str(params["proposal_id"]).strip()
     _LOG.warning(
         "ha.config.helpers update helper_type=%s %s=%s proposal=%s",
         ht,
@@ -165,7 +173,7 @@ async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
         item_id,
         proposal_id,
     )
-    payload = {item_key: item_id, **attrs}
+    payload = {**attrs, item_key: item_id}
     try:
         result = await ha_ws_call(f"{ht}/update", payload)
     except HAClientError as exc:

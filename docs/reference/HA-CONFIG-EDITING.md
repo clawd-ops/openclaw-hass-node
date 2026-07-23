@@ -63,6 +63,10 @@ Target shape: `ha.config.automation` with `action` in
 - `action=delete` → `DELETE /api/config/automation/config/<id>`
   (proposal-gated)
 - After mutation: `ha.call_service automation reload`
+- **id validation**: the handler enforces `^[a-z0-9_]+$` (HA `cv.slug`)
+  on `id` before building the REST path. Hyphens, dots, uppercase, path
+  separators, query characters, and whitespace are all rejected with
+  `INVALID_PARAM` before HA is called.
 
 ## Scripts (HA-native)
 
@@ -80,6 +84,7 @@ Target shape: `ha.config.script` with `action` in
 - `action=delete` → `DELETE /api/config/script/config/<id>`
   (proposal-gated)
 - After mutation: `ha.call_service script reload`
+- **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
 ## Scenes (HA-native)
 
@@ -94,6 +99,7 @@ Target shape: `ha.config.scene` with `action` in
 - `action=save` → `POST /api/config/scene/config/<id>` (proposal-gated)
 - `action=delete` → `DELETE /api/config/scene/config/<id>` (proposal-gated)
 - After mutation: `ha.call_service scene reload`
+- **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
 ## Dashboards / Lovelace (HA-native WS)
 

@@ -140,9 +140,9 @@ missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/automation/config/<id>`. Proposal-gated. |
-| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/automation/config/<id>`. Proposal-gated. |
+| `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/automation/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/automation/config/<id>`. Proposal-gated. |
 
 After a mutation, callers should follow up with
 `ha.call_service` `automation` / `reload` to pick up the new config.
@@ -164,9 +164,9 @@ missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/script/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/script/config/<id>`. Proposal-gated. |
-| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/script/config/<id>`. Proposal-gated. |
+| `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/script/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/script/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/script/config/<id>`. Proposal-gated. |
 
 After a mutation, callers should follow up with
 `ha.call_service` `script` / `reload` to pick up the new config.
@@ -188,9 +188,9 @@ missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/scene/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/scene/config/<id>`. Proposal-gated. |
-| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/scene/config/<id>`. Proposal-gated. |
+| `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/scene/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/scene/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/scene/config/<id>`. Proposal-gated. |
 
 After a mutation, callers should follow up with
 `ha.call_service` `scene` / `reload` to pick up the new config.

@@ -143,6 +143,25 @@ async def test_create_missing_attrs() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+async def test_update_rejects_conflicting_item_key_in_attrs() -> None:
+    """`attrs` containing `<helper_type>_id` must be rejected outright.
+
+    Prevents a caller from logging one id but targeting a different helper
+    in the actual WS frame via dict-merge shadowing.
+    """
+    result = await handle_ha_config_helpers(
+        {
+            "action": "update",
+            "helper_type": "input_number",
+            "input_number_id": "expected",
+            "attrs": {"input_number_id": "other", "name": "x"},
+            "proposal_id": "p",
+        }
+    )
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
 async def test_update_happy_path_uses_domain_id_key() -> None:
     """update MUST use `<helper_type>_id`, not `entity_id`."""
     mock = AsyncMock(return_value={"updated": True})
