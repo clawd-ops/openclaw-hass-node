@@ -274,3 +274,200 @@ async def test_entity_remove_happy() -> None:
         )
     assert result["ok"] is True
     mock.assert_awaited_once_with("config/entity_registry/remove", {"entity_id": "sensor.a"})
+
+
+# -----------------------------------------------------------------------
+# Additional error-path coverage
+# -----------------------------------------------------------------------
+
+
+async def test_area_list_ha_error_propagates() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_TIMEOUT", "t"))
+    with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
+        assert (await handle_ha_config_area_registry({"action": "list"}))["error"] == "HA_TIMEOUT"
+
+
+async def test_area_create_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
+        result = await handle_ha_config_area_registry(
+            {"action": "create", "name": "K", "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_area_update_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
+        result = await handle_ha_config_area_registry(
+            {"action": "update", "area_id": "a1", "attrs": {"n": 1}, "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_area_delete_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
+        result = await handle_ha_config_area_registry(
+            {"action": "delete", "area_id": "a1", "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_area_create_with_extra_attrs() -> None:
+    mock = AsyncMock(return_value={"area_id": "new"})
+    with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
+        result = await handle_ha_config_area_registry(
+            {"action": "create", "name": "K", "attrs": {"icon": "mdi:x"}, "proposal_id": "p"}
+        )
+    assert result["ok"] is True
+    mock.assert_awaited_once_with("config/area_registry/create", {"name": "K", "icon": "mdi:x"})
+
+
+async def test_area_non_string_proposal() -> None:
+    result = await handle_ha_config_area_registry(
+        {"action": "create", "name": "K", "proposal_id": 42}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_area_empty_proposal() -> None:
+    result = await handle_ha_config_area_registry(
+        {"action": "create", "name": "K", "proposal_id": "   "}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_area_create_name_wrong_type() -> None:
+    result = await handle_ha_config_area_registry(
+        {"action": "create", "name": 42, "proposal_id": "p"}
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_area_update_missing_area_id() -> None:
+    result = await handle_ha_config_area_registry(
+        {"action": "update", "attrs": {"n": 1}, "proposal_id": "p"}
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_device_list_bad_response() -> None:
+    mock = AsyncMock(return_value={"nope": True})
+    with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
+        assert (await handle_ha_config_device_registry({"action": "list"}))[
+            "error"
+        ] == "HA_BAD_RESPONSE"
+
+
+async def test_device_list_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
+        assert (await handle_ha_config_device_registry({"action": "list"}))["error"] == "HA_500"
+
+
+async def test_device_update_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
+        result = await handle_ha_config_device_registry(
+            {"action": "update", "device_id": "d1", "attrs": {"n": "x"}, "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_device_update_missing_attrs() -> None:
+    result = await handle_ha_config_device_registry(
+        {"action": "update", "device_id": "d1", "proposal_id": "p"}
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_device_non_string_proposal() -> None:
+    result = await handle_ha_config_device_registry(
+        {"action": "update", "device_id": "d1", "attrs": {"n": 1}, "proposal_id": 42}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_device_direct_proposal_refused() -> None:
+    result = await handle_ha_config_device_registry(
+        {"action": "update", "device_id": "d1", "attrs": {"n": 1}, "proposal_id": "direct"}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_entity_list_bad_response() -> None:
+    mock = AsyncMock(return_value={"nope": True})
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        assert (await handle_ha_config_entity_registry({"action": "list"}))[
+            "error"
+        ] == "HA_BAD_RESPONSE"
+
+
+async def test_entity_list_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        assert (await handle_ha_config_entity_registry({"action": "list"}))["error"] == "HA_500"
+
+
+async def test_entity_get_bad_response() -> None:
+    mock = AsyncMock(return_value="nope")
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry({"action": "get", "entity_id": "sensor.a"})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_entity_get_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry({"action": "get", "entity_id": "sensor.a"})
+    assert result["error"] == "HA_500"
+
+
+async def test_entity_update_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry(
+            {
+                "action": "update",
+                "entity_id": "sensor.a",
+                "attrs": {"name": "x"},
+                "proposal_id": "p",
+            }
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_entity_remove_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry(
+            {"action": "remove", "entity_id": "sensor.a", "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_entity_update_missing_attrs() -> None:
+    result = await handle_ha_config_entity_registry(
+        {"action": "update", "entity_id": "sensor.a", "proposal_id": "p"}
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_entity_non_string_proposal() -> None:
+    result = await handle_ha_config_entity_registry(
+        {"action": "update", "entity_id": "sensor.a", "attrs": {"n": 1}, "proposal_id": 42}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_entity_direct_proposal_refused() -> None:
+    result = await handle_ha_config_entity_registry(
+        {"action": "remove", "entity_id": "sensor.a", "proposal_id": "direct"}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_entity_id_wrong_type() -> None:
+    result = await handle_ha_config_entity_registry({"action": "get", "entity_id": 42})
+    assert result["error"] == "MISSING_PARAM"

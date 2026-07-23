@@ -232,3 +232,107 @@ async def test_entity_id_wrong_type_on_get() -> None:
         {"action": "get", "helper_type": "counter", "entity_id": 42}
     )
     assert result["error"] == "MISSING_PARAM"
+
+
+async def test_helper_type_wrong_type() -> None:
+    result = await handle_ha_config_helpers({"action": "list", "helper_type": 42})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_helper_type_empty_string() -> None:
+    result = await handle_ha_config_helpers({"action": "list", "helper_type": "  "})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_get_bad_response() -> None:
+    mock = AsyncMock(return_value="not a dict")
+    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
+        result = await handle_ha_config_helpers(
+            {"action": "get", "helper_type": "counter", "entity_id": "counter.a"}
+        )
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_get_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
+        result = await handle_ha_config_helpers(
+            {"action": "get", "helper_type": "counter", "entity_id": "counter.a"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_create_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
+        result = await handle_ha_config_helpers(
+            {
+                "action": "create",
+                "helper_type": "input_boolean",
+                "attrs": {"name": "x"},
+                "proposal_id": "p",
+            }
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_update_missing_entity_id() -> None:
+    result = await handle_ha_config_helpers(
+        {
+            "action": "update",
+            "helper_type": "counter",
+            "attrs": {"name": "x"},
+            "proposal_id": "p",
+        }
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_update_missing_attrs() -> None:
+    result = await handle_ha_config_helpers(
+        {
+            "action": "update",
+            "helper_type": "counter",
+            "entity_id": "counter.a",
+            "proposal_id": "p",
+        }
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_update_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
+        result = await handle_ha_config_helpers(
+            {
+                "action": "update",
+                "helper_type": "counter",
+                "entity_id": "counter.a",
+                "attrs": {"name": "x"},
+                "proposal_id": "p",
+            }
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_delete_missing_entity_id() -> None:
+    result = await handle_ha_config_helpers(
+        {
+            "action": "delete",
+            "helper_type": "counter",
+            "proposal_id": "p",
+        }
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_empty_helper_type_on_get() -> None:
+    result = await handle_ha_config_helpers(
+        {"action": "get", "helper_type": "", "entity_id": "x.y"}
+    )
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_action_empty_string() -> None:
+    result = await handle_ha_config_helpers({"action": "  ", "helper_type": "counter"})
+    assert result["error"] == "INVALID_PARAM"

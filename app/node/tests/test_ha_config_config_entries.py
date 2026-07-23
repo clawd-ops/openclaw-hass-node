@@ -131,3 +131,38 @@ async def test_options_flow_bad_step_type() -> None:
         {"action": "options_flow", "entry_id": "e1", "proposal_id": "p", "step": "no"}
     )
     assert result["error"] == "INVALID_PARAM"
+
+
+async def test_non_string_proposal() -> None:
+    result = await handle_ha_config_config_entries(
+        {"action": "disable", "entry_id": "e1", "proposal_id": 42}
+    )
+    assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+async def test_options_flow_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
+        result = await handle_ha_config_config_entries(
+            {"action": "options_flow", "entry_id": "e1", "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_disable_ha_error() -> None:
+    mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
+    with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
+        result = await handle_ha_config_config_entries(
+            {"action": "disable", "entry_id": "e1", "proposal_id": "p"}
+        )
+    assert result["error"] == "HA_500"
+
+
+async def test_entry_id_wrong_type() -> None:
+    result = await handle_ha_config_config_entries({"action": "get", "entry_id": 42})
+    assert result["error"] == "MISSING_PARAM"
+
+
+async def test_entry_id_empty() -> None:
+    result = await handle_ha_config_config_entries({"action": "get", "entry_id": "  "})
+    assert result["error"] == "MISSING_PARAM"
