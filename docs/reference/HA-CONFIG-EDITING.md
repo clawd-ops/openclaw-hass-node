@@ -49,10 +49,14 @@ exists only as a fallback for things HA doesn't expose.
 ## Automations (HA-native)
 
 Target shape: `ha.config.automation` with `action` in
-{`list`, `get`, `save`, `delete`}.
+{`get`, `save`, `delete`}.
 
-- `action=list` → `GET /api/config/automation/config`. REST-only —
-  the implementation MUST NOT fall back to any WS frame.
+- **Enumeration**: use the existing `ha.list_automations` command
+  (reads `automation.*` entities from state). HA does not register a
+  collection-level automation config route (`GET /api/config/automation/config`
+  is not a valid HA endpoint — only the per-id form
+  `GET /api/config/automation/config/<id>` exists via HA's shared
+  `EditAutomationConfigView`).
 - `action=get` → `GET /api/config/automation/config/<id>`
 - `action=save` → `POST /api/config/automation/config/<id>`
   (proposal-gated)

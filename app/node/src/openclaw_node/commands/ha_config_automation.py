@@ -22,7 +22,7 @@ from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
-_ACTIONS: Final[frozenset[str]] = frozenset({"list", "get", "save", "delete"})
+_ACTIONS: Final[frozenset[str]] = frozenset({"get", "save", "delete"})
 _MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"save", "delete"})
 
 
@@ -66,16 +66,6 @@ def _require_id(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | No
     if not trimmed:
         return None, _error("MISSING_PARAM", "id must be a non-empty string")
     return trimmed, None
-
-
-async def _action_list(_params: dict[str, Any]) -> dict[str, Any]:
-    try:
-        result = await ha_get("/api/config/automation/config")
-    except HAClientError as exc:
-        return _to_error(exc)
-    if not isinstance(result, list):
-        return _error("HA_BAD_RESPONSE", "Expected list from /api/config/automation/config")
-    return {"ok": True, "count": len(result), "automations": result}
 
 
 async def _action_get(params: dict[str, Any]) -> dict[str, Any]:
@@ -146,7 +136,9 @@ async def handle_ha_config_automation(params: dict[str, Any]) -> dict[str, Any]:
     """Dispatch an automation config action.
 
     Params:
-        action (str): Required; one of ``list``, ``get``, ``save``, ``delete``.
+        action (str): Required; one of ``get``, ``save``, ``delete``.
+            (Enumeration: use the existing ``ha.list_automations`` command;
+            HA does not expose a collection-level automation config route.)
         (per-action params — see the module docstring and per-action helpers.)
 
     Returns:
@@ -162,8 +154,6 @@ async def handle_ha_config_automation(params: dict[str, Any]) -> dict[str, Any]:
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
-    if action == "list":
-        return await _action_list(params)
     if action == "get":
         return await _action_get(params)
     if action == "save":

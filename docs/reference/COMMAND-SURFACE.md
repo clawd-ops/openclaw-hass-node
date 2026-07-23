@@ -118,18 +118,21 @@ commands above.
 
 ## `ha.config.automation` — Automations (1 command)
 
-HA-native REST path for automations under
-`/api/config/automation/config`. REST-only — the implementation MUST
-NOT fall back to any WS frame. See
+HA-native REST path for per-id automation config under
+`/api/config/automation/config/<id>`. REST-only — the implementation
+MUST NOT fall back to any WS frame. See
 `docs/reference/HA-CONFIG-EDITING.md` for the fs.patch vs ha.config
 policy.
+
+**Enumeration**: use the existing `ha.list_automations` command
+(reads `automation.*` entities from state). HA does not register a
+collection-level `/api/config/automation/config` route.
 
 Single command; the `action` param selects the operation. Unknown or
 missing `action` returns `INVALID_PARAM`.
 
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
-| `list`     | —                                                                                               | `GET /api/config/automation/config`. Returns `{count, automations}`. |
 | `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
 | `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/automation/config/<id>`. Proposal-gated. |
 | `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/automation/config/<id>`. Proposal-gated. |

@@ -40,45 +40,17 @@ async def test_unknown_action() -> None:
 
 
 # ---------------------------------------------------------------------------
-# action=list
+# no action=list — HA does not expose /api/config/automation/config as a
+# collection route. Enumeration is via the existing ha.list_automations
+# command (which reads automation.* entities from state).
 # ---------------------------------------------------------------------------
 
 
-async def test_list_returns_list() -> None:
-    automations = [{"id": "1", "alias": "morning"}, {"id": "2", "alias": "night"}]
-    mock = AsyncMock(return_value=automations)
-    with patch("openclaw_node.commands.ha_config_automation.ha_get", mock):
-        result = await handle_ha_config_automation({"action": "list"})
-    assert result == {"ok": True, "count": 2, "automations": automations}
-    mock.assert_awaited_once_with("/api/config/automation/config")
-
-
-async def test_list_bad_response() -> None:
-    mock = AsyncMock(return_value={"not": "a list"})
-    with patch("openclaw_node.commands.ha_config_automation.ha_get", mock):
-        result = await handle_ha_config_automation({"action": "list"})
-    assert result["error"] == "HA_BAD_RESPONSE"
-
-
-async def test_list_ha_error() -> None:
-    mock = AsyncMock(side_effect=HAClientError("HA_AUTH", "401"))
-    with patch("openclaw_node.commands.ha_config_automation.ha_get", mock):
-        result = await handle_ha_config_automation({"action": "list"})
-    assert result["error"] == "HA_AUTH"
-
-
-async def test_list_never_uses_ws() -> None:
-    """list MUST be REST-only; no WS frame is ever sent."""
-    get_mock = AsyncMock(return_value=[])
-    ws_mock = AsyncMock(return_value=None)
-    with (
-        patch("openclaw_node.commands.ha_config_automation.ha_get", get_mock),
-        patch("openclaw_node.ha_client.ha_ws_call", ws_mock),
-    ):
-        result = await handle_ha_config_automation({"action": "list"})
-    assert result["ok"] is True
-    get_mock.assert_awaited_once_with("/api/config/automation/config")
-    ws_mock.assert_not_called()
+async def test_list_action_rejected() -> None:
+    """`action=list` must be rejected; enumeration goes through ha.list_automations."""
+    result = await handle_ha_config_automation({"action": "list"})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
 
 
 # ---------------------------------------------------------------------------
