@@ -57,6 +57,7 @@ from openclaw_node.commands.ha import (
     handle_ha_reload_config,
     handle_ha_update_install,
 )
+from openclaw_node.commands.ha_config_automation import handle_ha_config_automation
 from openclaw_node.commands.ha_config_lovelace import handle_ha_config_lovelace
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
@@ -118,6 +119,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.addon_update": handle_ha_addon_update,
     "ha.update_install": handle_ha_update_install,
     "ha.config.lovelace": handle_ha_config_lovelace,
+    "ha.config.automation": handle_ha_config_automation,
 }
 
 

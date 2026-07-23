@@ -179,6 +179,34 @@ async def ha_post(
         raise HAClientError("HA_NETWORK", f"Network error contacting HA: {exc}") from exc
 
 
+async def ha_delete(path: str, *, timeout_s: float = _DEFAULT_TIMEOUT_S) -> Any:
+    """DELETE *path* on the HA REST API and return the JSON-decoded body.
+
+    Args:
+        path: The path component, e.g. ``"/api/config/automation/config/1"``.
+        timeout_s: Per-request timeout.
+
+    Returns:
+        The decoded JSON/text body of the response.
+
+    Raises:
+        HAClientError: On network, HTTP non-2xx, or auth failure.
+    """
+    base = _ha_url().rstrip("/")
+    headers = _headers()
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    url = f"{base}{path}"
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.delete(url, headers=headers) as resp,
+        ):
+            return await _decode(resp)
+    except aiohttp.ClientError as exc:
+        _LOG.error("ha_delete network error %s: %s", url, exc)
+        raise HAClientError("HA_NETWORK", f"Network error contacting HA: {exc}") from exc
+
+
 async def ha_ws_call(
     msg_type: str,
     payload: dict[str, Any] | None = None,
