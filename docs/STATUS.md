@@ -36,7 +36,7 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     `addon_stats`, `addon_logs`, `addon_changelog`,
     `addon_documentation`), Tier B addon lifecycle
     (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) behind
-    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist, and the six
+    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist, and the nine
     `ha.config.*` domain-config editors: `lovelace`, `automation`,
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is

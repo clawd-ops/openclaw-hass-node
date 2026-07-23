@@ -13,7 +13,7 @@ The `ha.config.*` surface is exposed as **one command per HA config
 domain**, with an `action` param selecting the operation
 (`ha.config.<domain>` + `action`, not
 `ha.config.<domain>.<verb>`). This keeps the dispatcher, gateway
-allowlist, and connect-surface advertisement compact as the six planned
+allowlist, and connect-surface advertisement compact as the nine registered
 domains land. Missing / unknown `action` returns `INVALID_PARAM`.
 Mutating actions remain proposal-gated inside the handler.
 
