@@ -7,10 +7,12 @@ via :func:`openclaw_node.ha_client.ha_get`, :func:`ha_post`, and
 
 Single command with an ``action`` param. Supported actions:
 
-- ``list`` — list all automations (``GET /api/config/automation/config``).
 - ``get`` — read one automation by id.
 - ``save`` — write one automation (proposal-gated).
 - ``delete`` — delete one automation (proposal-gated).
+
+HA core does not expose a collection route for automation configs; use
+the existing ``ha.list_automations`` command to enumerate automations.
 """
 
 from __future__ import annotations
@@ -23,7 +25,6 @@ from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _ACTIONS: Final[frozenset[str]] = frozenset({"get", "save", "delete"})
-_MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"save", "delete"})
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
