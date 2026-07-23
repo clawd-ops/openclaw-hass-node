@@ -6,7 +6,7 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 45 commands are registered.
+OpenClaw conventions where they exist. 46 commands are registered.
 
 Convention for the `ha.config.*` domain: **one command per HA config
 domain**, with an `action` parameter selecting the operation. This keeps
@@ -116,16 +116,37 @@ Guardrail: attempts to reach lovelace `.storage/` files via `fs.write` /
 `fs.patch` are refused with `STORAGE_READONLY` — callers must use the
 commands above.
 
+## `ha.config.automation` — Automations (1 command)
+
+HA-native REST path for automations under
+`/api/config/automation/config`. REST-only — the implementation MUST
+NOT fall back to any WS frame. See
+`docs/reference/HA-CONFIG-EDITING.md` for the fs.patch vs ha.config
+policy.
+
+Single command; the `action` param selects the operation. Unknown or
+missing `action` returns `INVALID_PARAM`.
+
+| `action`   | Params                                                                                          | Notes |
+|------------|-------------------------------------------------------------------------------------------------|-------|
+| `list`     | —                                                                                               | `GET /api/config/automation/config`. Returns `{count, automations}`. |
+| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/automation/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/automation/config/<id>`. Proposal-gated. |
+
+After a mutation, callers should follow up with
+`ha.call_service` `automation` / `reload` to pick up the new config.
+
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- **`ha.config.*`** (remaining) — domain config editing (automations,
-  scripts, scenes, blueprints, helpers, area/device/entity registry,
-  integrations). Detects YAML vs UI storage mode. See
-  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace is now registered
-  (see the section above).
+- **`ha.config.*`** (remaining) — domain config editing (scripts, scenes,
+  blueprints, helpers, area/device/entity registry, integrations).
+  Detects YAML vs UI storage mode. See
+  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace and automations are
+  now registered (see the sections above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,
