@@ -20,7 +20,7 @@
 # -------------------------------------------------------------------------
 ---
 name: OpenClaw HA Node — App
-version: "2026.7.1b4"
+version: "2026.7.23b1"
 slug: openclaw_hass_node
 description: >
   OpenClaw gateway peripheral for Home Assistant. Connects this HA
