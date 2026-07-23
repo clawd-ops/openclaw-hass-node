@@ -118,6 +118,11 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.config.automation",
     "ha.config.script",
     "ha.config.scene",
+    "ha.config.helpers",
+    "ha.config.area_registry",
+    "ha.config.device_registry",
+    "ha.config.entity_registry",
+    "ha.config.config_entries",
 ]
 # The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
 # in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.
