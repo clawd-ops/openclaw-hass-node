@@ -122,9 +122,10 @@ gateway side. Short version:
 
 - **Node command surface**: 53 commands (`ha.*` × 39, `fs.*` × 11,
   `system.*` × 2, `ping`). `ha.*` includes the full read/observability
-  surface, calendar + logbook + history, add-on lifecycle, and the six
+  surface, calendar + logbook + history, add-on lifecycle, and the nine
   `ha.config.*` domain-config editors (lovelace / automation / script /
-  scene / helpers / area+device+entity registries / config_entries).
+  scene / helpers / area_registry / device_registry / entity_registry /
+  config_entries).
   See [`docs/reference/COMMAND-SURFACE.md`](docs/reference/COMMAND-SURFACE.md).
 - **Pairing + connect**: works end-to-end with device-token persistence.
 - **Conversation relay (`/v1/conversation` → OpenClaw chat surface)**:

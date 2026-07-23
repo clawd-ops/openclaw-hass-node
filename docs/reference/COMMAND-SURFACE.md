@@ -12,7 +12,7 @@ OpenClaw conventions where they exist. 53 commands are registered
 Convention for the `ha.config.*` domain: **one command per HA config
 domain**, with an `action` parameter selecting the operation. This keeps
 the dispatcher, gateway allowlist, and connect-surface advertisement
-compact as the six planned domains land. Per-verb commands
+compact as the nine domains land. Per-verb commands
 (`ha.config.<domain>.<verb>`) are not the convention going forward.
 
 Addon-management commands are tiered by blast radius. Tier A
@@ -64,8 +64,8 @@ in standalone mode). Path traversal and symlink escape are blocked by
 ## `ha.*` — Home Assistant control (39 commands)
 
 Includes the base observability/control surface (28), Tier B addon
-lifecycle including update (1 extra), and the six `ha.config.*`
-domain-config editors (6). Sections for each `ha.config.*` command
+lifecycle including update (1 extra), and the nine `ha.config.*`
+domain-config editors (9). Sections for each `ha.config.*` command
 follow the base surface below.
 
 
@@ -274,7 +274,7 @@ integration before mutating. The handler does not hard-enforce a
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- All six `ha.config.*` domains are now registered (see sections above).
+- All nine `ha.config.*` domains are now registered (see sections above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,
