@@ -1,8 +1,8 @@
 """Home Assistant automation configuration command (``ha.config.automation``).
 
-HA-native REST path for editing automations under
-``/api/config/automation/config``. This command talks to HA's REST API
-via :func:`openclaw_node.ha_client.ha_get`, :func:`ha_post`, and
+HA-native REST path for per-id automation config under
+``/api/config/automation/config/<id>``. This command talks to HA's REST
+API via :func:`openclaw_node.ha_client.ha_get`, :func:`ha_post`, and
 :func:`ha_delete`; it MUST NOT fall back to any WebSocket frame.
 
 Single command with an ``action`` param. Supported actions:
