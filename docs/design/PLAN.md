@@ -132,7 +132,9 @@ Full design (storage layout, retention, edge cases):
   helpers, areas/devices/entities, integrations/config entries) are
   edited **only** through HA's native REST/WS config APIs, regardless
   of whether they currently live in YAML or `.storage/`. The node
-  exposes a `ha.config.<domain>.*` surface that hits those APIs.
+  exposes a `ha.config.<domain>` command per domain (with an `action`
+  param, not `ha.config.<domain>.<verb>` — one dispatcher entry per
+  domain to keep the surface compact) that hits those APIs.
 - `fs.patch` against `/config/` is reserved for files HA has no API
   for. That includes: `configuration.yaml` top-level (only when the
   change can't be expressed as a helper/integration via API), YAML-only

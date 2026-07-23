@@ -6,7 +6,8 @@
 > separately at the end.
 
 Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 46 commands are registered.
+OpenClaw conventions where they exist. 53 commands are registered
+(`ping` + `fs.*` × 11 + `system.*` × 2 + `ha.*` × 39).
 
 Convention for the `ha.config.*` domain: **one command per HA config
 domain**, with an `action` parameter selecting the operation. This keeps
@@ -60,7 +61,13 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (28 commands)
+## `ha.*` — Home Assistant control (39 commands)
+
+Includes the base observability/control surface (28), Tier B addon
+lifecycle including update (1 extra), and the six `ha.config.*`
+domain-config editors (6). Sections for each `ha.config.*` command
+follow the base surface below.
+
 
 | Command                   | Args / Notes                           |
 |---------------------------|----------------------------------------|
