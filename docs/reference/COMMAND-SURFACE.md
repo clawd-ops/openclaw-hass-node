@@ -140,16 +140,40 @@ missing `action` returns `INVALID_PARAM`.
 After a mutation, callers should follow up with
 `ha.call_service` `automation` / `reload` to pick up the new config.
 
+## `ha.config.script` — Scripts (1 command)
+
+HA-native REST path for per-id script config under
+`/api/config/script/config/<id>`. REST-only — the implementation
+MUST NOT fall back to any WS frame. See
+`docs/reference/HA-CONFIG-EDITING.md` for the fs.patch vs ha.config
+policy.
+
+**Enumeration**: read `script.*` entities from state (e.g. via
+`ha.list_states`). HA does not register a collection-level
+`/api/config/script/config` route.
+
+Single command; the `action` param selects the operation. Unknown or
+missing `action` returns `INVALID_PARAM`.
+
+| `action`   | Params                                                                                          | Notes |
+|------------|-------------------------------------------------------------------------------------------------|-------|
+| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/script/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/script/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/script/config/<id>`. Proposal-gated. |
+
+After a mutation, callers should follow up with
+`ha.call_service` `script` / `reload` to pick up the new config.
+
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.
 They will be registered in the dispatcher as each phase ships.
 
-- **`ha.config.*`** (remaining) — domain config editing (scripts, scenes,
+- **`ha.config.*`** (remaining) — domain config editing (scenes,
   blueprints, helpers, area/device/entity registry, integrations).
   Detects YAML vs UI storage mode. See
-  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace and automations are
-  now registered (see the sections above).
+  `docs/reference/HA-CONFIG-EDITING.md`. Lovelace, automations, and
+  scripts are now registered (see the sections above).
 - **`docs.*`** — versioned HA docs lookup (`docs.lookup`,
   `docs.search`, `docs.versions`).
 - **`ha.supervisor.*`** — Supervisor API wrappers (info, addons,
