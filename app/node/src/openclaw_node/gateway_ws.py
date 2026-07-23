@@ -114,11 +114,7 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.addon_start",
     "ha.addon_stop",
     "ha.addon_restart",
-    "ha.config.lovelace.get",
-    "ha.config.lovelace.save",
-    "ha.config.lovelace.dashboards_list",
-    "ha.config.lovelace.resources_list",
-    "ha.config.lovelace.resources_create",
+    "ha.config.lovelace",
 ]
 # The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
 # in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.
