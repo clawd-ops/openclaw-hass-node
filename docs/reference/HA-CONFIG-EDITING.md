@@ -67,8 +67,19 @@ Target shape: `ha.config.automation` with `action` in
 ## Scripts (HA-native)
 
 Target shape: `ha.config.script` with `action` in
-{`list`, `get`, `save`, `delete`}. Same shape as automations under
-`/api/config/script/config/<id>`. Reload: `script reload`.
+{`get`, `save`, `delete`}.
+
+- **Enumeration**: read `script.*` entities from state (e.g. via
+  `ha.list_states`). HA does not register a collection-level script
+  config route (`GET /api/config/script/config` is not a valid HA
+  endpoint — only the per-id form `GET /api/config/script/config/<id>`
+  exists via HA's shared `EditScriptConfigView`).
+- `action=get` → `GET /api/config/script/config/<id>`
+- `action=save` → `POST /api/config/script/config/<id>`
+  (proposal-gated)
+- `action=delete` → `DELETE /api/config/script/config/<id>`
+  (proposal-gated)
+- After mutation: `ha.call_service script reload`
 
 ## Scenes (HA-native)
 
