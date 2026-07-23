@@ -59,6 +59,7 @@ from openclaw_node.commands.ha import (
 )
 from openclaw_node.commands.ha_config_automation import handle_ha_config_automation
 from openclaw_node.commands.ha_config_lovelace import handle_ha_config_lovelace
+from openclaw_node.commands.ha_config_scene import handle_ha_config_scene
 from openclaw_node.commands.ha_config_script import handle_ha_config_script
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
@@ -122,6 +123,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.config.lovelace": handle_ha_config_lovelace,
     "ha.config.automation": handle_ha_config_automation,
     "ha.config.script": handle_ha_config_script,
+    "ha.config.scene": handle_ha_config_scene,
 }
 
 

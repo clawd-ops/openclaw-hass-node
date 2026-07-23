@@ -164,6 +164,30 @@ missing `action` returns `INVALID_PARAM`.
 After a mutation, callers should follow up with
 `ha.call_service` `script` / `reload` to pick up the new config.
 
+## `ha.config.scene` — Scenes (1 command)
+
+HA-native REST path for per-id scene config under
+`/api/config/scene/config/<id>`. REST-only — the implementation
+MUST NOT fall back to any WS frame. See
+`docs/reference/HA-CONFIG-EDITING.md` for the fs.patch vs ha.config
+policy.
+
+**Enumeration**: read `scene.*` entities from state (e.g. via
+`ha.list_states`). HA does not register a collection-level
+`/api/config/scene/config` route.
+
+Single command; the `action` param selects the operation. Unknown or
+missing `action` returns `INVALID_PARAM`.
+
+| `action`   | Params                                                                                          | Notes |
+|------------|-------------------------------------------------------------------------------------------------|-------|
+| `get`      | `id` (required, non-empty string).                                                              | `GET /api/config/scene/config/<id>`. Returns `{id, config}`. |
+| `save`     | `id` (required), `config` (dict, required), `proposal_id` (required, non-empty, not `"direct"`). | `POST /api/config/scene/config/<id>`. Proposal-gated. |
+| `delete`   | `id` (required), `proposal_id` (required, non-empty, not `"direct"`).                           | `DELETE /api/config/scene/config/<id>`. Proposal-gated. |
+
+After a mutation, callers should follow up with
+`ha.call_service` `scene` / `reload` to pick up the new config.
+
 ## Planned (not yet registered)
 
 The following command groups are designed but not yet implemented.

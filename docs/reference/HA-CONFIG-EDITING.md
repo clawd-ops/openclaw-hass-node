@@ -84,8 +84,16 @@ Target shape: `ha.config.script` with `action` in
 ## Scenes (HA-native)
 
 Target shape: `ha.config.scene` with `action` in
-{`list`, `get`, `save`, `delete`}. `/api/config/scene/config/<id>`.
-Reload: `scene reload`.
+{`get`, `save`, `delete`}.
+
+- **Enumeration**: read `scene.*` entities from state (e.g. via
+  `ha.list_states`). HA does not register a collection-level scene
+  config route (only the per-id form via HA's shared
+  `EditSceneConfigView`).
+- `action=get` → `GET /api/config/scene/config/<id>`
+- `action=save` → `POST /api/config/scene/config/<id>` (proposal-gated)
+- `action=delete` → `DELETE /api/config/scene/config/<id>` (proposal-gated)
+- After mutation: `ha.call_service scene reload`
 
 ## Dashboards / Lovelace (HA-native WS)
 
