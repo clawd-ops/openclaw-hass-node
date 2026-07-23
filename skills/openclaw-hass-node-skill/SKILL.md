@@ -68,6 +68,7 @@ Examples:
 Current primary command families include:
 
 - `ha.*` for Home Assistant API operations: states, services, areas, devices, registries, add-ons, config checks, and approved control actions.
+- `ha.config.*` for HA-native domain-config editing (lovelace dashboards, automations, scripts, scenes, helpers, area/device/entity registries, integrations/config_entries). Every mutating action is proposal-gated (`proposal_id` required, `"direct"` refused). REST-based per-id domains (`ha.config.automation` / `script` / `scene`) validate `id` against HA's `cv.slug` (`^[a-z0-9_]+$`). WS-based domains use HA's storage-collection surface. Enumeration for the REST-per-id domains goes through the existing `ha.list_automations` and `ha.list_states` filtered by `script.*` / `scene.*`.
 - `fs.*` for supported file inspection or proposal-gated file work exposed by the node.
 - `system.*` for bounded node/system diagnostics.
 - `ping` for connectivity and basic health.
@@ -92,6 +93,7 @@ Actions that need extra care:
 - Add-on start, stop, or restart.
 - Reloads.
 - Any command that changes Home Assistant state.
+- Any `ha.config.*` mutating action (`save` / `delete` / `create` / `update` / `remove`). These edit the HA config store directly and must carry a real `proposal_id` naming the agent-bridge proposal that authorized the change. Never pass `proposal_id="direct"`. For `config_entries.disable` / `enable`, cite a `docs.lookup` for the integration before mutating so a reviewer can see why the change was made.
 - Any command that changes add-on state.
 - Any command that edits configuration or files.
 - Any broad or generic command where the effect is unclear.

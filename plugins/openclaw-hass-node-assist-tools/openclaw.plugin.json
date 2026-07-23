@@ -5,7 +5,7 @@
   },
   "enabledByDefault": false,
   "name": "OpenClaw HA Node — Assist Tools",
-  "description": "Scoped OpenClaw tool wrappers (ha_call_service, ha_get_state, ...) that bridge HA Assist sessions to the paired openclaw-hass-node-app's command surface. Required for Assist; chat/cron/sub-agent sessions use the openclaw-hass-node-skill on top of nodes.invoke and don't need this plugin.",
+  "description": "Scoped OpenClaw tool wrappers (ha_call_service, ha_get_state, ...) that bridge HA Assist sessions to the paired openclaw-hass-node-app's command surface. Required for Assist; chat/cron/sub-agent sessions use the openclaw-hass-node-skill on top of nodes.invoke and don't need this plugin. Note: ha.config.* domain-config editing (lovelace, automation, script, scene, helpers, registries, config_entries) is intentionally NOT exposed here — those are proposal-gated mutations meant for chat/cron/sub-agent flows via nodes.invoke, not Assist voice turns.",
   "contracts": {
     "tools": [
       "ha_call_service",

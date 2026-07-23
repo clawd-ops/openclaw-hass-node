@@ -32,8 +32,14 @@ See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full
 
 ## Status
 
-**Implemented.** 28 `ha_*` tools are registered in `index.ts`. The manifest
-(`openclaw.plugin.json`) declares the full tool surface and per-node config schema.
+**Implemented.** 30 `ha_*` tools are declared in the manifest
+(`openclaw.plugin.json`) with the corresponding registrations in
+`index.ts`. The plugin exposes read/observability + `ha_call_service` +
+Tier B admin lifecycle wrappers — it does **not** expose the
+`ha.config.*` domain-config editors (lovelace, automation, script,
+scene, helpers, area/device/entity registries, config_entries). Those
+are proposal-gated mutations meant for chat/cron/sub-agent flows via
+`nodes.invoke`, not for HA Assist voice turns.
 
 The plugin is `enabledByDefault: false`. Operators must explicitly enable it.
 No per-node allowlists are required — entity/service/calendar access control
