@@ -136,6 +136,7 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.config.lovelace",
         "ha.config.automation",
         "ha.config.script",
+        "ha.config.scene",
     ]
 
 
