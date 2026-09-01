@@ -1,8 +1,10 @@
 // TypeBox schemas + AnyAgentTool descriptors for the openclaw-hass-node-assist-tools plugin.
 //
 // Each schema includes a `node` field naming the paired node these tools
-// operate against (typically the openclaw-hass-node-app instance running
-// in HA Supervisor). Other fields are tool-specific.
+// operate against. That node is served by the openclaw-hass-node-app add-on
+// running in HA Supervisor, but the add-on slug is NOT the node id; the id
+// comes from `nodes status` and is commonly `hass`. Other fields are
+// tool-specific.
 //
 // Routing-only design: access control is delegated to the hass node's
 // tier/allowCommands policy and HA's own auth layer. Tier B admin tools
@@ -17,8 +19,13 @@ type AssistToolDescriptor = Pick<
   "label" | "name" | "description" | "parameters"
 >;
 
+// This string is injected into every ha_* tool call, so it is the strongest
+// signal a model gets about what `node` should be. The previous wording ended
+// on "the bound openclaw-hass-node-app", and callers repeatedly passed that
+// add-on slug as the node id, producing "unknown node: openclaw-hass-node-app"
+// failures. Name the expected value positively and mark the slug as wrong.
 export const PAIRED_NODE_DESCRIPTION =
-  "Paired hass node id or display name from `nodes status`. Do not pass local/host/gateway/auto; this plugin only operates against the bound openclaw-hass-node-app.";
+  "Paired Home Assistant node id or display name from `nodes status`, commonly `hass`. Do not pass local, host, gateway, auto, or the add-on slug openclaw-hass-node-app; that slug is the Supervisor add-on, not a node id.";
 
 // --- ha_call_service ---
 
