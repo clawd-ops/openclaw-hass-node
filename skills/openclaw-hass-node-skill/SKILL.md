@@ -31,7 +31,7 @@ The core rule: use `nodes.invoke` against the configured Home Assistant node, th
 
 **When a request cannot be fulfilled, say so clearly.** If a filesystem or capability request cannot be satisfied by `ha.*` commands or the file-transfer plugin, say that clearly rather than inventing a config change. Never fabricate `allowCommands` entries or `allowReadPaths` adjustments without confirming the feature exists and the path is supported.
 
-The node ID is deployment-specific. It may be `hass` in one environment and something else in another. Discover or confirm the node ID before invoking commands.
+The node ID is deployment-specific. It may be `hass` in one environment and something else in another. Discover or confirm the node ID before invoking commands. Never derive a node ID from an add-on slug or an add-on display name; `openclaw-hass-node-app` is the add-on, not the node ID.
 
 ## Invocation Pattern
 
