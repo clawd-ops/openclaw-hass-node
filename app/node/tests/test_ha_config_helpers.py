@@ -116,6 +116,7 @@ async def test_mutating_direct_proposal_refused(action: str) -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_create_happy_path() -> None:
     mock = AsyncMock(return_value={"id": "new"})
     with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
@@ -132,6 +133,7 @@ async def test_create_happy_path() -> None:
     mock.assert_awaited_once_with("input_boolean/create", {"name": "New Boolean"})
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_create_missing_attrs() -> None:
     result = await handle_ha_config_helpers(
         {
@@ -143,6 +145,7 @@ async def test_create_missing_attrs() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_update_rejects_conflicting_item_key_in_attrs() -> None:
     """`attrs` containing `<helper_type>_id` must be rejected outright.
 
@@ -162,6 +165,7 @@ async def test_update_rejects_conflicting_item_key_in_attrs() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_update_happy_path_uses_domain_id_key() -> None:
     """update MUST use `<helper_type>_id`, not `entity_id`."""
     mock = AsyncMock(return_value={"updated": True})
@@ -182,6 +186,7 @@ async def test_update_happy_path_uses_domain_id_key() -> None:
     )
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_delete_happy_path_uses_domain_id_key() -> None:
     """delete MUST use `<helper_type>_id`, not `entity_id`."""
     mock = AsyncMock(return_value=None)
@@ -198,6 +203,7 @@ async def test_delete_happy_path_uses_domain_id_key() -> None:
     mock.assert_awaited_once_with("counter/delete", {"counter_id": "abc"})
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_ha_error_propagates() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_TIMEOUT", "timeout"))
     with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
@@ -224,6 +230,7 @@ async def test_non_string_proposal_id() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_attrs_wrong_type_on_create() -> None:
     result = await handle_ha_config_helpers(
         {
@@ -246,6 +253,7 @@ async def test_helper_type_empty_string() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_create_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
@@ -260,6 +268,7 @@ async def test_create_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_update_missing_item_id() -> None:
     result = await handle_ha_config_helpers(
         {
@@ -272,6 +281,7 @@ async def test_update_missing_item_id() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_update_missing_attrs() -> None:
     result = await handle_ha_config_helpers(
         {
@@ -284,6 +294,7 @@ async def test_update_missing_attrs() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_update_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_helpers.ha_ws_call", mock):
@@ -299,6 +310,7 @@ async def test_update_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_delete_missing_item_id() -> None:
     result = await handle_ha_config_helpers(
         {

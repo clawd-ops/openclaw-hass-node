@@ -86,6 +86,7 @@ async def test_area_direct_proposal_refused() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_create_happy() -> None:
     mock = AsyncMock(return_value={"area_id": "new"})
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -96,11 +97,13 @@ async def test_area_create_happy() -> None:
     mock.assert_awaited_once_with("config/area_registry/create", {"name": "Kitchen"})
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_create_missing_name() -> None:
     result = await handle_ha_config_area_registry({"action": "create", "proposal_id": "p"})
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_update_happy() -> None:
     mock = AsyncMock(return_value={"area_id": "a1", "name": "renamed"})
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -118,6 +121,7 @@ async def test_area_update_happy() -> None:
     )
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_update_missing_attrs() -> None:
     result = await handle_ha_config_area_registry(
         {"action": "update", "area_id": "a1", "proposal_id": "p"}
@@ -125,6 +129,7 @@ async def test_area_update_missing_attrs() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_delete_happy() -> None:
     mock = AsyncMock(return_value=None)
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -169,6 +174,7 @@ async def test_device_update_needs_proposal() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_device_update_happy() -> None:
     mock = AsyncMock(return_value={"id": "d1"})
     with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
@@ -186,6 +192,7 @@ async def test_device_update_happy() -> None:
     )
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_device_update_missing_id() -> None:
     result = await handle_ha_config_device_registry(
         {"action": "update", "attrs": {"name": "x"}, "proposal_id": "p"}
@@ -247,6 +254,7 @@ async def test_entity_update_needs_proposal() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_entity_update_happy() -> None:
     mock = AsyncMock(return_value={"entity_id": "sensor.a"})
     with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
@@ -266,6 +274,7 @@ async def test_entity_remove_needs_proposal() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_entity_remove_happy() -> None:
     mock = AsyncMock(return_value=None)
     with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
@@ -287,6 +296,7 @@ async def test_area_list_ha_error_propagates() -> None:
         assert (await handle_ha_config_area_registry({"action": "list"}))["error"] == "HA_TIMEOUT"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_create_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -296,6 +306,7 @@ async def test_area_create_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_update_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -305,6 +316,7 @@ async def test_area_update_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_delete_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -314,6 +326,7 @@ async def test_area_delete_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_create_with_extra_attrs() -> None:
     mock = AsyncMock(return_value={"area_id": "new"})
     with patch("openclaw_node.commands.ha_config_area_registry.ha_ws_call", mock):
@@ -338,6 +351,7 @@ async def test_area_empty_proposal() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_create_name_wrong_type() -> None:
     result = await handle_ha_config_area_registry(
         {"action": "create", "name": 42, "proposal_id": "p"}
@@ -345,6 +359,7 @@ async def test_area_create_name_wrong_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_area_update_missing_area_id() -> None:
     result = await handle_ha_config_area_registry(
         {"action": "update", "attrs": {"n": 1}, "proposal_id": "p"}
@@ -366,6 +381,7 @@ async def test_device_list_ha_error() -> None:
         assert (await handle_ha_config_device_registry({"action": "list"}))["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_device_update_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
@@ -375,6 +391,7 @@ async def test_device_update_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_device_update_missing_attrs() -> None:
     result = await handle_ha_config_device_registry(
         {"action": "update", "device_id": "d1", "proposal_id": "p"}
@@ -424,6 +441,7 @@ async def test_entity_get_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_entity_update_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
@@ -438,6 +456,7 @@ async def test_entity_update_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_entity_remove_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
@@ -447,6 +466,7 @@ async def test_entity_remove_ha_error() -> None:
     assert result["error"] == "HA_500"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_entity_update_missing_attrs() -> None:
     result = await handle_ha_config_entity_registry(
         {"action": "update", "entity_id": "sensor.a", "proposal_id": "p"}

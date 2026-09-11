@@ -53,8 +53,7 @@ def fs_patch(path: str, patch: str, proposal_id: str) -> PatchResult:
 
     Raises:
         ProtectedRootError: If `path` is outside the allowed roots.
-        StorageRefusedError: If `path` resolves into `.storage/`
-            without `unsafe_storage=True`.
+        StorageRefusedError: If `path` resolves into `.storage/`.
         PatchApplyError: If the diff failed to apply cleanly.
     """
 ```

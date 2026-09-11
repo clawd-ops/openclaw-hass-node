@@ -9,15 +9,19 @@ Single command with an ``action`` param plus a required ``helper_type``
 param selecting the underlying WS namespace. Supported actions:
 
 - ``list`` — list all helpers of the given type.
-- ``create`` — create a new helper (proposal-gated).
-- ``update`` — update an existing helper (proposal-gated).
-- ``delete`` — delete a helper (proposal-gated).
+- ``create`` — create a new helper (blocked pending trusted approval verification).
+- ``update`` — update an existing helper (blocked pending trusted approval verification).
+- ``delete`` — delete a helper (blocked pending trusted approval verification).
 
 HA does not register a ``<helper_type>/get`` frame in its storage-
 collection websocket surface; single-item lookup is served by reading
 the state and entity registry. update/delete require the item key
 named ``<helper_type>_id`` (e.g. ``input_boolean_id``), not
 ``entity_id``.
+
+Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
+``proposal_id`` can authorize a mutation. The retained API adapters are dormant
+until a trusted approval verifier and human approval round-trip are implemented.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
+from openclaw_node.commands.config_mutation import require_config_mutation_approval
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -51,28 +56,6 @@ def _error(code: str, message: str) -> dict[str, Any]:
 
 def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
-
-
-def _require_proposal(params: dict[str, Any], action: str) -> dict[str, Any] | None:
-    """Enforce proposal gating on mutating helper actions.
-
-    Mirrors ``ha.config.automation``: mutating calls must carry an
-    explicit ``proposal_id`` naming the agent-bridge proposal.
-    ``"direct"`` is refused so mutations remain traceable to a review.
-    """
-    label = f"ha.config.helpers action={action}"
-    raw = params.get("proposal_id")
-    if not isinstance(raw, str):
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    proposal_id = raw.strip()
-    if not proposal_id:
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    if proposal_id == "direct":
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"{label}: proposal_id='direct' is not a valid proposal",
-        )
-    return None
 
 
 def _require_helper_type(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
@@ -111,7 +94,7 @@ async def _action_list(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_create(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "create")
+    denied = require_config_mutation_approval("ha.config.helpers", "create")
     if denied is not None:
         return denied
     ht, err = _require_helper_type(params)
@@ -144,7 +127,7 @@ def _require_item_id(
 
 
 async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "update")
+    denied = require_config_mutation_approval("ha.config.helpers", "update")
     if denied is not None:
         return denied
     ht, err = _require_helper_type(params)
@@ -188,7 +171,7 @@ async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "delete")
+    denied = require_config_mutation_approval("ha.config.helpers", "delete")
     if denied is not None:
         return denied
     ht, err = _require_helper_type(params)

@@ -147,6 +147,7 @@ async def test_save_non_string_proposal_id() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_missing_id() -> None:
     result = await handle_ha_config_automation(
         {"action": "save", "config": {"alias": "x"}, "proposal_id": "p1"}
@@ -154,6 +155,7 @@ async def test_save_missing_id() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_invalid_id_type() -> None:
     result = await handle_ha_config_automation(
         {"action": "save", "id": 42, "config": {"alias": "x"}, "proposal_id": "p1"}
@@ -161,11 +163,13 @@ async def test_save_invalid_id_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_missing_config() -> None:
     result = await handle_ha_config_automation({"action": "save", "id": "1", "proposal_id": "p1"})
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_config_wrong_type() -> None:
     result = await handle_ha_config_automation(
         {"action": "save", "id": "1", "config": "yaml", "proposal_id": "p1"}
@@ -173,6 +177,7 @@ async def test_save_config_wrong_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_happy_path() -> None:
     config = {"alias": "morning", "trigger": []}
     mock = AsyncMock(return_value={"result": "ok"})
@@ -184,6 +189,7 @@ async def test_save_happy_path() -> None:
     mock.assert_awaited_once_with("/api/config/automation/config/42", config)
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_ha_error_propagates() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_HTTP_ERROR", "boom"))
     with patch("openclaw_node.commands.ha_config_automation.ha_post", mock):
@@ -222,16 +228,19 @@ async def test_delete_non_string_proposal_id() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_delete_missing_id() -> None:
     result = await handle_ha_config_automation({"action": "delete", "proposal_id": "p1"})
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_delete_invalid_id_type() -> None:
     result = await handle_ha_config_automation({"action": "delete", "id": 42, "proposal_id": "p1"})
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_delete_happy_path() -> None:
     mock = AsyncMock(return_value={"result": "ok"})
     with patch("openclaw_node.commands.ha_config_automation.ha_delete", mock):
@@ -242,6 +251,7 @@ async def test_delete_happy_path() -> None:
     mock.assert_awaited_once_with("/api/config/automation/config/42")
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_delete_ha_error_propagates() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_NOT_FOUND", "gone"))
     with patch("openclaw_node.commands.ha_config_automation.ha_delete", mock):

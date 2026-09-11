@@ -2,6 +2,10 @@
 
 WS: ``config/device_registry/{list,update}``. HA does not expose create
 or delete for devices — they're populated by integrations.
+
+Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
+``proposal_id`` can authorize a mutation. The retained API adapters are dormant
+until a trusted approval verifier and human approval round-trip are implemented.
 """
 
 from __future__ import annotations
@@ -9,6 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
+from openclaw_node.commands.config_mutation import require_config_mutation_approval
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -22,22 +27,6 @@ def _error(code: str, message: str) -> dict[str, Any]:
 
 def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
-
-
-def _require_proposal(params: dict[str, Any], action: str) -> dict[str, Any] | None:
-    label = f"ha.config.device_registry action={action}"
-    raw = params.get("proposal_id")
-    if not isinstance(raw, str):
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    proposal_id = raw.strip()
-    if not proposal_id:
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    if proposal_id == "direct":
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"{label}: proposal_id='direct' is not a valid proposal",
-        )
-    return None
 
 
 async def handle_ha_config_device_registry(params: dict[str, Any]) -> dict[str, Any]:
@@ -61,7 +50,7 @@ async def handle_ha_config_device_registry(params: dict[str, Any]) -> dict[str, 
             return _error("HA_BAD_RESPONSE", "Expected list from config/device_registry/list")
         return {"ok": True, "count": len(result), "devices": result}
 
-    denied = _require_proposal(params, action)
+    denied = require_config_mutation_approval("ha.config.device_registry", action)
     if denied is not None:
         return denied
     proposal_id = str(params["proposal_id"]).strip()

@@ -43,7 +43,7 @@ These are the rules that surprise people. Front-loaded so you don't break them.
 
 - **Dual-role WS pairing.** The node holds two parallel gateway connections: `role: node` (for `node.invoke.*`) and `role: operator` (for `chat.send` + `sessions.messages.subscribe`). Gateway role policy is binary per-method; `chat.send` is operator-scope. There is no `node.chat.send`.
 - **`/config` is proposal-gated.** Mutation handlers (`fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `ha.config.*`) return `PROPOSAL_REQUIRED` today; the agent-bridge round-trip is TODO #20.
-- **`.storage/` is read-only to the node.** Hard rule. Writes are refused at the dispatcher unless `unsafe_storage=true` + accepted proposal.
+- **`.storage/` is read-only to the node.** Hard rule. The command layer refuses writes unconditionally; no caller parameter or proposal overrides it.
 - **HA URL is hard-pinned to `http://supervisor/core`** when `SUPERVISOR_TOKEN` is present, so a user-supplied `HASS_URL` never receives the privileged Supervisor token.
 - **Actor signing is derived from `local_api_token`** via HMAC label `openclaw-hass-node actor-signing v1`. There is no separate `actor_secret`.
 - **One node per HA instance.**

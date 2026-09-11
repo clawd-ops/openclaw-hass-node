@@ -76,6 +76,7 @@ async def test_direct_proposal_refused(action: str) -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_disable_happy() -> None:
     mock = AsyncMock(return_value={"disabled_by": "user"})
     with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):
@@ -88,6 +89,7 @@ async def test_disable_happy() -> None:
     )
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_enable_uses_disable_frame_with_null() -> None:
     """`enable` MUST route to `config_entries/disable` with disabled_by=null.
 
@@ -104,6 +106,7 @@ async def test_enable_uses_disable_frame_with_null() -> None:
     mock.assert_awaited_once_with("config_entries/disable", {"entry_id": "e1", "disabled_by": None})
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_options_flow_action_rejected() -> None:
     """options_flow needs an HTTP flow view; not yet supported."""
     result = await handle_ha_config_config_entries(
@@ -119,6 +122,7 @@ async def test_non_string_proposal() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_disable_ha_error() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_500", "x"))
     with patch("openclaw_node.commands.ha_config_config_entries.ha_ws_call", mock):

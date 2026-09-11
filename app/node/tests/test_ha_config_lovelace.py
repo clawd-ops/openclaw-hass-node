@@ -124,11 +124,13 @@ async def test_save_non_string_proposal_id() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_missing_config() -> None:
     result = await handle_ha_config_lovelace({"action": "save", "proposal_id": "prop-1"})
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_config_wrong_type() -> None:
     result = await handle_ha_config_lovelace(
         {"action": "save", "config": "yaml goes here", "proposal_id": "prop-1"}
@@ -136,6 +138,7 @@ async def test_save_config_wrong_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_default_dashboard_happy_path() -> None:
     config = {"views": [{"title": "Home"}]}
     mock = AsyncMock(return_value=None)
@@ -147,6 +150,7 @@ async def test_save_default_dashboard_happy_path() -> None:
     mock.assert_awaited_once_with("lovelace/config/save", {"config": config})
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_named_dashboard_forwards_url_path() -> None:
     config: dict[str, object] = {"views": []}
     mock = AsyncMock(return_value=None)
@@ -167,6 +171,7 @@ async def test_save_named_dashboard_forwards_url_path() -> None:
     )
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_invalid_url_path_type() -> None:
     result = await handle_ha_config_lovelace(
         {
@@ -179,6 +184,7 @@ async def test_save_invalid_url_path_type() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_ha_error_propagates() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_WS_ERROR", "bad payload"))
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
@@ -269,6 +275,7 @@ async def test_resources_create_direct_proposal_refused() -> None:
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_missing_url() -> None:
     result = await handle_ha_config_lovelace(
         {"action": "resources_create", "res_type": "module", "proposal_id": "p1"}
@@ -276,6 +283,7 @@ async def test_resources_create_missing_url() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_missing_res_type() -> None:
     result = await handle_ha_config_lovelace(
         {"action": "resources_create", "url": "/local/x.js", "proposal_id": "p1"}
@@ -283,6 +291,7 @@ async def test_resources_create_missing_res_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_invalid_res_type() -> None:
     result = await handle_ha_config_lovelace(
         {
@@ -295,6 +304,7 @@ async def test_resources_create_invalid_res_type() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_url_wrong_type() -> None:
     result = await handle_ha_config_lovelace(
         {
@@ -307,6 +317,7 @@ async def test_resources_create_url_wrong_type() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_url_empty_string() -> None:
     result = await handle_ha_config_lovelace(
         {
@@ -319,6 +330,7 @@ async def test_resources_create_url_empty_string() -> None:
     assert result["error"] == "MISSING_PARAM"
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_happy_path() -> None:
     ws_response = {"id": "abc", "url": "/local/x.js", "type": "module"}
     mock = AsyncMock(return_value=ws_response)
@@ -338,6 +350,7 @@ async def test_resources_create_happy_path() -> None:
     )
 
 
+@pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_resources_create_ha_error_propagates() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_WS_ERROR", "dup"))
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
