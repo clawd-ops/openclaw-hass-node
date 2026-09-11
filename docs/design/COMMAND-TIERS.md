@@ -10,10 +10,10 @@ handoff — capture it here so the agent can find it.
 
 ## Why the tiering
 
-TODO item #11 (sunset the HA MCP path → node-tool surface) commits the
-subagent-callable tool surface to being **software-blocked** read-only —
-not just prompt-instructed. Mixing state-changing commands into the same
-surface defeats that property. So commands are grouped by risk tier and
+The completed HA MCP sunset established the node-tool surface as the supported
+path. Independently, the subagent-callable surface must be **software-blocked**
+read-only, not just prompt-instructed. Mixing state-changing commands into the
+same surface defeats that property, so commands are grouped by risk tier and
 the subagent allowlist only ever includes Tier A.
 
 ## Tier A — read-only, subagent-safe
@@ -124,13 +124,12 @@ that cache after a release.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.
 
-## Order of operations for closing TODO #11
+## Independent follow-on policy work
 
 1. Ship the remaining Tier A commands (done).
 2. Ship the subagent-side allowlist enforcement at the node
    (`commands/dispatcher.py` or a new policy layer) — MUST land
    BEFORE any subagent path is wired to call these commands.
-3. Wire the subagent path to use the Tier A surface instead of the
-   HA MCP server.
+3. Keep subagent access on the Tier A node surface.
 4. Tier B surface with the admin allowlist gate (done in the identity
    routing implementation PR).
