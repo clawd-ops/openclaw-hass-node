@@ -9,10 +9,6 @@ jobs:
   build:
     name: Build Docs (strict)
     runs-on: ubuntu-latest
-    env:
-      # The site is intentionally pinned to MkDocs 1.x because MkDocs 2.x
-      # removes the plugin APIs required by Material and mkdocstrings.
-      NO_MKDOCS_2_WARNING: "1"
     steps:
       - uses: actions/checkout@v5
 
@@ -28,4 +24,8 @@ jobs:
         run: pip install --no-deps app/node
 
       - name: Build docs (strict)
+        env:
+          # The site is intentionally pinned to MkDocs 1.x because MkDocs 2.x
+          # removes the plugin APIs required by Material and mkdocstrings.
+          NO_MKDOCS_2_WARNING: "1"
         run: mkdocs build --strict
