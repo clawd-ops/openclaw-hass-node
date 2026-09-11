@@ -269,18 +269,20 @@ error can therefore be delivered as a successful-looking tool result.
 Completion requires separate, consistently propagated states for transport
 delivery, command outcome, and any verified postcondition.
 
-### 2.11 NEW — the MCP retirement gate can certify seven fake days
+### 2.11 HISTORICAL — the retired MCP checker can certify seven fake days
 
-`CODE-FAIL`. `scripts/check-mcp-retirement-readiness.sh` accepts empty stdin as
+`CODE-FAIL`, but not a current release blocker. The legacy Home Assistant MCP
+path was permanently retired before this audit, so this checker is obsolete and
+must not be used to reopen the cutover. The script accepts empty stdin as
 a clean result (`:42`), increments the streak once per invocation rather than
 once per covered date (`:60-67`), and labels the count as days (`:70-73`). Seven
 immediate empty invocations produce `RETIREMENT_READY`. Its matcher (`:45`)
 also recognizes only the hyphenated readonly spelling and can miss underscore
 forms present in some tool naming paths.
 
-The replacement must prove complete timestamped runtime windows for every
-in-scope agent, reject empty or gapped evidence, and deduplicate by calendar
-date before MCP retirement can be considered verified.
+Disposition: the checker and its smoke test were removed; migration references
+remain as historical documentation. Add-on rollout, caller authorization,
+subagent policy, and command parity remain separate node concerns.
 
 ### 2.12 NEW — backup and trash storage are not isolated
 
