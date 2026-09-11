@@ -746,6 +746,24 @@
           ]
         }
       }
+    },
+    "system.run.prepare": {
+      "authorization_class": "operator_approval",
+      "capability_conditions": "Canonicalises a system.run request into an approvable plan. Executes nothing. The Gateway carries the returned systemRunPlan on exec.approval.request and replays it as the authoritative command context after approval.",
+      "assist_unavailable_reason": "Assist does not expose host shell preparation; exec approvals are an operator surface.",
+      "actions": {}
+    },
+    "system.execApprovals.get": {
+      "authorization_class": "operator_approval",
+      "capability_conditions": "Reads this node's exec approvals document. A missing or malformed document reports the deny-by-default policy rather than an error.",
+      "assist_unavailable_reason": "Assist does not expose exec policy administration.",
+      "actions": {}
+    },
+    "system.execApprovals.set": {
+      "authorization_class": "operator_approval",
+      "capability_conditions": "Replaces this node's exec approvals document after validation. Written atomically at mode 0600; a rejected payload leaves the previous policy intact.",
+      "assist_unavailable_reason": "Assist does not expose exec policy administration.",
+      "actions": {}
     }
   }
 }

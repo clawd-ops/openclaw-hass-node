@@ -10,11 +10,11 @@ rows are intentionally retained. Regenerate after editing source or
 
 ## Summary
 
-- Registered commands: **53**
-- Advertised commands: **51**
+- Registered commands: **56**
+- Advertised commands: **54**
 - Assist-wrapped commands: **30**
 - Action variants: **31**
-- Ledger rows: **84**
+- Ledger rows: **87**
 - Registered but unadvertised: `ha.addon_update, ha.update_install`
 - Advertised but unregistered: `none`
 
@@ -120,7 +120,10 @@ rows are intentionally retained. Regenerate after editing source or
 | `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>CODE-PROVEN:fail | `admin_token` | `CODE-PROVEN` | **`fail`** |
 | `ha.update_install` | unavailable<br>CODE-PROVEN:fail | unavailable<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`fail`** |
 | `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
+| `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
+| `system.execApprovals.set` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | `system.run` | advertised<br>CODE-PROVEN:pass | unavailable<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `unavailable_gateway_reserved` | `PRODUCTION-LIVE` | **`fail`** |
+| `system.run.prepare` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | `system.which` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
 
 ## Row details
@@ -3732,6 +3735,66 @@ rows are intentionally retained. Regenerate after editing source or
   - `app/node/tests/test_ping.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 
+### `system.execApprovals.get`
+
+- Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get`
+- Canonical parameters: none observed
+- Authorization: `operator_approval`
+- Capability conditions: Reads this node's exec approvals document. A missing or malformed document reports the deny-by-default policy rather than an error.
+- Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
+- Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
+- Evidence method: `CODE-PROVEN`
+- **Outcome: `unverified`**
+- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
+- Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
+- Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
+- Assist caller: Assist does not expose exec policy administration.
+- Parameter details:
+  - none observed
+- Caller evidence:
+  - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose exec policy administration. (source: `contracts/command-coverage-manual.json`)
+  - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+- Curated acceptance-test IDs:
+  - none; do not treat source mentions as behavioral proof
+- Source mentions (not acceptance evidence):
+  - `app/node/tests/test_exec_approvals.py`
+  - `app/node/tests/test_gateway_ws.py`
+
+### `system.execApprovals.set`
+
+- Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set`
+- Canonical parameters: approvals
+- Authorization: `operator_approval`
+- Capability conditions: Replaces this node's exec approvals document after validation. Written atomically at mode 0600; a rejected payload leaves the previous policy intact.
+- Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
+- Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
+- Evidence method: `CODE-PROVEN`
+- **Outcome: `unverified`**
+- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
+- Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
+- Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
+- Assist caller: Assist does not expose exec policy administration.
+- Parameter details:
+  - `approvals`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+- Caller evidence:
+  - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose exec policy administration. (source: `contracts/command-coverage-manual.json`)
+  - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+- Curated acceptance-test IDs:
+  - none; do not treat source mentions as behavioral proof
+- Source mentions (not acceptance evidence):
+  - `app/node/tests/test_exec_approvals.py`
+  - `app/node/tests/test_gateway_ws.py`
+
 ### `system.run`
 
 - Handler: `openclaw_node.commands.system_run:handle_system_run`
@@ -3784,6 +3847,48 @@ rows are intentionally retained. Regenerate after editing source or
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
+
+### `system.run.prepare`
+
+- Handler: `openclaw_node.commands.exec_approvals:handle_system_run_prepare`
+- Canonical parameters: cmd, cwd, timeout
+- Authorization: `operator_approval`
+- Capability conditions: Canonicalises a system.run request into an approvable plan. Executes nothing. The Gateway carries the returned systemRunPlan on exec.approval.request and replays it as the authoritative command context after approval.
+- Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
+- Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
+- Evidence method: `CODE-PROVEN`
+- **Outcome: `unverified`**
+- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
+- Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
+- Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
+- Assist caller: Assist does not expose host shell preparation; exec approvals are an operator surface.
+- Parameter details:
+  - `cmd`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `cwd`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `timeout`
+    - aliases: `[]`
+    - defaults: `["default_timeout_s()"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+- Caller evidence:
+  - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose host shell preparation; exec approvals are an operator surface. (source: `contracts/command-coverage-manual.json`)
+  - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+- Curated acceptance-test IDs:
+  - none; do not treat source mentions as behavioral proof
+- Source mentions (not acceptance evidence):
+  - `app/node/tests/test_exec_approvals.py`
+  - `app/node/tests/test_gateway_ws.py`
 
 ### `system.which`
 

@@ -91,6 +91,24 @@ def _max_timeout() -> int:
         return _DEFAULT_MAX_TIMEOUT_S
 
 
+def default_timeout_s() -> int:
+    """Return the default command timeout in seconds.
+
+    Returns:
+        The timeout applied when a caller supplies none.
+    """
+    return _DEFAULT_TIMEOUT_S
+
+
+def max_timeout_s() -> int:
+    """Return the maximum permitted command timeout in seconds.
+
+    Returns:
+        The ceiling, honouring ``OPENCLAW_RUN_TIMEOUT_MAX``.
+    """
+    return _max_timeout()
+
+
 def _admin_token() -> str:
     """Return the configured admin token, or empty string if not set."""
     return os.environ.get("OPENCLAW_ADMIN_TOKEN", "")
