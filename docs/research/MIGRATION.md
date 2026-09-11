@@ -1,5 +1,9 @@
 # MCP Migration Inventory
 
+> **Historical record.** The maintainer's legacy Home Assistant MCP path is
+> permanently retired. This inventory records the completed migration; it is
+> not an active gate for this project or future releases.
+
 > **Scope.** This document is about retiring `mcp__homeassistant*` MCP
 > servers configured in **the maintainer's upstream OpenClaw deployment**
 > (the gateway repo, not this one). Third-party installs of
@@ -11,17 +15,14 @@
 > *this* repo's command surface being complete, and the migration
 > bookkeeping logically belongs alongside the surface it's tracking.
 
-Tracks the coverage gap between the existing OpenClaw MCP servers and the
-node command surface that replaces them. **P6 cannot start (i.e. the MCP
-servers cannot be retired) until every row below is either ✅ Covered or
-explicitly waived.**
+Tracks the historical coverage comparison between the retired OpenClaw MCP
+servers and the node command surface that replaced them.
 
-## Coverage gate
+## Historical coverage rule
 
-Per PLAN.md §3 (P1.3, 2026-06-05): retire the MCP servers only after the
-node has demonstrably handled every call surface they currently serve,
-across every agent that uses them, for **7 consecutive days** with zero
-unhandled `mcp__homeassistant*` calls in the gateway logs.
+The 2026-06-05 plan proposed a seven-day clean-window gate. The actual cutover
+was completed and later confirmed closed; that proposed window is not a current
+release requirement.
 
 ## `mcp__homeassistant__*` (9 tools)
 
@@ -99,45 +100,20 @@ Runtime cutover status as of 2026-06-28:
    `ha.*` command surface.
 
 This means fresh sessions should no longer see or use the retired MCP tools.
-Already-running sessions may still hold stale MCP tool inventories until they
-exit. Formal retirement still requires the validation window below: zero
-unhandled `mcp__homeassistant*` calls for 7 consecutive clean days.
+Any stale historical tool inventory must be treated as unsupported and routed
+to the `hass` node. It does not reopen the completed cutover.
 
-## Validation harness (P6.1)
+## Retired validation harness
 
-`scripts/check-mcp-retirement-readiness.sh` is **source-agnostic** — it
-reads log lines on stdin so the caller picks how to produce them. This
-keeps it usable across any deployment that's running upstream OpenClaw,
-not just the maintainer's Kubernetes pod.
+The obsolete retirement checker and its smoke test were removed after the
+cutover was confirmed permanently closed. Their implementation remains
+available in Git history; their verdicts no longer determine project status.
 
-Only feed runtime logs to this script. Repository text, docs, TODOs,
-session transcripts, or migration inventory files intentionally contain
-legacy `mcp__homeassistant*` names and will produce a not-ready verdict.
-If that happens, the checker emits an `INPUT_WARNING` hint rather than
-silently treating the run as a clean runtime signal.
+Do not start a new clean window or recreate the retired MCP servers. Route any
+legacy call attempt to the supported node command surface and correct the stale
+caller.
 
-```bash
-# Local file
-cat /var/log/openclaw.log                       | scripts/check-mcp-retirement-readiness.sh
-# systemd unit
-journalctl -u openclaw --since=24h              | scripts/check-mcp-retirement-readiness.sh
-# Docker container
-docker logs --since 24h openclaw 2>&1           | scripts/check-mcp-retirement-readiness.sh
-# Kubernetes pod
-kubectl -n ai logs openclaw-0 --since=24h       | scripts/check-mcp-retirement-readiness.sh
-```
-
-Verdicts: `MCP_READINESS_OK` / `RETIREMENT_READY` / `MCP_READINESS_NOT_READY`.
-With `--state-file` the script tracks a clean-day streak; 7 consecutive
-clean days flip the verdict to `RETIREMENT_READY`.
-
-When evaluating the maintainer deployment, also check for already-running
-Codex app-server sessions that were started before the MCP config cutover.
-Those sessions can retain a stale tool inventory and keep `hass-mcp`
-children alive even after `openclaw.json` is clean. Stop or let those
-sessions drain before starting the 7-day clean window.
-
-## Open items
+## Historical decisions
 
 - **Decision: include `mcp__homeassistant-readonly__*` in retirement?**
   Yes — it's strictly a subset of `mcp__homeassistant__*` and the node

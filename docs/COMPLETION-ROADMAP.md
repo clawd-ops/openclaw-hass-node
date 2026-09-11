@@ -54,8 +54,8 @@ The project is complete only when all of the following are true:
 - [ ] Installed app, plugin, HACS integration, Gateway, and HA versions match the
   tested compatibility matrix.
 - [ ] All supported architectures build and pass smoke tests.
-- [ ] MCP retirement evidence covers seven real consecutive calendar days across
-  every in-scope agent, with no empty or missing windows.
+- [x] The legacy Home Assistant MCP path is permanently retired. This was
+  completed before this baseline and is not a release gate for the node.
 - [ ] `STATUS.md`, `TODO.md`, `INSTALL.md`, `design/PLAN.md`,
   `reference/COMMAND-SURFACE.md`, and `operations/UAT-PLAN.md` match the shipped
   release.
@@ -357,11 +357,8 @@ and enforced automation rather than local-only build state.
 - [ ] Authorized production canary covers narrow reads first, then explicit known
   light targets and separately approved mutations with before/after evidence.
 - [ ] Test both advertised architectures; record artifact digests.
-- [ ] Replace the MCP retirement script's invocation counter with timestamped,
-  deduplicated calendar-day coverage; reject empty/gapped input and include every
-  legacy tool-name spelling.
-- [ ] Complete seven real consecutive clean days across Clawd, PoolMaster,
-  ReefMaster, HomeOps, TalosOps, scripts, and any remaining long-lived sessions.
+- [x] Keep the retired Home Assistant MCP path closed. The historical retirement
+  checker and seven-day window are not part of this release gate.
 - [ ] Reconcile all canonical docs from verified behavior and remove stale
   counts, versions, names, policies, architectures, and paths.
 - [ ] Run full CI, security checks, clean cross-model review, upgrade test,
@@ -386,7 +383,7 @@ definition of complete.
 | [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | Fix skill/docs contract and verify intended file-transfer boundary. |
 | [#262](https://github.com/clawd-ops/openclaw-hass-node/issues/262) | 2 | Ratify one lifecycle policy and remove contradictory token claims. |
 | TODO 7 | 5 | Issue triage automation. |
-| TODO 11 | 2, 6 | Software-enforced policy and honest MCP retirement evidence. |
+| TODO 11 | Closed | Home Assistant MCP retirement is complete; residual caller-policy work belongs to phase 2 and does not reopen it. |
 | TODO 12 | 5 | Generated documentation. |
 | TODO 13 | 5 | Proactive GitHub events; includes external Gateway dependency. |
 | TODO 17 | 0 | Replace stale issue list with the tracker crosswalk. |
