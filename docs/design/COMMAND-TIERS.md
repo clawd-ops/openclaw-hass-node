@@ -53,20 +53,31 @@ choices when the next iteration happens:
 
 Decide before iterating on `ha.addon_info`.
 
-## Tier B — lifecycle, admin-gated, NEVER on the subagent allowlist
+## Tier B — lifecycle + admin, NEVER on the subagent allowlist
 
-Reserved for the primary agent or Rob himself. Same `OPENCLAW_ADMIN_TOKEN`
-gate as `ha.reload_config`.
+Reserved for the primary agent or Rob himself. Tier B has two
+authorization levels (#262 reconciliation):
 
-Shipped surface:
+### Tier B lifecycle (pairing auth + slug policy, no admin token)
+
+Authenticated by the established pairing session. The node checks
+slug allowlist/denylist policy but does **not** consult
+`OPENCLAW_ADMIN_TOKEN`. The plugin requires `allowAdminOps` only.
 
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
 - `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version (Supervisor API, slug-based)
-- `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Requires `OPENCLAW_ADMIN_TOKEN`. Entity ID must be in the `update.` domain.
 
-Additional constraints on top of the admin-token gate:
+### Tier B admin (admin token required)
+
+Same `OPENCLAW_ADMIN_TOKEN` gate as `system.run`. The plugin
+requires both `allowAdminOps` AND `adminToken`.
+
+- `ha.reload_config` — `POST /api/services/<domain>/reload`
+- `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Entity ID must be in the `update.` domain.
+
+Additional constraints on lifecycle ops (on top of the `allowAdminOps` gate):
 
 - **Slug allow/deny list at addon-config level.** Always deny
   `homeassistant`, `supervisor`, and `core_*` regardless of token.
