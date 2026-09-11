@@ -45,11 +45,11 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     rows = ledger["rows"]
     assert ledger["summary"] == {
         "action_variants": 31,
-        "advertised_commands": 51,
+        "advertised_commands": 54,
         "advertised_not_registered": [],
         "assist_wrapped_commands": 30,
-        "ledger_rows": 84,
-        "registered_commands": 53,
+        "ledger_rows": 87,
+        "registered_commands": 56,
         "registered_not_advertised": ["ha.addon_update", "ha.update_install"],
         "registered_without_assist_wrapper": [
             "fs.delete",
@@ -73,7 +73,10 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
             "ha.config.scene",
             "ha.config.script",
             "ping",
+            "system.execApprovals.get",
+            "system.execApprovals.set",
             "system.run",
+            "system.run.prepare",
             "system.which",
         ],
     }

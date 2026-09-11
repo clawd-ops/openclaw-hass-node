@@ -11,6 +11,11 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
+from openclaw_node.commands.exec_approvals import (
+    handle_system_exec_approvals_get,
+    handle_system_exec_approvals_set,
+    handle_system_run_prepare,
+)
 from openclaw_node.commands.fs import (
     handle_fs_glob,
     handle_fs_list,
@@ -102,7 +107,10 @@ _REGISTRY: dict[str, CommandHandler] = {
     "fs.delete": handle_fs_delete,
     "fs.patch": handle_fs_patch,
     "system.run": handle_system_run,
+    "system.run.prepare": handle_system_run_prepare,
     "system.which": handle_system_which,
+    "system.execApprovals.get": handle_system_exec_approvals_get,
+    "system.execApprovals.set": handle_system_exec_approvals_set,
     "ha.list_states": handle_ha_list_states,
     "ha.get_state": handle_ha_get_state,
     "ha.call_service": handle_ha_call_service,
