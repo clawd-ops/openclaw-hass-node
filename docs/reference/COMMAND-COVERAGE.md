@@ -450,7 +450,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
 - **Outcome: `pass`**
-- Evidence note: Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 21 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, and path containment; all proven to fail against the pre-fix handler and pass after.
+- Evidence note: Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.

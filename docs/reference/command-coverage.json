@@ -1114,7 +1114,7 @@
       "capability_conditions": "Path resolves under a configured allowed root and read size policy permits the response.",
       "command": "fs.read",
       "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 21 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, and path containment; all proven to fail against the pre-fix handler and pass after.",
+      "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.",
       "handler": "openclaw_node.commands.fs:handle_fs_read",
       "id": "fs.read",
       "metadata_provenance": {
