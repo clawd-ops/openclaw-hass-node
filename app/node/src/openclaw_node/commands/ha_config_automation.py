@@ -137,7 +137,9 @@ async def handle_ha_config_automation(params: dict[str, Any]) -> dict[str, Any]:
         action (str): Required; one of ``get``, ``save``, ``delete``.
             (Enumeration: use the existing ``ha.list_automations`` command;
             HA does not expose a collection-level automation config route.)
-        (per-action params — see the module docstring and per-action helpers.)
+
+    Action-specific parameters are documented in the module docstring and
+    in each per-action helper.
 
     Returns:
         The action's result dict, or an error dict when action is

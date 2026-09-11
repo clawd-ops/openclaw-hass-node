@@ -138,7 +138,9 @@ async def handle_ha_config_scene(params: dict[str, Any]) -> dict[str, Any]:
             (Enumeration: read ``scene.*`` entities from state via
             ``ha.list_states``; HA does not expose a collection-level
             scene config route.)
-        (per-action params — see the module docstring and per-action helpers.)
+
+    Action-specific parameters are documented in the module docstring and
+    in each per-action helper.
 
     Returns:
         The action's result dict, or an error dict when action is

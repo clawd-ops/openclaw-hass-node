@@ -163,7 +163,9 @@ async def handle_ha_config_lovelace(params: dict[str, Any]) -> dict[str, Any]:
     Params:
         action (str): Required; one of ``get``, ``save``, ``dashboards_list``,
             ``resources_list``, ``resources_create``.
-        (per-action params — see the module docstring and per-action helpers.)
+
+    Action-specific parameters are documented in the module docstring and
+    in each per-action helper.
 
     Returns:
         The action's result dict, or an error dict when action is

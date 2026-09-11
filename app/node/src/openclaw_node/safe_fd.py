@@ -430,8 +430,8 @@ def replace_safe(src_path: str, dst_path: str, roots: tuple[Path, ...]) -> None:
         roots: Allowed roots (both src and dst must resolve under them).
 
     Raises:
-        OSError(EXDEV): On cross-filesystem rename.
-        Other safe_fd errors as documented above.
+        OSError: ``EXDEV`` on cross-filesystem rename. Other ``safe_fd``
+            errors documented above propagate unchanged.
     """
     src_dir_fd, src_name = open_safe_parent_dir(src_path, roots)
     try:

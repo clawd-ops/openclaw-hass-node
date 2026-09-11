@@ -1,0 +1,103 @@
+site_name: openclaw-hass-node
+repo_url: https://github.com/clawd-ops/openclaw-hass-node
+repo_name: clawd-ops/openclaw-hass-node
+
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - content.code.copy
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - app/node/src
+          options:
+            docstring_style: google
+            docstring_options:
+              warn_unknown_params: false
+            show_source: true
+            show_root_heading: true
+            show_submodules: false
+            members_order: source
+
+nav:
+  - Overview: README.md
+  - Install: INSTALL.md
+  - Status: STATUS.md
+  - Contributing: CONTRIBUTING.md
+  - Security: security-notes.md
+  - Known Workarounds: known-workarounds.md
+  - Todo: TODO.md
+  - Completion Roadmap: COMPLETION-ROADMAP.md
+  - Verification: VERIFICATION-2026-09-11.md
+  - Memory: MEMORY.md
+  - Design:
+      - Plan: design/PLAN.md
+      - Command Tiers: design/COMMAND-TIERS.md
+      - Component Naming: design/COMPONENT-NAMING.md
+      - Identity and Scopes: design/IDENTITY-AND-SCOPES.md
+  - Operations:
+      - Release: operations/RELEASE.md
+      - Quality: operations/QUALITY.md
+      - UAT Plan: operations/UAT-PLAN.md
+      - Lessons: operations/LESSONS.md
+      - Local Preview: operations/local-preview.md
+  - Reference:
+      - Command Surface: reference/COMMAND-SURFACE.md
+      - Command Coverage: reference/COMMAND-COVERAGE.md
+      - HA Config Editing: reference/HA-CONFIG-EDITING.md
+      - Backups: reference/BACKUPS.md
+      - API Reference:
+          - Python:
+              - Overview: reference/api/python/index.md
+              - Core:
+                  - openclaw_node: reference/api/python/openclaw_node.md
+                  - config: reference/api/python/config.md
+                  - authz: reference/api/python/authz.md
+                  - identity: reference/api/python/identity.md
+                  - pairing: reference/api/python/pairing.md
+                  - token_store: reference/api/python/token_store.md
+              - Networking:
+                  - gateway_ws: reference/api/python/gateway_ws.md
+                  - ha_client: reference/api/python/ha_client.md
+                  - http_api: reference/api/python/http_api.md
+                  - chat_relay: reference/api/python/chat_relay.md
+              - Utilities:
+                  - backup_store: reference/api/python/backup_store.md
+                  - safe_fd: reference/api/python/safe_fd.md
+                  - safe_path: reference/api/python/safe_path.md
+              - Commands:
+                  - dispatcher: reference/api/python/commands/dispatcher.md
+                  - ping: reference/api/python/commands/ping.md
+                  - system: reference/api/python/commands/system.md
+                  - system_run: reference/api/python/commands/system_run.md
+                  - ha: reference/api/python/commands/ha.md
+                  - fs: reference/api/python/commands/fs.md
+                  - fs_write: reference/api/python/commands/fs_write.md
+                  - fs_move_delete: reference/api/python/commands/fs_move_delete.md
+                  - fs_patch: reference/api/python/commands/fs_patch.md
+                  - config_mutation: reference/api/python/commands/config_mutation.md
+                  - ha_config_helpers: reference/api/python/commands/ha_config_helpers.md
+                  - ha_config_area_registry: reference/api/python/commands/ha_config_area_registry.md
+                  - ha_config_automation: reference/api/python/commands/ha_config_automation.md
+                  - ha_config_config_entries: reference/api/python/commands/ha_config_config_entries.md
+                  - ha_config_device_registry: reference/api/python/commands/ha_config_device_registry.md
+                  - ha_config_entity_registry: reference/api/python/commands/ha_config_entity_registry.md
+                  - ha_config_lovelace: reference/api/python/commands/ha_config_lovelace.md
+                  - ha_config_scene: reference/api/python/commands/ha_config_scene.md
+                  - ha_config_script: reference/api/python/commands/ha_config_script.md
+          - TypeScript: reference/api/typescript-deferred.md
+  - Research:
+      - OpenClaw Integration: research/OPENCLAW-INTEGRATION.md
+      - Agent Bridge Connectivity: research/AGENT-BRIDGE-CONNECTIVITY.md
+      - Conversation Agent: research/CONVERSATION-AGENT.md
+      - Migration: research/MIGRATION.md
