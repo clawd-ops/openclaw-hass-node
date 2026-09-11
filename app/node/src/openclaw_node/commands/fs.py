@@ -137,8 +137,8 @@ def _is_plain_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _read_range(fd: int, offset: int, cap: int) -> bytes:
-    """Read up to ``cap + 1`` bytes starting at *offset* using ``pread``.
+def _read_range(fd: int, offset: int, cap: int, *, probe_overflow: bool) -> bytes:
+    """Read a bounded byte range starting at *offset* using ``pread``.
 
     Uses :func:`os.pread` so the read is independent of the fd's current
     position and does not require a prior ``lseek`` on the caller's behalf.
@@ -146,14 +146,18 @@ def _read_range(fd: int, offset: int, cap: int) -> bytes:
     Args:
         fd: Readable file descriptor.
         offset: Byte offset within the file (``>= 0``).
-        cap: Maximum bytes to return; an extra byte is requested so callers
-            can distinguish "hit the cap exactly" from "wanted more".
+        cap: Maximum bytes to read.
+        probe_overflow: Request one extra byte so callers can distinguish
+            "hit the cap exactly" from "wanted more". This must be false for
+            an explicit caller-supplied length so the read never accesses a
+            byte outside the requested range.
 
     Returns:
-        Bytes read from ``[offset, offset + cap + 1)``.
+        Bytes read from ``[offset, offset + cap)`` plus one byte only when
+        *probe_overflow* is true.
     """
     chunks: list[bytes] = []
-    remaining = cap + 1
+    remaining = cap + int(probe_overflow)
     pos = offset
     while remaining > 0:
         chunk = os.pread(fd, remaining, pos)
@@ -288,22 +292,17 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
             )
 
         cap = length if length is not None else max_bytes
-        data = _read_range(fd, offset, cap)
+        data = _read_range(fd, offset, cap, probe_overflow=length is None)
         if len(data) > cap:
-            if length is not None:
-                # Should not occur: pread capped by cap+1 and length<=max_bytes
-                # was already validated. Trim defensively.
-                data = data[:cap]
-            else:
-                return _error(
-                    "TOO_LARGE",
-                    f"File slice exceeds limit of {max_bytes} bytes",
-                    path=raw_path,
-                    size=len(data),
-                    max_bytes=max_bytes,
-                    offset=offset,
-                    file_size=file_size,
-                )
+            return _error(
+                "TOO_LARGE",
+                f"File slice exceeds limit of {max_bytes} bytes",
+                path=raw_path,
+                size=len(data),
+                max_bytes=max_bytes,
+                offset=offset,
+                file_size=file_size,
+            )
 
         eof = (offset + len(data)) >= file_size
         sha = hashlib.sha256(data).hexdigest()

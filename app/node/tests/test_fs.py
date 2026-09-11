@@ -287,6 +287,26 @@ def test_fs_read_length_within_max_bytes_wins(tmp_path: Path) -> None:
     assert result["size"] == 4
 
 
+def test_fs_read_explicit_length_never_reads_extra_byte(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    p = _write(tmp_path, "bounded.bin", b"abcdefghij")
+    calls: list[tuple[int, int]] = []
+    real_pread = os.pread
+
+    def recording_pread(fd: int, size: int, offset: int) -> bytes:
+        calls.append((size, offset))
+        return real_pread(fd, size, offset)
+
+    monkeypatch.setattr("openclaw_node.commands.fs.os.pread", recording_pread)
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 2, "length": 3})
+
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"cde"
+    assert calls == [(3, 2)]
+
+
 def test_fs_read_range_sha256_is_of_slice(tmp_path: Path) -> None:
     import hashlib as _h
 
