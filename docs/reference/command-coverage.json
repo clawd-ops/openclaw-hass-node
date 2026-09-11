@@ -11267,7 +11267,35 @@
           "defaults": [
             "null"
           ],
+          "name": "approved",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
           "name": "cmd",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "command",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -11305,6 +11333,21 @@
         },
         {
           "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null",
+            "required-or-validated-before-access"
+          ],
+          "name": "systemRunPlan",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
           "bounds": "validated positive number capped by the source-defined maximum",
           "defaults": [
             "_DEFAULT_TIMEOUT_S"
@@ -11313,6 +11356,20 @@
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual normalized note",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "timeoutMs",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
             "defaults": "source-derived AST expression",
             "name": "source-derived AST accepted key"
           }

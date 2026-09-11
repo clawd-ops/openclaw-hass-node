@@ -3803,7 +3803,7 @@ rows are intentionally retained. Regenerate after editing source or
 ### `system.run`
 
 - Handler: `openclaw_node.commands.system_run:handle_system_run`
-- Canonical parameters: admin_token, cmd, cwd, env, timeout
+- Canonical parameters: admin_token, approved, cmd, command, cwd, env, systemRunPlan, timeout, timeoutMs
 - Authorization: `unavailable_gateway_reserved`
 - Capability conditions: Unreachable through nodes.invoke because the Gateway reserves system.run; the dormant node handler also requires an admin token.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
@@ -3821,7 +3821,17 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["''"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `approved`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `cmd`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `command`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -3836,11 +3846,21 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `systemRunPlan`
+    - aliases: `[]`
+    - defaults: `["null", "required-or-validated-before-access"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `timeout`
     - aliases: `[]`
     - defaults: `["_DEFAULT_TIMEOUT_S"]`
     - bounds: validated positive number capped by the source-defined maximum
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `timeoutMs`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258). (source: `docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable`)

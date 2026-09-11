@@ -325,3 +325,212 @@ def test_system_run_cwd_passed_through(monkeypatch: pytest.MonkeyPatch) -> None:
         handle_system_run(_params(cmd=["pwd"], cwd="/tmp", admin_token="tok"))
 
     assert captured[0]["cwd"] == "/tmp"
+
+
+# ---------------------------------------------------------------------------
+# handle_system_run — plan-bound path
+# ---------------------------------------------------------------------------
+
+
+def _plan_params(**overrides: Any) -> dict[str, Any]:
+    """Return a minimal valid plan-bound params dict."""
+    base: dict[str, Any] = {
+        "systemRunPlan": {"argv": ["true"]},
+        "approved": True,
+    }
+    base.update(overrides)
+    return base
+
+
+def test_plan_bound_executes_argv_from_plan(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params())
+    assert result["ok"] is True
+    assert result["returncode"] == 0
+
+
+def test_plan_bound_ignores_cmd_argv(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    captured: list[list[str]] = []
+    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
+
+    def _fake(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append(cmd)
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake):
+        result = handle_system_run(
+            _plan_params(command=["true"], cmd=["false"]),
+        )
+    assert result["ok"] is True
+    assert captured == [["true"]]
+
+
+@pytest.mark.parametrize("approved_value", [None, False, "true", 1, "True"])
+def test_plan_bound_requires_approved_true(
+    monkeypatch: pytest.MonkeyPatch, approved_value: Any
+) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    params: dict[str, Any] = {"systemRunPlan": {"argv": ["true"]}}
+    if approved_value is not None:
+        params["approved"] = approved_value
+    result = handle_system_run(params)
+    assert result["error"] == "AUTHORIZATION_REQUIRED"
+
+
+def test_plan_bound_rejects_argv_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(command=["false"]))
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    "bad_argv",
+    [[], None, [1, 2], ["ok", 3], "true"],
+    ids=["empty", "missing", "int-elements", "mixed", "string"],
+)
+def test_plan_bound_argv_must_be_nonempty_list_of_str(
+    monkeypatch: pytest.MonkeyPatch, bad_argv: Any
+) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    plan: dict[str, Any] = {}
+    if bad_argv is not None:
+        plan["argv"] = bad_argv
+    result = handle_system_run({"systemRunPlan": plan, "approved": True})
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_plan_bound_timeout_ms_wins_over_timeout_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("OPENCLAW_RUN_TIMEOUT_MAX", "60")
+    captured: list[dict[str, Any]] = []
+    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
+
+    def _fake(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append(kwargs)
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake):
+        handle_system_run(_plan_params(timeoutMs=1500, timeout=45))
+
+    assert captured[0]["timeout"] == 2
+
+
+def test_plan_bound_timeout_ms_capped_at_max(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("OPENCLAW_RUN_TIMEOUT_MAX", "5")
+    captured: list[dict[str, Any]] = []
+    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
+
+    def _fake(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append(kwargs)
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake):
+        handle_system_run(_plan_params(timeoutMs=1_000_000))
+
+    assert captured[0]["timeout"] == 5
+
+
+def test_plan_bound_env_sanitised(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(env={"FOO_TOKEN": "x"}))
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_plan_bound_no_admin_token_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params())
+    assert result["ok"] is True
+
+
+def test_plan_bound_cwd_from_plan(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    captured: list[dict[str, Any]] = []
+    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
+
+    def _fake(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append(kwargs)
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake):
+        handle_system_run(
+            {
+                "systemRunPlan": {"argv": ["true"], "cwd": "/tmp"},
+                "approved": True,
+            }
+        )
+    assert captured[0]["cwd"] == "/tmp"
+
+
+def test_plan_bound_cwd_falls_back_to_top_level(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    captured: list[dict[str, Any]] = []
+    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
+
+    def _fake(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append(kwargs)
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake):
+        handle_system_run(_plan_params(cwd="/var/tmp"))
+    assert captured[0]["cwd"] == "/var/tmp"
+
+
+def test_plan_bound_timeout_ms_non_int_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(timeoutMs="forever"))
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_plan_bound_timeout_ms_non_positive_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(timeoutMs=0))
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_plan_bound_falls_back_to_timeout_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("OPENCLAW_RUN_TIMEOUT_MAX", "60")
+    captured: list[dict[str, Any]] = []
+    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
+
+    def _fake(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        captured.append(kwargs)
+        return proc
+
+    with mock_patch("subprocess.run", side_effect=_fake):
+        handle_system_run(_plan_params(timeout=7))
+    assert captured[0]["timeout"] == 7
+
+
+def test_plan_bound_command_non_list_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(command="true"))
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_bound_env_non_dict_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(env="PATH=/usr/bin"))
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_plan_bound_timeout_non_int_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(timeout="forever"))
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_plan_bound_timeout_non_positive_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run(_plan_params(timeout=0))
+    assert result["error"] == "INVALID_PARAM"
+
+
+def test_legacy_path_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
+    result = handle_system_run({"cmd": ["true"], "admin_token": "anything"})
+    assert result["error"] == "ADMIN_REQUIRED"
