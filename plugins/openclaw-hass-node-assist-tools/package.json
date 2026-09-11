@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "OpenClaw gateway plugin that bridges HA Assist sessions to the paired openclaw-hass-node-app command surface (ha_call_service, ha_get_state, ...).",
+  "description": "OpenClaw gateway plugin that bridges HA Assist sessions to the paired Home Assistant node command surface (ha_call_service, ha_get_state, ...).",
   "openclaw": {
     "extensions": ["./index.ts"],
     "compat": {

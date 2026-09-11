@@ -150,7 +150,18 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
 - [ ] Publish a command/action/caller-path coverage ledger generated from the
   current source. Record parameters, aliases, limits, response schema, policy,
   feature availability, and an acceptance-test ID for each row. Foundation work
-  is in progress under #268; strict runtime schemas remain later Phase 1 slices.
+  is implemented in unreleased PR #269 under #268: 53 registered commands,
+  51 advertised commands, 30 executable Assist registrations, and 31 action variants
+  produce 84 deterministic rows in
+  [`reference/COMMAND-COVERAGE.md`](reference/COMMAND-COVERAGE.md) and
+  `reference/command-coverage.json`. The generated rows distinguish evidence
+  method from outcome per caller, separate curated acceptance-test IDs from
+  source mentions, and expose field provenance. Missing or stale
+  command/action/caller coverage, exact per-action parameter drift, unregistered
+  or removed Assist paths, and unacknowledged wrapper/node mapping mismatches
+  fail the check. Known mismatches remain visible with issue/reason metadata.
+  Policy/semantic fields remain explicitly manual and are not executable
+  runtime schemas; strict validation remains in later Phase 1 slices.
 - [ ] Record the exact app, plugin, HACS, Gateway, HA Core, Supervisor, and
   architecture versions used by each live verification.
 - [ ] Mark all currently unsafe, unreachable, or unverified operations as such in
@@ -406,7 +417,10 @@ definition of complete.
 
 - `docs/VERIFICATION-2026-09-11.md`: discovery evidence at the baseline above.
 - This roadmap: dependency order and completion checklist.
-- Generated command/action coverage ledger: one row per supported caller path.
+- Generated command/action coverage ledger:
+  [`reference/COMMAND-COVERAGE.md`](reference/COMMAND-COVERAGE.md) and
+  `reference/command-coverage.json`, with one row per command/action and explicit
+  state for each caller path.
 - Compatibility matrix: tested app/plugin/HACS/Gateway/HA/Supervisor versions and
   architectures.
 - UAT result packet per release candidate: exact artifact digests, environment,

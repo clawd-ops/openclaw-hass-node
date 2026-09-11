@@ -22,10 +22,11 @@ type AssistToolDescriptor = Pick<
 // This string is injected into every ha_* tool call, so it is the strongest
 // signal a model gets about what `node` should be. The previous wording ended
 // on "the bound openclaw-hass-node-app", and callers repeatedly passed that
-// add-on slug as the node id, producing "unknown node: openclaw-hass-node-app"
-// failures. Name the expected value positively and mark the slug as wrong.
+// add-on name as the node id, producing "unknown node: openclaw-hass-node-app"
+// failures. Name the expected value positively and state what the bad literal
+// actually is: neither the paired node id nor a Supervisor slug.
 export const PAIRED_NODE_DESCRIPTION =
-  "Paired Home Assistant node id or display name from `nodes status`, commonly `hass`. Do not pass local, host, gateway, auto, or the add-on slug openclaw-hass-node-app; that slug is the Supervisor add-on, not a node id.";
+  "Paired Home Assistant node id or display name from `nodes status`, commonly `hass`. Do not pass local, host, gateway, auto, or openclaw-hass-node-app; that literal is neither a node id nor a Supervisor add-on slug.";
 
 // --- ha_call_service ---
 

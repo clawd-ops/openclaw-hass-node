@@ -1,0 +1,1129 @@
+#!/usr/bin/env python3
+# ruff: noqa: TRY003
+"""Generate and validate the command/action/caller coverage ledger.
+
+Inventory and caller-path facts are read from the Python dispatcher, the node
+connect-frame advertisement, and the Assist TypeScript wrappers.  Policy and
+semantic notes that cannot be derived safely are kept in the adjacent manual
+JSON file and are labelled as manual in the generated artifacts.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import copy
+import difflib
+import json
+import sys
+from collections import defaultdict
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+COMMANDS_DIR = ROOT / "app/node/src/openclaw_node/commands"
+DISPATCHER = COMMANDS_DIR / "dispatcher.py"
+GATEWAY = ROOT / "app/node/src/openclaw_node/gateway_ws.py"
+ASSIST_TOOLS = ROOT / "plugins/openclaw-hass-node-assist-tools/src/tools"
+ASSIST_CONTRACT = ASSIST_TOOLS / "assist-command-contract.json"
+MANUAL = ROOT / "contracts/command-coverage-manual.json"
+JSON_OUTPUT = ROOT / "docs/reference/command-coverage.json"
+MARKDOWN_OUTPUT = ROOT / "docs/reference/COMMAND-COVERAGE.md"
+
+EVIDENCE_METHODS = [
+    "UNVERIFIED",
+    "CODE-PROVEN",
+    "TEST-PROVEN",
+    "DISPOSABLE-LIVE",
+    "PRODUCTION-LIVE",
+]
+OUTCOMES = ["pass", "fail", "refused-as-designed", "partial", "unverified"]
+
+
+class LedgerError(RuntimeError):
+    """Raised when source inventory and manual coverage do not reconcile."""
+
+
+def _literal_string_collection(node: ast.AST) -> list[str]:
+    """Return string members from a literal list/set/frozenset expression."""
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "frozenset"
+    ):
+        if len(node.args) != 1:
+            raise LedgerError("frozenset inventory must have exactly one positional argument")
+        node = node.args[0]
+    if not isinstance(node, ast.List | ast.Tuple | ast.Set):
+        raise LedgerError(f"expected a literal string collection, got {ast.dump(node)}")
+    values: list[str] = []
+    for item in node.elts:
+        if not isinstance(item, ast.Constant) or not isinstance(item.value, str):
+            raise LedgerError("inventory collections must contain only literal strings")
+        values.append(item.value)
+    return values
+
+
+def _assigned_value(tree: ast.Module, name: str) -> ast.AST | None:
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            if any(isinstance(target, ast.Name) and target.id == name for target in node.targets):
+                return node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == name
+        ):
+            return node.value
+    return None
+
+
+def _registry() -> dict[str, tuple[str, str]]:
+    tree = ast.parse(DISPATCHER.read_text(encoding="utf-8"), filename=str(DISPATCHER))
+    imports: dict[str, str] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom) or node.module is None:
+            continue
+        if not node.module.startswith("openclaw_node.commands."):
+            continue
+        module = node.module.rsplit(".", 1)[-1]
+        for alias in node.names:
+            imports[alias.asname or alias.name] = module
+
+    registry_node = _assigned_value(tree, "_REGISTRY")
+    if not isinstance(registry_node, ast.Dict):
+        raise LedgerError("dispatcher _REGISTRY must be a literal dict")
+    result: dict[str, tuple[str, str]] = {}
+    for key, value in zip(registry_node.keys, registry_node.values, strict=True):
+        if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
+            raise LedgerError("dispatcher keys must be literal strings")
+        if not isinstance(value, ast.Name) or value.id not in imports:
+            raise LedgerError(f"handler for {key.value!r} must be an imported name")
+        result[key.value] = (imports[value.id], value.id)
+    return result
+
+
+def _advertised() -> list[str]:
+    tree = ast.parse(GATEWAY.read_text(encoding="utf-8"), filename=str(GATEWAY))
+    node = _assigned_value(tree, "_NODE_COMMANDS")
+    if node is None:
+        raise LedgerError("gateway _NODE_COMMANDS inventory not found")
+    return _literal_string_collection(node)
+
+
+def _assist_callers() -> dict[str, dict[str, Any]]:
+    value = json.loads(ASSIST_CONTRACT.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("schema_version") != 1:
+        raise LedgerError("Assist command contract schema_version must be 1")
+    registrations = value.get("registrations")
+    if not isinstance(registrations, list):
+        raise LedgerError("Assist command contract registrations must be a list")
+    found: dict[str, dict[str, Any]] = {}
+    unique_fields: dict[str, set[str]] = {
+        "tool_name": set(),
+        "descriptor": set(),
+        "factory": set(),
+        "node_command": set(),
+    }
+    for registration in registrations:
+        if not isinstance(registration, dict):
+            raise LedgerError("Assist command registrations must be objects")
+        for field, seen in unique_fields.items():
+            item = registration.get(field)
+            if not isinstance(item, str) or not item:
+                raise LedgerError(f"Assist registration field {field} must be a nonempty string")
+            if item in seen:
+                raise LedgerError(f"duplicate Assist registration {field}: {item}")
+            seen.add(item)
+        command = registration["node_command"]
+        accepted = registration.get("accepted_tool_params")
+        emitted = registration.get("emitted_params")
+        injected = registration.get("injected_node_params")
+        known_unaccepted = registration.get("known_unaccepted_node_params", {})
+        if not isinstance(accepted, list) or not all(isinstance(item, str) for item in accepted):
+            raise LedgerError(f"Assist {command} accepted_tool_params must be a string list")
+        if len(accepted) != len(set(accepted)) or "node" not in accepted:
+            raise LedgerError(f"Assist {command} tool params must be unique and include node")
+        if not isinstance(emitted, dict) or set(emitted) != set(accepted):
+            raise LedgerError(f"Assist {command} emitted_params must map every accepted tool param")
+        if not all(value is None or isinstance(value, str) for value in emitted.values()):
+            raise LedgerError(f"Assist {command} emitted param targets must be strings or null")
+        if not isinstance(injected, dict) or not all(
+            isinstance(key, str) and isinstance(target, str) for key, target in injected.items()
+        ):
+            raise LedgerError(f"Assist {command} injected_node_params must be a string map")
+        if not isinstance(known_unaccepted, dict) or not all(
+            isinstance(key, str)
+            and isinstance(mismatch, dict)
+            and isinstance(mismatch.get("issue"), str)
+            and bool(mismatch["issue"])
+            and isinstance(mismatch.get("reason"), str)
+            and bool(mismatch["reason"])
+            for key, mismatch in known_unaccepted.items()
+        ):
+            raise LedgerError(
+                f"Assist {command} known_unaccepted_node_params must map keys to issue/reason"
+            )
+        found[command] = registration
+    return dict(sorted(found.items()))
+
+
+def _named_string_collections(tree: ast.Module) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    for name in ("_ACTIONS", "_MUTATING_ACTIONS"):
+        node = _assigned_value(tree, name)
+        if node is not None:
+            result[name] = set(_literal_string_collection(node))
+    return result
+
+
+def _condition_for_action(
+    node: ast.AST, action: str, named_collections: dict[str, set[str]]
+) -> bool | None:
+    if not isinstance(node, ast.Compare) or len(node.ops) != 1 or len(node.comparators) != 1:
+        return None
+    if not isinstance(node.left, ast.Name) or node.left.id != "action":
+        return None
+    comparator = node.comparators[0]
+    operator = node.ops[0]
+    if isinstance(comparator, ast.Constant) and isinstance(comparator.value, str):
+        if isinstance(operator, ast.Eq):
+            return action == comparator.value
+        if isinstance(operator, ast.NotEq):
+            return action != comparator.value
+    values: set[str] | None = None
+    if isinstance(comparator, ast.Name):
+        values = named_collections.get(comparator.id)
+    elif isinstance(comparator, ast.Set | ast.Tuple | ast.List):
+        values = set(_literal_string_collection(comparator))
+    if values is not None:
+        if isinstance(operator, ast.In):
+            return action in values
+        if isinstance(operator, ast.NotIn):
+            return action not in values
+    return None
+
+
+def _action_parameters(
+    functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+    handler_name: str,
+    action: str,
+    named_collections: dict[str, set[str]],
+) -> set[str]:
+    """Follow one action's handler path and return its exact accepted key set."""
+    params: set[str] = set()
+    visited: set[tuple[str, str | None]] = set()
+
+    def visit_function(name: str, selected_action: str | None) -> None:
+        marker = (name, selected_action)
+        if marker in visited or name not in functions:
+            return
+        visited.add(marker)
+        function = functions[name]
+        dynamic_keys: dict[str, str] = {}
+        for node in ast.walk(function):
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.JoinedStr)
+            ):
+                pieces: list[str] = []
+                for value in node.value.values:
+                    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                        pieces.append(value.value)
+                    elif isinstance(value, ast.FormattedValue) and isinstance(
+                        value.value, ast.Name
+                    ):
+                        pieces.append(f"<{value.value.id}>")
+                    else:
+                        pieces = []
+                        break
+                if pieces:
+                    dynamic_keys[node.targets[0].id] = "".join(pieces)
+
+        def visit_node(node: ast.AST) -> None:
+            for child in ast.walk(node):
+                if (
+                    isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Attribute)
+                    and child.func.attr == "get"
+                    and isinstance(child.func.value, ast.Name)
+                    and child.func.value.id == "params"
+                    and child.args
+                ):
+                    key_node = child.args[0]
+                    if isinstance(key_node, ast.Constant) and isinstance(key_node.value, str):
+                        params.add(key_node.value)
+                    elif isinstance(key_node, ast.Name) and key_node.id in dynamic_keys:
+                        params.add(dynamic_keys[key_node.id])
+                elif (
+                    isinstance(child, ast.Subscript)
+                    and isinstance(child.value, ast.Name)
+                    and child.value.id == "params"
+                    and isinstance(child.slice, ast.Constant)
+                    and isinstance(child.slice.value, str)
+                ):
+                    params.add(child.slice.value)
+                elif (
+                    isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Name)
+                    and child.func.id in functions
+                ):
+                    visit_function(child.func.id, None)
+            for loop in (child for child in ast.walk(node) if isinstance(child, ast.For)):
+                if not isinstance(loop.iter, ast.Tuple | ast.List | ast.Set):
+                    continue
+                keys = [
+                    item.value
+                    for item in loop.iter.elts
+                    if isinstance(item, ast.Constant) and isinstance(item.value, str)
+                ]
+                if len(keys) == len(loop.iter.elts) and any(
+                    isinstance(child, ast.Name) and child.id == "params" for child in ast.walk(loop)
+                ):
+                    params.update(keys)
+
+        def visit_block(statements: list[ast.stmt]) -> bool:
+            for statement in statements:
+                if isinstance(statement, ast.If):
+                    visit_node(statement.test)
+                    decision = (
+                        _condition_for_action(statement.test, selected_action, named_collections)
+                        if selected_action is not None
+                        else None
+                    )
+                    if decision is not None:
+                        chosen = statement.body if decision else statement.orelse
+                        if visit_block(chosen):
+                            return True
+                        continue
+                    body_returns = visit_block(statement.body)
+                    else_returns = visit_block(statement.orelse) if statement.orelse else False
+                    if body_returns and else_returns:
+                        return True
+                    continue
+                visit_node(statement)
+                if isinstance(statement, ast.Return):
+                    return True
+            return False
+
+        visit_block(function.body)
+
+    visit_function(handler_name, action)
+    return params
+
+
+def _module_analysis(
+    module: str, handler_name: str
+) -> tuple[list[str], dict[str, list[str]], list[str], dict[str, list[str]]]:
+    """Return accepted param names/default expressions and declared actions.
+
+    Parameter discovery follows same-module calls reachable from the registered
+    handler.  For action-based HA config modules, all helper functions are
+    included because action dispatch deliberately fans out to private adapters.
+    This is a source inventory, not a runtime schema claim.
+    """
+    path = COMMANDS_DIR / f"{module}.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    }
+    actions_node = _assigned_value(tree, "_ACTIONS")
+    actions = sorted(_literal_string_collection(actions_node)) if actions_node is not None else []
+    named_collections = _named_string_collections(tree)
+
+    reachable: set[str] = set()
+    pending = [handler_name]
+    while pending:
+        name = pending.pop()
+        if name in reachable or name not in functions:
+            continue
+        reachable.add(name)
+        for node in ast.walk(functions[name]):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in functions
+                and node.func.id not in reachable
+            ):
+                pending.append(node.func.id)
+    if actions:
+        reachable.update(functions)
+
+    params: set[str] = set()
+    defaults: dict[str, set[str]] = defaultdict(set)
+    for name in sorted(reachable):
+        function = functions[name]
+        for loop in (node for node in ast.walk(function) if isinstance(node, ast.For)):
+            if not isinstance(loop.target, ast.Name) or not isinstance(
+                loop.iter, ast.Tuple | ast.List | ast.Set
+            ):
+                continue
+            loop_keys = [
+                item.value
+                for item in loop.iter.elts
+                if isinstance(item, ast.Constant) and isinstance(item.value, str)
+            ]
+            references_params = any(
+                isinstance(child, ast.Name) and child.id == "params"
+                for statement in loop.body
+                for child in ast.walk(statement)
+            )
+            if references_params and len(loop_keys) == len(loop.iter.elts):
+                params.update(loop_keys)
+                for key in loop_keys:
+                    defaults[key].add("null")
+        for node in ast.walk(function):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "get"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "params"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                key = node.args[0].value
+                params.add(key)
+                default = ast.unparse(node.args[1]) if len(node.args) >= 2 else "null"
+                defaults[key].add(default)
+            elif (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "params"
+                and isinstance(node.slice, ast.Constant)
+                and isinstance(node.slice.value, str)
+            ):
+                params.add(node.slice.value)
+                defaults[node.slice.value].add("required-or-validated-before-access")
+    action_params = {
+        action: sorted(_action_parameters(functions, handler_name, action, named_collections))
+        for action in actions
+    }
+    return (
+        sorted(params),
+        {key: sorted(value) for key, value in sorted(defaults.items())},
+        actions,
+        action_params,
+    )
+
+
+def _test_references(command: str) -> list[str]:
+    needle = f'"{command}"'
+    refs: list[str] = []
+    for path in sorted((ROOT / "app/node/tests").glob("test_*.py")):
+        if path.name == "test_command_coverage_ledger.py":
+            continue
+        if needle in path.read_text(encoding="utf-8"):
+            refs.append(path.relative_to(ROOT).as_posix())
+    for path in sorted(ASSIST_TOOLS.glob("*.test.ts")):
+        if needle in path.read_text(encoding="utf-8"):
+            refs.append(path.relative_to(ROOT).as_posix())
+    return refs
+
+
+def _load_manual() -> dict[str, Any]:
+    value = json.loads(MANUAL.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or not isinstance(value.get("commands"), dict):
+        raise LedgerError("manual coverage file must contain a commands object")
+    return value
+
+
+def _validate_exact(label: str, actual: set[str], declared: set[str]) -> None:
+    missing = sorted(actual - declared)
+    stale = sorted(declared - actual)
+    if missing or stale:
+        parts = [f"{label} coverage mismatch"]
+        if missing:
+            parts.append(f"missing={missing}")
+        if stale:
+            parts.append(f"stale={stale}")
+        raise LedgerError("; ".join(parts))
+
+
+def _evidence(method: str, outcome: str, source: str, observation: str) -> dict[str, str]:
+    if method not in EVIDENCE_METHODS:
+        raise LedgerError(f"invalid evidence method: {method}")
+    if outcome not in OUTCOMES:
+        raise LedgerError(f"invalid evidence outcome: {outcome}")
+    return {
+        "method": method,
+        "outcome": outcome,
+        "source": source,
+        "observation": observation,
+    }
+
+
+def _caller(
+    status: str,
+    source: str,
+    reason: str,
+    *,
+    method: str,
+    outcome: str,
+) -> dict[str, Any]:
+    return {
+        "status": status,
+        "source": source,
+        "reason": reason,
+        "evidence": [_evidence(method, outcome, source, reason)],
+    }
+
+
+def _resolved_manual(
+    key: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    defaults: dict[str, Any],
+) -> Any:
+    """Resolve action, command, then global manual metadata precedence."""
+    return variant.get(key, entry.get(key, defaults.get(key)))
+
+
+def _resolved_evidence_field(
+    key: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    authorization_defaults: dict[str, Any],
+    defaults: dict[str, Any],
+) -> Any:
+    """Resolve explicit row metadata before authorization-class and global defaults."""
+    if key in variant:
+        return variant[key]
+    if key in entry:
+        return entry[key]
+    if key in authorization_defaults:
+        return authorization_defaults[key]
+    return defaults.get(key)
+
+
+def _validate_acceptance_test_id(test_id: str) -> None:
+    """Require each curated acceptance ID to name an extant behavioral test."""
+    path_text, separator, test_name = test_id.partition("::")
+    if not separator or not path_text or not test_name:
+        raise LedgerError(f"acceptance test ID must be path::test-name: {test_id!r}")
+    path = ROOT / path_text
+    if not path.is_file() or not path.resolve().is_relative_to(ROOT.resolve()):
+        raise LedgerError(f"acceptance test ID names missing repository file: {test_id}")
+    source = path.read_text(encoding="utf-8")
+    if path.suffix == ".py":
+        expected = f"def {test_name}("
+    elif path.suffix in {".ts", ".tsx"}:
+        expected = json.dumps(test_name)
+    else:
+        raise LedgerError(f"acceptance test ID must name a Python or TypeScript test: {test_id}")
+    if expected not in source:
+        raise LedgerError(f"acceptance test ID does not match a declared test: {test_id}")
+
+
+def build_ledger() -> dict[str, Any]:
+    """Build the reconciled source/manual ledger dictionary."""
+    registry = _registry()
+    advertised_list = _advertised()
+    if len(advertised_list) != len(set(advertised_list)):
+        raise LedgerError("gateway _NODE_COMMANDS contains duplicate entries")
+    advertised = set(advertised_list)
+    assist = _assist_callers()
+    manual = _load_manual()
+    manual_defaults = manual.get("defaults", {})
+    if not isinstance(manual_defaults, dict):
+        raise LedgerError("manual coverage defaults must be an object")
+    authorization_evidence = manual.get("authorization_evidence", {})
+    if not isinstance(authorization_evidence, dict):
+        raise LedgerError("manual authorization_evidence must be an object")
+    declared = set(manual["commands"])
+    _validate_exact("registered command", set(registry), declared)
+
+    unknown_advertised = advertised - set(registry)
+    if unknown_advertised:
+        raise LedgerError(
+            f"advertised commands have no dispatcher handler: {sorted(unknown_advertised)}"
+        )
+    unknown_assist = set(assist) - set(registry)
+    if unknown_assist:
+        raise LedgerError(f"Assist wrappers target unregistered commands: {sorted(unknown_assist)}")
+
+    rows: list[dict[str, Any]] = []
+    for command in sorted(registry):
+        module, handler = registry[command]
+        source_params, defaults, actions, action_params = _module_analysis(module, handler)
+        entry = manual["commands"][command]
+        if not isinstance(entry, dict):
+            raise LedgerError(f"manual command entry for {command} must be an object")
+        declared_actions = entry.get("actions", {})
+        if not isinstance(declared_actions, dict):
+            raise LedgerError(f"manual actions for {command} must be an object")
+        _validate_exact(f"action variants for {command}", set(actions), set(declared_actions))
+
+        aliases = entry.get("aliases", {})
+        if not isinstance(aliases, dict):
+            raise LedgerError(f"aliases for {command} must be an object")
+        alias_names = {alias for values in aliases.values() for alias in values}
+        if not alias_names.issubset(source_params):
+            raise LedgerError(
+                f"aliases for {command} are not accepted by its source handler: "
+                f"{sorted(alias_names - set(source_params))}"
+            )
+        canonical_params = sorted(set(source_params) - alias_names)
+        bounds = entry.get("bounds", {})
+        if not isinstance(bounds, dict):
+            raise LedgerError(f"bounds for {command} must be an object")
+        unknown_bounds = set(bounds) - set(source_params)
+        if unknown_bounds:
+            raise LedgerError(f"bounds for {command} name unknown params: {sorted(unknown_bounds)}")
+
+        assist_registration = assist.get(command)
+        if assist_registration is not None:
+            emitted_targets = {
+                target
+                for target in assist_registration["emitted_params"].values()
+                if target is not None
+            }
+            emitted_targets.update(assist_registration["injected_node_params"].values())
+            unknown_emitted = emitted_targets - set(source_params)
+            known_unaccepted = set(assist_registration.get("known_unaccepted_node_params", {}))
+            if unknown_emitted != known_unaccepted:
+                raise LedgerError(
+                    f"Assist {command} node-key mismatch coverage differs; "
+                    f"unacknowledged={sorted(unknown_emitted - known_unaccepted)}; "
+                    f"orphaned={sorted(known_unaccepted - unknown_emitted)}"
+                )
+
+        if command in advertised:
+            advertised_path = _caller(
+                "advertised",
+                "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
+                "Present in the node connect frame; gateway allowlisting and runtime "
+                "availability are separate.",
+                method="CODE-PROVEN",
+                outcome="pass",
+            )
+        else:
+            reason = entry.get("unadvertised_reason")
+            if not isinstance(reason, str) or not reason:
+                raise LedgerError(f"unadvertised command {command} needs unadvertised_reason")
+            advertised_path = _caller(
+                "unavailable",
+                "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
+                reason,
+                method="CODE-PROVEN",
+                outcome="fail",
+            )
+
+        if command == "system.run":
+            direct_path = _caller(
+                "unavailable",
+                "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
+                "OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258).",
+                method="PRODUCTION-LIVE",
+                outcome="fail",
+            )
+        elif command not in advertised:
+            direct_path = _caller(
+                "unavailable",
+                "node advertisement reconciliation",
+                "The command is registered but not advertised, so direct node invocation "
+                "cannot reach it.",
+                method="PRODUCTION-LIVE",
+                outcome="fail",
+            )
+        else:
+            direct_path = _caller(
+                "advertised-unverified",
+                "dispatcher + node connect frame",
+                "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+                method="CODE-PROVEN",
+                outcome="unverified",
+            )
+
+        if assist_registration is not None:
+            assist_path: dict[str, Any] = _caller(
+                "wrapper-exposed",
+                "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
+                "The executable Assist registration contract maps this tool to the node command.",
+                method="CODE-PROVEN",
+                outcome="pass",
+            )
+            assist_path.update(
+                {
+                    "tool_name": assist_registration["tool_name"],
+                    "descriptor": assist_registration["descriptor"],
+                    "factory": assist_registration["factory"],
+                    "accepted_tool_params": assist_registration["accepted_tool_params"],
+                    "emitted_params": assist_registration["emitted_params"],
+                    "injected_node_params": assist_registration["injected_node_params"],
+                    "known_unaccepted_node_params": assist_registration.get(
+                        "known_unaccepted_node_params", {}
+                    ),
+                }
+            )
+            for key, mismatch in assist_path["known_unaccepted_node_params"].items():
+                assist_path["evidence"].append(
+                    _evidence(
+                        "CODE-PROVEN",
+                        "fail",
+                        "plugins/openclaw-hass-node-assist-tools/src/tools/"
+                        "assist-command-contract.json",
+                        f"Emitted node parameter {key!r} is not accepted "
+                        f"({mismatch['issue']}): {mismatch['reason']}",
+                    )
+                )
+        else:
+            reason = entry.get("assist_unavailable_reason")
+            if not isinstance(reason, str) or not reason:
+                raise LedgerError(f"unwrapped command {command} needs assist_unavailable_reason")
+            assist_path = _caller(
+                "unavailable",
+                "contracts/command-coverage-manual.json",
+                reason,
+                method="CODE-PROVEN",
+                outcome="refused-as-designed",
+            )
+
+        variants: list[tuple[str | None, dict[str, Any]]] = [(None, entry)]
+        if actions:
+            variants = [
+                (
+                    None,
+                    {
+                        "authorization_class": "action_dependent",
+                        "capability_conditions": (
+                            "Registered command entry point; parameters, policy, and runtime "
+                            "capability vary by the selected action."
+                        ),
+                        "evidence_method": "CODE-PROVEN",
+                        "evidence_note": (
+                            "Base command inventory row; use the action rows for behavior claims."
+                        ),
+                    },
+                ),
+                *((action, declared_actions[action]) for action in actions),
+            ]
+        for action, variant in variants:
+            authorization_class = _resolved_manual(
+                "authorization_class", variant, entry, manual_defaults
+            )
+            authorization_defaults = authorization_evidence.get(authorization_class, {})
+            if not isinstance(authorization_defaults, dict):
+                raise LedgerError(
+                    f"authorization evidence for {authorization_class!r} must be an object"
+                )
+            for required in (
+                "authorization_class",
+                "capability_conditions",
+                "semantic_result",
+                "semantic_errors",
+            ):
+                if _resolved_manual(required, variant, entry, manual_defaults) is None:
+                    raise LedgerError(
+                        f"{command}/{action or '-'} is missing manual field {required}"
+                    )
+            evidence = _resolved_evidence_field(
+                "evidence_method",
+                variant,
+                entry,
+                authorization_defaults,
+                manual_defaults,
+            )
+            if evidence not in EVIDENCE_METHODS:
+                raise LedgerError(
+                    f"invalid evidence method for {command}/{action or '-'}: {evidence!r}"
+                )
+            outcome = _resolved_evidence_field(
+                "outcome", variant, entry, authorization_defaults, manual_defaults
+            )
+            if outcome not in OUTCOMES:
+                raise LedgerError(f"invalid outcome for {command}/{action or '-'}: {outcome!r}")
+            acceptance_tests = _resolved_evidence_field(
+                "acceptance_test_ids",
+                variant,
+                entry,
+                authorization_defaults,
+                manual_defaults,
+            )
+            if not isinstance(acceptance_tests, list) or not all(
+                isinstance(test, dict)
+                and isinstance(test.get("id"), str)
+                and test["id"]
+                and test.get("caller")
+                in {"node_advertisement", "direct_nodes_invoke", "assist_wrapper"}
+                and test.get("outcome") in OUTCOMES
+                for test in acceptance_tests
+            ):
+                raise LedgerError(
+                    f"acceptance_test_ids for {command}/{action or '-'} must be curated objects"
+                )
+            for acceptance_test in acceptance_tests:
+                _validate_acceptance_test_id(acceptance_test["id"])
+            if evidence == "TEST-PROVEN" and not acceptance_tests:
+                raise LedgerError(
+                    f"TEST-PROVEN row {command}/{action or '-'} needs curated behavioral test IDs"
+                )
+            selected_params = variant.get("parameters", canonical_params)
+            if not isinstance(selected_params, list) or not all(
+                isinstance(name, str) for name in selected_params
+            ):
+                raise LedgerError(f"parameters for {command}/{action or '-'} must be a string list")
+            unknown_selected = {
+                name
+                for name in selected_params
+                if name not in canonical_params and not (name.startswith("<") and ">" in name)
+            }
+            if unknown_selected:
+                raise LedgerError(
+                    f"action params for {command}/{action or '-'} are not accepted by source: "
+                    f"{sorted(unknown_selected)}"
+                )
+            if action is not None:
+                derived_action_params = set(action_params[action]) - alias_names
+                selected_action_params = set(selected_params)
+                if selected_action_params != derived_action_params:
+                    missing = sorted(derived_action_params - selected_action_params)
+                    orphaned = sorted(selected_action_params - derived_action_params)
+                    raise LedgerError(
+                        f"action parameter coverage mismatch for {command}/{action}; "
+                        f"missing={missing}; orphaned={orphaned}"
+                    )
+            parameters = [
+                {
+                    "name": name,
+                    "aliases": aliases.get(name, []),
+                    "defaults": defaults.get(name, ["action-specific manual key"]),
+                    "bounds": bounds.get(name, "unverified; no normalized contract yet"),
+                    "provenance": {
+                        "name": (
+                            "source-derived AST accepted key"
+                            if name in canonical_params
+                            else "source-derived dynamic key pattern"
+                        ),
+                        "aliases": "manual declaration validated against source accepted keys",
+                        "defaults": "source-derived AST expression",
+                        "bounds": (
+                            "manual normalized note"
+                            if name in bounds
+                            else "manual UNVERIFIED placeholder"
+                        ),
+                    },
+                }
+                for name in selected_params
+            ]
+            row_id = command if action is None else f"{command}#{action}"
+            row_callers = copy.deepcopy(
+                {
+                    "node_advertisement": advertised_path,
+                    "direct_nodes_invoke": direct_path,
+                    "assist_wrapper": assist_path,
+                }
+            )
+            caller_observations = (
+                _resolved_evidence_field(
+                    "caller_observations",
+                    variant,
+                    entry,
+                    authorization_defaults,
+                    manual_defaults,
+                )
+                or {}
+            )
+            if not isinstance(caller_observations, dict):
+                raise LedgerError(f"caller_observations for {row_id} must be an object")
+            for caller_name, observations in caller_observations.items():
+                if caller_name not in row_callers or not isinstance(observations, list):
+                    raise LedgerError(f"invalid caller observations for {row_id}/{caller_name}")
+                for observation in observations:
+                    if not isinstance(observation, dict):
+                        raise LedgerError(f"caller observation for {row_id} must be an object")
+                    for required_field in ("method", "outcome", "source", "observation"):
+                        if not isinstance(observation.get(required_field), str):
+                            raise LedgerError(
+                                f"caller observation for {row_id}/{caller_name} "
+                                f"missing required string field: {required_field}"
+                            )
+                    row_callers[caller_name]["evidence"].append(
+                        _evidence(
+                            observation["method"],
+                            observation["outcome"],
+                            observation["source"],
+                            observation["observation"],
+                        )
+                    )
+            rows.append(
+                {
+                    "id": row_id,
+                    "command": command,
+                    "action": action,
+                    "handler": f"openclaw_node.commands.{module}:{handler}",
+                    "registered": True,
+                    "callers": row_callers,
+                    "canonical_parameters": parameters,
+                    "authorization_class": authorization_class,
+                    "capability_conditions": _resolved_manual(
+                        "capability_conditions", variant, entry, manual_defaults
+                    ),
+                    "semantic_result": _resolved_manual(
+                        "semantic_result", variant, entry, manual_defaults
+                    ),
+                    "semantic_errors": _resolved_manual(
+                        "semantic_errors", variant, entry, manual_defaults
+                    ),
+                    "acceptance_test_ids": acceptance_tests,
+                    "source_mentions": _test_references(command),
+                    "evidence_method": evidence,
+                    "outcome": outcome,
+                    "evidence_note": _resolved_manual(
+                        "evidence_note", variant, entry, manual_defaults
+                    )
+                    or "Manual reality pass; behavior is not contract-enforced.",
+                    "metadata_provenance": {
+                        "inventory": "source-derived",
+                        "authorization_class": "manual reality pass",
+                        "capability_conditions": "manual reality pass",
+                        "semantic_result": "manual reality pass",
+                        "semantic_errors": "manual reality pass",
+                        "evidence_method": "manual evidence classification",
+                        "outcome": "manual outcome classification",
+                        "acceptance_test_ids": "manually curated behavioral IDs",
+                        "source_mentions": "source-derived textual references; not proof",
+                    },
+                }
+            )
+
+    return {
+        "schema_version": 1,
+        "title": "OpenClaw Home Assistant node command/action/caller coverage ledger",
+        "generated": True,
+        "generation_note": (
+            "Deterministic source inventory plus explicitly labelled manual reality metadata; "
+            "no runtime command is enabled by this ledger."
+        ),
+        "evidence_methods": {
+            "UNVERIFIED": "Present in the ledger but not behaviorally proven.",
+            "CODE-PROVEN": "Established from source review; not a live result.",
+            "TEST-PROVEN": "Covered by an automated test; not a live result.",
+            "DISPOSABLE-LIVE": "Probed against a disposable non-production environment.",
+            "PRODUCTION-LIVE": (
+                "Observed on the installed production node, including observed failures."
+            ),
+        },
+        "outcomes": {
+            "pass": "Observed behavior matched the scoped claim.",
+            "fail": "Observed behavior contradicted the scoped claim.",
+            "refused-as-designed": "The operation was intentionally unavailable and refused.",
+            "partial": "Some caller or contract behavior passed while material gaps remain.",
+            "unverified": "No behavioral outcome is claimed.",
+        },
+        "summary": {
+            "registered_commands": len(registry),
+            "advertised_commands": len(advertised),
+            "assist_wrapped_commands": len(assist),
+            "action_variants": sum(1 for row in rows if row["action"] is not None),
+            "ledger_rows": len(rows),
+            "registered_not_advertised": sorted(set(registry) - advertised),
+            "advertised_not_registered": sorted(advertised - set(registry)),
+            "registered_without_assist_wrapper": sorted(set(registry) - set(assist)),
+        },
+        "rows": rows,
+    }
+
+
+def _compact_params(row: dict[str, Any]) -> str:
+    values: list[str] = []
+    for item in row["canonical_parameters"]:
+        text = item["name"]
+        if item["aliases"]:
+            text += " (alias: " + ", ".join(item["aliases"]) + ")"
+        values.append(text)
+    return ", ".join(values) if values else "none observed"
+
+
+def _compact_caller(caller: dict[str, Any]) -> str:
+    outcomes = list(
+        dict.fromkeys(f"{item['method']}:{item['outcome']}" for item in caller["evidence"])
+    )
+    return f"{caller['status']}<br>{'<br>'.join(outcomes)}"
+
+
+def render_markdown(ledger: dict[str, Any]) -> str:
+    """Render the human-readable ledger from the machine representation."""
+    summary = ledger["summary"]
+    lines = [
+        "# Command Coverage Ledger",
+        "",
+        "<!-- Generated by scripts/generate-command-coverage.py. Do not edit by hand. -->",
+        "",
+        "This is a generated **coverage inventory**, not a claim that every row works.",
+        "Source-derived registry, advertisement, caller, action, and accepted-key facts are",
+        "combined with explicitly manual policy/semantic notes. `UNVERIFIED` and failure",
+        "rows are intentionally retained. Regenerate after editing source or",
+        "`contracts/command-coverage-manual.json`.",
+        "",
+        "## Summary",
+        "",
+        f"- Registered commands: **{summary['registered_commands']}**",
+        f"- Advertised commands: **{summary['advertised_commands']}**",
+        f"- Assist-wrapped commands: **{summary['assist_wrapped_commands']}**",
+        f"- Action variants: **{summary['action_variants']}**",
+        f"- Ledger rows: **{summary['ledger_rows']}**",
+        "- Registered but unadvertised: "
+        f"`{', '.join(summary['registered_not_advertised']) or 'none'}`",
+        "- Advertised but unregistered: "
+        f"`{', '.join(summary['advertised_not_registered']) or 'none'}`",
+        "",
+        "## Evidence methods",
+        "",
+    ]
+    for level, meaning in ledger["evidence_methods"].items():
+        lines.append(f"- **{level}:** {meaning}")
+    lines.extend(["", "## Outcomes", ""])
+    for outcome, meaning in ledger["outcomes"].items():
+        lines.append(f"- **{outcome}:** {meaning}")
+    lines.extend(
+        [
+            "",
+            "## Coverage rows",
+            "",
+            "| Command / action | Advertised | Direct caller | Assist wrapper | "
+            "Authorization | Method | **Outcome** |",
+            "|---|---|---|---|---|---|---|",
+        ]
+    )
+    for row in ledger["rows"]:
+        callers = row["callers"]
+        lines.append(
+            f"| `{row['id']}` | {_compact_caller(callers['node_advertisement'])} | "
+            f"{_compact_caller(callers['direct_nodes_invoke'])} | "
+            f"{_compact_caller(callers['assist_wrapper'])} | "
+            f"`{row['authorization_class']}` | `{row['evidence_method']}` | "
+            f"**`{row['outcome']}`** |"
+        )
+    lines.extend(["", "## Row details", ""])
+    for row in ledger["rows"]:
+        lines.extend(
+            [
+                f"### `{row['id']}`",
+                "",
+                f"- Handler: `{row['handler']}`",
+                f"- Canonical parameters: {_compact_params(row)}",
+                f"- Authorization: `{row['authorization_class']}`",
+                f"- Capability conditions: {row['capability_conditions']}",
+                f"- Semantic result: {row['semantic_result']}",
+                f"- Semantic errors: {row['semantic_errors']}",
+                f"- Evidence method: `{row['evidence_method']}`",
+                f"- **Outcome: `{row['outcome']}`**",
+                f"- Evidence note: {row['evidence_note']}",
+                f"- Advertisement: {row['callers']['node_advertisement']['reason']}",
+                f"- Direct caller: {row['callers']['direct_nodes_invoke']['reason']}",
+                f"- Assist caller: {row['callers']['assist_wrapper']['reason']}",
+            ]
+        )
+        assist_caller = row["callers"]["assist_wrapper"]
+        if assist_caller["status"] == "wrapper-exposed":
+            lines.extend(
+                [
+                    f"  - Assist tool: `{assist_caller['tool_name']}`",
+                    f"  - Descriptor/factory: `{assist_caller['descriptor']}` / "
+                    f"`{assist_caller['factory']}`",
+                    "  - Tool parameters: "
+                    f"`{json.dumps(assist_caller['accepted_tool_params'], sort_keys=True)}`",
+                    "  - Emitted node mapping: "
+                    f"`{json.dumps(assist_caller['emitted_params'], sort_keys=True)}`",
+                    "  - Injected node mapping: "
+                    f"`{json.dumps(assist_caller['injected_node_params'], sort_keys=True)}`",
+                    "  - Known unaccepted node parameters: `"
+                    + json.dumps(assist_caller["known_unaccepted_node_params"], sort_keys=True)
+                    + "`",
+                ]
+            )
+        lines.append("- Parameter details:")
+        if row["canonical_parameters"]:
+            for parameter in row["canonical_parameters"]:
+                lines.extend(
+                    [
+                        f"  - `{parameter['name']}`",
+                        f"    - aliases: `{json.dumps(parameter['aliases'])}`",
+                        f"    - defaults: `{json.dumps(parameter['defaults'])}`",
+                        f"    - bounds: {parameter['bounds']}",
+                        "    - provenance: "
+                        f"`{json.dumps(parameter['provenance'], sort_keys=True)}`",
+                    ]
+                )
+        else:
+            lines.append("  - none observed")
+        lines.append("- Caller evidence:")
+        for caller_name, caller in row["callers"].items():
+            for observation in caller["evidence"]:
+                lines.append(
+                    f"  - `{caller_name}` / `{observation['method']}` / "
+                    f"**`{observation['outcome']}`**: {observation['observation']} "
+                    f"(source: `{observation['source']}`)"
+                )
+        lines.append("- Curated acceptance-test IDs:")
+        if row["acceptance_test_ids"]:
+            for test in row["acceptance_test_ids"]:
+                lines.append(f"  - `{test['id']}` / `{test['caller']}` / `{test['outcome']}`")
+        else:
+            lines.append("  - none; do not treat source mentions as behavioral proof")
+        lines.append("- Source mentions (not acceptance evidence):")
+        if row["source_mentions"]:
+            lines.extend(f"  - `{source}`" for source in row["source_mentions"])
+        else:
+            lines.append("  - none")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _serialized_outputs() -> dict[Path, str]:
+    ledger = build_ledger()
+    return {
+        JSON_OUTPUT: json.dumps(ledger, indent=2, sort_keys=True) + "\n",
+        MARKDOWN_OUTPUT: render_markdown(ledger),
+    }
+
+
+def _check(outputs: dict[Path, str]) -> int:
+    stale = False
+    for path, expected in outputs.items():
+        actual = path.read_text(encoding="utf-8") if path.exists() else ""
+        if actual == expected:
+            continue
+        stale = True
+        print(f"stale generated artifact: {path.relative_to(ROOT)}", file=sys.stderr)
+        diff = difflib.unified_diff(
+            actual.splitlines(),
+            expected.splitlines(),
+            fromfile=str(path.relative_to(ROOT)),
+            tofile=f"generated:{path.relative_to(ROOT)}",
+            lineterm="",
+        )
+        for line in list(diff)[:80]:
+            print(line, file=sys.stderr)
+    return 1 if stale else 0
+
+
+def main() -> int:
+    """Run generation or stale-artifact check mode."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--check", action="store_true", help="fail if generated artifacts are stale"
+    )
+    args = parser.parse_args()
+    try:
+        outputs = _serialized_outputs()
+    except (LedgerError, json.JSONDecodeError, OSError) as exc:
+        print(f"command coverage generation failed: {exc}", file=sys.stderr)
+        return 2
+    if args.check:
+        return _check(outputs)
+    for path, content in outputs.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        print(f"wrote {path.relative_to(ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
