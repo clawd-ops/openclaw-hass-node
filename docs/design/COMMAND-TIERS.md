@@ -1,8 +1,10 @@
 # Command tier policy (addon-management surface)
 
 Addon-management commands are grouped by blast radius. Tier A is the
-only tier subagents are ever allowed to call. Tier B is operator-only
-behind an admin token. Tier C is explicitly out of scope.
+only tier subagents are ever allowed to call. Tier B is operator-only.
+Lifecycle commands use the paired operator boundary plus explicit slug
+policy; separate admin effects retain their admin-token gate. Tier C is
+explicitly out of scope.
 
 This file replaces the old `HANDOFF-2026-06-20-addon-command-surface.md`,
 which was deleted in the pre-1.0 doc sweep. The policy survives the

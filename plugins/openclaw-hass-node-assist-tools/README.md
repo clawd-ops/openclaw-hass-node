@@ -119,12 +119,12 @@ not send or consult it.
 
 ```
 plugins/openclaw-hass-node-assist-tools/
-├── openclaw.plugin.json     # manifest; declares all 28 tools in contracts.tools
+├── openclaw.plugin.json     # manifest; declares all 30 tools in contracts.tools
 ├── package.json
-├── index.ts                 # plugin entry; lazy-registers all 28 ha_* tools
+├── index.ts                 # plugin entry; lazy-registers all 30 ha_* tools
 ├── src/
 │   ├── tools/
-│   │   ├── descriptors.ts                  # TypeBox schemas + tool metadata (28 descriptors)
+│   │   ├── descriptors.ts                  # TypeBox schemas + tool metadata (30 descriptors)
 │   │   ├── ha-call-service-tool.ts
 │   │   ├── ha-get-state-tool.ts
 │   │   ├── ha-list-states-tool.ts
@@ -135,10 +135,10 @@ plugins/openclaw-hass-node-assist-tools/
 │   │   ├── ha-simple-read-tools.ts         # list_services, get_config, list_events, list_config_entries, list_automations, check_config, core_logs, addon_logs, list_addons, addon_info, addon_stats, addon_changelog, addon_documentation
 │   │   ├── ha-entity-scoped-read-tools.ts  # logbook, history
 │   │   ├── ha-light-tools.ts               # light_turn_on, light_turn_off
-│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update (Tier B)
+│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update, update_install (Tier B)
 │   └── shared/
 │       ├── node-invoke-policy.ts           # routing-only invoke policy with param validation
-│       ├── per-node-policy.ts              # PerNodePolicy type (admin gate only)
+│       ├── per-node-policy.ts              # PerNodePolicy type (lifecycle enablement + separate admin token)
 │       └── lazy-node-invoke-policy.ts      # command allowlist
 └── README.md
 ```
