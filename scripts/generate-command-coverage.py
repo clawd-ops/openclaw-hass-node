@@ -764,13 +764,18 @@ def build_ledger() -> dict[str, Any]:
                 outcome="fail",
             )
 
-        if command == "system.run":
+        if command in {"system.run", "system.run.prepare"}:
             direct_path = _caller(
                 "unavailable",
-                "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
-                "OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258).",
+                "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
+                (
+                    "Direct nodes.invoke is refused by the Gateway by design; "
+                    "reach this command through the OpenClaw exec tool with host=node, "
+                    "which prepares the canonical systemRunPlan and forwards it after "
+                    "operator approval."
+                ),
                 method="PRODUCTION-LIVE",
-                outcome="fail",
+                outcome="refused-as-designed",
             )
         elif command not in advertised:
             direct_path = _caller(

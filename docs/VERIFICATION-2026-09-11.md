@@ -185,7 +185,8 @@ automation because no narrowing exists (`commands/ha.py:542-566`).
 
 ### 2.4 `system.run` advertised but unreachable — [#258](https://github.com/clawd-ops/openclaw-hass-node/issues/258)
 
-`LIVE-FAIL`.
+`LIVE-FAIL` at the original 2026-09-11 audit; the surface change landed
+subsequently.
 
 ```
 nodes.invoke { command: system.run }
@@ -193,8 +194,16 @@ nodes.invoke { command: system.run }
   use exec with host=node instead
 ```
 
-Rejected by the gateway before the node's handler is consulted. Still advertised
-in the connect frame, so it is visible, documented, and impossible to call.
+Direct `nodes.invoke system.run` remains rejected by the Gateway by design.
+The advertised path is now correct: `system.run` and `system.run.prepare` are
+reached through the OpenClaw exec tool with `host=node`, which prepares a
+canonical `systemRunPlan`, prompts an operator, and forwards the approved
+plan to the node. The `_admin_token_ok` gate has been removed from
+`commands/system_run.py`; the node re-validates the forwarded argv,
+`rawCommand`, `cwd` (bound to the allowed roots), and env keys before
+execution, and rejects credential-shaped env keys. A live operator
+allow/deny cycle observation against this node remains a UAT gate rather
+than a source change.
 
 ### 2.5 `ha.addon_update` / `ha.update_install` unreachable — [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260)
 

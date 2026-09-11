@@ -273,13 +273,15 @@ cannot bypass policy; Rob can see and resolve a pending approval end to end.
   survives the process being terminated by its own update. Reconcile exact
   installed version and artifact digest after reconnect; never repeat the effect
   solely because the response was lost.
-- [ ] Decide and implement the supported shell path:
-  - [ ] prove an end-to-end Gateway/node execution and approval protocol if shell
-    remains in scope; or
-  - [ ] explicitly de-scope shell and remove `system.run` from every advertised
-    surface.
-- [ ] Do not rename `system.run` merely to evade the Gateway's reserved-command
-  safety boundary.
+- [x] Decide and implement the supported shell path. Shell remains in scope
+  via OpenClaw's native exec-approval contract: `system.run.prepare` produces
+  the canonical `systemRunPlan`, the operator approves, and the Gateway
+  forwards `system.run` bound to that plan. The node re-validates the
+  forwarded plan (argv, rawCommand, cwd within allowed roots, credential-
+  shaped env keys rejected) and executes. Direct `nodes.invoke system.run` is
+  refused by the Gateway rather than renamed to evade it. Delivered in #258.
+  Live operator allow/deny cycle observation remains as a UAT gate rather
+  than a source change.
 - [ ] Repair pending-invoke acknowledgement so interleaved frames are not dropped
   and reconnect/replay cannot execute a mutation twice.
 - [ ] Add HA API feature/version detection and explicit unsupported responses for

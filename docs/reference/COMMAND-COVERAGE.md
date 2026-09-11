@@ -122,8 +122,8 @@ rows are intentionally retained. Regenerate after editing source or
 | `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
 | `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | `system.execApprovals.set` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
-| `system.run` | advertised<br>CODE-PROVEN:pass | unavailable<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `unavailable_gateway_reserved` | `PRODUCTION-LIVE` | **`fail`** |
-| `system.run.prepare` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
+| `system.run` | advertised<br>CODE-PROVEN:pass | unavailable<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `TEST-PROVEN` | **`pass`** |
+| `system.run.prepare` | advertised<br>CODE-PROVEN:pass | unavailable<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | `system.which` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
 
 ## Row details
@@ -3803,25 +3803,25 @@ rows are intentionally retained. Regenerate after editing source or
 ### `system.run`
 
 - Handler: `openclaw_node.commands.system_run:handle_system_run`
-- Canonical parameters: admin_token, cmd, cwd, env, timeout
-- Authorization: `unavailable_gateway_reserved`
-- Capability conditions: Unreachable through nodes.invoke because the Gateway reserves system.run; the dormant node handler also requires an admin token.
+- Canonical parameters: agentId, command, cwd, env, proposalId, rawCommand, sessionKey, timeout
+- Authorization: `operator_approval`
+- Capability conditions: Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. proposalId is audit metadata only, never authorization. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `PRODUCTION-LIVE`
-- **Outcome: `fail`**
-- Evidence note: Installed Gateway refused the advertised command before node dispatch; tracked by #258.
+- Evidence method: `TEST-PROVEN`
+- **Outcome: `pass`**
+- Evidence note: Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
-- Direct caller: OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258).
+- Direct caller: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
-- Assist caller: Assist intentionally has no shell-execution wrapper; the Gateway also reserves this command.
+- Assist caller: Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.
 - Parameter details:
-  - `admin_token`
+  - `agentId`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
-  - `cmd`
+  - `command`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -3836,6 +3836,21 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `proposalId`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `rawCommand`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `sessionKey`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `timeout`
     - aliases: `[]`
     - defaults: `["_DEFAULT_TIMEOUT_S"]`
@@ -3843,15 +3858,20 @@ rows are intentionally retained. Regenerate after editing source or
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258). (source: `docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable`)
-  - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no shell-execution wrapper; the Gateway also reserves this command. (source: `contracts/command-coverage-manual.json`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`refused-as-designed`**: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`refused-as-designed`**: Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan. (source: `docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable`)
+  - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no shell-execution wrapper; shell execution is an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The GatewayClient._handle_invoke entry point executes a forwarded plan, rejects malformed forwards (missing command, rawCommand mismatch, cwd outside allowed roots), and rejects the legacy cmd/admin_token shape. (source: `app/node/tests/test_system_run_gateway_contract.py`)
 - Curated acceptance-test IDs:
-  - none; do not treat source mentions as behavioral proof
+  - `app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_ok` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_raw_command_mismatch_is_reported_as_command_failure` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_cwd_outside_allowed_roots_is_reported_as_command_failure` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
+  - `app/node/tests/test_system_run_gateway_contract.py`
 
 ### `system.run.prepare`
 
@@ -3865,7 +3885,7 @@ rows are intentionally retained. Regenerate after editing source or
 - **Outcome: `unverified`**
 - Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
-- Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
+- Direct caller: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist does not expose host shell preparation; exec approvals are an operator surface.
 - Parameter details:
@@ -3901,7 +3921,7 @@ rows are intentionally retained. Regenerate after editing source or
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
-  - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`refused-as-designed`**: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell`)
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose host shell preparation; exec approvals are an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:

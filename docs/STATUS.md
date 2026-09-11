@@ -97,12 +97,16 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     cannot authorize it; the trusted verifier and human round-trip are absent.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
-  - `system.*` (5): `system.run` (currently unreachable, see
-    [Authorization model](design/AUTHORIZATION-MODEL.md)), `system.which`
-    (basename-only lookup), and the native exec-approval protocol methods
-    delivered by #274: `system.run.prepare`, `system.execApprovals.get`,
-    and `system.execApprovals.set`. `system.run` itself is not yet re-gated
-    onto that contract; that is tracked as #258.
+  - `system.*` (5): `system.run` (bound in #258 to the Gateway-forwarded
+    canonical `systemRunPlan`; reachable only through `exec host=node` after
+    an operator approves the plan, direct `nodes.invoke system.run` remains
+    refused by the Gateway), `system.which` (basename-only lookup), and the
+    native exec-approval protocol methods delivered by #274:
+    `system.run.prepare`, `system.execApprovals.get`, and
+    `system.execApprovals.set`. There is no add-on admin token; the inert
+    `OPENCLAW_ADMIN_TOKEN` gate and `_admin_token_ok` helper have been
+    removed from `commands/system_run.py`. See
+    [Authorization model](design/AUTHORIZATION-MODEL.md).
   - `ping`.
 - **Local HTTP API is fail-closed.** When `local_api_token` is unset
   every non-public path returns `401 NO_TOKEN_CONFIGURED`; when set,

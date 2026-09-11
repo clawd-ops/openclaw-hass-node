@@ -8,11 +8,16 @@
 > Registration is not proof that a command is advertised, reachable, or working.
 
 Commands intended for the `node.invoke` surface. Group prefixes match OpenClaw
-conventions where they exist. The dispatcher registers 53 commands
-(`ping` + `fs.*` × 11 + `system.*` × 2 + `ha.*` × 39), while the node advertises
-51. `ha.addon_update` and `ha.update_install` are registered but unadvertised;
-`system.run` is advertised but rejected by the Gateway's reserved-command rule.
-The generated ledger records those unavailable reasons without enabling them.
+conventions where they exist. The dispatcher registers 56 commands
+(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 39), while the node advertises
+54. `ha.addon_update` and `ha.update_install` are registered but unadvertised;
+the three exec-approval methods (`system.run`, `system.run.prepare`,
+`system.execApprovals.get`, `system.execApprovals.set`) are advertised.
+Direct `nodes.invoke system.run` and `nodes.invoke system.run.prepare` are
+refused by the Gateway; both commands are only reachable through the
+OpenClaw exec tool with `host=node`, which prepares a canonical
+`systemRunPlan`, prompts an operator, and forwards the approved plan to the
+node. The generated ledger records advertisement and availability separately.
 
 Convention for the `ha.config.*` domain: **one command per HA config
 domain**, with an `action` parameter selecting the operation. This keeps
@@ -59,11 +64,14 @@ entries in `app/config.yaml`; configurable via `OPENCLAW_ALLOWED_ROOTS`
 in standalone mode). Path traversal and symlink escape are blocked by
 `safe_fd.py`.
 
-## `system.*` — shell (2 commands)
+## `system.*` — shell and exec approvals (5 commands)
 
 | Command        | Args                               | Notes                  |
 |----------------|-------------------------------------|------------------------|
-| `system.run`   | `cmd`, `cwd?`, `env?`, `timeout?`, `admin_token` | Gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must pass matching `admin_token` param |
+| `system.run`   | `command` (argv list), `cwd?`, `rawCommand?`, `env?`, `timeout?`, `agentId?`, `sessionKey?`, `proposalId?` | Executes an operator-approved plan. Reached only through the OpenClaw exec tool with `host=node` after `system.run.prepare` produces a canonical `systemRunPlan` and an operator approves. The Gateway rejects direct `nodes.invoke system.run` and rejects a forward whose `command`/`rawCommand`/`cwd`/`agentId`/`sessionKey` mutates between prepare and forward. The node re-runs the prepare-time validators, re-resolves `cwd` under the allowed roots (or the HA `/config` hierarchy in add-on mode), and rejects env keys matching `TOKEN`/`SECRET`/`KEY`/`PASS`/`CREDENTIAL`/`AUTH`/`PWD`. `proposalId` is audit metadata only, never authorization. There is no `admin_token`; `OPENCLAW_ADMIN_TOKEN` was inert and has been removed. |
+| `system.run.prepare` | `command` (argv list), `cwd?`, `rawCommand?`, `env?`, `agentId?`, `sessionKey?` | Prepares the canonical `systemRunPlan` an operator will see; executes nothing. See [Authorization model](../design/AUTHORIZATION-MODEL.md). |
+| `system.execApprovals.get` | — | Returns the node's persisted exec-approval snapshot (`path`, `exists`, `hash`, redacted `file`). |
+| `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
 ## `ha.*` — Home Assistant control (39 commands)

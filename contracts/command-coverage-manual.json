@@ -135,15 +135,50 @@
       "actions": {}
     },
     "system.run": {
-      "authorization_class": "unavailable_gateway_reserved",
-      "capability_conditions": "Unreachable through nodes.invoke because the Gateway reserves system.run; the dormant node handler also requires an admin token.",
-      "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "fail",
-      "evidence_note": "Installed Gateway refused the advertised command before node dispatch; tracked by #258.",
+      "authorization_class": "operator_approval",
+      "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. proposalId is audit metadata only, never authorization. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
+      "evidence_method": "TEST-PROVEN",
+      "outcome": "pass",
+      "acceptance_test_ids": [
+        {
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_ok",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_raw_command_mismatch_is_reported_as_command_failure",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_cwd_outside_allowed_roots_is_reported_as_command_failure",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        }
+      ],
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
+            "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan."
+          }
+        ],
+        "handler_dispatch": [
+          {
+            "method": "TEST-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/tests/test_system_run_gateway_contract.py",
+            "observation": "The GatewayClient._handle_invoke entry point executes a forwarded plan, rejects malformed forwards (missing command, rawCommand mismatch, cwd outside allowed roots), and rejects the legacy cmd/admin_token shape."
+          }
+        ]
+      },
+      "evidence_note": "Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.",
       "bounds": {
         "timeout": "validated positive number capped by the source-defined maximum"
       },
-      "assist_unavailable_reason": "Assist intentionally has no shell-execution wrapper; the Gateway also reserves this command.",
+      "assist_unavailable_reason": "Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.",
       "actions": {}
     },
     "system.which": {

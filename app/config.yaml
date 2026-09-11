@@ -66,10 +66,14 @@ map:
   # True and each handler returns `PROPOSAL_REQUIRED` before any disk
   # write/unlink/rename is attempted (see app/node/src/openclaw_node/
   # commands/fs_write.py, commands/fs_patch.py, commands/fs_move_delete.py).
-  # NOT gated: `system.run` (commands/system_run.py) is admin-token
-  # gated (OPENCLAW_ADMIN_TOKEN) and can write anywhere the mount
-  # allows, including /config. The admin token is the protection
-  # boundary there, NOT _is_protected. Don't broaden system.run's
+  # NOT gated by `_is_protected`: `system.run` (commands/system_run.py)
+  # can write anywhere the mount allows, including /config. The
+  # protection boundary there is OpenClaw's native exec-approval
+  # contract enforced by the Gateway, which forwards `system.run` only
+  # after an operator approves the canonical `systemRunPlan`; the node
+  # then re-validates the forwarded plan (argv, cwd within allowed
+  # roots, credential-shaped env keys rejected) before execution. See
+  # docs/design/AUTHORIZATION-MODEL.md. Don't broaden system.run's
   # capabilities without re-evaluating this trade-off.
   - type: config
     read_only: false
