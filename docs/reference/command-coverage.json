@@ -1893,7 +1893,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).",
+      "capability_conditions": "Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.",
       "command": "ha.addon_restart",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
@@ -1994,7 +1994,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).",
+      "capability_conditions": "Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.",
       "command": "ha.addon_start",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
@@ -2195,7 +2195,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).",
+      "capability_conditions": "Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.",
       "command": "ha.addon_stop",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",

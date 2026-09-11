@@ -755,7 +755,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_restart`
 - Canonical parameters: slug
 - Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).
+- Capability conditions: Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -792,7 +792,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_start`
 - Canonical parameters: slug
 - Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).
+- Capability conditions: Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -865,7 +865,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_stop`
 - Canonical parameters: slug
 - Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).
+- Capability conditions: Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`

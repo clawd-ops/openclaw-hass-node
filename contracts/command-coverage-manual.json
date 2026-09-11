@@ -254,9 +254,9 @@
     "ha.addon_stats": {"authorization_class": "read_only", "capability_conditions": "Supervisor API is reachable and the add-on slug exists.", "actions": {}},
     "ha.addon_changelog": {"authorization_class": "read_only", "capability_conditions": "Supervisor API is reachable and the add-on slug exists.", "actions": {}},
     "ha.addon_documentation": {"authorization_class": "read_only", "capability_conditions": "Supervisor API is reachable and the add-on slug exists.", "actions": {}},
-    "ha.addon_start": {"authorization_class": "addon_slug_policy_only", "capability_conditions": "Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).", "outcome": "partial", "actions": {}},
-    "ha.addon_stop": {"authorization_class": "addon_slug_policy_only", "capability_conditions": "Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).", "outcome": "partial", "actions": {}},
-    "ha.addon_restart": {"authorization_class": "addon_slug_policy_only", "capability_conditions": "Supervisor API is reachable and slug policy allows the target; documented admin-token claim contradicts node behavior (#262).", "outcome": "partial", "actions": {}},
+    "ha.addon_start": {"authorization_class": "addon_slug_policy_only", "capability_conditions": "Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.", "outcome": "partial", "actions": {}},
+    "ha.addon_stop": {"authorization_class": "addon_slug_policy_only", "capability_conditions": "Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.", "outcome": "partial", "actions": {}},
+    "ha.addon_restart": {"authorization_class": "addon_slug_policy_only", "capability_conditions": "Supervisor API is reachable, the caller crosses the paired operator boundary, and lifecycle slug policy allows the target; no separate lifecycle admin token is required.", "outcome": "partial", "actions": {}},
     "ha.addon_update": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260).",
