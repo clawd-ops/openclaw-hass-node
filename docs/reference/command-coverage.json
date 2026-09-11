@@ -1002,10 +1002,10 @@
               "source": "dispatcher + node connect frame"
             },
             {
-              "method": "PRODUCTION-LIVE",
-              "observation": "A bounded direct read returned the complete file instead of the requested slice.",
-              "outcome": "fail",
-              "source": "docs/VERIFICATION-2026-09-11.md#22-fsread-ignores-offset-and-length"
+              "method": "CODE-PROVEN",
+              "observation": "The originally reproduced defect (offset=1000000, length=1 against a 4486-byte file returning ok=true and the full file) now returns OFFSET_BEYOND_EOF.",
+              "outcome": "pass",
+              "source": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed"
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1056,11 +1056,39 @@
         },
         {
           "aliases": [],
+          "bounds": "positive integer when supplied (bool rejected); length > max_bytes fails with TOO_LARGE",
+          "defaults": [
+            "required-or-validated-before-access"
+          ],
+          "name": "length",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual normalized note",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
           "bounds": "validated integer from 1 through the source-defined hard maximum",
           "defaults": [
             "_DEFAULT_READ_MAX_BYTES"
           ],
           "name": "max_bytes",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual normalized note",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "non-negative integer (bool rejected); offset > file_size fails with OFFSET_BEYOND_EOF",
+          "defaults": [
+            "0"
+          ],
+          "name": "offset",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual normalized note",
@@ -1085,8 +1113,8 @@
       ],
       "capability_conditions": "Path resolves under a configured allowed root and read size policy permits the response.",
       "command": "fs.read",
-      "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Installed-node verification reproduced ignored offset/length and over-broad content disclosure; tracked by #257.",
+      "evidence_method": "CODE-PROVEN",
+      "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 21 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, and path containment; all proven to fail against the pre-fix handler and pass after.",
       "handler": "openclaw_node.commands.fs:handle_fs_read",
       "id": "fs.read",
       "metadata_provenance": {
@@ -1100,7 +1128,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",

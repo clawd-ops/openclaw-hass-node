@@ -184,7 +184,7 @@ completion claim has a row in the coverage ledger.
 - [ ] Generate or contract-test the TypeScript descriptors, wrapper mappings,
   gateway allowlist examples, and command reference against that source.
 - [ ] Fix all known contract drift:
-  - [ ] `fs.read` `offset`/`length` and `encoding`.
+  - [x] `fs.read` `offset`/`length` and `encoding` (#257, branch `fix/257-fs-read-offset-length`).
   - [ ] `system.which` `binary` versus `name`.
   - [ ] `ha.list_states` filter naming and result bounds.
   - [ ] `ha.history` and `ha.logbook` time/entity aliases.

@@ -50,18 +50,20 @@
       "authorization_class": "read_path_policy",
       "capability_conditions": "Path resolves under a configured allowed root and read size policy permits the response.",
       "bounds": {
-        "max_bytes": "validated integer from 1 through the source-defined hard maximum"
+        "max_bytes": "validated integer from 1 through the source-defined hard maximum",
+        "offset": "non-negative integer (bool rejected); offset > file_size fails with OFFSET_BEYOND_EOF",
+        "length": "positive integer when supplied (bool rejected); length > max_bytes fails with TOO_LARGE"
       },
-      "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "fail",
-      "evidence_note": "Installed-node verification reproduced ignored offset/length and over-broad content disclosure; tracked by #257.",
+      "evidence_method": "CODE-PROVEN",
+      "outcome": "pass",
+      "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 21 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, and path containment; all proven to fail against the pre-fix handler and pass after.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
-            "method": "PRODUCTION-LIVE",
-            "outcome": "fail",
-            "source": "docs/VERIFICATION-2026-09-11.md#22-fsread-ignores-offset-and-length",
-            "observation": "A bounded direct read returned the complete file instead of the requested slice."
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed",
+            "observation": "The originally reproduced defect (offset=1000000, length=1 against a 4486-byte file returning ok=true and the full file) now returns OFFSET_BEYOND_EOF."
           }
         ]
       },

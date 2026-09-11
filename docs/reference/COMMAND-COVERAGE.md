@@ -45,7 +45,7 @@ rows are intentionally retained. Regenerate after editing source or
 | `fs.list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
 | `fs.move` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
 | `fs.patch` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `fs.read` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`fail`** |
+| `fs.read` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`pass`** |
 | `fs.restore` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
 | `fs.stat` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
 | `fs.write` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
@@ -443,14 +443,14 @@ rows are intentionally retained. Regenerate after editing source or
 ### `fs.read`
 
 - Handler: `openclaw_node.commands.fs:handle_fs_read`
-- Canonical parameters: encoding, max_bytes, path
+- Canonical parameters: encoding, length, max_bytes, offset, path
 - Authorization: `read_path_policy`
 - Capability conditions: Path resolves under a configured allowed root and read size policy permits the response.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `PRODUCTION-LIVE`
-- **Outcome: `fail`**
-- Evidence note: Installed-node verification reproduced ignored offset/length and over-broad content disclosure; tracked by #257.
+- Evidence method: `CODE-PROVEN`
+- **Outcome: `pass`**
+- Evidence note: Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 21 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, and path containment; all proven to fail against the pre-fix handler and pass after.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -461,10 +461,20 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["'utf-8'"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `length`
+    - aliases: `[]`
+    - defaults: `["required-or-validated-before-access"]`
+    - bounds: positive integer when supplied (bool rejected); length > max_bytes fails with TOO_LARGE
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `max_bytes`
     - aliases: `[]`
     - defaults: `["_DEFAULT_READ_MAX_BYTES"]`
     - bounds: validated integer from 1 through the source-defined hard maximum
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `offset`
+    - aliases: `[]`
+    - defaults: `["0"]`
+    - bounds: non-negative integer (bool rejected); offset > file_size fails with OFFSET_BEYOND_EOF
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `path`
     - aliases: `[]`
@@ -474,7 +484,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: A bounded direct read returned the complete file instead of the requested slice. (source: `docs/VERIFICATION-2026-09-11.md#22-fsread-ignores-offset-and-length`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`pass`**: The originally reproduced defect (offset=1000000, length=1 against a 4486-byte file returning ok=true and the full file) now returns OFFSET_BEYOND_EOF. (source: `app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed`)
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no generic filesystem read wrapper. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
