@@ -149,7 +149,8 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   bypass open while the complete policy engine is built.
 - [ ] Publish a command/action/caller-path coverage ledger generated from the
   current source. Record parameters, aliases, limits, response schema, policy,
-  feature availability, and an acceptance-test ID for each row.
+  feature availability, and an acceptance-test ID for each row. Foundation work
+  is in progress under #268; strict runtime schemas remain later Phase 1 slices.
 - [ ] Record the exact app, plugin, HACS, Gateway, HA Core, Supervisor, and
   architecture versions used by each live verification.
 - [ ] Mark all currently unsafe, unreachable, or unverified operations as such in
