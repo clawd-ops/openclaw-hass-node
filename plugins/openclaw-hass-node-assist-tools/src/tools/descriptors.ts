@@ -53,9 +53,14 @@ export const HaCallServiceToolSchema = Type.Object({
       { description: "HA service target (entity_id / area_id / device_id)." },
     ),
   ),
-  service_data: Type.Optional(
+  data: Type.Optional(
     Type.Record(Type.String(), Type.Unknown(), {
       description: "HA service data payload, e.g. {brightness_pct: 50}.",
+    }),
+  ),
+  service_data: Type.Optional(
+    Type.Record(Type.String(), Type.Unknown(), {
+      description: "Compatibility alias for data. If both are supplied they must agree; conflicting values are rejected before calling HA.",
     }),
   ),
 });
@@ -64,7 +69,7 @@ export const HA_CALL_SERVICE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: call service",
   name: "ha_call_service",
   description:
-    "On the paired Home Assistant node: call a HA service (e.g. light.turn_on, switch.toggle). This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
+    "On the paired Home Assistant node: call a HA service (e.g. light.turn_on, switch.toggle). Pass service options in data; service_data remains a compatibility alias. Conflicting aliases are rejected. This tool reaches the hass node, not the OC host. Gateway command access and HA credentials apply; per-service effect approvals are not implemented yet.",
   parameters: HaCallServiceToolSchema,
 };
 

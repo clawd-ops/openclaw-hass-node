@@ -79,7 +79,7 @@ follow the base surface below.
 | `ha.list_config_entries`  | Config entries (REST `/api/config/config_entries/entry`) |
 | `ha.core_logs`            | `lines?` (1–5000, default 200); HA core logs via Supervisor |
 | `ha.calendar_get_events`  | `entity_id`, `start_date_time`, `end_date_time`; wraps `calendar.get_events?return_response` |
-| `ha.call_service`         | `domain`, `service`, `target?`, `data?` |
+| `ha.call_service`         | `domain`, `service`, `target?`, `data?`; `service_data?` compatibility alias (unreleased repair, see below) |
 | `ha.list_areas`           | Via WS API                             |
 | `ha.list_devices`         | Via WS API                             |
 | `ha.list_entity_registry` | Via WS API                             |
@@ -101,6 +101,41 @@ follow the base surface below.
 | `ha.addon_restart`        | `slug`, `admin_token`; same Tier B gate as `ha.addon_start` |
 | `ha.addon_update`         | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
 | `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
+
+## Service payload and result contract (unreleased, #266)
+
+Both direct `ha.call_service` and Assist `ha_call_service` use **`data`** as
+the canonical service payload object. Existing Assist callers may continue to
+send `service_data`; the wrapper normalizes it to `data`, and the node accepts
+the alias for older wrappers/direct callers. If both fields are present they
+must contain equal JSON values (object key order and signed zero are immaterial;
+booleans remain distinct from numbers), otherwise `INVALID_PARAM` is returned before
+any HA request. Explicit null, arrays, and scalar payloads are invalid; omit
+the field or send `{}` for no service data. Nested values and brightness options
+are preserved. `target` is flattened into HA's REST body as before and takes
+precedence over same-named fields in `data`. This repair does not introduce
+per-service authorization policy or additional light-control approvals.
+
+A service response that is not a changed-state list fails with `HA_BAD_RESPONSE`
+instead of claiming an empty successful change. This does not roll back an HA
+operation already sent; transport/response failures must not be retried blindly.
+
+The node's `node.invoke.result` envelope now sets `ok: false` for handler
+failures, retaining the handler payload and projecting its error code/message
+into `error: {code, message}`. The plugin rejects both these failures and older
+nodes' `ok: true` envelopes containing inner `ok: false`. Gateway SDK rejections
+with `details.nodeError` retain the node error, too. The shared `HaCommandError`
+reports `source: node` for node validation/refusal and `source: ha` for `HA_*`
+errors. Authoritative SDK `GatewayClientRequestError` (or its protocol base)
+rejections without `details.nodeError` use `source: gateway`, preserving the
+gateway error code/message, details, and supplied `retryable` / `retryAfterMs`
+metadata. Authorization, schema, and command-policy refusals are not transport
+failures. Local/socket failures use `source: transport` / `TRANSPORT_ERROR`;
+missing retryability is unknown, not permission to retry. A nested node error
+takes precedence over its gateway wrapper. Malformed results fail with
+`INVALID_RESULT`; successful legacy
+payloads such as `ping` need not contain `ok`. No success text is rendered for
+a rejected operation. These changes are source-only until this PR is released.
 
 ## HA config mutation availability
 

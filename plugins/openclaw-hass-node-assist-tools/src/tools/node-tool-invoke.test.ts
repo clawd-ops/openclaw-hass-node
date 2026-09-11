@@ -27,6 +27,79 @@ afterEach(() => {
 });
 
 describe("invokeHaCommand", () => {
+  it.each([
+    ["UNAUTHORIZED", "Operator scope required", false],
+    ["INVALID_REQUEST", "Invalid node.invoke params", false],
+    ["FORBIDDEN", "Command denied by gateway policy", false],
+    ["UNAVAILABLE", "Gateway admission temporarily unavailable", true],
+  ] as const)("preserves authoritative gateway rejection %s", async (code, message, retryable) => {
+    const details = { reason: "fixture-gateway-decision" };
+    callGatewayToolMock.mockRejectedValue(Object.assign(new Error(message), {
+      name: "GatewayClientRequestError", code, gatewayCode: code,
+      details, retryable, retryAfterMs: retryable ? 1500 : undefined,
+    }));
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({
+        source: "gateway", code, message: `gateway:${code}: ${message}`,
+        details, retryable, retryAfterMs: retryable ? 1500 : undefined,
+      });
+  });
+
+  it("supports the SDK code alias when gatewayCode is absent", async () => {
+    callGatewayToolMock.mockRejectedValue(Object.assign(new Error("Bad request"), {
+      name: "GatewayClientRequestError", code: "INVALID_REQUEST", retryable: false,
+    }));
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ source: "gateway", code: "INVALID_REQUEST", retryable: false });
+  });
+
+  it.each(["PROPOSAL_REQUIRED", "HA_NETWORK"])("preserves inner %s over the SDK gateway classification", async (code) => {
+    callGatewayToolMock.mockRejectedValue(Object.assign(new Error("Gateway wrapped node refusal"), {
+      name: "GatewayClientRequestError", code: "UNAVAILABLE", gatewayCode: "UNAVAILABLE",
+      retryable: false, details: { nodeError: { code, message: "Original operation failure" } },
+    }));
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ source: code.startsWith("HA_") ? "ha" : "node", code, message: expect.stringContaining("Original operation failure") });
+  });
+
+  it.each([
+    Object.assign(new Error("Connection reset"), { code: "ECONNRESET" }),
+    Object.assign(new Error("Local timeout"), { name: "GatewayProtocolRequestTimeoutError", code: "CLIENT_TIMEOUT" }),
+    new Error("Local failure"),
+  ])("keeps local/socket failures in the transport category: %s", async (error) => {
+    callGatewayToolMock.mockRejectedValue(error);
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ source: "transport", code: "TRANSPORT_ERROR", message: expect.stringContaining(error.message), retryable: undefined });
+  });
+
+  it.each([
+    { ok: true, payload: { ok: false, error: "PROPOSAL_REQUIRED", message: "Approval missing" } },
+    { ok: false, error: { code: "PROPOSAL_REQUIRED", message: "Approval missing" } },
+    { ok: false, error: "PROPOSAL_REQUIRED", message: "Approval missing" },
+  ])("rejects semantic refusal in every supported envelope: %j", async (response) => {
+    callGatewayToolMock.mockResolvedValue(response);
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ code: "PROPOSAL_REQUIRED", source: "node", message: expect.stringContaining("Approval missing") });
+  });
+
+  it.each([undefined, null, [], { ok: true, payload: null }, { ok: true, payload: "bad" }, { ok: true, payload: { ok: "false" } }])("rejects malformed results: %j", async (response) => {
+    callGatewayToolMock.mockResolvedValue(response);
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ code: "INVALID_RESULT", source: "node" });
+  });
+
+  it("accepts the legacy ping payload without an ok field", async () => {
+    callGatewayToolMock.mockResolvedValue({ pong: true });
+    const { invokeHaCommand } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "ping", commandParams: {}, gatewayOpts: {} })).resolves.toEqual({ pong: true });
+  });
+
   it("includes idempotencyKey in the node.invoke call", async () => {
     callGatewayToolMock.mockResolvedValue({ payload: { state: "on" } });
 

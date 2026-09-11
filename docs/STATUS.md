@@ -25,6 +25,18 @@ Older release and non-config claims below still await the wider reconciliation.
 
 ## Where we are
 
+**Additional unreleased source repair (#266):** generic service calls normalize
+`service_data` to canonical `data` without dropping payloads and reject alias
+conflicts before HA I/O. Inner handler failures now fail the gateway invoke;
+all Assist tools share an error guard that also handles older node envelopes
+and SDK `details.nodeError` rejections. Other authoritative gateway rejections
+retain their code and retryability separately from local/socket failures.
+The cross-language regression suite runs
+the real TypeScript wrapper through Python transport/dispatch with mocked HA
+I/O and checks the exact nested response rendered by the tool. This is not
+deployed and does not implement per-service approval policy.
+See [the command contract](reference/COMMAND-SURFACE.md#service-payload-and-result-contract-unreleased-266).
+
 Currently on **2026.6.20b7** in the shipped release; `main` is
 `Unreleased → 2026.6.20b8` carrying the merged identity-routing hardening
 (PR #167) and this docs-reconciliation pass. The node ships:

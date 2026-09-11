@@ -108,10 +108,12 @@ older issue list.
 - Protected `fs.*` refuses correctly, but no accepted-proposal path exists.
 - `ha.call_service` has no node-enforced per-service policy and can reach effects
   that dedicated admin commands try to gate.
-- The Assist wrapper forwards `service_data`; the node reads `data`, so service
-  options can disappear silently.
-- The transport can mark a returned `{ok: false}` handler payload as outer
-  `ok: true`, and plugin tools can render it as success.
+- Baseline finding: Assist `service_data` was lost at the node's `data` input.
+  Unreleased #266 normalizes to `data`, accepts the old alias explicitly, and
+  rejects conflicts before HA I/O. Independent review/release remain pending.
+- Baseline finding: inner handler failures were wrapped as outer `ok: true`.
+  Unreleased #266 projects failure at the node boundary and rejects legacy
+  inner failures in the plugin, including SDK `details.nodeError` rejections.
 - Dispatcher parameters are not schema-validated. Misspellings and stale names
   silently fall back to unbounded reads or default actions.
 - Registered commands and advertised commands are separate manual lists.
@@ -176,12 +178,20 @@ completion claim has a row in the coverage ledger.
   - [ ] `ha.history` and `ha.logbook` time/entity aliases.
   - [ ] `ha.list_automations` filtering before trace expansion.
   - [ ] `ha.reload_config` domain semantics.
-  - [ ] `ha.call_service` `service_data` versus `data`.
+  - [ ] `ha.call_service` `service_data` versus `data`. Implemented in unreleased
+    #266 / PR #267; independent review and CI acceptance pending.
   - [ ] URL/path/query percent-encoding.
 - [ ] Propagate handler errors through the transport and plugin. Success text is
-  emitted only after the inner operation succeeds.
+  emitted only after the inner operation succeeds. Implemented in unreleased
+  #266 / PR #267, pending independent review and CI acceptance. Node refusals,
+  HA failures, gateway authorization/schema/policy rejections, transport errors,
+  and malformed results are distinguished; gateway retryability is preserved.
 - [ ] Add cross-language tests that execute real TypeScript wrapper output
   through the Python dispatcher against a controlled HA/Supervisor stub.
+  First fixture implemented in #266 for service payloads, refusals, HA failures,
+  and legacy envelopes. It runs actual wrapper output and Python gateway
+  result frames and asserts the exact nested changed-state payload in the
+  returned tool text; broader command-family coverage is still open.
 
 **Exit:** every supported request has deterministic parameters and result
 semantics on both direct and Assist paths; unknown input cannot broaden scope.
