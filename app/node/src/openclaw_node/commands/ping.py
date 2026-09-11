@@ -22,9 +22,9 @@ def handle_ping(params: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         A dict with keys:
+
         - ``pong`` (bool): Always ``True``.
-        - ``message`` (str): The echoed *message* from *params*, or an empty
-          string if none was provided.
+        - ``message`` (str): Echoed *message* from *params*, else empty string.
         - ``ts`` (int): Current Unix time in milliseconds.
 
     Example:

@@ -9,6 +9,9 @@ dist/
 venv/
 .uv/
 
+# MkDocs build output (never commit generated site)
+site/
+
 # Tooling caches
 .pytest_cache/
 .mypy_cache/

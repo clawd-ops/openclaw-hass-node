@@ -26,13 +26,13 @@ def async_set_agent(
 ) -> None: ...
 ```
 
-This requires (a) a live `HomeAssistant` object, (b) a `ConfigEntry` produced by an HA config flow, and (c) an `AbstractConversationAgent` subclass — all of which only exist inside the HA Python process. There is no equivalent of `async_set_agent` exposed over the wire. [1][2][6]
+This requires (a) a live `HomeAssistant` object, (b) a `ConfigEntry` produced by an HA config flow, and (c) an `AbstractConversationAgent` subclass — all of which only exist inside the HA Python process. There is no equivalent of `async_set_agent` exposed over the wire. [1,2,6]
 
 `ConversationEntity` is the preferred modern form; the entity is added through a normal `async_add_entities` call from an integration's `__init__.py` / `conversation.py`. Same in-process requirement. [2]
 
 ### 2. The WS and REST APIs are input-only, not registration
 
-The `conversation` integration exposes `conversation/process` (WS) and `POST /api/conversation/process` (REST) for *sending* a turn to an already-registered agent. There is no `conversation/register`, `conversation/agent/create`, or equivalent command. The WS surface is documented as: process a sentence, list agents, list sentences/intents — none let an external process declare itself as a new agent. [3][7]
+The `conversation` integration exposes `conversation/process` (WS) and `POST /api/conversation/process` (REST) for *sending* a turn to an already-registered agent. There is no `conversation/register`, `conversation/agent/create`, or equivalent command. The WS surface is documented as: process a sentence, list agents, list sentences/intents — none let an external process declare itself as a new agent. [3,7]
 
 The `agent_id` parameter on `conversation/process` selects an *existing* agent (by entity_id or legacy engine id); it cannot conjure one. [3]
 
@@ -42,11 +42,11 @@ The `agent_id` parameter on `conversation/process` selects an *existing* agent (
 
 ### 4. `assist_pipeline` selects agents by entity_id; it cannot mint new engines
 
-Pipelines reference a `conversation_engine` that must already resolve to a registered `ConversationEntity` (or legacy agent keyed by config_entry.entry_id). The pipeline integration does not provide a registration hook. The list comes from `agent_manager` populated by `async_set_agent` / entity platform. [1][2]
+Pipelines reference a `conversation_engine` that must already resolve to a registered `ConversationEntity` (or legacy agent keyed by config_entry.entry_id). The pipeline integration does not provide a registration hook. The list comes from `agent_manager` populated by `async_set_agent` / entity platform. [1,2]
 
 ### 5. 100 % of precedent ships as `custom_components/`
 
-Every conversation-agent project surveyed — `openai_conversation` and `anthropic` (core), `ollama` (core), `extended_openai_conversation`, `hasscc/ai-conversation`, `grok_conversation`, `home-llm`, `home-generative-agent`, `custom-conversation`, `hass_llm_assist` — installs as a Python integration into `custom_components/`. No project ships as add-on (app)-only. The "external conversation agent" community thread explicitly resolves to a custom_component integration. [5][8][9]
+Every conversation-agent project surveyed — `openai_conversation` and `anthropic` (core), `ollama` (core), `extended_openai_conversation`, `hasscc/ai-conversation`, `grok_conversation`, `home-llm`, `home-generative-agent`, `custom-conversation`, `hass_llm_assist` — installs as a Python integration into `custom_components/`. No project ships as add-on (app)-only. The "external conversation agent" community thread explicitly resolves to a custom_component integration. [5,8,9]
 
 ### 6. The 2025–2026 `llm` helper / `AssistAPI` does not change this
 

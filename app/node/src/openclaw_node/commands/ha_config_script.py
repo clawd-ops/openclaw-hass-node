@@ -139,7 +139,13 @@ async def handle_ha_config_script(params: dict[str, Any]) -> dict[str, Any]:
             (Enumeration: read ``script.*`` entities from state via
             ``ha.list_states``; HA does not expose a collection-level
             script config route.)
-        (per-action params — see the module docstring and per-action helpers.)
+        id (str): Required for ``get``, ``save``, and ``delete``; the
+            lowercase Home Assistant script slug.
+        config (dict): Required for ``save``; the complete script
+            configuration submitted to Home Assistant.
+        proposal_id (str): Audit metadata for ``save`` and ``delete``.
+            It never grants authorization, and mutations currently fail
+            closed before this value is consumed.
 
     Returns:
         The action's result dict, or an error dict when action is
