@@ -137,9 +137,13 @@ async def handle_ha_config_automation(params: dict[str, Any]) -> dict[str, Any]:
         action (str): Required; one of ``get``, ``save``, ``delete``.
             (Enumeration: use the existing ``ha.list_automations`` command;
             HA does not expose a collection-level automation config route.)
-
-    Action-specific parameters are documented in the module docstring and
-    in each per-action helper.
+        id (str): Required for ``get``, ``save``, and ``delete``; the
+            lowercase Home Assistant automation slug.
+        config (dict): Required for ``save``; the complete automation
+            configuration submitted to Home Assistant.
+        proposal_id (str): Audit metadata for ``save`` and ``delete``.
+            It never grants authorization, and mutations currently fail
+            closed before this value is consumed.
 
     Returns:
         The action's result dict, or an error dict when action is

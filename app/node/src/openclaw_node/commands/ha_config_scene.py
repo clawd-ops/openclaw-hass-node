@@ -138,9 +138,13 @@ async def handle_ha_config_scene(params: dict[str, Any]) -> dict[str, Any]:
             (Enumeration: read ``scene.*`` entities from state via
             ``ha.list_states``; HA does not expose a collection-level
             scene config route.)
-
-    Action-specific parameters are documented in the module docstring and
-    in each per-action helper.
+        id (str): Required for ``get``, ``save``, and ``delete``; the
+            lowercase Home Assistant scene slug.
+        config (dict): Required for ``save``; the complete scene
+            configuration submitted to Home Assistant.
+        proposal_id (str): Audit metadata for ``save`` and ``delete``.
+            It never grants authorization, and mutations currently fail
+            closed before this value is consumed.
 
     Returns:
         The action's result dict, or an error dict when action is

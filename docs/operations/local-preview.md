@@ -13,6 +13,14 @@ pip install -r docs-requirements.txt
 This installs MkDocs, Material for MkDocs, and mkdocstrings (Python handler)
 as pinned in `docs-requirements.txt`.
 
+The site is pinned to MkDocs 1.x because MkDocs 2.x removes the plugin APIs
+required by Material and mkdocstrings. Set the theme's documented advisory
+suppression for local commands after installing the pinned dependencies:
+
+```bash
+export NO_MKDOCS_2_WARNING=1
+```
+
 ## Run the local preview server
 
 ```bash

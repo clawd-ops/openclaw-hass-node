@@ -163,9 +163,16 @@ async def handle_ha_config_lovelace(params: dict[str, Any]) -> dict[str, Any]:
     Params:
         action (str): Required; one of ``get``, ``save``, ``dashboards_list``,
             ``resources_list``, ``resources_create``.
-
-    Action-specific parameters are documented in the module docstring and
-    in each per-action helper.
+        url_path (str | None): Optional dashboard path for ``get`` and
+            ``save``. Omit it for the default dashboard.
+        config (dict): Required for ``save``; the complete Lovelace
+            configuration submitted to Home Assistant.
+        url (str): Required for ``resources_create``; the resource URL.
+        res_type (str): Required for ``resources_create``; one of
+            ``module``, ``css``, ``js``, or ``html``.
+        proposal_id (str): Audit metadata for ``save`` and
+            ``resources_create``. It never grants authorization, and
+            mutations currently fail closed before this value is consumed.
 
     Returns:
         The action's result dict, or an error dict when action is
