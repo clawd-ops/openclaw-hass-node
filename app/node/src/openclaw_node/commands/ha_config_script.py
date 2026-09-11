@@ -8,11 +8,15 @@ API via :func:`openclaw_node.ha_client.ha_get`, :func:`ha_post`, and
 Single command with an ``action`` param. Supported actions:
 
 - ``get`` — read one script by id.
-- ``save`` — write one script (proposal-gated).
-- ``delete`` — delete one script (proposal-gated).
+- ``save`` — write one script (blocked pending trusted approval verification).
+- ``delete`` — delete one script (blocked pending trusted approval verification).
 
 HA core does not expose a collection route for script configs; enumerate
 via state (``script.*`` entities from ``ha.list_states``).
+
+Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
+``proposal_id`` can authorize a mutation. The retained API adapters are dormant
+until a trusted approval verifier and human approval round-trip are implemented.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ import logging
 import re
 from typing import Any, Final
 
+from openclaw_node.commands.config_mutation import require_config_mutation_approval
 from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -34,29 +39,6 @@ def _error(code: str, message: str) -> dict[str, Any]:
 
 def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
-
-
-def _require_proposal(params: dict[str, Any], action: str) -> dict[str, Any] | None:
-    """Enforce proposal gating on mutating script actions.
-
-    Mirrors ``ha.config.automation``: mutating calls must carry an explicit
-    ``proposal_id`` naming the agent-bridge proposal that authorised the
-    change. ``"direct"`` is refused so operator-facing audits can always
-    trace the mutation back to a review record.
-    """
-    label = f"ha.config.script action={action}"
-    raw = params.get("proposal_id")
-    if not isinstance(raw, str):
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    proposal_id = raw.strip()
-    if not proposal_id:
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    if proposal_id == "direct":
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"{label}: proposal_id='direct' is not accepted for HA-native mutations",
-        )
-    return None
 
 
 _ID_RE: Final = re.compile(r"^[a-z0-9_]+$")
@@ -102,7 +84,7 @@ async def _action_get(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "save")
+    denied = require_config_mutation_approval("ha.config.script", "save")
     if denied is not None:
         return denied
 
@@ -128,7 +110,7 @@ async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "delete")
+    denied = require_config_mutation_approval("ha.config.script", "delete")
     if denied is not None:
         return denied
 

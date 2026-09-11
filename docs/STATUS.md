@@ -10,6 +10,19 @@
 > `docs/design/PLAN.md` and `STATUS.md` disagree, fix whichever is wrong before
 > continuing.
 
+## Phase 0 containment (unreleased source change)
+
+All 19 mutating actions across the nine `ha.config.*` commands now deny
+unverified proposal identifiers before any HA request. The shared boundary has
+no caller-controlled override. Read-only config actions and light control are
+unchanged. API-adapter tests explicitly stub the boundary to retain dormant
+adapter coverage; the independent boundary suite uses real authorization code
+and asserts zero HA requests through both handlers and dispatcher.
+
+This is containment only, not a working approval flow or a deployed fix.
+See [the completion roadmap](COMPLETION-ROADMAP.md) for the remaining work.
+Older release and non-config claims below still await the wider reconciliation.
+
 ## Where we are
 
 Currently on **2026.6.20b7** in the shipped release; `main` is
@@ -40,7 +53,9 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     `ha.config.*` domain-config editors: `lovelace`, `automation`,
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
-    proposal-gated.
+    fail-closed in this source revision: every mutation returns
+    `PROPOSAL_REQUIRED` without an HA request. A caller-supplied proposal ID
+    cannot authorize it; the trusted verifier and human round-trip are absent.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
   - `system.*` (2): `system.run` (admin-token-gated), `system.which`
@@ -71,7 +86,9 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
 
 Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
 
-- **Writes are `PROPOSAL_REQUIRED`** today; the agent-bridge UI round-trip is not wired. See TODO item #20.
+- **Protected filesystem and all native config mutations are unavailable** with
+  `PROPOSAL_REQUIRED` in this source revision; the trusted approval verifier and
+  agent-bridge UI round-trip are not wired. See TODO item #20.
 - **HACS brand icon** is the default; upstream PR pending. TODO #21.
 - **GHCR per-arch image / HACS index entry** not published yet; Supervisor builds locally on-device. TODO #22.
 - **Legacy Home Assistant MCP cutover is complete and permanently closed.** It
@@ -109,9 +126,10 @@ None. The pipeline is live; remaining work is incremental.
 - 2026-06-05 — HA-native APIs are the default for HA-managed config;
   `fs.patch` is reserved for yaml-only / custom files / blueprints.
   (Rob, issue #1 round 2)
-- 2026-06-05 — `.storage/` is read-only to the node. Writes refused
-  at the dispatcher unless `unsafe_storage=true` + accepted proposal.
-  HARD rule. (Rob, issue #1 round 2)
+- 2026-06-05 — `.storage/` is read-only to the node. The implemented
+  command layer refuses writes unconditionally; no caller parameter or
+  proposal overrides it. HARD rule. (Rob, issue #1 round 2; reconciled to
+  implementation 2026-09-11)
 - 2026-06-05 — Every HA config proposal must verify against the
   running version's breaking changes and include a functional fix
   when impacted. Cross-validated by Codex reviewer. (Rob, issue #1

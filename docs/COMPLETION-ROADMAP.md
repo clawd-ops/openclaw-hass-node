@@ -101,8 +101,10 @@ implementation:
 These are the current highest-priority facts. They must not be hidden among the
 older issue list.
 
-- `ha.config.*` accepts any nonempty `proposal_id` other than `"direct"` and then
-  mutates HA. It does not verify an approval.
+- Baseline finding: `ha.config.*` accepted nonempty caller-supplied proposal IDs
+  without verification. The Phase 0 source repair now fails closed for all 19
+  mutations, with zero-HA-request regression coverage. It is not deployed, and
+  the trusted verifier / human approval flow remains open.
 - Protected `fs.*` refuses correctly, but no accepted-proposal path exists.
 - `ha.call_service` has no node-enforced per-service policy and can reach effects
   that dedicated admin commands try to gate.
@@ -126,8 +128,19 @@ older issue list.
 
 ### Phase 0: Contain unsafe behavior and establish the ledger
 
-- [ ] Make every mutating `ha.config.*` action fail closed until a real approval
-  verifier is available. Arbitrary proposal strings must never authorize a call.
+**Execution status:** IN PROGRESS. The first bounded repair makes mutating
+`ha.config.*` commands fail closed against fabricated or unverified proposal
+identifiers. The complete approval verifier remains a later Phase 2 deliverable.
+
+- [x] Implement source containment: every mutating `ha.config.*` action fails
+  closed until a real approval verifier is available. Arbitrary proposal
+  strings and spoofed approval flags cannot authorize an HA request.
+  Evidence: `app/node/tests/test_ha_config_mutation_boundary.py`, covering all
+  19 actions through direct handlers and the dispatcher, plus every helper
+  namespace. Existing API adapters are preserved behind the shared boundary;
+  their isolated unit tests explicitly stub it and are not authorization proof.
+- [ ] Complete independent review, PR checks and operator-approved deployment
+  of the config containment repair. The real approval bridge remains Phase 2.
 - [ ] Add an interim node-side effect denylist for generic services that can
   bypass dedicated lifecycle, update, reload, host, shell, or shutdown gates.
   Preserve principal-authorized `light.turn_on`; do not leave the generic P0

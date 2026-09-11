@@ -7,10 +7,14 @@ never touches ``/config/.storage/`` directly for lovelace state.
 Single command with an ``action`` param. Supported actions:
 
 - ``get`` — read a dashboard config (default or named).
-- ``save`` — write a dashboard config (proposal-gated).
+- ``save`` — write a dashboard config (blocked pending trusted approval verification).
 - ``dashboards_list`` — list configured dashboards.
 - ``resources_list`` — list registered resources.
-- ``resources_create`` — register a new resource (proposal-gated).
+- ``resources_create`` — register a new resource (blocked pending trusted approval verification).
+
+Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
+``proposal_id`` can authorize a mutation. The retained API adapters are dormant
+until a trusted approval verifier and human approval round-trip are implemented.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
+from openclaw_node.commands.config_mutation import require_config_mutation_approval
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -36,29 +41,6 @@ def _error(code: str, message: str) -> dict[str, Any]:
 
 def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
-
-
-def _require_proposal(params: dict[str, Any], action: str) -> dict[str, Any] | None:
-    """Enforce proposal gating on mutating lovelace actions.
-
-    Mirrors the fs.write / fs.patch convention: mutating calls must carry an
-    explicit ``proposal_id`` naming the agent-bridge proposal that authorised
-    the change. ``"direct"`` is refused so operator-facing audits can always
-    trace the mutation back to a review record.
-    """
-    label = f"ha.config.lovelace action={action}"
-    raw = params.get("proposal_id")
-    if not isinstance(raw, str):
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    proposal_id = raw.strip()
-    if not proposal_id:
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    if proposal_id == "direct":
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"{label}: proposal_id='direct' is not accepted for HA-native mutations",
-        )
-    return None
 
 
 def _optional_url_path(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
@@ -94,7 +76,7 @@ async def _action_get(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "save")
+    denied = require_config_mutation_approval("ha.config.lovelace", "save")
     if denied is not None:
         return denied
 
@@ -144,7 +126,7 @@ async def _action_resources_list(_params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_resources_create(params: dict[str, Any]) -> dict[str, Any]:
-    denied = _require_proposal(params, "resources_create")
+    denied = require_config_mutation_approval("ha.config.lovelace", "resources_create")
     if denied is not None:
         return denied
 

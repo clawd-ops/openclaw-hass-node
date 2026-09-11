@@ -143,10 +143,9 @@ Full design (storage layout, retention, edge cases):
   yaml the user has placed there.
 - **`.storage/` is read-only to the node.** Reads allowed for
   diagnostics. Writes are refused at the command layer with a clear
-  error, even if a proposal tries to target it. The only way to write
-  `.storage/` is an explicit `--unsafe-storage` flag on the call *plus*
-  a proposal that the user accepts. This is a HARD rule baked into the
-  command dispatcher, not a guideline.
+  error, even if a proposal tries to target it. No caller parameter or
+  accepted proposal overrides this rule. This is a HARD rule baked into
+  the command layer, not a guideline.
 - Blueprints always live in `/config/blueprints/`; blueprint edits go
   through proposal-gated `fs.patch` since there's no REST API for
   them.
@@ -265,6 +264,14 @@ for work are unpinned — picked per task by whichever cheaper model
 fits. The node carries no model knowledge.
 
 ## Mutation control (agent-bridge gated)
+
+**HA-native config containment (unreleased):** all mutating `ha.config.*`
+actions now return `PROPOSAL_REQUIRED` before any HA request, including when a
+caller supplies a nonempty proposal identifier or claims approval. The shared
+boundary has no caller-controlled bypass. Existing native API adapters are
+retained but dormant until a trusted, operation-bound verifier and human
+approval round-trip are implemented. Config reads and light control are
+unchanged. This is not completion of the target mutation flow below.
 
 > **Status: partially shipped.** Today the write handlers
 > (`fs_write.py`, `fs_patch.py`, `fs_move_delete.py`) return

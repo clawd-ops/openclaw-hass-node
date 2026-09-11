@@ -11,10 +11,12 @@ Options flows are exposed as HTTP flow views under
 websocket command; a websocket-only options flow is not supported by
 this handler yet.
 
-Callers should cite a ``docs.lookup`` for the integration before
-mutating (soft convention documented in COMMAND-SURFACE.md — the
-handler does not hard-enforce a docs-lookup token, but every mutation
-is proposal-gated).
+Before re-enabling mutations, version-matched documentation checks and trusted
+approval verification must be implemented.
+
+Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
+``proposal_id`` can authorize a mutation. The retained API adapters are dormant
+until a trusted approval verifier and human approval round-trip are implemented.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
+from openclaw_node.commands.config_mutation import require_config_mutation_approval
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -36,22 +39,6 @@ def _error(code: str, message: str) -> dict[str, Any]:
 
 def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
-
-
-def _require_proposal(params: dict[str, Any], action: str) -> dict[str, Any] | None:
-    label = f"ha.config.config_entries action={action}"
-    raw = params.get("proposal_id")
-    if not isinstance(raw, str):
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    proposal_id = raw.strip()
-    if not proposal_id:
-        return _error("PROPOSAL_REQUIRED", f"{label}: proposal_id is required")
-    if proposal_id == "direct":
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"{label}: proposal_id='direct' is not a valid proposal",
-        )
-    return None
 
 
 def _require_entry_id(params: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
@@ -76,6 +63,11 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
 
+    if action in _MUTATING_ACTIONS:
+        denied = require_config_mutation_approval("ha.config.config_entries", action)
+        if denied is not None:
+            return denied
+
     entry_id, err = _require_entry_id(params)
     if err is not None:
         return err
@@ -89,9 +81,6 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
             return _error("HA_BAD_RESPONSE", "Expected dict from config_entries/get_single")
         return {"ok": True, "entry_id": entry_id, "entry": result}
 
-    denied = _require_proposal(params, action)
-    if denied is not None:
-        return denied
     proposal_id = str(params["proposal_id"]).strip()
 
     # HA registers only config_entries/disable; enable is the same frame with

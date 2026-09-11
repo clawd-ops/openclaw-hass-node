@@ -3,9 +3,9 @@
 > **Rule zero (HARD)**: HA-managed config is edited through HA-native
 > APIs, not the filesystem. `fs.patch` is reserved for files HA has no
 > API for. `.storage/` is read-only to the node — writes are refused
-> at the dispatcher unless the call carries an explicit
-> `--unsafe-storage` flag AND the user accepts the proposal. This is
-> not a guideline; it is enforced in the command layer.
+> unconditionally by the command layer. There is no caller parameter or
+> accepted-proposal escape hatch. This is enforced in code, not just policy
+> text.
 
 ## Registered commands (naming convention)
 
@@ -15,12 +15,15 @@ domain**, with an `action` param selecting the operation
 `ha.config.<domain>.<verb>`). This keeps the dispatcher, gateway
 allowlist, and connect-surface advertisement compact as the nine registered
 domains land. Missing / unknown `action` returns `INVALID_PARAM`.
-Mutating actions remain proposal-gated inside the handler.
+**Interim source behavior:** mutating actions unconditionally return
+`PROPOSAL_REQUIRED` before contacting HA. A caller-supplied `proposal_id`
+is never authorization. The trusted verifier and human approval round-trip
+remain unimplemented; no caller flag or token enables these mutations.
 
-Each `ha.config.<domain>` command goes straight to HA's REST/WS config
-endpoint for that domain, regardless of whether the user's current setup
-stores it in YAML or `.storage/`. The node does **not** choose between
-yaml and storage edits — it asks HA.
+Read-only actions call HA's REST/WS config endpoints. The per-domain mutation
+routes below describe retained, dormant adapters for the future approved path,
+not available mutations. Once trusted approval is implemented, HA-native APIs
+remain the intended route regardless of YAML or `.storage/` backing.
 
 ## Decision: fs.patch vs ha.config.*
 
@@ -59,10 +62,10 @@ Target shape: `ha.config.automation` with `action` in
   `EditAutomationConfigView`).
 - `action=get` → `GET /api/config/automation/config/<id>`
 - `action=save` → `POST /api/config/automation/config/<id>`
-  (proposal-gated)
+  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
 - `action=delete` → `DELETE /api/config/automation/config/<id>`
-  (proposal-gated)
-- After mutation: `ha.call_service automation reload`
+  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+- Future approved path, after mutation: `ha.call_service automation reload`
 - **id validation**: the handler enforces `^[a-z0-9_]+$` (HA `cv.slug`)
   on `id` before building the REST path. Hyphens, dots, uppercase, path
   separators, query characters, and whitespace are all rejected with
@@ -80,10 +83,10 @@ Target shape: `ha.config.script` with `action` in
   exists via HA's shared `EditScriptConfigView`).
 - `action=get` → `GET /api/config/script/config/<id>`
 - `action=save` → `POST /api/config/script/config/<id>`
-  (proposal-gated)
+  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
 - `action=delete` → `DELETE /api/config/script/config/<id>`
-  (proposal-gated)
-- After mutation: `ha.call_service script reload`
+  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+- Future approved path, after mutation: `ha.call_service script reload`
 - **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
 ## Scenes (HA-native)
@@ -96,9 +99,9 @@ Target shape: `ha.config.scene` with `action` in
   config route (only the per-id form via HA's shared
   `EditSceneConfigView`).
 - `action=get` → `GET /api/config/scene/config/<id>`
-- `action=save` → `POST /api/config/scene/config/<id>` (proposal-gated)
-- `action=delete` → `DELETE /api/config/scene/config/<id>` (proposal-gated)
-- After mutation: `ha.call_service scene reload`
+- `action=save` → `POST /api/config/scene/config/<id>` (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+- `action=delete` → `DELETE /api/config/scene/config/<id>` (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+- Future approved path, after mutation: `ha.call_service scene reload`
 - **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
 ## Dashboards / Lovelace (HA-native WS)
@@ -111,13 +114,11 @@ Registered as a single command; see
 
 - `get` — WS `lovelace/config` with an optional `url_path` payload
   field (omit for the default dashboard).
-- `save` — WS `lovelace/config/save`. **Proposal-gated**: caller must
-  pass a non-empty `proposal_id` naming an agent-bridge proposal.
-  `proposal_id="direct"` is refused so every mutation is traceable to a
-  review record.
+- `save` — WS `lovelace/config/save`. **Unavailable**: returns `PROPOSAL_REQUIRED` without an HA request;
+  `proposal_id` is audit metadata, not proof of approval.
 - `dashboards_list` — WS `lovelace/dashboards/list`.
 - `resources_list` — WS `lovelace/resources`.
-- `resources_create` — WS `lovelace/resources/create`, proposal-gated
+- `resources_create` — WS `lovelace/resources/create`, unavailable pending trusted approval
   (same rules as `save`). `res_type` must be one of `module`, `css`,
   `js`, `html`.
 
@@ -139,7 +140,7 @@ param (`input_boolean`, `input_text`, `input_number`, `input_select`,
 
 - `list` → WS `<helper_type>/list`
 - `create` / `update` / `delete` → WS
-  `<helper_type>/{create,update,delete}`, proposal-gated
+  `<helper_type>/{create,update,delete}`, unavailable pending trusted approval
 - HA's storage-collection surface has no `<helper_type>/get` frame;
   single-item lookup goes through state and the entity registry
 - update/delete require the item key `<helper_type>_id` (e.g.
@@ -151,7 +152,7 @@ Registered as one command per registry. See `COMMAND-SURFACE.md` for
 per-action args.
 
 - `ha.config.area_registry` → `config/area_registry/{list,create,update,delete}`
-  (mutations proposal-gated)
+  (mutations unavailable: `PROPOSAL_REQUIRED`)
 - `ha.config.device_registry` → `config/device_registry/{list,update}`
   (HA does not expose create/delete — devices are integration-populated)
 - `ha.config.entity_registry` → `config/entity_registry/{list,get,update,remove}`
@@ -160,16 +161,14 @@ per-action args.
 
 Registered as `ha.config.config_entries` with `action` in
 {`get`, `disable`, `enable`}. See `COMMAND-SURFACE.md` for per-action
-args. Mutating actions are proposal-gated. HA has no separate
-`config_entries/enable` frame — `enable` routes through
+args. Mutating actions are unavailable pending trusted approval. HA has no separate
+`config_entries/enable` frame. The dormant `enable` adapter uses
 `config_entries/disable` with `disabled_by=null`. Options flow support
 would need the HTTP flow views under
 `/api/config/config_entries/options/flow/...` and is not yet exposed.
 
-**Convention (soft)**: callers should cite a `docs.lookup` for the
-integration before mutating. The handler does not hard-enforce a
-`docs_lookup` token — that check remains a caller-side discipline
-enforced via prompt / proposal review.
+Version-matched documentation checks and the human approval round-trip remain
+planned. The current handler denies mutations regardless of caller metadata.
 
 ## Blueprints (fs)
 
@@ -210,6 +209,6 @@ Before applying any edit (HA-native or fs):
 - `*.log`, `home-assistant.log.*`
 - Files HA writes during runtime (`.uuid`, ephemeral caches).
 
-The only way to write `.storage/` is calling the command with
-`unsafe_storage=true` AND an accepted proposal whose body says so
-explicitly. Default refusal otherwise.
+There is no command-layer path for writing `.storage/`. A caller parameter,
+proposal identifier, or accepted proposal cannot override the
+`STORAGE_READONLY` refusal.
