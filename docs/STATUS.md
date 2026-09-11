@@ -97,7 +97,8 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     cannot authorize it; the trusted verifier and human round-trip are absent.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
-  - `system.*` (2): `system.run` (admin-token-gated), `system.which`
+  - `system.*` (2): `system.run` (currently unreachable, see
+    [Authorization model](design/AUTHORIZATION-MODEL.md)), `system.which`
     (basename-only lookup).
   - `ping`.
 - **Local HTTP API is fail-closed.** When `local_api_token` is unset

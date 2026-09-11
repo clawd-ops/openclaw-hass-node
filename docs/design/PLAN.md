@@ -87,8 +87,10 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 - `fs.delete` uses `send2trash` (FreeDesktop.org spec) with an
   OpenClaw-managed trash directory fallback, never `rm`. `fs.restore`
   recovers from trash. No sidecar `.bak` files anywhere.
-- `system.run` gated by `OPENCLAW_ADMIN_TOKEN` env var; caller must
-  pass matching `admin_token` param.
+- `system.run` currently carries an `OPENCLAW_ADMIN_TOKEN` check, but that
+  gate is inert: the variable cannot be set from add-on configuration, so the
+  command is unreachable. The ratified target moves it onto OpenClaw's native
+  node exec approvals. See [Authorization model](AUTHORIZATION-MODEL.md).
 - Supervisor API access uses `SUPERVISOR_TOKEN` against
   `http://supervisor/...`. Today this is exposed through the
   `ha.addon_*` Tier A/B command surface (`ha.list_addons`,

@@ -139,8 +139,11 @@ that cache after a release.
 - One Tier A command per PR, each individually reviewable.
 - Tier B initially landed with an admin token gate and slug allowlist. Current
   lifecycle authorization uses the paired session plus slug policy without a
-  separate token; `ha.reload_config` and `ha.update_install` retain their
-  separate admin-token gate.
+  separate token. `ha.reload_config` and `ha.update_install` still *carry* the
+  admin-token check in code, but that gate is inert because the variable cannot
+  be set, so both commands are unreachable. The ratified target removes the
+  token from those two commands and gates them on operator approval instead.
+  See [Authorization model](AUTHORIZATION-MODEL.md).
 - Tier C never lands without a fresh, scoped ask.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.
