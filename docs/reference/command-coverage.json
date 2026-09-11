@@ -11048,7 +11048,7 @@
         }
       },
       "canonical_parameters": [],
-      "capability_conditions": "Reads this node's exec approvals document. A missing or malformed document reports the deny-by-default policy rather than an error.",
+      "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed.",
       "command": "system.execApprovals.get",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
@@ -11139,7 +11139,21 @@
           "defaults": [
             "null"
           ],
-          "name": "approvals",
+          "name": "baseHash",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "file",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -11148,7 +11162,7 @@
           }
         }
       ],
-      "capability_conditions": "Replaces this node's exec approvals document after validation. Written atomically at mode 0600; a rejected payload leaves the previous policy intact.",
+      "capability_conditions": "Accepts the Gateway-native file and optional baseHash contract, rejects stale writes, and replaces validated policy through a unique owner-only temporary file with failure cleanup.",
       "command": "system.execApprovals.set",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
@@ -11396,7 +11410,21 @@
           "defaults": [
             "null"
           ],
-          "name": "cmd",
+          "name": "agentId",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "command",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -11422,9 +11450,37 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "default_timeout_s()"
+            "null"
           ],
-          "name": "timeout",
+          "name": "env",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "rawCommand",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "sessionKey",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -11433,7 +11489,7 @@
           }
         }
       ],
-      "capability_conditions": "Canonicalises a system.run request into an approvable plan. Executes nothing. The Gateway carries the returned systemRunPlan on exec.approval.request and replays it as the authoritative command context after approval.",
+      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.",
       "command": "system.run.prepare",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",

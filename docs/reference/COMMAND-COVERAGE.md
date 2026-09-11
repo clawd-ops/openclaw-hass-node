@@ -3740,7 +3740,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get`
 - Canonical parameters: none observed
 - Authorization: `operator_approval`
-- Capability conditions: Reads this node's exec approvals document. A missing or malformed document reports the deny-by-default policy rather than an error.
+- Capability conditions: Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -3766,9 +3766,9 @@ rows are intentionally retained. Regenerate after editing source or
 ### `system.execApprovals.set`
 
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set`
-- Canonical parameters: approvals
+- Canonical parameters: baseHash, file
 - Authorization: `operator_approval`
-- Capability conditions: Replaces this node's exec approvals document after validation. Written atomically at mode 0600; a rejected payload leaves the previous policy intact.
+- Capability conditions: Accepts the Gateway-native file and optional baseHash contract, rejects stale writes, and replaces validated policy through a unique owner-only temporary file with failure cleanup.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -3779,7 +3779,12 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist does not expose exec policy administration.
 - Parameter details:
-  - `approvals`
+  - `baseHash`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `file`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -3851,9 +3856,9 @@ rows are intentionally retained. Regenerate after editing source or
 ### `system.run.prepare`
 
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_run_prepare`
-- Canonical parameters: cmd, cwd, timeout
+- Canonical parameters: agentId, command, cwd, env, rawCommand, sessionKey
 - Authorization: `operator_approval`
-- Capability conditions: Canonicalises a system.run request into an approvable plan. Executes nothing. The Gateway carries the returned systemRunPlan on exec.approval.request and replays it as the authoritative command context after approval.
+- Capability conditions: Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -3864,7 +3869,12 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist does not expose host shell preparation; exec approvals are an operator surface.
 - Parameter details:
-  - `cmd`
+  - `agentId`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `command`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -3874,9 +3884,19 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
-  - `timeout`
+  - `env`
     - aliases: `[]`
-    - defaults: `["default_timeout_s()"]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `rawCommand`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `sessionKey`
+    - aliases: `[]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:

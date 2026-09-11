@@ -749,19 +749,19 @@
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Canonicalises a system.run request into an approvable plan. Executes nothing. The Gateway carries the returned systemRunPlan on exec.approval.request and replays it as the authoritative command context after approval.",
+      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.",
       "assist_unavailable_reason": "Assist does not expose host shell preparation; exec approvals are an operator surface.",
       "actions": {}
     },
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Reads this node's exec approvals document. A missing or malformed document reports the deny-by-default policy rather than an error.",
+      "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "actions": {}
     },
     "system.execApprovals.set": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Replaces this node's exec approvals document after validation. Written atomically at mode 0600; a rejected payload leaves the previous policy intact.",
+      "capability_conditions": "Accepts the Gateway-native file and optional baseHash contract, rejects stale writes, and replaces validated policy through a unique owner-only temporary file with failure cleanup.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "actions": {}
     }

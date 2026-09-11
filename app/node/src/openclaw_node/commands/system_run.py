@@ -25,8 +25,9 @@ Timeout
 
 Working directory
 -----------------
-``cwd``, when supplied, must resolve within the node's allowed roots or
-the Home Assistant ``/config`` hierarchy (relaxed for maintenance tasks).
+The legacy handler currently passes ``cwd`` directly to the subprocess. The
+native approval preparation path validates it, but execution-bound validation
+is intentionally deferred to the follow-up that removes the legacy token gate.
 """
 
 from __future__ import annotations
@@ -121,7 +122,8 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
         cmd (list[str]): Command and arguments.  Must be a list; shell
             strings are rejected.
         admin_token (str): Must match ``OPENCLAW_ADMIN_TOKEN``.
-        cwd (str, optional): Working directory.
+        cwd (str, optional): Working directory. Not yet bound to a native
+            approval plan; the legacy token gate remains fail-closed.
         env (dict[str, str], optional): Extra environment variables merged
             onto a sanitised base.  Keys matching credential patterns are
             rejected.

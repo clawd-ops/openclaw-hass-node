@@ -1,24 +1,12 @@
-"""Node-side exec approval participation.
+"""OpenClaw-native exec approval preparation and policy storage.
 
-OpenClaw gates ``system.run`` on node hosts through its own exec approval
-flow rather than through any add-on-specific secret. To take part, a node
-host must advertise three commands:
+The Gateway owns approval prompting and execution authorization. This module
+implements the node-side wire contracts used to prepare an approval-bound
+``system.run`` request and to manage the node's exec approval policy.
 
-``system.run.prepare``
-    Canonicalise a requested command into a stable plan. The Gateway sends
-    that plan with ``exec.approval.request`` and, after approval, replays it
-    as the authoritative command context. Because the plan is canonical and
-    hashed, a caller cannot change the command between prepare and run.
-
-``system.execApprovals.get`` / ``system.execApprovals.set``
-    Read and write this node's exec approvals document so the policy is
-    editable from the Gateway with ``openclaw approvals --node <id>``.
-
-This module does not execute anything. It only canonicalises, validates,
-and persists policy. Execution stays in :mod:`openclaw_node.commands.system_run`.
-
-See ``docs/design/AUTHORIZATION-MODEL.md`` for why the previous
-``OPENCLAW_ADMIN_TOKEN`` gate is being retired in favour of this path.
+It deliberately does not execute commands. The existing ``system.run``
+handler remains fail-closed behind its legacy gate until a follow-up change
+binds execution to the prepared native approval context.
 """
 
 from __future__ import annotations
@@ -27,8 +15,9 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError, resolve_safe
@@ -36,60 +25,45 @@ from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError, resol
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 APPROVALS_DOC_VERSION: Final[int] = 1
-"""Schema version written to the approvals document."""
-
 _VALID_SECURITY: Final[frozenset[str]] = frozenset({"deny", "allowlist", "full"})
 _VALID_ASK: Final[frozenset[str]] = frozenset({"off", "on-miss", "always"})
-_VALID_ASK_FALLBACK: Final[frozenset[str]] = frozenset({"deny", "allowlist", "full"})
-
+_POLICY_FIELDS: Final[frozenset[str]] = frozenset(
+    {"security", "ask", "askFallback", "autoAllowSkills"}
+)
 _DEFAULT_POLICY: Final[dict[str, Any]] = {
     "security": "deny",
     "ask": "on-miss",
     "askFallback": "deny",
+    "autoAllowSkills": False,
 }
-
 _MAX_ARGV: Final[int] = 256
 _MAX_ARG_LEN: Final[int] = 8192
+_MISSING_HASH: Final[str] = "missing:" + hashlib.sha256(b"").hexdigest()
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
-    """Build the node's standard error envelope.
-
-    Args:
-        code: Stable machine-readable error code.
-        message: Human-readable explanation.
-
-    Returns:
-        An error dict with ``ok`` false.
-    """
-    return {"ok": False, "error": {"code": code, "message": message}}
+    """Return a standard node command error payload."""
+    return {"ok": False, "error": code, "message": message}
 
 
 def _approvals_path() -> Path:
-    """Return the on-disk location of the exec approvals document.
-
-    Returns:
-        Path to ``exec-approvals.json`` inside the node data directory.
-    """
+    """Return the node-local exec approvals document path."""
     from openclaw_node.config import load_config
 
     return load_config().data_dir / "exec-approvals.json"
 
 
+def _default_document() -> dict[str, Any]:
+    """Return an explicit fail-closed policy document."""
+    return {
+        "version": APPROVALS_DOC_VERSION,
+        "defaults": dict(_DEFAULT_POLICY),
+        "agents": {},
+    }
+
+
 def _validate_cwd(cwd: str) -> tuple[str | None, dict[str, Any] | None]:
-    """Resolve *cwd* beneath an allowed root.
-
-    ``system.run`` historically documented this restriction without enforcing
-    it. Validation happens here so an approved plan can never carry a working
-    directory outside the node's allowed roots.
-
-    Args:
-        cwd: Caller-supplied working directory.
-
-    Returns:
-        A tuple of the resolved directory and ``None``, or ``None`` and an
-        error dict when the directory is not acceptable.
-    """
+    """Resolve a proposed working directory beneath an allowed root."""
     try:
         resolved = resolve_safe(cwd, allowed_roots_for_env())
     except NoAllowedRootsError:
@@ -101,233 +75,302 @@ def _validate_cwd(cwd: str) -> tuple[str | None, dict[str, Any] | None]:
     return str(resolved), None
 
 
-def _plan_hash(argv: list[str], cwd: str | None, timeout_s: int) -> str:
-    """Hash the canonical fields that an approval is bound to.
-
-    Args:
-        argv: Canonical argument vector.
-        cwd: Resolved working directory, or ``None``.
-        timeout_s: Effective timeout in seconds.
-
-    Returns:
-        A ``sha256:`` prefixed hex digest over the canonical plan fields.
-    """
-    payload = json.dumps(
-        {"argv": argv, "cwd": cwd, "timeoutSeconds": timeout_s},
-        sort_keys=True,
-        separators=(",", ":"),
-    )
-    return "sha256:" + hashlib.sha256(payload.encode()).hexdigest()
-
-
-def handle_system_run_prepare(params: dict[str, Any]) -> dict[str, Any]:
-    """Canonicalise a ``system.run`` request into an approvable plan.
-
-    This performs every validation ``system.run`` performs, except the
-    execution itself, so an operator approves exactly what would run. It
-    never starts a process.
-
-    Params:
-        cmd (list[str]): Command and arguments. Shell strings are rejected.
-        cwd (str, optional): Working directory. Must resolve beneath an
-            allowed root.
-        timeout (int, optional): Seconds. Clamped to the node maximum.
-
-    Returns:
-        ``{ok: True, systemRunPlan: {...}}`` where the plan carries ``argv``,
-        ``rawCommand``, ``cwd``, ``timeoutSeconds``, and ``planHash``, or an
-        error dict when the request is not valid.
-    """
-    from openclaw_node.commands.system_run import default_timeout_s, max_timeout_s
-
-    cmd = params.get("cmd")
-    if not cmd:
-        return _error("MISSING_PARAM", "cmd is required")
-    if isinstance(cmd, str):
-        return _error(
-            "INVALID_PARAM",
-            "cmd must be a list of strings; shell strings are rejected to prevent injection",
+def _validate_argv(value: Any) -> tuple[list[str] | None, dict[str, Any] | None]:
+    """Validate the Gateway's canonical command argument vector."""
+    if value is None:
+        return None, _error("MISSING_PARAM", "command is required")
+    if isinstance(value, str) or not isinstance(value, list):
+        return None, _error("INVALID_PARAM", "command must be a list of strings")
+    if not value or not all(isinstance(item, str) for item in value):
+        return None, _error("INVALID_PARAM", "command must be a non-empty list of strings")
+    if not value[0]:
+        return None, _error("INVALID_PARAM", "command[0] must be a non-empty executable name")
+    if len(value) > _MAX_ARGV:
+        return None, _error("INVALID_PARAM", f"command has more than {_MAX_ARGV} arguments")
+    if any(len(item) > _MAX_ARG_LEN for item in value):
+        return None, _error(
+            "INVALID_PARAM", f"command contains an argument longer than {_MAX_ARG_LEN}"
         )
-    if not isinstance(cmd, list) or not all(isinstance(a, str) for a in cmd):
-        return _error("INVALID_PARAM", "cmd must be a list of strings")
-    if not cmd[0]:
-        return _error("INVALID_PARAM", "cmd[0] must be a non-empty executable name")
-    if len(cmd) > _MAX_ARGV:
-        return _error("INVALID_PARAM", f"cmd has more than {_MAX_ARGV} arguments")
-    if any(len(a) > _MAX_ARG_LEN for a in cmd):
-        return _error("INVALID_PARAM", f"cmd contains an argument longer than {_MAX_ARG_LEN}")
-    if any("\x00" in a for a in cmd):
-        return _error("INVALID_PARAM", "cmd arguments must not contain NUL bytes")
-
-    resolved_cwd: str | None = None
-    raw_cwd = params.get("cwd") or None
-    if raw_cwd is not None:
-        resolved_cwd, err = _validate_cwd(str(raw_cwd))
-        if err is not None:
-            return err
-
-    raw_timeout = params.get("timeout", default_timeout_s())
-    try:
-        timeout_s = int(raw_timeout)
-    except (TypeError, ValueError):
-        return _error("INVALID_PARAM", f"timeout must be an integer, got {raw_timeout!r}")
-    if timeout_s <= 0:
-        return _error("INVALID_PARAM", "timeout must be positive")
-    timeout_s = min(timeout_s, max_timeout_s())
-
-    argv = list(cmd)
-    plan = {
-        "argv": argv,
-        "rawCommand": " ".join(argv),
-        "cwd": resolved_cwd,
-        "timeoutSeconds": timeout_s,
-        "planHash": _plan_hash(argv, resolved_cwd, timeout_s),
-    }
-    _LOG.info(
-        "system.run.prepare argv0=%r argc=%d cwd=%r timeout=%ds hash=%s",
-        argv[0],
-        len(argv),
-        resolved_cwd,
-        timeout_s,
-        plan["planHash"],
-    )
-    return {"ok": True, "systemRunPlan": plan}
+    if any("\x00" in item for item in value):
+        return None, _error("INVALID_PARAM", "command arguments must not contain NUL bytes")
+    return list(value), None
 
 
-def _default_document() -> dict[str, Any]:
-    """Return a fail-closed approvals document.
-
-    Returns:
-        A document denying exec until an operator configures otherwise.
-    """
-    return {"version": APPROVALS_DOC_VERSION, "defaults": dict(_DEFAULT_POLICY), "agents": {}}
-
-
-def handle_system_exec_approvals_get(_params: dict[str, Any]) -> dict[str, Any]:
-    """Read this node's exec approvals document.
-
-    A missing or unreadable document is reported as the fail-closed default
-    rather than as an error, so an operator can always see the effective
-    policy and write a corrected one.
-
-    Params:
-        None.
-
-    Returns:
-        ``{ok: True, approvals: {...}, path: str, exists: bool}``.
-    """
-    path = _approvals_path()
-    if not path.exists():
-        return {"ok": True, "approvals": _default_document(), "path": str(path), "exists": False}
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        _LOG.warning("exec approvals document unreadable at %s: %s", path, exc)
-        return {
-            "ok": True,
-            "approvals": _default_document(),
-            "path": str(path),
-            "exists": True,
-            "unreadable": True,
-        }
-    if not isinstance(raw, dict):
-        return {
-            "ok": True,
-            "approvals": _default_document(),
-            "path": str(path),
-            "exists": True,
-            "unreadable": True,
-        }
-    return {"ok": True, "approvals": raw, "path": str(path), "exists": True}
+def _validate_env(value: Any) -> dict[str, Any] | None:
+    """Validate optional environment bindings without persisting their values."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or not all(
+        isinstance(key, str) and key and isinstance(item, str) for key, item in value.items()
+    ):
+        return _error("INVALID_PARAM", "env must be an object of non-empty string keys and values")
+    return None
 
 
-def _validate_policy(scope: str, policy: dict[str, Any]) -> dict[str, Any] | None:
-    """Validate one policy block.
-
-    Args:
-        scope: Label used in error messages, such as ``defaults``.
-        policy: Policy mapping to check.
-
-    Returns:
-        An error dict, or ``None`` when the policy is acceptable.
-    """
-    security = policy.get("security", _DEFAULT_POLICY["security"])
-    ask = policy.get("ask", _DEFAULT_POLICY["ask"])
-    fallback = policy.get("askFallback", _DEFAULT_POLICY["askFallback"])
-    if security not in _VALID_SECURITY:
+def _validate_policy(
+    scope: str, policy: dict[str, Any], *, allow_allowlist: bool
+) -> dict[str, Any] | None:
+    """Validate one defaults or agent policy block."""
+    allowed = _POLICY_FIELDS | ({"allowlist", "mcpTools"} if allow_allowlist else set())
+    unknown = set(policy) - allowed
+    if unknown:
+        return _error("INVALID_PARAM", f"{scope} contains unknown fields: {sorted(unknown)}")
+    security = policy.get("security")
+    ask = policy.get("ask")
+    fallback = policy.get("askFallback")
+    auto_allow = policy.get("autoAllowSkills")
+    if security is not None and security not in _VALID_SECURITY:
         return _error("INVALID_PARAM", f"{scope}.security must be one of {sorted(_VALID_SECURITY)}")
-    if ask not in _VALID_ASK:
+    if ask is not None and ask not in _VALID_ASK:
         return _error("INVALID_PARAM", f"{scope}.ask must be one of {sorted(_VALID_ASK)}")
-    if fallback not in _VALID_ASK_FALLBACK:
+    if fallback is not None and fallback not in _VALID_SECURITY:
         return _error(
-            "INVALID_PARAM", f"{scope}.askFallback must be one of {sorted(_VALID_ASK_FALLBACK)}"
+            "INVALID_PARAM", f"{scope}.askFallback must be one of {sorted(_VALID_SECURITY)}"
         )
+    if auto_allow is not None and not isinstance(auto_allow, bool):
+        return _error("INVALID_PARAM", f"{scope}.autoAllowSkills must be boolean")
+
     allowlist = policy.get("allowlist")
     if allowlist is not None:
         if not isinstance(allowlist, list):
             return _error("INVALID_PARAM", f"{scope}.allowlist must be a list")
-        for entry in allowlist:
+        allowed_entry_fields = {
+            "id",
+            "pattern",
+            "source",
+            "commandText",
+            "argPattern",
+            "lastUsedAt",
+            "lastUsedCommand",
+            "lastResolvedPath",
+        }
+        for index, entry in enumerate(allowlist):
             if not isinstance(entry, dict) or not isinstance(entry.get("pattern"), str):
                 return _error(
-                    "INVALID_PARAM", f"{scope}.allowlist entries require a string pattern"
+                    "INVALID_PARAM", f"{scope}.allowlist[{index}] requires a string pattern"
                 )
+            if set(entry) - allowed_entry_fields:
+                return _error(
+                    "INVALID_PARAM", f"{scope}.allowlist[{index}] contains unknown fields"
+                )
+            if entry.get("source") not in (None, "allow-always"):
+                return _error("INVALID_PARAM", f"{scope}.allowlist[{index}].source is invalid")
+    mcp_tools = policy.get("mcpTools")
+    if mcp_tools is not None and not isinstance(mcp_tools, list):
+        return _error("INVALID_PARAM", f"{scope}.mcpTools must be a list")
     return None
 
 
+def _validate_document(value: Any) -> dict[str, Any] | None:
+    """Validate the file-backed policy schema accepted by the Gateway."""
+    if not isinstance(value, dict):
+        return _error("INVALID_PARAM", "file must be an object")
+    if set(value) - {"version", "socket", "defaults", "agents"}:
+        return _error("INVALID_PARAM", "file contains unknown fields")
+    if value.get("version") != APPROVALS_DOC_VERSION:
+        return _error("INVALID_PARAM", f"file.version must be {APPROVALS_DOC_VERSION}")
+    socket = value.get("socket")
+    if socket is not None:
+        if not isinstance(socket, dict) or set(socket) - {"path", "token"}:
+            return _error("INVALID_PARAM", "file.socket is invalid")
+        if any(not isinstance(item, str) for item in socket.values()):
+            return _error("INVALID_PARAM", "file.socket values must be strings")
+    defaults = value.get("defaults")
+    if defaults is not None:
+        if not isinstance(defaults, dict):
+            return _error("INVALID_PARAM", "file.defaults must be an object")
+        error = _validate_policy("file.defaults", defaults, allow_allowlist=False)
+        if error is not None:
+            return error
+    agents = value.get("agents")
+    if agents is not None:
+        if not isinstance(agents, dict):
+            return _error("INVALID_PARAM", "file.agents must be an object")
+        for agent_id, policy in agents.items():
+            if not isinstance(agent_id, str) or not isinstance(policy, dict):
+                return _error("INVALID_PARAM", "file.agents entries must be policy objects")
+            error = _validate_policy(f"file.agents.{agent_id}", policy, allow_allowlist=True)
+            if error is not None:
+                return error
+    return None
+
+
+def _read_snapshot() -> tuple[dict[str, Any], bytes | None]:
+    """Read a valid snapshot, replacing malformed content with deny policy."""
+    path = _approvals_path()
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        return _default_document(), None
+    except OSError as exc:
+        _LOG.warning("exec approvals document unreadable at %s: %s", path, exc)
+        return _default_document(), None
+    try:
+        document = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as exc:
+        _LOG.warning("exec approvals document malformed at %s: %s", path, exc)
+        return _default_document(), raw
+    if _validate_document(document) is not None:
+        _LOG.warning("exec approvals document failed validation at %s", path)
+        return _default_document(), raw
+    return document, raw
+
+
+def _snapshot() -> dict[str, Any]:
+    """Return the exact file-backed snapshot shape consumed by the Gateway."""
+    path = _approvals_path()
+    document, raw = _read_snapshot()
+    return {
+        "path": str(path),
+        "exists": raw is not None,
+        "hash": _MISSING_HASH if raw is None else hashlib.sha256(raw).hexdigest(),
+        "file": document,
+    }
+
+
+def _resolve_policy(document: dict[str, Any], agent_id: str | None) -> dict[str, Any]:
+    """Resolve exact-agent, wildcard, and default policy for approval binding."""
+    raw_defaults = document.get("defaults")
+    defaults = cast(dict[str, Any], raw_defaults) if isinstance(raw_defaults, dict) else {}
+    raw_agents = document.get("agents")
+    agents = cast(dict[str, Any], raw_agents) if isinstance(raw_agents, dict) else {}
+    raw_wildcard = agents.get("*")
+    wildcard = cast(dict[str, Any], raw_wildcard) if isinstance(raw_wildcard, dict) else {}
+    raw_exact = agents.get(agent_id) if agent_id else None
+    exact = cast(dict[str, Any], raw_exact) if isinstance(raw_exact, dict) else {}
+
+    def field(name: str) -> Any:
+        return exact.get(name, wildcard.get(name, defaults.get(name, _DEFAULT_POLICY[name])))
+
+    rules: list[dict[str, Any]] = []
+    seen: set[tuple[str, str | None, str | None]] = set()
+    for source in (wildcard, exact):
+        entries = source.get("allowlist", []) if isinstance(source.get("allowlist"), list) else []
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("pattern"), str):
+                continue
+            rule = {"pattern": entry["pattern"]}
+            if isinstance(entry.get("argPattern"), str):
+                rule["argPattern"] = entry["argPattern"]
+            if entry.get("source") == "allow-always":
+                rule["source"] = "allow-always"
+            key = (rule["pattern"], rule.get("argPattern"), rule.get("source"))
+            if key not in seen:
+                seen.add(key)
+                rules.append(rule)
+    rules.sort(
+        key=lambda item: (
+            item["pattern"].encode(),
+            (item.get("argPattern") or "").encode(),
+            (item.get("source") or "").encode(),
+        )
+    )
+    return {
+        "security": field("security"),
+        "ask": field("ask"),
+        "askFallback": field("askFallback"),
+        "autoAllowSkills": field("autoAllowSkills"),
+        "allowlistRules": rules,
+    }
+
+
+def handle_system_run_prepare(params: dict[str, Any]) -> dict[str, Any]:
+    """Prepare the exact approval plan expected by current OpenClaw Gateways."""
+    argv, error = _validate_argv(params.get("command"))
+    if error is not None:
+        return error
+    assert argv is not None
+
+    raw_command = params.get("rawCommand")
+    if not isinstance(raw_command, str) or not raw_command.strip():
+        return _error("INVALID_PARAM", "rawCommand must be a non-empty string")
+    env_error = _validate_env(params.get("env"))
+    if env_error is not None:
+        return env_error
+
+    resolved_cwd: str | None = None
+    raw_cwd = params.get("cwd")
+    if raw_cwd is not None:
+        if not isinstance(raw_cwd, str) or not raw_cwd.strip():
+            return _error("INVALID_PARAM", "cwd must be a non-empty string")
+        resolved_cwd, error = _validate_cwd(raw_cwd)
+        if error is not None:
+            return error
+
+    agent_id = params.get("agentId")
+    session_key = params.get("sessionKey")
+    if agent_id is not None and (not isinstance(agent_id, str) or not agent_id.strip()):
+        return _error("INVALID_PARAM", "agentId must be a non-empty string")
+    if session_key is not None and (not isinstance(session_key, str) or not session_key.strip()):
+        return _error("INVALID_PARAM", "sessionKey must be a non-empty string")
+
+    document, _raw = _read_snapshot()
+    policy = _resolve_policy(document, agent_id)
+    return {
+        "plan": {
+            "argv": argv,
+            "cwd": resolved_cwd,
+            "commandText": raw_command,
+            "agentId": agent_id,
+            "sessionKey": session_key,
+            "policySnapshot": policy,
+        },
+        "execPolicy": {"security": policy["security"], "ask": policy["ask"]},
+        "allowAlwaysCoverage": {"complete": False, "patterns": []},
+    }
+
+
+def handle_system_exec_approvals_get(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return the exact node approval snapshot expected by the Gateway."""
+    return _snapshot()
+
+
+def _serialize_document(document: dict[str, Any]) -> bytes:
+    """Serialize policy exactly like OpenClaw's file-backed implementation."""
+    return (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+
+
 def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
-    """Replace this node's exec approvals document.
+    """Replace policy using the Gateway's file/baseHash concurrency contract."""
+    document = params.get("file")
+    error = _validate_document(document)
+    if error is not None:
+        return error
+    document = cast(dict[str, Any], document)
 
-    The document is validated before it is written, so a malformed payload
-    cannot leave the node without an enforceable policy. The write is atomic
-    and the file is created with owner-only permissions.
-
-    Params:
-        approvals (dict): Full replacement document. Must contain a
-            ``defaults`` policy block; ``agents`` is optional.
-
-    Returns:
-        ``{ok: True, path: str}`` or an error dict.
-    """
-    approvals = params.get("approvals")
-    if not isinstance(approvals, dict):
-        return _error("INVALID_PARAM", "approvals must be an object")
-
-    defaults = approvals.get("defaults")
-    if not isinstance(defaults, dict):
-        return _error("INVALID_PARAM", "approvals.defaults is required and must be an object")
-    err = _validate_policy("defaults", defaults)
-    if err is not None:
-        return err
-
-    agents = approvals.get("agents", {})
-    if not isinstance(agents, dict):
-        return _error("INVALID_PARAM", "approvals.agents must be an object")
-    for agent_id, policy in agents.items():
-        if not isinstance(policy, dict):
-            return _error("INVALID_PARAM", f"approvals.agents.{agent_id} must be an object")
-        err = _validate_policy(f"agents.{agent_id}", policy)
-        if err is not None:
-            return err
-
-    document = dict(approvals)
-    document["version"] = APPROVALS_DOC_VERSION
+    current = _snapshot()
+    base_hash = params.get("baseHash")
+    if base_hash is not None and base_hash != current["hash"]:
+        return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
 
     path = _approvals_path()
-    tmp = path.with_suffix(".json.tmp")
+    temp_path: Path | None = None
+    fd: int | None = None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(document, handle, indent=2, sort_keys=True)
-                handle.flush()
-                os.fsync(handle.fileno())
-        finally:
-            pass
-        os.replace(tmp, path)
+        fd, raw_temp_path = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+        temp_path = Path(raw_temp_path)
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as handle:
+            fd = None
+            handle.write(_serialize_document(document))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+        temp_path = None
+        os.chmod(path, 0o600)
     except OSError as exc:
         _LOG.warning("failed to write exec approvals document at %s: %s", path, exc)
         return _error("IO_ERROR", f"Could not write approvals document: {exc}")
+    finally:
+        if fd is not None:
+            os.close(fd)
+        if temp_path is not None:
+            try:
+                temp_path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                _LOG.warning("failed to clean exec approvals temp file %s: %s", temp_path, exc)
 
-    _LOG.warning("exec approvals document replaced at %s", path)
-    return {"ok": True, "path": str(path)}
+    return _snapshot()
