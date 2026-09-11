@@ -188,7 +188,7 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         The raw result dict produced by the command handler.  This becomes
-        the ``result`` field in the ``node.invoke.result`` request.
+        the ``payload`` field in the ``node.invoke.result`` request.
 
     Raises:
         UnknownCommandError: If *command* has no registered handler.

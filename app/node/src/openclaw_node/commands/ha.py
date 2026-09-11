@@ -70,6 +70,21 @@ def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
 
 
+def _service_data_equal(left: Any, right: Any) -> bool:
+    """Compare JSON values without Python's boolean/number coercion."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(
+            _service_data_equal(left[key], right[key]) for key in left
+        )
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(
+            _service_data_equal(a, b) for a, b in zip(left, right, strict=True)
+        )
+    if isinstance(left, bool) != isinstance(right, bool):
+        return False
+    return bool(left == right)
+
+
 async def handle_ha_list_states(params: dict[str, Any]) -> dict[str, Any]:
     """Return the state of every entity registered in HA.
 
@@ -133,6 +148,8 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         service (str): Required; e.g. ``"turn_on"``.
         target (dict, optional): Service target dict (entity_id/area_id/device_id).
         data (dict, optional): Service-specific data payload.
+        service_data (dict, optional): Compatibility alias for ``data``.
+            If both are supplied they must be equal; neither is silently ignored.
 
     Returns:
         ``{ok: True, changed_states}`` with the HA response (list of state
@@ -146,11 +163,18 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         return _error("MISSING_PARAM", "service is required")
 
     target = params.get("target")
-    data = params.get("data")
+    data = params.get("data", params.get("service_data"))
     if target is not None and not isinstance(target, dict):
         return _error("INVALID_PARAM", "target must be a dict")
-    if data is not None and not isinstance(data, dict):
-        return _error("INVALID_PARAM", "data must be a dict")
+    for key in ("data", "service_data"):
+        if key in params and not isinstance(params[key], dict):
+            return _error("INVALID_PARAM", f"{key} must be a dict")
+    if (
+        "data" in params
+        and "service_data" in params
+        and not _service_data_equal(params["data"], params["service_data"])
+    ):
+        return _error("INVALID_PARAM", "data and service_data must agree when both are supplied")
 
     body: dict[str, Any] = {}
     if data:
@@ -164,8 +188,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
     except HAClientError as exc:
         return _to_error(exc)
 
-    changed: list[dict[str, Any]] = result if isinstance(result, list) else []
-    return {"ok": True, "changed_states": changed}
+    if not isinstance(result, list):
+        return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")
+    return {"ok": True, "changed_states": result}
 
 
 async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:

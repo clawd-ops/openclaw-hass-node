@@ -480,6 +480,41 @@ async def test_handle_invoke_unknown_command() -> None:
     assert sent["params"]["error"]["code"] == "UNKNOWN_COMMAND"
 
 
+@pytest.mark.parametrize(
+    ("result", "code", "message"),
+    [
+        (
+            {"ok": False, "error": "PROPOSAL_REQUIRED", "message": "Approval missing"},
+            "PROPOSAL_REQUIRED",
+            "Approval missing",
+        ),
+        (
+            {"ok": False, "error": "INVALID_PARAM", "message": "Bad data"},
+            "INVALID_PARAM",
+            "Bad data",
+        ),
+        (
+            {"ok": False, "error": "HA_NETWORK", "message": "HA unavailable"},
+            "HA_NETWORK",
+            "HA unavailable",
+        ),
+        ({"ok": False}, "COMMAND_ERROR", "Node command failed"),
+        ({"ok": "false"}, "COMMAND_ERROR", "Node command failed"),
+    ],
+)
+async def test_handle_invoke_semantic_failure(
+    result: dict[str, Any], code: str, message: str
+) -> None:
+    client = _make_client()
+    socket = AsyncMock()
+    with patch("openclaw_node.gateway_ws.dispatch_async", return_value=result):
+        await client._handle_invoke(socket, {"id": "test", "command": "test", "paramsJSON": "{}"})
+    sent = json.loads(socket.send.call_args.args[0])["params"]
+    assert sent["ok"] is False
+    assert sent["error"] == {"code": code, "message": message}
+    assert sent["payload"] == result
+
+
 async def test_handle_invoke_command_exception() -> None:
     """Commands that raise unexpected errors return a COMMAND_ERROR response."""
     from openclaw_node.commands.dispatcher import register_handler

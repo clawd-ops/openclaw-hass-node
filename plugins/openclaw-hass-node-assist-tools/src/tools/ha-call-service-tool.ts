@@ -20,7 +20,26 @@ type HaCallServiceArgs = {
     device_id?: string | string[];
   };
   service_data?: Record<string, unknown>;
+  data?: Record<string, unknown>;
 };
+
+// JSON numbers do not distinguish -0 from 0 (nor 1 from 1.0). Object key
+// ordering is immaterial, while booleans must stay distinct from numbers.
+function equalServiceData(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return left.length === right.length && left.every((value, index) => equalServiceData(value, right[index]));
+  }
+  if (left === null || right === null || typeof left !== "object" || typeof right !== "object" || Array.isArray(left) || Array.isArray(right)) {
+    return false;
+  }
+  const leftObject = left as Record<string, unknown>;
+  const rightObject = right as Record<string, unknown>;
+  const keys = Object.keys(leftObject);
+  return keys.length === Object.keys(rightObject).length && keys.every(
+    (key) => Object.hasOwn(rightObject, key) && equalServiceData(leftObject[key], rightObject[key]),
+  );
+}
 
 export function createHaCallServiceTool(): AnyAgentTool {
   return {
@@ -35,6 +54,15 @@ export function createHaCallServiceTool(): AnyAgentTool {
       if (!domain) throw new Error("domain required");
       if (!service) throw new Error("service required");
 
+      for (const key of ["data", "service_data"] as const) {
+        if (key in params && (params[key] === null || typeof params[key] !== "object" || Array.isArray(params[key]))) {
+          throw new Error(`INVALID_PARAM: ${key} must be an object`);
+        }
+      }
+      if ("data" in params && "service_data" in params && !equalServiceData(callArgs.data, callArgs.service_data)) {
+        throw new Error("INVALID_PARAM: data and service_data must agree when both are supplied");
+      }
+
       const gatewayOpts = readGatewayCallOptions(params);
       const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
         nodeIdentifier,
@@ -46,8 +74,9 @@ export function createHaCallServiceTool(): AnyAgentTool {
         service,
       };
       if (callArgs.target !== undefined) commandParams.target = callArgs.target;
-      if (callArgs.service_data !== undefined) {
-        commandParams.service_data = callArgs.service_data;
+      const data = callArgs.data ?? callArgs.service_data;
+      if (data !== undefined) {
+        commandParams.data = data;
       }
 
       const payload = await invokeHaCommand({

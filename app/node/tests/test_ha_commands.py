@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -215,8 +215,52 @@ async def test_call_service_ha_error_returns_wire_error() -> None:
 async def test_call_service_non_list_result_handled() -> None:
     with patch("openclaw_node.commands.ha.ha_post", return_value={"ok": 1}):
         result = await handle_ha_call_service({"domain": "light", "service": "turn_on"})
+    assert result["ok"] is False
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"service_data": {"brightness": 50}},
+        {"data": {"brightness": 50}, "service_data": {"brightness": 50}},
+        {
+            "data": {"amount": 1, "transition": -0.0},
+            "service_data": {"transition": 0, "amount": 1.0},
+        },
+        {
+            "data": {"nested": [True, 1, {"a": "b"}]},
+            "service_data": {"nested": [True, 1.0, {"a": "b"}]},
+        },
+    ],
+)
+async def test_call_service_compatibility_payload(payload: dict[str, Any]) -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_post", new_callable=AsyncMock, return_value=[]
+    ) as post:
+        result = await handle_ha_call_service({"domain": "light", "service": "turn_on", **payload})
     assert result["ok"] is True
-    assert result["changed_states"] == []
+    post.assert_awaited_once_with("/api/services/light/turn_on", payload["service_data"])
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"data": {"brightness": 50}, "service_data": {"brightness": 100}},
+        {"data": {}, "service_data": []},
+        {"data": None},
+        {"service_data": None},
+        {"service_data": "not an object"},
+        {"data": {"nested": [False]}, "service_data": {"nested": [0]}},
+        {"data": {"nested": [1]}, "service_data": {"nested": [1, 2]}},
+        {"data": {"a": 1}, "service_data": {"b": 1}},
+    ],
+)
+async def test_call_service_rejects_invalid_alias_before_ha(payload: dict[str, Any]) -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+        result = await handle_ha_call_service({"domain": "light", "service": "turn_on", **payload})
+    assert result["error"] == "INVALID_PARAM"
+    post.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

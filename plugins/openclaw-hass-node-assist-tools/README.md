@@ -45,6 +45,25 @@ The plugin is `enabledByDefault: false`. Operators must explicitly enable it.
 No per-node allowlists are required — entity/service/calendar access control
 lives at the hass node's tier/allowCommands + HA's own auth layer.
 
+## Unreleased service/result repair (#266)
+
+`ha_call_service` now accepts canonical `data` and the compatibility alias
+`service_data`. Equal aliases are accepted; conflicts or non-object payloads
+fail before dispatch. The wrapper sends `data` to the node. Shared invoke
+handling rejects node/HA errors, including failures inside older successful
+envelopes, so failed operations do not produce success text. Authoritative
+gateway refusals are distinguished from local/socket failures, retaining the
+gateway code, details, and supplied retryability metadata. This is not a
+per-service authorization policy; that work remains outstanding.
+
+The TypeScript suite includes a real wrapper-to-Python-dispatcher contract test.
+From the repository root run `uv sync --package openclaw-node` before
+`pnpm test`; the fixture uses that `.venv/bin/python`. HA I/O is mocked and no
+live HA or gateway is needed. It also checks the exact nested changed-state
+payload rendered by the wrapper. CI installs Python 3.13 and runs this contract
+when either language changes. See the [command reference](../../docs/reference/COMMAND-SURFACE.md#service-payload-and-result-contract-unreleased-266)
+for compatibility and failure semantics.
+
 ## Per-node config
 
 Config lives at `plugins.entries.openclaw-hass-node-assist-tools.config.nodes.<nodeId>`.

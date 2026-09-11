@@ -1182,10 +1182,24 @@ class GatewayClient:
         try:
             result = await dispatch_async(command, params)
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
-            _LOG.info("invoke ◀ %s ok id=%s %dms", command, invoke_id[:8], elapsed_ms)
+            succeeded = result.get("ok", True) is True
+            response: dict[str, Any] = {**base, "ok": succeeded, "payload": result}
+            if not succeeded:
+                # Handler failure is an operation failure, not a successful
+                # invoke containing an error-shaped payload. Preserve the
+                # payload for diagnostics and expose the canonical gateway error.
+                code = result.get("error")
+                message = result.get("message")
+                response["error"] = {
+                    "code": code if isinstance(code, str) and code else "COMMAND_ERROR",
+                    "message": message
+                    if isinstance(message, str) and message
+                    else "Node command failed",
+                }
+            _LOG.info("invoke ◀ %s ok=%s id=%s %dms", command, succeeded, invoke_id[:8], elapsed_ms)
             resp = _make_req(
                 "node.invoke.result",
-                {**base, "ok": True, "payload": result},
+                response,
             )
         except UnknownCommandError as exc:
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
