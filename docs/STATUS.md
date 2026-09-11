@@ -91,7 +91,9 @@ Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
   agent-bridge UI round-trip are not wired. See TODO item #20.
 - **HACS brand icon** is the default; upstream PR pending. TODO #21.
 - **GHCR per-arch image / HACS index entry** not published yet; Supervisor builds locally on-device. TODO #22.
-- **MCP cutover** still in flight. TODO #11.
+- **Legacy Home Assistant MCP cutover is complete and permanently closed.** It
+  is not a release gate. Remaining caller-policy and parity work is tracked as
+  node authorization/contract work, not MCP retirement.
 
 Release-cut itself is automated: `.github/workflows/release-on-version-bump.yml` tags + cuts the GitHub release on every `main` version bump — see [`operations/RELEASE.md`](operations/RELEASE.md).
 
@@ -149,7 +151,8 @@ None. The pipeline is live; remaining work is incremental.
   that uses them, before retirement. Trigger: zero unhandled
   `mcp__homeassistant*` calls for 7 days *and* a written migration
   inventory. No calendar-based default. Cutover is one PR.
-  (Rob)
+  (Rob; superseded 2026-09-11 after confirming the MCP path had already been
+  permanently sunset and closed.)
 - 2026-06-05 — Versioning: date-based `YYYY.M.PATCH` matching the HA
   release the node is tested against (e.g. `2026.6.0`). Patch
   increments for fixes within a HA release. (agent recommendation,
