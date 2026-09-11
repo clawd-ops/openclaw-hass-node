@@ -640,6 +640,26 @@ def _locks_same_file(fd: int, lock_path: Path) -> bool:
     return (current.st_dev, current.st_ino) == (locked.st_dev, locked.st_ino)
 
 
+def _release_approvals_write_lock(fd: int, lock_path: Path) -> None:
+    """Release the write lock without ever failing the caller's operation.
+
+    Teardown runs after the locked body, which for a writer is after
+    ``os.replace`` has already committed. An ``OSError`` raised here would reach
+    the writer's handler and be reported as ``IO_ERROR`` for a policy that is
+    already on disk, so both steps are logged and swallowed instead. Closing the
+    descriptor releases the lock by itself, so a failed ``LOCK_UN`` cannot strand
+    it, and a failed ``os.close`` still surrenders the descriptor on Linux.
+    """
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    except OSError as exc:
+        _LOG.warning("failed to unlock exec approvals lock at %s: %s", lock_path, exc)
+    try:
+        os.close(fd)
+    except OSError as exc:
+        _LOG.warning("failed to close exec approvals lock at %s: %s", lock_path, exc)
+
+
 @contextmanager
 def _approvals_write_lock(path: Path) -> Iterator[None]:
     """Serialize approval writers against a lock file beside the document.
@@ -662,6 +682,9 @@ def _approvals_write_lock(path: Path) -> Iterator[None]:
     lives in the node's private data directory, and an attacker able to rename a
     file there can already rewrite the policy document directly. The trust
     boundary is the directory, not this lock.
+
+    Acquisition failures propagate, because nothing has been committed yet.
+    Release failures never do: see ``_release_approvals_write_lock``.
     """
     lock_path = path.with_name(path.name + ".lock")
     for _ in range(_LOCK_ACQUIRE_ATTEMPTS):
@@ -673,13 +696,10 @@ def _approvals_write_lock(path: Path) -> Iterator[None]:
                 # The lock file was replaced while we waited, so this lock now
                 # protects an inode nobody else will contend for. Start over.
                 continue
-            try:
-                yield
-            finally:
-                fcntl.flock(fd, fcntl.LOCK_UN)
-            return
+            yield
         finally:
-            os.close(fd)
+            _release_approvals_write_lock(fd, lock_path)
+        return
     message = f"could not acquire a stable exec approvals lock at {lock_path}"
     raise OSError(message)
 
@@ -738,9 +758,11 @@ def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
                 os.fsync(handle.fileno())
             # os.replace is the commit point. The temp descriptor was already
             # fchmod'ed to 0600 above, so the destination has its final mode the
-            # instant it becomes visible. Nothing fallible may run after this:
-            # an error raised post-commit would report IO_ERROR for a policy that
-            # is already active, which is the opposite of fail-closed.
+            # instant it becomes visible. Nothing after this may turn the call
+            # into a failure: an error reported post-commit would claim IO_ERROR
+            # for a policy that is already active, which is the opposite of
+            # fail-closed. _snapshot swallows read errors, and lock teardown is
+            # swallowed by _release_approvals_write_lock.
             os.replace(temp_path, path)
             temp_path = None
             return _snapshot(path)

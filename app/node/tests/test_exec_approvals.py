@@ -987,3 +987,81 @@ def test_set_reports_no_error_once_the_policy_is_committed(
     stored = json.loads(path.read_text(encoding="utf-8"))
     assert stored["defaults"]["security"] == "full"
     assert path.stat().st_mode & 0o777 == 0o600
+
+
+def test_set_survives_an_unlock_failure_after_the_commit(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Releasing the write lock runs after ``os.replace`` and must not fail the set.
+
+    ``LOCK_UN`` is the first teardown step of the write lock, so an ``OSError``
+    there used to surface as ``IO_ERROR`` for an authorization change that had
+    already landed on disk.
+    """
+    path = data_dir / "exec-approvals.json"
+    path.write_text(json.dumps(_policy()), encoding="utf-8")
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    replacement = _policy()
+    replacement["defaults"] = {**replacement["defaults"], "security": "full"}
+
+    real_flock = fcntl.flock
+
+    def _fail_unlock(fd: int, operation: int) -> None:
+        if operation == fcntl.LOCK_UN:
+            message = "unlock must not fail a committed policy"
+            raise OSError(message)
+        real_flock(fd, operation)
+
+    monkeypatch.setattr(fcntl, "flock", _fail_unlock)
+    result = exec_approvals.handle_system_exec_approvals_set(
+        {"file": replacement, "baseHash": snapshot["hash"]}
+    )
+
+    assert "error" not in result
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["defaults"]["security"] == "full"
+
+
+def test_set_survives_a_lock_close_failure_after_the_commit(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The final teardown step is ``os.close`` and it is fallible too."""
+    path = data_dir / "exec-approvals.json"
+    path.write_text(json.dumps(_policy()), encoding="utf-8")
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    replacement = _policy()
+    replacement["defaults"] = {**replacement["defaults"], "security": "full"}
+
+    real_close = os.close
+    lock_path = path.with_name(path.name + ".lock")
+    lock_fds: set[int] = set()
+    real_open = os.open
+
+    def _track_open(*args: Any, **kwargs: Any) -> int:
+        fd = real_open(*args, **kwargs)
+        if args and str(args[0]) == str(lock_path):
+            lock_fds.add(fd)
+        return fd
+
+    def _fail_close(fd: int) -> None:
+        # Surrender the descriptor exactly as a real failing close does, then
+        # report the failure, so the test leaks nothing.
+        real_close(fd)
+        if fd in lock_fds:
+            lock_fds.discard(fd)
+            message = "close must not fail a committed policy"
+            raise OSError(message)
+
+    monkeypatch.setattr(os, "open", _track_open)
+    monkeypatch.setattr(os, "close", _fail_close)
+    result = exec_approvals.handle_system_exec_approvals_set(
+        {"file": replacement, "baseHash": snapshot["hash"]}
+    )
+    monkeypatch.undo()
+
+    assert lock_fds == set()
+    assert "error" not in result
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["defaults"]["security"] == "full"
