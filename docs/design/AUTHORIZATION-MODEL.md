@@ -139,6 +139,22 @@ It is exec, so it uses OpenClaw's node exec approvals with a canonical
 `systemRunPlan`. The gateway rejects the run if `command`, `rawCommand`, `cwd`,
 `agentId`, or `sessionKey` changed between prepare and the approved forward,
 which supplies approval-bound-to-canonical-parameters without building it here.
+A proposal ID travels with the request as audit metadata; it is never itself
+an authorization token, and mutating it does not permit an execution the
+canonical plan would not.
+
+The node-side protocol methods that participate in this contract
+(`system.run.prepare`, `system.execApprovals.get`, and `system.execApprovals.set`)
+were delivered by #274. Their file-backed policy document uses a write lock in
+the node's private data directory to serialize cooperating writers; the lock
+narrows a rename race but does not itself define trust, because an attacker
+able to rename files in that directory can already rewrite the policy
+document. The trust boundary is the private data directory, not the lock. The
+atomic `os.replace` is the commit point, and the two fallible post-commit
+steps (snapshot read, lock teardown) are swallowed rather than raised so a
+committed policy can never be reported as `IO_ERROR`. Re-gating `system.run`
+itself onto this contract, and removing the inert token gate, is tracked as
+#258 and is out of scope for this document.
 
 `system.run` is retained and re-gated, not removed. Running scripts from the
 Home Assistant directory is a supported use case.
@@ -221,11 +237,14 @@ recorded so it is not mistaken for a delivered property.
 
 The gap is entirely within this repository.
 
-- `commands/dispatcher.py:104-105` registers `system.run` and `system.which`.
-  `system.run.prepare` and `system.execApprovals.get/set` are absent, so the
-  node cannot participate in exec approvals at all.
-- `commands/system_run.py` ships a `system.run` that shadows OpenClaw's native
-  command (#258) and carries the inert token gate.
+- `commands/dispatcher.py` now registers `system.run.prepare`,
+  `system.execApprovals.get`, and `system.execApprovals.set` (delivered by
+  #274), so the node can participate in exec approvals. What remains is that
+  `system.run` itself has not yet been re-gated onto that contract.
+- `commands/system_run.py` still ships a `system.run` that shadows OpenClaw's
+  native command (#258) and carries the inert token gate. Re-gating it onto
+  exec approvals and deleting `_admin_token_ok` is the follow-up tracked in
+  #258.
 - No dispatcher-level role gate exists. `forbidden_for_role` has exactly one
   consumer today, the disclaimer.
 
@@ -253,9 +272,13 @@ identifiers are accepted.
 ## Open validation
 
 The gateway approval APIs are confirmed to exist and to be in live production
-use, including node-scoped exec approvals resolved by an operator device. What
-is **not** yet proven is that this node can drive them end to end, because the
-methods above are unimplemented.
+use, including node-scoped exec approvals resolved by an operator device. The
+node-side protocol methods for the exec-approval path
+(`system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`)
+are now implemented (#274). What is **not** yet proven is that this node can
+drive them end to end, because `system.run` itself is not yet re-gated onto
+the approved plan (#258) and no live operator-surface allow/deny cycle has
+been observed against this node.
 
 ### Exec approval path (Class 3)
 
