@@ -11,11 +11,14 @@ binds execution to the prepared native approval context.
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import logging
 import os
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Final, cast
 
@@ -40,43 +43,47 @@ _MAX_ARGV: Final[int] = 256
 _MAX_ARG_LEN: Final[int] = 8192
 _MISSING_HASH: Final[str] = "missing:" + hashlib.sha256(b"").hexdigest()
 
-# The only argv shape for which this node accepts a caller-supplied ``rawCommand``
-# that is not the canonical rendering of argv. OpenClaw builds exactly this form
-# for POSIX node hosts (``buildNodeShellCommand``), and its own node helper
-# (``extractPreparedNodeShellPayload``) recognises the same narrow shape.
+# The only argv this node will describe to a human by its inline payload rather
+# than by its full canonical text. ``buildNodeShellCommand`` emits exactly these
+# literal forms for a POSIX node host, so showing the payload stays truthful:
+# the executable is literally ``/bin/sh``.
 #
-# Full parity with the Gateway's shell-wrapper resolver is deliberately not
-# reimplemented here. Any argv outside this form must present a rawCommand equal
-# to the canonical text or be rejected, so the node can never widen what the
-# Gateway would accept.
-_INLINE_SHELL_WRAPPERS: Final[frozenset[str]] = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
+# These are matched literally. Normalising the executable, for example by case
+# folding or by reinterpreting backslashes as separators, would let an unrelated
+# binary such as ``/tmp/BASH`` be presented to an approver as its payload alone.
+# Any other argv must present a rawCommand equal to the canonical text or be
+# rejected; parity with the Gateway's full shell-wrapper resolver is
+# deliberately not reimplemented here.
+_INLINE_SHELL_ARGV0: Final[str] = "/bin/sh"
 _INLINE_SHELL_FLAGS: Final[frozenset[str]] = frozenset({"-c", "-lc"})
 
-# Characters matched by the JavaScript ``\s`` class, plus the literal quote, as
-# used by OpenClaw's ``formatExecCommand`` quoting test.
-_JS_QUOTE_TRIGGERS: Final[frozenset[str]] = frozenset(
-    '"'
-    + "".join(
-        chr(code)
-        for code in (
-            0x0009,  # tab
-            0x000A,  # line feed
-            0x000B,  # vertical tab
-            0x000C,  # form feed
-            0x000D,  # carriage return
-            0x0020,  # space
-            0x00A0,  # no-break space
-            0x1680,  # ogham space mark
-            0x2028,  # line separator
-            0x2029,  # paragraph separator
-            0x202F,  # narrow no-break space
-            0x205F,  # medium mathematical space
-            0x3000,  # ideographic space
-            0xFEFF,  # zero width no-break space
-            *range(0x2000, 0x200B),  # en quad through hair space
-        )
+# Characters matched by the JavaScript ``\s`` class. Python has no equivalent
+# set: ``str.isspace`` also matches U+001C-U+001F and U+0085 and does not match
+# U+FEFF, so it is spelled out by code point and reused everywhere the Gateway
+# schema or renderer depends on JavaScript whitespace semantics.
+_JS_WHITESPACE: Final[frozenset[str]] = frozenset(
+    chr(code)
+    for code in (
+        0x0009,  # tab
+        0x000A,  # line feed
+        0x000B,  # vertical tab
+        0x000C,  # form feed
+        0x000D,  # carriage return
+        0x0020,  # space
+        0x00A0,  # no-break space
+        0x1680,  # ogham space mark
+        0x2028,  # line separator
+        0x2029,  # paragraph separator
+        0x202F,  # narrow no-break space
+        0x205F,  # medium mathematical space
+        0x3000,  # ideographic space
+        0xFEFF,  # zero width no-break space
+        *range(0x2000, 0x200B),  # en quad through hair space
     )
 )
+
+# ``formatExecCommand`` quotes on ``/\s|"/``.
+_JS_QUOTE_TRIGGERS: Final[frozenset[str]] = _JS_WHITESPACE | {'"'}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -166,13 +173,13 @@ def _format_exec_command(argv: list[str]) -> str:
 
 
 def _inline_shell_payload(argv: list[str]) -> str | None:
-    """Return the inline payload of the one supported POSIX wrapper form."""
-    if len(argv) != 3:
-        return None
-    executable = argv[0].replace("\\", "/").rsplit("/", 1)[-1].strip().lower()
-    if executable not in _INLINE_SHELL_WRAPPERS:
-        return None
-    if argv[1].strip() not in _INLINE_SHELL_FLAGS:
+    """Return the inline payload of the one literal wrapper form we display.
+
+    Every element is compared literally. The executable is not normalised in any
+    way, so this can only ever match the argv the Gateway itself builds for a
+    POSIX node host.
+    """
+    if len(argv) != 3 or argv[0] != _INLINE_SHELL_ARGV0 or argv[1] not in _INLINE_SHELL_FLAGS:
         return None
     payload = argv[2].strip()
     return payload or None
@@ -228,10 +235,24 @@ def _validate_optional_string(
     return None
 
 
-def _validate_non_empty_string(scope: str, value: Any) -> dict[str, Any] | None:
-    """Require a string carrying at least one non-whitespace character."""
-    if not isinstance(value, str) or not value.strip():
+def _validate_min_length_string(scope: str, value: Any) -> dict[str, Any] | None:
+    """Require a string of at least one character, matching ``NonEmptyString``."""
+    if not isinstance(value, str) or not value:
         return _error("INVALID_PARAM", f"{scope} must be a non-empty string")
+    return None
+
+
+def _validate_non_blank_string(scope: str, value: Any) -> dict[str, Any] | None:
+    r"""Require a string with a character outside JavaScript's ``\s`` class.
+
+    The Gateway spells this as ``pattern: "\S"``. ``str.strip()`` is not the
+    same test: a value of only U+FEFF survives ``strip`` but is whitespace to
+    JavaScript, so the Gateway would reject a document the node had persisted.
+    """
+    if not isinstance(value, str) or not value:
+        return _error("INVALID_PARAM", f"{scope} must be a non-empty string")
+    if all(char in _JS_WHITESPACE for char in value):
+        return _error("INVALID_PARAM", f"{scope} must contain a non-whitespace character")
     return None
 
 
@@ -280,7 +301,7 @@ def _validate_allowlist_entry(scope: str, entry: Any) -> dict[str, Any] | None:
     if not isinstance(entry.get("pattern"), str):
         return _error("INVALID_PARAM", f"{scope}.pattern must be a string")
     if "id" in entry:
-        error = _validate_non_empty_string(f"{scope}.id", entry["id"])
+        error = _validate_min_length_string(f"{scope}.id", entry["id"])
         if error is not None:
             return error
     if "source" in entry and entry["source"] != "allow-always":
@@ -300,7 +321,7 @@ def _validate_mcp_tool(scope: str, entry: Any) -> dict[str, Any] | None:
     if unknown:
         return _error("INVALID_PARAM", f"{scope} contains unknown fields: {sorted(unknown)}")
     for field_name in ("server", "tool"):
-        error = _validate_non_empty_string(f"{scope}.{field_name}", entry.get(field_name))
+        error = _validate_non_blank_string(f"{scope}.{field_name}", entry.get(field_name))
         if error is not None:
             return error
     if entry.get("source") != "allow-always":
@@ -385,9 +406,9 @@ def _validate_document(value: Any) -> dict[str, Any] | None:
     return None
 
 
-def _read_snapshot() -> tuple[dict[str, Any], bytes | None]:
+def _read_snapshot(path: Path | None = None) -> tuple[dict[str, Any], bytes | None]:
     """Read a valid snapshot, replacing malformed content with deny policy."""
-    path = _approvals_path()
+    path = _approvals_path() if path is None else path
     try:
         raw = path.read_bytes()
     except FileNotFoundError:
@@ -436,10 +457,13 @@ def _merge_socket(document: dict[str, Any], current: dict[str, Any]) -> dict[str
     stored = stored if isinstance(stored, dict) else {}
 
     def pick(field: str) -> str | None:
+        # The exact stored string is carried over, not a trimmed copy. The closed
+        # schema allows any string, so trimming here would silently destroy a
+        # whitespace-only token that this node has no way to mint again.
         for source in (incoming, stored):
             value = source.get(field)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
+            if isinstance(value, str):
+                return value
         return None
 
     merged = dict(document)
@@ -451,10 +475,14 @@ def _merge_socket(document: dict[str, Any], current: dict[str, Any]) -> dict[str
     return merged
 
 
-def _snapshot(*, redact: bool = True) -> dict[str, Any]:
-    """Return the exact file-backed snapshot shape consumed by the Gateway."""
-    path = _approvals_path()
-    document, raw = _read_snapshot()
+def _snapshot(path: Path | None = None, *, redact: bool = True) -> dict[str, Any]:
+    """Return the exact file-backed snapshot shape consumed by the Gateway.
+
+    The caller may pin the path so that a read, a concurrency check, and a write
+    all refer to the same target even if configuration changes in between.
+    """
+    path = _approvals_path() if path is None else path
+    document, raw = _read_snapshot(path)
     return {
         "path": str(path),
         "exists": raw is not None,
@@ -569,6 +597,27 @@ def _serialize_document(document: dict[str, Any]) -> bytes:
     return (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
+@contextmanager
+def _approvals_write_lock(path: Path) -> Iterator[None]:
+    """Serialize approval writers against a lock file beside the document.
+
+    ``os.replace`` on its own is atomic but unconditional, so two writers that
+    each validated against the same base hash would both commit and the later
+    one would silently discard the earlier policy. Every writer takes this lock
+    before re-reading, so the hash comparison and the replacement are one step.
+    """
+    lock_path = path.with_name(path.name + ".lock")
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
 def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
     """Replace policy using the Gateway's file/baseHash concurrency contract."""
     document = params.get("file")
@@ -577,39 +626,54 @@ def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
         return error
     document = cast(dict[str, Any], document)
 
-    current = _snapshot(redact=False)
     raw_base_hash = params.get("baseHash")
     base_hash = raw_base_hash.strip() if isinstance(raw_base_hash, str) else ""
-    if current["exists"]:
-        if not current["hash"]:
-            return _error(
-                "INVALID_REQUEST", "exec approvals base hash unavailable; reload and retry"
-            )
-        if not base_hash:
-            return _error("INVALID_REQUEST", "exec approvals base hash required; reload and retry")
-        if base_hash != current["hash"]:
-            return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
-    elif base_hash and base_hash != current["hash"]:
-        return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
 
-    document = _merge_socket(document, cast(dict[str, Any], current["file"]))
-
+    # One resolution for the whole operation. Re-resolving would let the check
+    # and the write land on different files.
     path = _approvals_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        _LOG.warning("failed to prepare exec approvals directory for %s: %s", path, exc)
+        return _error("IO_ERROR", f"Could not write approvals document: {exc}")
+
     temp_path: Path | None = None
     fd: int | None = None
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        fd, raw_temp_path = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-        temp_path = Path(raw_temp_path)
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "wb") as handle:
-            fd = None
-            handle.write(_serialize_document(document))
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temp_path, path)
-        temp_path = None
-        os.chmod(path, 0o600)
+        with _approvals_write_lock(path):
+            # Read under the lock so the comparison describes the file that is
+            # about to be replaced, not one observed earlier.
+            current = _snapshot(path, redact=False)
+            if current["exists"]:
+                if not current["hash"]:
+                    return _error(
+                        "INVALID_REQUEST",
+                        "exec approvals base hash unavailable; reload and retry",
+                    )
+                if not base_hash:
+                    return _error(
+                        "INVALID_REQUEST", "exec approvals base hash required; reload and retry"
+                    )
+                if base_hash != current["hash"]:
+                    return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
+            elif base_hash and base_hash != current["hash"]:
+                return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
+
+            merged = _merge_socket(document, cast(dict[str, Any], current["file"]))
+
+            fd, raw_temp_path = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+            temp_path = Path(raw_temp_path)
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "wb") as handle:
+                fd = None
+                handle.write(_serialize_document(merged))
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, path)
+            temp_path = None
+            os.chmod(path, 0o600)
+            return _snapshot(path)
     except OSError as exc:
         _LOG.warning("failed to write exec approvals document at %s: %s", path, exc)
         return _error("IO_ERROR", f"Could not write approvals document: {exc}")
@@ -623,5 +687,3 @@ def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
                 pass
             except OSError as exc:
                 _LOG.warning("failed to clean exec approvals temp file %s: %s", temp_path, exc)
-
-    return _snapshot()

@@ -3768,7 +3768,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set`
 - Canonical parameters: baseHash, file
 - Authorization: `operator_approval`
-- Capability conditions: Accepts the Gateway-native file and baseHash contract, requires a matching base hash whenever the document already exists, validates the closed nested policy schema, preserves the redacted socket credential, and replaces validated policy through a unique owner-only temporary file with failure cleanup.
+- Capability conditions: Accepts the Gateway-native file and baseHash contract. The target path is resolved once, and the snapshot read, the base-hash comparison, and the atomic replacement all happen under an exclusive lock, so a write whose base hash no longer matches the file being replaced is refused rather than committed. A matching non-empty base hash is required whenever the document exists. Nested policy content is validated against the closed Gateway schema, using JavaScript whitespace semantics where the schema does. A stored socket credential is preserved verbatim across a redacted read-edit-write, and the node never fabricates a socket path or token.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -3858,7 +3858,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_run_prepare`
 - Canonical parameters: agentId, command, cwd, env, rawCommand, sessionKey
 - Authorization: `operator_approval`
-- Capability conditions: Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. The approval text in plan.commandText is always derived from the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.
+- Capability conditions: Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. plan.commandText is always the canonical rendering of the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. plan.commandPreview is emitted only for the literal /bin/sh -c and /bin/sh -lc argv that buildNodeShellCommand produces, so a previewed payload always belongs to /bin/sh. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`

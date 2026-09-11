@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -408,6 +410,145 @@ def test_prepare_rejects_shell_payload_outside_supported_form(
         _prepare_params(command=argv, rawCommand="ls -la")
     )
     assert result["error"] == "RAW_COMMAND_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["/bin/BASH", "-lc", "echo safe"],
+        ["/tmp/BASH", "-lc", "echo safe"],
+        ["/tmp/bash", "-lc", "echo safe"],
+        ["/bin/SH", "-lc", "echo safe"],
+        ["/tmp\\bash", "-lc", "echo safe"],
+        ["bin\\sh", "-lc", "echo safe"],
+        ["/bin/sh ", "-lc", "echo safe"],
+        ["/usr/bin/sh", "-lc", "echo safe"],
+        ["/bin/sh", " -lc", "echo safe"],
+    ],
+)
+def test_prepare_does_not_preview_payload_for_a_non_literal_wrapper(
+    data_dir: Path, roots: Path, argv: list[str]
+) -> None:
+    """Only the literal argv the Gateway builds may be shown by its payload.
+
+    Approval surfaces render ``commandPreview ?? commandText``, so previewing the
+    payload of an argv whose executable is not literally ``/bin/sh`` would show a
+    human ``echo safe`` while an unrelated binary runs.
+    """
+    result = exec_approvals.handle_system_run_prepare(
+        _prepare_params(command=argv, rawCommand="echo safe")
+    )
+    assert result["ok"] is False
+    assert result["error"] == "RAW_COMMAND_MISMATCH"
+
+    # Even without a rawCommand, no misleading preview may be produced.
+    allowed = exec_approvals.handle_system_run_prepare({"command": argv})
+    assert allowed["plan"]["commandPreview"] is None
+    assert allowed["plan"]["commandText"] == exec_approvals._format_exec_command(argv)
+
+
+@pytest.mark.parametrize("flag", ["-c", "-lc"])
+def test_prepare_previews_payload_only_for_the_literal_gateway_form(
+    data_dir: Path, roots: Path, flag: str
+) -> None:
+    """The argv `buildNodeShellCommand` emits still previews its payload."""
+    result = exec_approvals.handle_system_run_prepare(
+        _prepare_params(command=["/bin/sh", flag, "ls -la"], rawCommand="ls -la")
+    )
+    assert result["plan"]["commandPreview"] == "ls -la"
+    assert result["plan"]["commandText"] == f'/bin/sh {flag} "ls -la"'
+
+
+def test_set_compares_the_base_hash_at_commit_time(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A write that lost the race is refused, not committed over the winner."""
+    path = data_dir / "exec-approvals.json"
+    exec_approvals.handle_system_exec_approvals_set({"file": _policy()})
+    stale = exec_approvals.handle_system_exec_approvals_get({})
+
+    competitor = _policy()
+    competitor["defaults"]["ask"] = "always"
+    competitor_bytes = (json.dumps(competitor, indent=2) + "\n").encode()
+
+    real_lock = exec_approvals._approvals_write_lock
+
+    @contextmanager
+    def racing_lock(target: Path) -> Iterator[None]:
+        # Stand in for a competing writer that committed while this request was
+        # waiting for the lock.
+        with real_lock(target):
+            path.write_bytes(competitor_bytes)
+            yield
+
+    monkeypatch.setattr(exec_approvals, "_approvals_write_lock", racing_lock)
+
+    permissive = _policy()
+    permissive["defaults"]["security"] = "full"
+    result = exec_approvals.handle_system_exec_approvals_set(
+        {"file": permissive, "baseHash": stale["hash"]}
+    )
+
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_REQUEST"
+    assert path.read_bytes() == competitor_bytes
+
+
+def test_set_pins_one_path_for_check_and_write(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A path that changes mid-request cannot redirect the write to another file."""
+    first = data_dir / "exec-approvals.json"
+    second = data_dir / "other-approvals.json"
+    exec_approvals.handle_system_exec_approvals_set({"file": _policy()})
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    other = _policy()
+    other["defaults"]["ask"] = "always"
+    second_bytes = (json.dumps(other, indent=2) + "\n").encode()
+    second.write_bytes(second_bytes)
+
+    paths = iter([first, second, second, second, second])
+    monkeypatch.setattr(exec_approvals, "_approvals_path", lambda: next(paths, second))
+
+    permissive = _policy()
+    permissive["defaults"]["security"] = "full"
+    exec_approvals.handle_system_exec_approvals_set(
+        {"file": permissive, "baseHash": snapshot["hash"]}
+    )
+
+    assert second.read_bytes() == second_bytes
+
+
+def test_set_preserves_a_whitespace_only_socket_token(data_dir: Path) -> None:
+    """The schema permits any token string, so none of them may be dropped."""
+    path = data_dir / "exec-approvals.json"
+    document = _policy()
+    document["socket"] = {"path": "/run/openclaw/exec.sock", "token": "   "}
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+    exec_approvals.handle_system_exec_approvals_set(
+        {"file": snapshot["file"], "baseHash": snapshot["hash"]}
+    )
+
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["socket"]["token"] == "   "
+
+
+@pytest.mark.parametrize("blank", ["\ufeff", "\u00a0", "\u2028", "\u3000"])
+def test_set_rejects_mcp_names_that_are_javascript_whitespace(data_dir: Path, blank: str) -> None:
+    """`pattern: "\\S"` is a JavaScript test, and `str.strip` does not match it."""
+    document = _policy()
+    document["agents"] = {
+        "clawd": {
+            "mcpTools": [{"server": blank, "tool": "read", "source": "allow-always", "addedAt": 0}]
+        }
+    }
+    result = exec_approvals.handle_system_exec_approvals_set({"file": document})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert not (data_dir / "exec-approvals.json").exists()
 
 
 def test_set_requires_base_hash_for_an_existing_document(data_dir: Path) -> None:
