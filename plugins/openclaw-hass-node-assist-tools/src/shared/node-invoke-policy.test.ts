@@ -724,4 +724,105 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     });
     expect(result.ok).toBe(true);
   });
+
+  // --- Lifecycle vs admin authorization contract (issue #262) ---
+
+  describe("lifecycle ops do not require adminToken", () => {
+    const lifecycleCommands = [
+      "ha.addon_start",
+      "ha.addon_stop",
+      "ha.addon_restart",
+      "ha.addon_update",
+    ];
+
+    for (const cmd of lifecycleCommands) {
+      it(`${cmd} succeeds with allowAdminOps but no adminToken`, async () => {
+        const invokeNode = vi.fn(async () => ({ ok: true as const }));
+        const result = await runPolicy({
+          command: cmd,
+          nodeId: "node-1",
+          params: { slug: "openclaw-hass-node" },
+          pluginConfig: {
+            nodes: { "node-1": { allowAdminOps: true } },  // no adminToken
+          },
+          invokeNode,
+        });
+        expect(result.ok).toBe(true);
+        expect(invokeNode).toHaveBeenCalledTimes(1);
+      });
+
+      it(`${cmd} does not forward admin_token to the node`, async () => {
+        const invokeNode = vi.fn(async () => ({ ok: true as const }));
+        await runPolicy({
+          command: cmd,
+          nodeId: "node-1",
+          params: { slug: "openclaw-hass-node", admin_token: "attacker" },
+          pluginConfig: {
+            nodes: { "node-1": { allowAdminOps: true, adminToken: "REAL" } },
+          },
+          invokeNode,
+        });
+        expect(invokeNode).toHaveBeenCalledTimes(1);
+        const forwarded = invokeNode.mock.calls[0]?.[0]?.params ?? {};
+        // admin_token must be stripped, not forwarded
+        expect(forwarded).not.toHaveProperty("admin_token");
+        expect(forwarded).toMatchObject({ slug: "openclaw-hass-node" });
+      });
+
+      it(`${cmd} denied when allowAdminOps is not set`, async () => {
+        const invokeNode = vi.fn(async () => ({ ok: true as const }));
+        const result = await runPolicy({
+          command: cmd,
+          nodeId: "node-1",
+          params: { slug: "openclaw-hass-node" },
+          pluginConfig: { nodes: { "node-1": {} } },
+          invokeNode,
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.code).toBe("ADMIN_DENIED");
+        expect(invokeNode).not.toHaveBeenCalled();
+      });
+    }
+  });
+
+  describe("admin ops require adminToken", () => {
+    const adminCommands = [
+      { cmd: "ha.reload_config", params: { domain: "automation" } },
+      { cmd: "ha.update_install", params: { entity_id: "update.hacs" } },
+    ];
+
+    for (const { cmd, params: extraParams } of adminCommands) {
+      it(`${cmd} denied when adminToken is missing`, async () => {
+        const invokeNode = vi.fn(async () => ({ ok: true as const }));
+        const result = await runPolicy({
+          command: cmd,
+          nodeId: "node-1",
+          params: extraParams,
+          pluginConfig: {
+            nodes: { "node-1": { allowAdminOps: true } },  // no adminToken
+          },
+          invokeNode,
+        });
+        expect(result.ok).toBe(false);
+        if (!result.ok) expect(result.code).toBe("ADMIN_DENIED");
+        expect(invokeNode).not.toHaveBeenCalled();
+      });
+
+      it(`${cmd} injects admin_token from config, overriding caller`, async () => {
+        const invokeNode = vi.fn(async () => ({ ok: true as const }));
+        await runPolicy({
+          command: cmd,
+          nodeId: "node-1",
+          params: { ...extraParams, admin_token: "attacker" },
+          pluginConfig: {
+            nodes: { "node-1": { allowAdminOps: true, adminToken: "REAL" } },
+          },
+          invokeNode,
+        });
+        expect(invokeNode).toHaveBeenCalledTimes(1);
+        const forwarded = invokeNode.mock.calls[0]?.[0]?.params ?? {};
+        expect(forwarded).toHaveProperty("admin_token", "REAL");
+      });
+    }
+  });
 });

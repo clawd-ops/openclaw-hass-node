@@ -253,10 +253,43 @@ async function enforceConvenienceAction(
   return await forward(ctx, params);
 }
 
+// Lifecycle operations (ha.addon_start/stop/restart/update) do NOT require
+// an admin token on the node — they rely on the authenticated pairing session
+// plus the slug allowlist/denylist policy. The plugin gate is allowAdminOps
+// only, which controls whether this node is permitted lifecycle mutations.
+async function enforceLifecycleOp(
+  ctx: OpenClawPluginNodeInvokePolicyContext,
+  params: Record<string, unknown>,
+): Promise<OpenClawPluginNodeInvokePolicyResult> {
+  const policy = loadPolicyForNode(ctx);
+  if (!policy?.allowAdminOps) {
+    return deny(
+      "ADMIN_DENIED",
+      `${ctx.command} denied: allowAdminOps is not set for this node`,
+    );
+  }
+  const slug = readString(params, "slug");
+  if (!slug) {
+    return deny("INVALID_PARAMS", `${ctx.command} requires slug`);
+  }
+  if (isAdminAddonSlugDenied(slug)) {
+    return deny(
+      "ADMIN_SLUG_DENIED",
+      `${ctx.command} denied: slug '${slug}' is on the always-deny list (homeassistant / supervisor / core_*)`,
+    );
+  }
+  // Strip any caller-supplied admin_token — lifecycle ops don't use it
+  // and it must not leak through to the node.
+  const { admin_token: _dropped, ...forwardedParams } = params;
+  return await forward(ctx, forwardedParams);
+}
+
+// True admin operations (ha.reload_config, ha.update_install) require both
+// allowAdminOps AND a matching adminToken. The token is injected from
+// per-node config, never accepted from the caller.
 async function enforceAdminOp(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
-  requireSlug: boolean,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
   const policy = loadPolicyForNode(ctx);
   if (!policy?.allowAdminOps) {
@@ -272,18 +305,7 @@ async function enforceAdminOp(
       `${ctx.command} denied: adminToken is not configured for this node`,
     );
   }
-  if (requireSlug) {
-    const slug = readString(params, "slug");
-    if (!slug) {
-      return deny("INVALID_PARAMS", `${ctx.command} requires slug`);
-    }
-    if (isAdminAddonSlugDenied(slug)) {
-      return deny(
-        "ADMIN_SLUG_DENIED",
-        `${ctx.command} denied: slug '${slug}' is on the always-deny list (homeassistant / supervisor / core_*)`,
-      );
-    }
-  } else if (ctx.command === "ha.reload_config") {
+  if (ctx.command === "ha.reload_config") {
     const domain = readString(params, "domain");
     if (!domain) {
       return deny("INVALID_PARAMS", "ha.reload_config requires domain");
@@ -369,14 +391,14 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.light_turn_off":
           return await enforceConvenienceAction(ctx, params);
         case "ha.reload_config":
-          return await enforceAdminOp(ctx, params, false);
+          return await enforceAdminOp(ctx, params);
         case "ha.addon_start":
         case "ha.addon_stop":
         case "ha.addon_restart":
         case "ha.addon_update":
-          return await enforceAdminOp(ctx, params, true);
+          return await enforceLifecycleOp(ctx, params);
         case "ha.update_install":
-          return await enforceAdminOp(ctx, params, false);
+          return await enforceAdminOp(ctx, params);
         default:
           return deny(
             "COMMAND_NOT_ALLOWED",

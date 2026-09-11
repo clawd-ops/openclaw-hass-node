@@ -1,8 +1,12 @@
-// Tier B admin handlers: ha_reload_config / ha_addon_start /
-// ha_addon_stop / ha_addon_restart / ha_addon_update / ha_update_install.
-// Require per-node allowAdminOps=true AND adminToken configured. The token
-// is pulled from the plugin config, never from the tool caller. Addon
-// lifecycle also enforces a slug deny-list (homeassistant / supervisor / core_*).
+// Tier B handlers split into two authorization levels:
+//
+// Lifecycle ops (ha_addon_start/stop/restart/update): require per-node
+// allowAdminOps=true only. The node authenticates via the established
+// pairing session plus slug allowlist/denylist policy. No admin token.
+//
+// Admin ops (ha_reload_config, ha_update_install): require per-node
+// allowAdminOps=true AND adminToken configured. The token is pulled from
+// the plugin config, never from the tool caller.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import {
@@ -31,16 +35,89 @@ function isAdminAddonSlugDenied(slug: string): boolean {
   return slug.startsWith("core_");
 }
 
+// --- Lifecycle tools (no admin token) ---
+
+type LifecycleInput = {
+  descriptor: Pick<AnyAgentTool, "label" | "name" | "description" | "parameters">;
+  command: "ha.addon_start" | "ha.addon_stop" | "ha.addon_restart" | "ha.addon_update";
+  label: string;
+};
+
+function createLifecycleTool(input: LifecycleInput): AnyAgentTool {
+  return {
+    ...input.descriptor,
+    execute: async (_toolCallId, args) => {
+      const params = args as Record<string, unknown>;
+      const nodeIdentifier = readTrimmedString(params, "node");
+      if (!nodeIdentifier) throw new Error("node required");
+
+      const gatewayOpts = readGatewayCallOptions(params);
+      const { nodeId, nodeDisplayName, policy } = await resolveNodeAndPolicy({
+        nodeIdentifier,
+        gatewayOpts,
+      });
+
+      if (!policy?.allowAdminOps) {
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Refused ${input.command} on ${nodeDisplayName} (${nodeId}): ` +
+                `allowAdminOps is not set. ` +
+                `Set plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowAdminOps = true.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const slug = readTrimmedString(params, "slug");
+      if (!slug) throw new Error("slug required");
+      if (isAdminAddonSlugDenied(slug)) {
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Refused ${input.command}: slug '${slug}' is on the always-deny list ` +
+                `(homeassistant / supervisor / core_*).`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Lifecycle ops use pairing auth + slug policy on the node.
+      // No admin_token is sent.
+      const commandParams: Record<string, unknown> = { slug };
+
+      const payload = await invokeHaCommand({
+        nodeId,
+        command: input.command,
+        commandParams,
+        gatewayOpts,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `${input.label} on ${nodeDisplayName} (${nodeId}):\n\n` +
+              `${JSON.stringify(payload, null, 2)}`,
+          },
+        ],
+      };
+    },
+  };
+}
+
+// --- Admin tools (require adminToken) ---
+
 type AdminInput = {
   descriptor: Pick<AnyAgentTool, "label" | "name" | "description" | "parameters">;
-  command:
-    | "ha.reload_config"
-    | "ha.addon_start"
-    | "ha.addon_stop"
-    | "ha.addon_restart"
-    | "ha.addon_update"
-    | "ha.update_install";
-  requireSlug: boolean;
+  command: "ha.reload_config" | "ha.update_install";
   label: string;
 };
 
@@ -90,24 +167,7 @@ function createAdminTool(input: AdminInput): AnyAgentTool {
         admin_token: policy.adminToken,
       };
 
-      if (input.requireSlug) {
-        const slug = readTrimmedString(params, "slug");
-        if (!slug) throw new Error("slug required");
-        if (isAdminAddonSlugDenied(slug)) {
-          return {
-            content: [
-              {
-                type: "text",
-                text:
-                  `Refused ${input.command}: slug '${slug}' is on the always-deny list ` +
-                  `(homeassistant / supervisor / core_*).`,
-              },
-            ],
-            isError: true,
-          };
-        }
-        commandParams.slug = slug;
-      } else if (input.command === "ha.reload_config") {
+      if (input.command === "ha.reload_config") {
         const domain = readTrimmedString(params, "domain");
         if (!domain) throw new Error("domain required");
         commandParams.domain = domain;
@@ -148,39 +208,34 @@ export const createHaReloadConfigTool = (): AnyAgentTool =>
   createAdminTool({
     descriptor: HA_RELOAD_CONFIG_TOOL_DESCRIPTOR,
     command: "ha.reload_config",
-    requireSlug: false,
     label: "Reload config",
   });
 
 export const createHaAddonStartTool = (): AnyAgentTool =>
-  createAdminTool({
+  createLifecycleTool({
     descriptor: HA_ADDON_START_TOOL_DESCRIPTOR,
     command: "ha.addon_start",
-    requireSlug: true,
     label: "Add-on start",
   });
 
 export const createHaAddonStopTool = (): AnyAgentTool =>
-  createAdminTool({
+  createLifecycleTool({
     descriptor: HA_ADDON_STOP_TOOL_DESCRIPTOR,
     command: "ha.addon_stop",
-    requireSlug: true,
     label: "Add-on stop",
   });
 
 export const createHaAddonRestartTool = (): AnyAgentTool =>
-  createAdminTool({
+  createLifecycleTool({
     descriptor: HA_ADDON_RESTART_TOOL_DESCRIPTOR,
     command: "ha.addon_restart",
-    requireSlug: true,
     label: "Add-on restart",
   });
 
 export const createHaAddonUpdateTool = (): AnyAgentTool =>
-  createAdminTool({
+  createLifecycleTool({
     descriptor: HA_ADDON_UPDATE_TOOL_DESCRIPTOR,
     command: "ha.addon_update",
-    requireSlug: true,
     label: "Add-on update",
   });
 
@@ -188,6 +243,5 @@ export const createHaUpdateInstallTool = (): AnyAgentTool =>
   createAdminTool({
     descriptor: HA_UPDATE_INSTALL_TOOL_DESCRIPTOR,
     command: "ha.update_install",
-    requireSlug: false,
     label: "Install update",
   });
