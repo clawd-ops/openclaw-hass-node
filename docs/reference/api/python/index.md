@@ -1,9 +1,9 @@
 # Python API Reference
 
 Auto-generated from Google-style docstrings in `app/node/src/openclaw_node/`.
-Choose a module below to open its generated API page. On a module page,
-**Source code in ...** expands the inline implementation; it is a disclosure,
-not a repository link.
+Choose a module below to open its generated API page. On pages that expose
+documented objects, **Source code in ...** expands the inline implementation;
+it is a disclosure, not a repository link.
 
 ## Package layout
 
@@ -22,4 +22,4 @@ not a repository link.
 | [`openclaw_node.backup_store`](backup_store.md) | Config backup store |
 | [`openclaw_node.safe_fd`](safe_fd.md) | File-descriptor safety helpers |
 | [`openclaw_node.safe_path`](safe_path.md) | Path validation helpers |
-| [`openclaw_node.commands`](commands/dispatcher.md) | Command dispatcher and handler subpackage |
+| [`openclaw_node.commands.dispatcher`](commands/dispatcher.md) | Command registration and dispatch |

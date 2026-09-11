@@ -32,6 +32,11 @@ body {
   background: linear-gradient(100deg, #083344 0%, #0f766e 52%, #155e75 100%);
 }
 
+.md-tabs__link {
+  color: #ffffff;
+  opacity: 1;
+}
+
 .md-header {
   box-shadow: 0 0.35rem 1.2rem rgba(0, 0, 0, 0.24);
 }
@@ -201,6 +206,10 @@ body {
 
 [data-md-color-scheme="default"] .oc-card span:last-child {
   color: #334155;
+}
+
+[data-md-color-scheme="default"] .oc-card__icon {
+  color: #075985;
 }
 
 .doc-heading code {

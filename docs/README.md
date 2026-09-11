@@ -13,22 +13,22 @@ operations.
 
 <div class="oc-card-grid">
 <a class="oc-card" href="reference/COMMAND-SURFACE/">
-  <span class="oc-card__icon">⌁</span>
+  <span class="oc-card__icon" aria-hidden="true">⌁</span>
   <strong>Command surface</strong>
   <span>Browse every registered command, parameter, and policy tier.</span>
 </a>
 <a class="oc-card" href="design/AUTHORIZATION-MODEL/">
-  <span class="oc-card__icon">◈</span>
+  <span class="oc-card__icon" aria-hidden="true">◈</span>
   <strong>Authorization</strong>
   <span>Understand identities, approval boundaries, and fail-closed behavior.</span>
 </a>
 <a class="oc-card" href="reference/api/python/">
-  <span class="oc-card__icon">{ }</span>
+  <span class="oc-card__icon" aria-hidden="true">{ }</span>
   <strong>Python API</strong>
   <span>Explore generated package, transport, policy, and command APIs.</span>
 </a>
 <a class="oc-card" href="operations/RELEASE/">
-  <span class="oc-card__icon">↗</span>
+  <span class="oc-card__icon" aria-hidden="true">↗</span>
   <strong>Operate and release</strong>
   <span>Use the tested release, verification, recovery, and UAT procedures.</span>
 </a>
