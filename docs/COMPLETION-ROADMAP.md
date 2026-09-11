@@ -126,6 +126,10 @@ older issue list.
 
 ### Phase 0: Contain unsafe behavior and establish the ledger
 
+**Execution status:** IN PROGRESS. The first bounded repair makes mutating
+`ha.config.*` commands fail closed against fabricated or unverified proposal
+identifiers. The complete approval verifier remains a later Phase 2 deliverable.
+
 - [ ] Make every mutating `ha.config.*` action fail closed until a real approval
   verifier is available. Arbitrary proposal strings must never authorize a call.
 - [ ] Add an interim node-side effect denylist for generic services that can
