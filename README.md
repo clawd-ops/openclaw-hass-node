@@ -99,8 +99,9 @@ gateway side. Short version:
    **`openclaw-hass-node-assist-tools`** plugin under
    `plugins.entries` and add a per-node policy block with the allow
    lists you want Assist to have (`allowServices`,
-   `allowReadEntities`, `allowCalendars`; optional `allowAdminOps` +
-   `adminToken` for Tier B). Install
+   `allowReadEntities`, `allowCalendars`; optional `allowAdminOps` for
+   Tier B lifecycle commands, plus `adminToken` only for the separate
+   `ha.reload_config` and `ha.update_install` admin effects). Install
    **`openclaw-hass-node-skill`** into your OC session skill registry
    so non-Assist sessions can drive the node too.
 2. **HA app** — add this repo as an HA app repository, install

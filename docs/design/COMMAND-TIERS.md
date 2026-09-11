@@ -1,8 +1,10 @@
 # Command tier policy (addon-management surface)
 
 Addon-management commands are grouped by blast radius. Tier A is the
-only tier subagents are ever allowed to call. Tier B is operator-only
-behind an admin token. Tier C is explicitly out of scope.
+only tier subagents are ever allowed to call. Tier B is operator-only.
+Lifecycle commands use the paired operator boundary plus explicit slug
+policy; separate admin effects retain their admin-token gate. Tier C is
+explicitly out of scope.
 
 This file replaces the old `HANDOFF-2026-06-20-addon-command-surface.md`,
 which was deleted in the pre-1.0 doc sweep. The policy survives the
@@ -53,20 +55,35 @@ choices when the next iteration happens:
 
 Decide before iterating on `ha.addon_info`.
 
-## Tier B — lifecycle, admin-gated, NEVER on the subagent allowlist
+## Tier B — lifecycle + admin, NEVER on the subagent allowlist
 
-Reserved for the primary agent or Rob himself. Same `OPENCLAW_ADMIN_TOKEN`
-gate as `ha.reload_config`.
+Reserved for the primary agent or Rob himself. Tier B has two
+authorization levels (#262 reconciliation):
 
-Shipped surface:
+### Tier B lifecycle (pairing auth + slug policy, no admin token)
+
+Authenticated by the established pairing session. The node checks
+slug allowlist/denylist policy but does **not** consult
+`OPENCLAW_ADMIN_TOKEN`. The plugin requires `allowAdminOps` only.
 
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
 - `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version (Supervisor API, slug-based)
-- `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Requires `OPENCLAW_ADMIN_TOKEN`. Entity ID must be in the `update.` domain.
 
-Additional constraints on top of the admin-token gate:
+### Tier B admin (admin token required)
+
+Same `OPENCLAW_ADMIN_TOKEN` gate as `system.run`. The plugin
+requires both `allowAdminOps` AND `adminToken`.
+
+- `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;
+  reloads the HA core configuration only. The handler accepts a `domain`
+  argument but currently ignores it, so per-domain reloads are not available
+  through this command. Tracked in #263; update this entry when the handler
+  changes.
+- `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Entity ID must be in the `update.` domain.
+
+Additional constraints on lifecycle ops (on top of the `allowAdminOps` gate):
 
 - **Slug allow/deny list at addon-config level.** Always deny
   `homeassistant`, `supervisor`, and `core_*` regardless of token.
@@ -118,8 +135,10 @@ that cache after a release.
 ## PR cadence
 
 - One Tier A command per PR, each individually reviewable.
-- Tier B landed with the admin token gate and slug allowlist in the same
-  implementation PR as identity routing.
+- Tier B initially landed with an admin token gate and slug allowlist. Current
+  lifecycle authorization uses the paired session plus slug policy without a
+  separate token; `ha.reload_config` and `ha.update_install` retain their
+  separate admin-token gate.
 - Tier C never lands without a fresh, scoped ask.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.
@@ -131,5 +150,5 @@ that cache after a release.
    (`commands/dispatcher.py` or a new policy layer) — MUST land
    BEFORE any subagent path is wired to call these commands.
 3. Keep subagent access on the Tier A node surface.
-4. Tier B surface with the admin allowlist gate (done in the identity
-   routing implementation PR).
+4. Tier B lifecycle surface uses the paired session plus slug policy without a
+   separate token; the contract was reconciled under issue #262.

@@ -35,7 +35,10 @@ See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full
 **Implemented.** 30 `ha_*` tools are declared in the manifest
 (`openclaw.plugin.json`) with the corresponding registrations in
 `index.ts`. The plugin exposes read/observability + `ha_call_service` +
-Tier B admin lifecycle wrappers — it does **not** expose the
+Tier B lifecycle and admin wrappers. Lifecycle operations require the paired
+node boundary, `allowAdminOps`, and the node's lifecycle slug policy, without
+another token. `ha_reload_config` and `ha_update_install` remain separate admin
+operations that also require `adminToken`. The plugin does **not** expose the
 `ha.config.*` domain-config editors (lovelace, automation, script,
 scene, helpers, area/device/entity registries, config_entries). Those
 are proposal-gated mutations meant for chat/cron/sub-agent flows via
@@ -71,7 +74,7 @@ Config lives at `plugins.entries.openclaw-hass-node-assist-tools.config.nodes.<n
 **Routing-only design**: the plugin does not enumerate entities, services, or
 calendars. Access control is delegated entirely to the hass node's
 `allowCommands` tier policy and HA's own auth. The only plugin-scoped config
-is the Tier B admin gate:
+is the Tier B gate:
 
 ```json
 {
@@ -90,34 +93,38 @@ is the Tier B admin gate:
 }
 ```
 
-### Tier B admin ops (optional)
+### Tier B operations (optional)
 
-To enable `ha_reload_config`, `ha_addon_start`, `ha_addon_stop`,
-`ha_addon_restart`, `ha_addon_update`, set both flags under the node:
+Set `allowAdminOps: true` to enable `ha_addon_start`, `ha_addon_stop`,
+`ha_addon_restart`, and `ha_addon_update`. The node also requires the target
+slug in `addon_lifecycle.allowlist` and always denies `homeassistant`,
+`supervisor`, and `core_*`:
 
 ```json
 "nodes": {
   "hass": {
     "allowAdminOps": true,
-    "adminToken": "<shared secret from hass node admin config>"
+    "adminToken": "<shared secret for reload_config and update_install only>"
   }
 }
 ```
 
-`adminToken` is a shared secret between the plugin and the node's admin
-surface — it is NOT the HA long-lived access token. It is injected by the
-plugin and the caller cannot override it.
+`adminToken` is optional unless `ha_reload_config` or `ha_update_install` is
+used. For those two admin operations it is a shared secret between the plugin
+and the node's admin surface. It is not the HA long-lived access token. The
+plugin injects it and the caller cannot override it. Lifecycle operations do
+not send or consult it.
 
 ## Layout
 
 ```
 plugins/openclaw-hass-node-assist-tools/
-├── openclaw.plugin.json     # manifest; declares all 28 tools in contracts.tools
+├── openclaw.plugin.json     # manifest; declares all 30 tools in contracts.tools
 ├── package.json
-├── index.ts                 # plugin entry; lazy-registers all 28 ha_* tools
+├── index.ts                 # plugin entry; lazy-registers all 30 ha_* tools
 ├── src/
 │   ├── tools/
-│   │   ├── descriptors.ts                  # TypeBox schemas + tool metadata (28 descriptors)
+│   │   ├── descriptors.ts                  # TypeBox schemas + tool metadata (30 descriptors)
 │   │   ├── ha-call-service-tool.ts
 │   │   ├── ha-get-state-tool.ts
 │   │   ├── ha-list-states-tool.ts
@@ -128,10 +135,10 @@ plugins/openclaw-hass-node-assist-tools/
 │   │   ├── ha-simple-read-tools.ts         # list_services, get_config, list_events, list_config_entries, list_automations, check_config, core_logs, addon_logs, list_addons, addon_info, addon_stats, addon_changelog, addon_documentation
 │   │   ├── ha-entity-scoped-read-tools.ts  # logbook, history
 │   │   ├── ha-light-tools.ts               # light_turn_on, light_turn_off
-│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update (Tier B)
+│   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update, update_install (Tier B)
 │   └── shared/
 │       ├── node-invoke-policy.ts           # routing-only invoke policy with param validation
-│       ├── per-node-policy.ts              # PerNodePolicy type (admin gate only)
+│       ├── per-node-policy.ts              # PerNodePolicy type (lifecycle enablement + separate admin token)
 │       └── lazy-node-invoke-policy.ts      # command allowlist
 └── README.md
 ```

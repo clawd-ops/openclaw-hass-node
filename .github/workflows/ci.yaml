@@ -6,6 +6,18 @@ on:
     branches: [main]
 
 jobs:
+  command-coverage:
+    name: Command Coverage Ledger
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify generated command/action/caller coverage
+        run: python scripts/generate-command-coverage.py --check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

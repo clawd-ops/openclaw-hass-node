@@ -1,0 +1,751 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "authorization_class": "unverified",
+    "capability_conditions": "Registered source handler exists; runtime dependencies and caller authorization remain command-specific.",
+    "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
+    "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
+    "evidence_method": "CODE-PROVEN",
+    "outcome": "unverified",
+    "acceptance_test_ids": [],
+    "caller_observations": {},
+    "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise."
+  },
+  "authorization_evidence": {
+    "deny_pending_trusted_approval": {
+      "evidence_method": "TEST-PROVEN",
+      "outcome": "refused-as-designed",
+      "acceptance_test_ids": [
+        {
+          "id": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+          "caller": "handler_dispatch",
+          "outcome": "refused-as-designed"
+        },
+        {
+          "id": "app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation",
+          "caller": "handler_dispatch",
+          "outcome": "refused-as-designed"
+        }
+      ],
+      "caller_observations": {
+        "handler_dispatch": [
+          {
+            "method": "TEST-PROVEN",
+            "outcome": "refused-as-designed",
+            "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+            "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+          }
+        ]
+      }
+    }
+  },
+  "commands": {
+    "ping": {
+      "authorization_class": "diagnostic",
+      "capability_conditions": "Node is connected and the ping command is allowed by the Gateway.",
+      "assist_unavailable_reason": "Assist does not expose the node diagnostic ping command.",
+      "actions": {}
+    },
+    "fs.read": {
+      "authorization_class": "read_path_policy",
+      "capability_conditions": "Path resolves under a configured allowed root and read size policy permits the response.",
+      "bounds": {
+        "max_bytes": "validated integer from 1 through the source-defined hard maximum"
+      },
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Installed-node verification reproduced ignored offset/length and over-broad content disclosure; tracked by #257.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/VERIFICATION-2026-09-11.md#22-fsread-ignores-offset-and-length",
+            "observation": "A bounded direct read returned the complete file instead of the requested slice."
+          }
+        ]
+      },
+      "assist_unavailable_reason": "Assist intentionally has no generic filesystem read wrapper.",
+      "actions": {}
+    },
+    "fs.list": {
+      "authorization_class": "read_path_policy",
+      "capability_conditions": "Directory resolves under a configured allowed root.",
+      "bounds": {
+        "max_entries": "validated integer from 1 through the source-defined hard maximum"
+      },
+      "assist_unavailable_reason": "Assist intentionally has no generic filesystem listing wrapper.",
+      "actions": {}
+    },
+    "fs.stat": {
+      "authorization_class": "read_path_policy",
+      "capability_conditions": "Path resolves under a configured allowed root.",
+      "assist_unavailable_reason": "Assist intentionally has no generic filesystem metadata wrapper.",
+      "actions": {}
+    },
+    "fs.glob": {
+      "authorization_class": "read_path_policy",
+      "capability_conditions": "Root resolves under a configured allowed root.",
+      "bounds": {
+        "max_matches": "validated integer from 1 through the source-defined hard maximum"
+      },
+      "assist_unavailable_reason": "Assist intentionally has no generic filesystem glob wrapper.",
+      "actions": {}
+    },
+    "fs.write": {
+      "authorization_class": "path_dependent_mutation",
+      "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "actions": {}
+    },
+    "fs.restore": {
+      "authorization_class": "path_dependent_mutation",
+      "capability_conditions": "Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem restore wrapper.",
+      "actions": {}
+    },
+    "fs.history": {
+      "authorization_class": "read_path_policy",
+      "capability_conditions": "Allowed path and readable backup index; collection result currently has no caller limit.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem backup-history wrapper.",
+      "actions": {}
+    },
+    "fs.diff": {
+      "authorization_class": "read_path_policy",
+      "capability_conditions": "Allowed path and resolvable backup versions.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem diff wrapper.",
+      "actions": {}
+    },
+    "fs.move": {
+      "authorization_class": "path_dependent_mutation",
+      "capability_conditions": "Both paths resolve under allowed writable roots; protected paths fail closed pending trusted approval.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "actions": {}
+    },
+    "fs.delete": {
+      "authorization_class": "path_dependent_mutation",
+      "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "actions": {}
+    },
+    "fs.patch": {
+      "authorization_class": "path_dependent_mutation",
+      "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
+      "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "actions": {}
+    },
+    "system.run": {
+      "authorization_class": "unavailable_gateway_reserved",
+      "capability_conditions": "Unreachable through nodes.invoke because the Gateway reserves system.run; the dormant node handler also requires an admin token.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Installed Gateway refused the advertised command before node dispatch; tracked by #258.",
+      "bounds": {
+        "timeout": "validated positive number capped by the source-defined maximum"
+      },
+      "assist_unavailable_reason": "Assist intentionally has no shell-execution wrapper; the Gateway also reserves this command.",
+      "actions": {}
+    },
+    "system.which": {
+      "authorization_class": "diagnostic",
+      "capability_conditions": "Requested executable name is valid; documented binary/name drift remains unresolved.",
+      "assist_unavailable_reason": "Assist does not expose host executable lookup.",
+      "actions": {}
+    },
+    "ha.list_states": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
+      "actions": {}
+    },
+    "ha.get_state": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable and the entity exists.",
+      "actions": {}
+    },
+    "ha.call_service": {
+      "authorization_class": "node_effect_policy_missing",
+      "capability_conditions": "HA REST API is reachable. Plugin policy may restrict callers, but the node does not yet classify service effects.",
+      "aliases": {
+        "data": [
+          "service_data"
+        ]
+      },
+      "evidence_method": "TEST-PROVEN",
+      "outcome": "partial",
+      "acceptance_test_ids": [
+        {
+          "id": "plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::invokes ha.call_service and forwards to the node",
+          "caller": "assist_wrapper",
+          "outcome": "pass"
+        },
+        {
+          "id": "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::accepts equal aliases but rejects conflicts before any gateway or HA call",
+          "caller": "assist_wrapper",
+          "outcome": "pass"
+        }
+      ],
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "TEST-PROVEN",
+            "outcome": "pass",
+            "source": "plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::invokes ha.call_service and forwards to the node",
+            "observation": "The wrapper preserves service payload data and returns the node result; node-side effect authorization remains incomplete."
+          }
+        ]
+      },
+      "evidence_note": "Stacked PR #267 tests data/service_data parity and semantic error propagation; effect authorization remains incomplete.",
+      "actions": {},
+      "semantic_result": "UNVERIFIED CONTRACT: HA changed_states list from service response; service_data is normalized to data before dispatch."
+    },
+    "ha.list_areas": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA WebSocket API supports the area registry list command.",
+      "actions": {}
+    },
+    "ha.list_devices": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA WebSocket API supports the device registry list command.",
+      "actions": {}
+    },
+    "ha.list_services": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
+      "actions": {}
+    },
+    "ha.get_config": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable.",
+      "actions": {}
+    },
+    "ha.list_events": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
+      "actions": {}
+    },
+    "ha.list_config_entries": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
+      "actions": {}
+    },
+    "ha.core_logs": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable and permits core log access.",
+      "bounds": {
+        "lines": "validated integer from 1 through the source-defined maximum"
+      },
+      "actions": {}
+    },
+    "ha.calendar_get_events": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable and the calendar entity/time range is valid.",
+      "actions": {}
+    },
+    "ha.list_entity_registry": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
+      "actions": {}
+    },
+    "ha.logbook": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable; direct caller aliases and URL encoding remain unresolved.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Installed-node probes covered plugin-path bounding; direct source contract drift remains unresolved.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/VERIFICATION-2026-09-11.md#4-live-evidence",
+            "observation": "The installed Assist wrapper honored time and entity scoping in the probed path."
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "fail",
+            "source": "docs/VERIFICATION-2026-09-11.md#12-the-documented-arguments-are-not-one-contract",
+            "observation": "Documented direct start/end keys do not match the handler's start_time/end_time keys."
+          }
+        ]
+      },
+      "actions": {}
+    },
+    "ha.history": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable; direct caller aliases, URL encoding, and unknown-entity semantics remain unresolved.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Installed-node probes reproduced the +00:00 encoding failure and silent empty unknown-entity result.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding",
+            "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result."
+          }
+        ]
+      },
+      "actions": {}
+    },
+    "ha.reload_config": {
+      "authorization_class": "admin_token",
+      "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Documented domain scoping is ignored and currently reloads core config (#263).",
+      "outcome": "fail",
+      "actions": {}
+    },
+    "ha.light_turn_on": {
+      "authorization_class": "caller_policy_only_auto_allow_intent",
+      "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_on; trusted principal context is not node-enforced yet.",
+      "actions": {}
+    },
+    "ha.light_turn_off": {
+      "authorization_class": "caller_policy_only_auto_allow_intent",
+      "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_off; trusted principal context is not node-enforced yet.",
+      "actions": {}
+    },
+    "ha.list_automations": {
+      "authorization_class": "read_only",
+      "capability_conditions": "HA REST API is reachable; requested entity filters are ignored and trace expansion is unbounded.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Installed-node probe returned the complete automation set for a no-match filter; tracked by #259.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/VERIFICATION-2026-09-11.md#23-halist_automations-ignores-filters",
+            "observation": "A guaranteed no-match filter returned the complete automation set."
+          }
+        ]
+      },
+      "actions": {}
+    },
+    "ha.check_config": {
+      "authorization_class": "diagnostic",
+      "capability_conditions": "Supervisor API is reachable and permits core config validation.",
+      "actions": {}
+    },
+    "ha.addon_logs": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "bounds": {
+        "lines": "validated integer from 1 through the source-defined maximum"
+      },
+      "actions": {}
+    },
+    "ha.list_addons": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable; collection result has no caller limit.",
+      "actions": {}
+    },
+    "ha.addon_info": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "actions": {}
+    },
+    "ha.addon_stats": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "actions": {}
+    },
+    "ha.addon_changelog": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "actions": {}
+    },
+    "ha.addon_documentation": {
+      "authorization_class": "read_only",
+      "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "actions": {}
+    },
+    "ha.addon_start": {
+      "authorization_class": "addon_slug_policy_only",
+      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "outcome": "partial",
+      "actions": {}
+    },
+    "ha.addon_stop": {
+      "authorization_class": "addon_slug_policy_only",
+      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "outcome": "partial",
+      "actions": {}
+    },
+    "ha.addon_restart": {
+      "authorization_class": "addon_slug_policy_only",
+      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "outcome": "partial",
+      "actions": {}
+    },
+    "ha.addon_update": {
+      "authorization_class": "addon_slug_policy_only",
+      "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260). The Assist plugin requires allowAdminOps; no admin token is required for lifecycle ops.",
+      "unadvertised_reason": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Installed-node direct invocation was rejected because the command is not advertised.",
+      "actions": {},
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/VERIFICATION-2026-09-11.md#25-haaddon_update--haupdateinstall-unreachable",
+            "observation": "Live probe of ha.addon_update returned \"node command not allowed\" because the command is not advertised."
+          }
+        ]
+      }
+    },
+    "ha.update_install": {
+      "authorization_class": "admin_token",
+      "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260). The Assist plugin requires both allowAdminOps and adminToken.",
+      "unadvertised_reason": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
+      "evidence_method": "CODE-PROVEN",
+      "outcome": "fail",
+      "evidence_note": "Not advertised in the node connect frame; unreachable through nodes.invoke. No independent live probe was performed for this command; absence inferred from advertisement inventory (CODE-PROVEN).",
+      "actions": {}
+    },
+    "ha.config.lovelace": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "dashboards_list": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports lovelace/dashboards/list; collection result has no caller limit.",
+          "parameters": [
+            "action"
+          ]
+        },
+        "get": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports lovelace/config.",
+          "parameters": [
+            "action",
+            "url_path"
+          ]
+        },
+        "resources_create": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "url",
+            "res_type",
+            "proposal_id"
+          ]
+        },
+        "resources_list": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports lovelace/resources; collection result has no caller limit.",
+          "parameters": [
+            "action"
+          ]
+        },
+        "save": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "config",
+            "url_path",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.automation": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "delete": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "id",
+            "proposal_id"
+          ]
+        },
+        "get": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA REST API exposes the requested automation config.",
+          "parameters": [
+            "action",
+            "id"
+          ]
+        },
+        "save": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "id",
+            "config",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.script": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "delete": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "id",
+            "proposal_id"
+          ]
+        },
+        "get": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA REST API exposes the requested script config.",
+          "parameters": [
+            "action",
+            "id"
+          ]
+        },
+        "save": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "id",
+            "config",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.scene": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "delete": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "id",
+            "proposal_id"
+          ]
+        },
+        "get": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA REST API exposes the requested scene config.",
+          "parameters": [
+            "action",
+            "id"
+          ]
+        },
+        "save": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "id",
+            "config",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.helpers": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "create": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "helper_type",
+            "attrs",
+            "proposal_id"
+          ]
+        },
+        "delete": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "helper_type",
+            "<helper_type>_id",
+            "proposal_id"
+          ]
+        },
+        "list": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports the requested helper type; collection result has no caller limit.",
+          "parameters": [
+            "action",
+            "helper_type"
+          ]
+        },
+        "update": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "helper_type",
+            "<helper_type>_id",
+            "attrs",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.area_registry": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "create": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The create action accepts name (required) and optional attrs for additional area fields.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "name",
+            "attrs",
+            "proposal_id"
+          ]
+        },
+        "delete": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "area_id",
+            "proposal_id"
+          ]
+        },
+        "list": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports config/area_registry/list; collection result has no caller limit.",
+          "parameters": [
+            "action"
+          ]
+        },
+        "update": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The update action requires area_id and attrs (dict of fields to change).",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "area_id",
+            "attrs",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.device_registry": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "list": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports config/device_registry/list; collection result has no caller limit.",
+          "parameters": [
+            "action"
+          ]
+        },
+        "update": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "device_id",
+            "attrs",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.entity_registry": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "get": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports config/entity_registry/get.",
+          "parameters": [
+            "action",
+            "entity_id"
+          ]
+        },
+        "list": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.",
+          "parameters": [
+            "action"
+          ]
+        },
+        "remove": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "entity_id",
+            "proposal_id"
+          ]
+        },
+        "update": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "entity_id",
+            "attrs",
+            "proposal_id"
+          ]
+        }
+      }
+    },
+    "ha.config.config_entries": {
+      "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "actions": {
+        "disable": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "entry_id",
+            "proposal_id"
+          ]
+        },
+        "enable": {
+          "authorization_class": "deny_pending_trusted_approval",
+          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "evidence_method": "TEST-PROVEN",
+          "parameters": [
+            "action",
+            "entry_id",
+            "proposal_id"
+          ]
+        },
+        "get": {
+          "authorization_class": "read_only",
+          "capability_conditions": "HA WebSocket API supports config_entries/get.",
+          "parameters": [
+            "action",
+            "entry_id"
+          ]
+        }
+      }
+    }
+  }
+}

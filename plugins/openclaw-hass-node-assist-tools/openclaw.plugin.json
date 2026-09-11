@@ -52,11 +52,11 @@
           "properties": {
             "allowAdminOps": {
               "type": "boolean",
-              "description": "Tier B admin gate. Must be true (with adminToken) to invoke reload_config / addon_start / addon_stop / addon_restart / addon_update."
+              "description": "Tier B gate. Must be true for lifecycle ops (addon_start/stop/restart/update) and admin ops (reload_config/update_install). Lifecycle ops use pairing auth + slug policy; admin ops additionally require adminToken."
             },
             "adminToken": {
               "type": "string",
-              "description": "Tier B admin token forwarded to the app's admin_token check. Required alongside allowAdminOps."
+              "description": "Admin token forwarded for ha.reload_config and ha.update_install. Must match the addon's OPENCLAW_ADMIN_TOKEN. Not required for lifecycle ops (addon_start/stop/restart/update)."
             }
           }
         }

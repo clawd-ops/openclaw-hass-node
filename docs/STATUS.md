@@ -1,9 +1,17 @@
 # Status
 
-> **Beta.** Pair, connect, tool invokes, and HA Assist conversation
-> all work end-to-end on the current beta track. Publishing
-> infrastructure is still settling and pre-1.0 breaking changes are
+> **Beta.** Pairing, connection, selected tool invokes, and HA Assist
+> conversation have end-to-end evidence on the beta track. The full command
+> surface is not yet proven and includes known unreachable or broken paths.
+> Publishing infrastructure is still settling and pre-1.0 breaking changes are
 > still possible.
+
+> **Reality notice:** the historical release narrative below still contains
+> known-stale versions, availability, and policy claims. Until Phase 6
+> reconciliation is complete, use the
+> [completion roadmap](COMPLETION-ROADMAP.md),
+> [dated verification](VERIFICATION-2026-09-11.md), and generated
+> [command coverage ledger](reference/COMMAND-COVERAGE.md) for current claims.
 
 > **Update this file at every meaningful state change.** It is the
 > single thing that tells a future maintainer "where am I". If
@@ -24,6 +32,24 @@ See [the completion roadmap](COMPLETION-ROADMAP.md) for the remaining work.
 Older release and non-config claims below still await the wider reconciliation.
 
 ## Where we are
+
+**Additional unreleased coverage foundation (#268):** a deterministic generator
+now reconciles 53 dispatcher commands, 51 node advertisements, 30 Assist wrapper
+registrations, and 31 action variants into 84 explicit rows. The Assist
+registration contract is executable by the plugin and records each tool,
+descriptor, factory, node command, accepted tool key, and emitted node-key
+mapping. Machine-readable and human-readable artifacts separate evidence method
+from behavioral outcome, preserve multiple caller observations, distinguish
+curated behavioral-test IDs from source mentions, and render accepted source
+keys, aliases, defaults/bounds, field provenance, semantic/error notes,
+authorization class, capability conditions, and explicit unavailable reasons.
+The check fails on missing or stale command/action/caller coverage, source/action
+parameter drift, unacknowledged Assist mapping drift, and stale generated
+artifacts. The lifecycle `admin_token` mismatch is resolved in the current
+unreleased source: lifecycle wrappers require `allowAdminOps` and the node's
+slug policy without injecting another token. The separate
+`ha.reload_config` domain mismatch remains tracked; this inventory does not
+enable commands or resolve the other defects it records.
 
 **Additional unreleased source repair (#266):** generic service calls normalize
 `service_data` to canonical `data` without dropping payloads and reject alias
@@ -60,8 +86,9 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     Tier A read-only addon surface (`list_addons`, `addon_info`,
     `addon_stats`, `addon_logs`, `addon_changelog`,
     `addon_documentation`), Tier B addon lifecycle
-    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) behind
-    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist, and the nine
+    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) authenticated
+    by the paired session and constrained by an explicit slug allowlist, with no
+    separate lifecycle admin token, and the nine
     `ha.config.*` domain-config editors: `lovelace`, `automation`,
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
@@ -120,7 +147,11 @@ Release-cut itself is automated: `.github/workflows/release-on-version-bump.yml`
 
 ## Open blockers
 
-None. The pipeline is live; remaining work is incremental.
+The stop-ship findings and external proof gates are tracked in the
+[completion roadmap](COMPLETION-ROADMAP.md). The product is not complete: trusted
+approval, node-enforced effect policy, strict parameter contracts, bounded
+responses, recovery isolation, packaging, live compatibility evidence, and
+release/UAT gates remain open.
 
 ## Decision log
 

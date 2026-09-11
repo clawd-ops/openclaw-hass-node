@@ -537,6 +537,12 @@ descriptions. Other occurrences (`README.md:47`, `SKILL.md:18`,
 policy, not a slug claim. The same wrong fact is in the assistant's memory file
 `reference_hass_node_name.md`.
 
+**Unreleased correction:** PR #269 changes the shared descriptor to state that
+the literal is neither a node id nor a Supervisor add-on slug. The generated
+[command coverage ledger](reference/COMMAND-COVERAGE.md) records the Assist
+caller path separately from node advertisement and direct invocation; this does
+not change the installed plugin until a reviewed release is deployed.
+
 ### 7.2 Published plugin configuration does not validate
 
 `README.md:101-102` instructs users to configure `allowServices`,
