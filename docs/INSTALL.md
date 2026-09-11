@@ -163,11 +163,14 @@ stored approved-commands stays empty and you'll have to
      This is prompt-level protection for shared-agent setups. Hard
      OpenClaw-side permission separation comes from routing a user to an
      agent whose gateway tool inventory is restricted.
-   - `addon_lifecycle` *(optional)*: Tier B add-on start/stop/restart
+   - `addon_lifecycle` *(optional)*: Tier B add-on start/stop/restart/update
      policy. `allowlist` is default-deny and must include every slug
      you want lifecycle commands to touch. `homeassistant`,
      `supervisor`, and `core_*` slugs are always denied even if listed.
-     Calls also require the runtime `OPENCLAW_ADMIN_TOKEN`.
+     The paired session authenticates these calls; no separate lifecycle admin
+     token is required. The Assist plugin additionally requires
+     `allowAdminOps: true`. `ha.reload_config` and `ha.update_install` remain
+     separate admin operations with their existing token gate.
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.

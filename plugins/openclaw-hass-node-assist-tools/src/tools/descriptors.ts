@@ -7,9 +7,9 @@
 // tool-specific.
 //
 // Routing-only design: access control is delegated to the hass node's
-// tier/allowCommands policy and HA's own auth layer. Tier B admin tools
-// (reload_config, addon_start/stop/restart) additionally require
-// allowAdminOps + adminToken in the per-node plugin config.
+// tier/allowCommands policy and HA's own auth layer. Tier B lifecycle tools
+// require allowAdminOps and the node's slug policy. reload_config and
+// update_install additionally require adminToken in the per-node plugin config.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
@@ -22,10 +22,11 @@ type AssistToolDescriptor = Pick<
 // This string is injected into every ha_* tool call, so it is the strongest
 // signal a model gets about what `node` should be. The previous wording ended
 // on "the bound openclaw-hass-node-app", and callers repeatedly passed that
-// add-on slug as the node id, producing "unknown node: openclaw-hass-node-app"
-// failures. Name the expected value positively and mark the slug as wrong.
+// add-on name as the node id, producing "unknown node: openclaw-hass-node-app"
+// failures. Name the expected value positively and state what the bad literal
+// actually is: neither the paired node id nor a Supervisor slug.
 export const PAIRED_NODE_DESCRIPTION =
-  "Paired Home Assistant node id or display name from `nodes status`, commonly `hass`. Do not pass local, host, gateway, auto, or the add-on slug openclaw-hass-node-app; that slug is the Supervisor add-on, not a node id.";
+  "Paired Home Assistant node id or display name from `nodes status`, commonly `hass`. Do not pass local, host, gateway, auto, or openclaw-hass-node-app; that literal is neither a node id nor a Supervisor add-on slug.";
 
 // --- ha_call_service ---
 
@@ -384,7 +385,7 @@ export const HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   parameters: LightTargetSchema(),
 };
 
-// --- Tier B admin (require allowAdminOps + adminToken in per-node config) ---
+// --- Tier B lifecycle and admin descriptors ---
 
 export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: reload config",
@@ -403,7 +404,7 @@ export const HA_ADDON_START_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon start",
   name: "ha_addon_start",
   description:
-    "On the paired Home Assistant node: start a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: start a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
   parameters: AddonSlugSchema(),
 };
 
@@ -411,7 +412,7 @@ export const HA_ADDON_STOP_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon stop",
   name: "ha_addon_stop",
   description:
-    "On the paired Home Assistant node: stop a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: stop a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
   parameters: AddonSlugSchema(),
 };
 
@@ -419,7 +420,7 @@ export const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon restart",
   name: "ha_addon_restart",
   description:
-    "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
   parameters: AddonSlugSchema(),
 };
 
@@ -427,7 +428,7 @@ export const HA_ADDON_UPDATE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon update",
   name: "ha_addon_update",
   description:
-    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps + adminToken; always denied for 'homeassistant', 'supervisor', 'core_*'. For updating HACS integrations, HA Core, or other update.* entities, use ha_update_install instead.",
+    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'.",
   parameters: AddonSlugSchema(),
 };
 

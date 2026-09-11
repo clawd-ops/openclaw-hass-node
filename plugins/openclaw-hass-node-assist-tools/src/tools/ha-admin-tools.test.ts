@@ -96,11 +96,11 @@ describe("addon lifecycle (start/stop/restart/update)", () => {
   ];
 
   for (const l of lifecycle) {
-    it(`${l.command} forwards with slug + admin_token`, async () => {
+    it(`${l.command} forwards with slug only (no admin_token)`, async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: OK_POLICY,
+        policy: { allowAdminOps: true },
       });
       invokeMock.mockResolvedValue({ ok: true });
       const tool = await load(l.factory);
@@ -111,21 +111,57 @@ describe("addon lifecycle (start/stop/restart/update)", () => {
         () => undefined,
       );
       expect(invokeMock).toHaveBeenCalledTimes(1);
-      expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
+      const params = invokeMock.mock.calls[0]?.[0]?.commandParams;
+      expect(params).toMatchObject({
         command: l.command,
-        commandParams: {
-          slug: "openclaw-hass-node",
-          admin_token: "T0P-S3CR3T",
-        },
-      });
+        commandParams: { slug: "openclaw-hass-node" },
+      }.commandParams);
+      // admin_token must NOT be sent for lifecycle ops
+      expect(params).not.toHaveProperty("admin_token");
       expect(r.isError).toBeUndefined();
+    });
+
+    it(`${l.command} does not require adminToken in policy`, async () => {
+      // allowAdminOps is set but no adminToken configured — lifecycle should still work
+      resolveMock.mockResolvedValue({
+        nodeId: "hass-001",
+        nodeDisplayName: "Hass",
+        policy: { allowAdminOps: true },  // no adminToken
+      });
+      invokeMock.mockResolvedValue({ ok: true });
+      const tool = await load(l.factory);
+      const r = await tool.execute(
+        "c",
+        { node: "hass", slug: "openclaw-hass-node" },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(r.isError).toBeUndefined();
+    });
+
+    it(`${l.command} refuses when allowAdminOps is not set`, async () => {
+      resolveMock.mockResolvedValue({
+        nodeId: "hass-001",
+        nodeDisplayName: "Hass",
+        policy: {},
+      });
+      const tool = await load(l.factory);
+      const r = await tool.execute(
+        "c",
+        { node: "hass", slug: "openclaw-hass-node" },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(invokeMock).not.toHaveBeenCalled();
+      expect(r.isError).toBe(true);
     });
 
     it(`${l.command} refuses always-denied slug 'homeassistant'`, async () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: OK_POLICY,
+        policy: { allowAdminOps: true },
       });
       const tool = await load(l.factory);
       const r = await tool.execute(
@@ -142,7 +178,7 @@ describe("addon lifecycle (start/stop/restart/update)", () => {
       resolveMock.mockResolvedValue({
         nodeId: "hass-001",
         nodeDisplayName: "Hass",
-        policy: OK_POLICY,
+        policy: { allowAdminOps: true },
       });
       const tool = await load(l.factory);
       const r = await tool.execute(

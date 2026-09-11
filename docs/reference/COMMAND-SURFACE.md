@@ -1,13 +1,18 @@
 # Command Surface
 
-> **Beta.** This file documents the **live** command registry in
-> `commands/dispatcher.py`. Commands listed here are registered and
-> working. Planned commands that are not yet implemented are listed
-> separately at the end.
+> **Beta and not yet canonical.** This narrative contains known parameter,
+> availability, and policy drift. Use the generated
+> [command coverage ledger](COMMAND-COVERAGE.md) for the source-reconciled
+> registry/action/caller inventory and
+> [the dated verification](../VERIFICATION-2026-09-11.md) for observed defects.
+> Registration is not proof that a command is advertised, reachable, or working.
 
-Commands the node exposes via `node.invoke`. Group prefixes match
-OpenClaw conventions where they exist. 53 commands are registered
-(`ping` + `fs.*` × 11 + `system.*` × 2 + `ha.*` × 39).
+Commands intended for the `node.invoke` surface. Group prefixes match OpenClaw
+conventions where they exist. The dispatcher registers 53 commands
+(`ping` + `fs.*` × 11 + `system.*` × 2 + `ha.*` × 39), while the node advertises
+51. `ha.addon_update` and `ha.update_install` are registered but unadvertised;
+`system.run` is advertised but rejected by the Gateway's reserved-command rule.
+The generated ledger records those unavailable reasons without enabling them.
 
 Convention for the `ha.config.*` domain: **one command per HA config
 domain**, with an `action` parameter selecting the operation. This keeps
@@ -96,10 +101,10 @@ follow the base surface below.
 | `ha.addon_stats`          | `slug`; allowlisted utilisation metrics (cpu_percent, memory_usage/limit/percent, network_rx/tx, blk_read/write). Read-only |
 | `ha.addon_changelog`      | `slug`; addon changelog markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_documentation`  | `slug`; addon documentation markdown, bounded 1 MiB trailing window. Read-only |
-| `ha.addon_start`          | `slug`, `admin_token`; Tier B lifecycle command. Requires matching `OPENCLAW_ADMIN_TOKEN`, explicit `addon_lifecycle.allowlist` opt-in, and is always denied for `homeassistant`, `supervisor`, and `core_*` slugs |
-| `ha.addon_stop`           | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; idempotent when already stopped |
-| `ha.addon_restart`        | `slug`, `admin_token`; same Tier B gate as `ha.addon_start` |
-| `ha.addon_update`         | `slug`, `admin_token`; same Tier B gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
+| `ha.addon_start`          | `slug`; Tier B lifecycle command. Requires `allowAdminOps` + explicit `addon_lifecycle.allowlist` opt-in, authenticated via pairing session (no admin token). Always denied for `homeassistant`, `supervisor`, and `core_*` slugs |
+| `ha.addon_stop`           | `slug`; same Tier B lifecycle gate as `ha.addon_start`; idempotent when already stopped |
+| `ha.addon_restart`        | `slug`; same Tier B lifecycle gate as `ha.addon_start` |
+| `ha.addon_update`         | `slug`; same Tier B lifecycle gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
 | `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
 
 ## Service payload and result contract (unreleased, #266)
