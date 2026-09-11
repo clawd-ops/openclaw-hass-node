@@ -141,11 +141,16 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
             ),
         }
     }
-    assert rows_by_id["ha.addon_start"]["outcome"] == "partial"
-    addon_start_evidence = rows_by_id["ha.addon_start"]["callers"]["assist_wrapper"]["evidence"]
-    assert any(
-        item["outcome"] == "fail" and "#262" in item["observation"] for item in addon_start_evidence
-    )
+    for command in (
+        "ha.addon_start",
+        "ha.addon_stop",
+        "ha.addon_restart",
+        "ha.addon_update",
+    ):
+        assist = rows_by_id[command]["callers"]["assist_wrapper"]
+        assert assist["injected_node_params"] == {}
+        assert assist["known_unaccepted_node_params"] == {}
+        assert any(item["outcome"] == "pass" for item in assist["evidence"])
 
 
 def test_missing_registered_command_coverage_fails(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1840,24 +1840,11 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
-            },
-            {
-              "method": "CODE-PROVEN",
-              "observation": "Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token.",
-              "outcome": "fail",
-              "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
             }
           ],
           "factory": "createHaAddonRestartTool",
-          "injected_node_params": {
-            "$policy.adminToken": "admin_token"
-          },
-          "known_unaccepted_node_params": {
-            "admin_token": {
-              "issue": "#262",
-              "reason": "Node lifecycle handler ignores the plugin token."
-            }
-          },
+          "injected_node_params": {},
+          "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
           "status": "wrapper-exposed",
@@ -1929,6 +1916,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
     },
@@ -1953,24 +1941,11 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
-            },
-            {
-              "method": "CODE-PROVEN",
-              "observation": "Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token.",
-              "outcome": "fail",
-              "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
             }
           ],
           "factory": "createHaAddonStartTool",
-          "injected_node_params": {
-            "$policy.adminToken": "admin_token"
-          },
-          "known_unaccepted_node_params": {
-            "admin_token": {
-              "issue": "#262",
-              "reason": "Node lifecycle handler ignores the plugin token."
-            }
-          },
+          "injected_node_params": {},
+          "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
           "status": "wrapper-exposed",
@@ -2042,6 +2017,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
     },
@@ -2166,24 +2142,11 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
-            },
-            {
-              "method": "CODE-PROVEN",
-              "observation": "Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token.",
-              "outcome": "fail",
-              "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
             }
           ],
           "factory": "createHaAddonStopTool",
-          "injected_node_params": {
-            "$policy.adminToken": "admin_token"
-          },
-          "known_unaccepted_node_params": {
-            "admin_token": {
-              "issue": "#262",
-              "reason": "Node lifecycle handler ignores the plugin token."
-            }
-          },
+          "injected_node_params": {},
+          "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
           "status": "wrapper-exposed",
@@ -2255,6 +2218,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
     },
@@ -2279,24 +2243,11 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
-            },
-            {
-              "method": "CODE-PROVEN",
-              "observation": "Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token.",
-              "outcome": "fail",
-              "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
             }
           ],
           "factory": "createHaAddonUpdateTool",
-          "injected_node_params": {
-            "$policy.adminToken": "admin_token"
-          },
-          "known_unaccepted_node_params": {
-            "admin_token": {
-              "issue": "#262",
-              "reason": "Node lifecycle handler ignores the plugin token."
-            }
-          },
+          "injected_node_params": {},
+          "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
           "status": "wrapper-exposed",
@@ -2367,6 +2318,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
     },
@@ -9645,6 +9597,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
     },
@@ -9792,6 +9745,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
     },

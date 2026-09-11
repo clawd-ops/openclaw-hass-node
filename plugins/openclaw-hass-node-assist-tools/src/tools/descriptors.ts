@@ -7,9 +7,9 @@
 // tool-specific.
 //
 // Routing-only design: access control is delegated to the hass node's
-// tier/allowCommands policy and HA's own auth layer. Tier B admin tools
-// (reload_config, addon_start/stop/restart) additionally require
-// allowAdminOps + adminToken in the per-node plugin config.
+// tier/allowCommands policy and HA's own auth layer. Tier B lifecycle tools
+// require allowAdminOps and the node's slug policy. reload_config and
+// update_install additionally require adminToken in the per-node plugin config.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
@@ -385,7 +385,7 @@ export const HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   parameters: LightTargetSchema(),
 };
 
-// --- Tier B admin (require allowAdminOps + adminToken in per-node config) ---
+// --- Tier B lifecycle and admin descriptors ---
 
 export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: reload config",

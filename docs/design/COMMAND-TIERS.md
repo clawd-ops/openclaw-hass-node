@@ -129,8 +129,10 @@ that cache after a release.
 ## PR cadence
 
 - One Tier A command per PR, each individually reviewable.
-- Tier B landed with the admin token gate and slug allowlist in the same
-  implementation PR as identity routing.
+- Tier B initially landed with an admin token gate and slug allowlist. Current
+  lifecycle authorization uses the paired session plus slug policy without a
+  separate token; `ha.reload_config` and `ha.update_install` retain their
+  separate admin-token gate.
 - Tier C never lands without a fresh, scoped ask.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.
@@ -143,5 +145,5 @@ that cache after a release.
    BEFORE any subagent path is wired to call these commands.
 3. Wire the subagent path to use the Tier A surface instead of the
    HA MCP server.
-4. Tier B surface with the admin allowlist gate (done in the identity
-   routing implementation PR).
+4. Tier B lifecycle surface with the pairing and slug-policy gate (done in the
+   identity-routing implementation; contract reconciled under issue #262).

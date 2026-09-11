@@ -36,4 +36,27 @@ describe("Assist executable command contract", () => {
       expect(tool.name).toBe(contract.tool_name);
     }
   });
+
+  it("keeps lifecycle and admin parameter injection distinct", () => {
+    const byCommand = new Map(
+      resolvedAssistCommandRegistrations().map(({ contract }) => [
+        contract.node_command,
+        contract,
+      ]),
+    );
+    for (const command of [
+      "ha.addon_start",
+      "ha.addon_stop",
+      "ha.addon_restart",
+      "ha.addon_update",
+    ]) {
+      expect(byCommand.get(command)?.injected_node_params).toEqual({});
+      expect(byCommand.get(command)?.known_unaccepted_node_params).toEqual({});
+    }
+    for (const command of ["ha.reload_config", "ha.update_install"]) {
+      expect(byCommand.get(command)?.injected_node_params).toEqual({
+        "$policy.adminToken": "admin_token",
+      });
+    }
+  });
 });

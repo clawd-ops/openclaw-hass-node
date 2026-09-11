@@ -45,9 +45,11 @@ keys, aliases, defaults/bounds, field provenance, semantic/error notes,
 authorization class, capability conditions, and explicit unavailable reasons.
 The check fails on missing or stale command/action/caller coverage, source/action
 parameter drift, unacknowledged Assist mapping drift, and stale generated
-artifacts. Known `ha.reload_config` and Tier B `admin_token` mismatches remain
-explicitly failed or partial and tracked; this inventory does not enable
-commands or resolve the defects it records.
+artifacts. The lifecycle `admin_token` mismatch is resolved in the current
+unreleased source: lifecycle wrappers require `allowAdminOps` and the node's
+slug policy without injecting another token. The separate
+`ha.reload_config` domain mismatch remains tracked; this inventory does not
+enable commands or resolve the other defects it records.
 
 **Additional unreleased source repair (#266):** generic service calls normalize
 `service_data` to canonical `data` without dropping payloads and reject alias
@@ -84,8 +86,9 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     Tier A read-only addon surface (`list_addons`, `addon_info`,
     `addon_stats`, `addon_logs`, `addon_changelog`,
     `addon_documentation`), Tier B addon lifecycle
-    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) behind
-    `OPENCLAW_ADMIN_TOKEN` and an explicit slug allowlist, and the nine
+    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) authenticated
+    by the paired session and constrained by an explicit slug allowlist, with no
+    separate lifecycle admin token, and the nine
     `ha.config.*` domain-config editors: `lovelace`, `automation`,
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is

@@ -53,11 +53,11 @@ rows are intentionally retained. Regenerate after editing source or
 | `ha.addon_documentation` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.addon_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.addon_logs` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
-| `ha.addon_restart` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>CODE-PROVEN:fail | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
-| `ha.addon_start` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>CODE-PROVEN:fail | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| `ha.addon_restart` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| `ha.addon_start` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
 | `ha.addon_stats` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
-| `ha.addon_stop` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>CODE-PROVEN:fail | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
-| `ha.addon_update` | unavailable<br>CODE-PROVEN:fail | unavailable<br>PRODUCTION-LIVE:fail | wrapper-exposed<br>CODE-PROVEN:pass<br>CODE-PROVEN:fail | `addon_slug_policy_only` | `PRODUCTION-LIVE` | **`fail`** |
+| `ha.addon_stop` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| `ha.addon_update` | unavailable<br>CODE-PROVEN:fail | unavailable<br>PRODUCTION-LIVE:fail | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `PRODUCTION-LIVE` | **`fail`** |
 | `ha.calendar_get_events` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.call_service` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>TEST-PROVEN:pass | `node_effect_policy_missing` | `TEST-PROVEN` | **`partial`** |
 | `ha.check_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
@@ -768,8 +768,8 @@ rows are intentionally retained. Regenerate after editing source or
   - Descriptor/factory: `HA_ADDON_RESTART_TOOL_DESCRIPTOR` / `createHaAddonRestartTool`
   - Tool parameters: `["node", "slug"]`
   - Emitted node mapping: `{"node": null, "slug": "slug"}`
-  - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
-  - Known unaccepted node parameters: `{"admin_token": {"issue": "#262", "reason": "Node lifecycle handler ignores the plugin token."}}`
+  - Injected node mapping: `{}`
+  - Known unaccepted node parameters: `{}`
 - Parameter details:
   - `slug`
     - aliases: `[]`
@@ -780,11 +780,11 @@ rows are intentionally retained. Regenerate after editing source or
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `CODE-PROVEN` / **`fail`**: Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
 ### `ha.addon_start`
@@ -805,8 +805,8 @@ rows are intentionally retained. Regenerate after editing source or
   - Descriptor/factory: `HA_ADDON_START_TOOL_DESCRIPTOR` / `createHaAddonStartTool`
   - Tool parameters: `["node", "slug"]`
   - Emitted node mapping: `{"node": null, "slug": "slug"}`
-  - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
-  - Known unaccepted node parameters: `{"admin_token": {"issue": "#262", "reason": "Node lifecycle handler ignores the plugin token."}}`
+  - Injected node mapping: `{}`
+  - Known unaccepted node parameters: `{}`
 - Parameter details:
   - `slug`
     - aliases: `[]`
@@ -817,11 +817,11 @@ rows are intentionally retained. Regenerate after editing source or
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `CODE-PROVEN` / **`fail`**: Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
 ### `ha.addon_stats`
@@ -878,8 +878,8 @@ rows are intentionally retained. Regenerate after editing source or
   - Descriptor/factory: `HA_ADDON_STOP_TOOL_DESCRIPTOR` / `createHaAddonStopTool`
   - Tool parameters: `["node", "slug"]`
   - Emitted node mapping: `{"node": null, "slug": "slug"}`
-  - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
-  - Known unaccepted node parameters: `{"admin_token": {"issue": "#262", "reason": "Node lifecycle handler ignores the plugin token."}}`
+  - Injected node mapping: `{}`
+  - Known unaccepted node parameters: `{}`
 - Parameter details:
   - `slug`
     - aliases: `[]`
@@ -890,11 +890,11 @@ rows are intentionally retained. Regenerate after editing source or
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `CODE-PROVEN` / **`fail`**: Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
 ### `ha.addon_update`
@@ -915,8 +915,8 @@ rows are intentionally retained. Regenerate after editing source or
   - Descriptor/factory: `HA_ADDON_UPDATE_TOOL_DESCRIPTOR` / `createHaAddonUpdateTool`
   - Tool parameters: `["node", "slug"]`
   - Emitted node mapping: `{"node": null, "slug": "slug"}`
-  - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
-  - Known unaccepted node parameters: `{"admin_token": {"issue": "#262", "reason": "Node lifecycle handler ignores the plugin token."}}`
+  - Injected node mapping: `{}`
+  - Known unaccepted node parameters: `{}`
 - Parameter details:
   - `slug`
     - aliases: `[]`
@@ -927,10 +927,10 @@ rows are intentionally retained. Regenerate after editing source or
   - `node_advertisement` / `CODE-PROVEN` / **`fail`**: Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: The command is registered but not advertised, so direct node invocation cannot reach it. (source: `node advertisement reconciliation`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `CODE-PROVEN` / **`fail`**: Emitted node parameter 'admin_token' is not accepted (#262): Node lifecycle handler ignores the plugin token. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
 ### `ha.calendar_get_events`
@@ -3418,6 +3418,7 @@ rows are intentionally retained. Regenerate after editing source or
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
 ### `ha.update_install`
@@ -3468,6 +3469,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
 ### `ping`

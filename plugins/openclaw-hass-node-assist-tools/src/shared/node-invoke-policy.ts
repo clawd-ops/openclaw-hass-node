@@ -5,9 +5,9 @@
 // the node. Entity/service/calendar access control is NOT the plugin's
 // job — it lives at the hass node's tier/allowCommands + HA's own auth.
 //
-// The only plugin-scoped gate is the Tier B admin surface
-// (allowAdminOps + adminToken), which is a shared secret between the
-// plugin and the node's admin handler.
+// The only plugin-scoped gate is the Tier B surface. Lifecycle operations
+// require allowAdminOps and the node's slug policy; reload_config and
+// update_install additionally require adminToken.
 
 import type {
   OpenClawPluginNodeInvokePolicy,
