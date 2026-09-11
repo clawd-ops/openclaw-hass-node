@@ -71,8 +71,7 @@ export async function resolveNodeAndPolicy(input: {
 
   const configResult = await callGatewayTool<{ payload?: unknown }>("config.get", input.gatewayOpts, {});
   const pluginConfig = resolvePluginConfigObject(configResult?.payload, PLUGIN_ID);
-  const policy = readPerNodePolicy(pluginConfig, input.nodeIdentifier) ??
-    readPerNodePolicy(pluginConfig, nodeId);
+  const policy = readPerNodePolicy(pluginConfig, input.nodeIdentifier, nodeId);
 
   return { nodeId, nodeDisplayName, policy };
 }

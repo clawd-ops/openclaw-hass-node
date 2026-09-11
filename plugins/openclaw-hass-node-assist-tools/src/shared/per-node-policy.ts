@@ -19,15 +19,26 @@ export type AssistToolsPluginConfig = {
   nodes?: Record<string, PerNodePolicy>;
 };
 
+// Resolves the policy for a node given one or more identifiers that may name
+// it (caller-supplied alias/display name, canonical node ID, ...).
+//
+// Every exact identifier is tried before the wildcard default. Checking the
+// wildcard per-identifier would let a permissive `nodes["*"]` shadow an
+// explicit `nodes["<canonical-id>"]` deny whenever the caller selected the
+// node by display name, escalating Tier B lifecycle and admin operations on a
+// node whose canonical policy disables them.
 export function readPerNodePolicy(
   pluginConfig: unknown,
-  nodeIdentifier: string,
+  ...nodeIdentifiers: string[]
 ): PerNodePolicy | undefined {
   if (!pluginConfig || typeof pluginConfig !== "object") return undefined;
   const cfg = pluginConfig as AssistToolsPluginConfig;
   if (!cfg.nodes || typeof cfg.nodes !== "object") return undefined;
-  const direct = cfg.nodes[nodeIdentifier];
-  if (direct) return direct;
+  for (const nodeIdentifier of nodeIdentifiers) {
+    if (nodeIdentifier === "*") continue;
+    const direct = cfg.nodes[nodeIdentifier];
+    if (direct) return direct;
+  }
   // Allow a wildcard '*' entry as a default policy applied to any node.
   return cfg.nodes["*"];
 }

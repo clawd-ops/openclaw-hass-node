@@ -76,7 +76,11 @@ slug allowlist/denylist policy but does **not** consult
 Same `OPENCLAW_ADMIN_TOKEN` gate as `system.run`. The plugin
 requires both `allowAdminOps` AND `adminToken`.
 
-- `ha.reload_config` — `POST /api/services/<domain>/reload`
+- `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;
+  reloads the HA core configuration only. The handler accepts a `domain`
+  argument but currently ignores it, so per-domain reloads are not available
+  through this command. Tracked in #263; update this entry when the handler
+  changes.
 - `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Entity ID must be in the `update.` domain.
 
 Additional constraints on lifecycle ops (on top of the `allowAdminOps` gate):
