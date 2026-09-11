@@ -42,6 +42,7 @@ _DEFAULT_POLICY: Final[dict[str, Any]] = {
 _MAX_ARGV: Final[int] = 256
 _MAX_ARG_LEN: Final[int] = 8192
 _MISSING_HASH: Final[str] = "missing:" + hashlib.sha256(b"").hexdigest()
+_LOCK_ACQUIRE_ATTEMPTS: Final[int] = 5
 
 # The only argv this node will describe to a human by its inline payload rather
 # than by its full canonical text. ``buildNodeShellCommand`` emits exactly these
@@ -427,18 +428,25 @@ def _read_snapshot(path: Path | None = None) -> tuple[dict[str, Any], bytes | No
     return document, raw
 
 
+def _redact_socket_value(value: str) -> str:
+    """Return the trimmed form ``redactExecApprovals`` exposes for a socket value."""
+    return value.strip()
+
+
 def _redact_document(document: dict[str, Any]) -> dict[str, Any]:
     """Drop the socket credential exactly like OpenClaw's ``redactExecApprovals``.
 
     The socket token authenticates the local exec host. It is never disclosed to
     a caller, and a caller therefore cannot echo it back, which is why
-    ``_merge_socket`` restores it on write.
+    ``_merge_socket`` restores it on write. The exposed path is trimmed to match
+    the native implementation, so ``_merge_socket`` treats an echoed trimmed path
+    as "unchanged" rather than as a request to repoint the socket.
     """
     redacted = dict(document)
     socket = document.get("socket")
     socket_path = socket.get("path") if isinstance(socket, dict) else None
     if isinstance(socket_path, str) and socket_path.strip():
-        redacted["socket"] = {"path": socket_path.strip()}
+        redacted["socket"] = {"path": _redact_socket_value(socket_path)}
     else:
         redacted.pop("socket", None)
     return redacted
@@ -458,13 +466,19 @@ def _merge_socket(document: dict[str, Any], current: dict[str, Any]) -> dict[str
 
     def pick(field: str) -> str | None:
         # The exact stored string is carried over, not a trimmed copy. The closed
-        # schema allows any string, so trimming here would silently destroy a
-        # whitespace-only token that this node has no way to mint again.
-        for source in (incoming, stored):
-            value = source.get(field)
-            if isinstance(value, str):
-                return value
-        return None
+        # schema allows any string, so normalising here would silently destroy a
+        # whitespace-only token this node has no way to mint again, or repoint a
+        # socket whose filename legitimately has leading or trailing spaces.
+        stored_value = stored.get(field)
+        stored_value = stored_value if isinstance(stored_value, str) else None
+        incoming_value = incoming.get(field)
+        if not isinstance(incoming_value, str):
+            return stored_value
+        # An unchanged round trip returns the redacted view of what is stored.
+        # That is not a request to change the value, so keep the stored string.
+        if stored_value is not None and incoming_value == _redact_socket_value(stored_value):
+            return stored_value
+        return incoming_value
 
     merged = dict(document)
     socket = {field: value for field in ("path", "token") if (value := pick(field)) is not None}
@@ -597,6 +611,16 @@ def _serialize_document(document: dict[str, Any]) -> bytes:
     return (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
 
+def _locks_same_file(fd: int, lock_path: Path) -> bool:
+    """Report whether ``fd`` still refers to the file now at ``lock_path``."""
+    locked = os.fstat(fd)
+    try:
+        current = os.stat(lock_path)
+    except OSError:
+        return False
+    return (current.st_dev, current.st_ino) == (locked.st_dev, locked.st_ino)
+
+
 @contextmanager
 def _approvals_write_lock(path: Path) -> Iterator[None]:
     """Serialize approval writers against a lock file beside the document.
@@ -605,17 +629,32 @@ def _approvals_write_lock(path: Path) -> Iterator[None]:
     each validated against the same base hash would both commit and the later
     one would silently discard the earlier policy. Every writer takes this lock
     before re-reading, so the hash comparison and the replacement are one step.
+
+    The lock is opened without following symlinks, its mode is repaired on every
+    acquisition because the ``os.open`` mode argument does not apply to an
+    existing file, and the locked descriptor is confirmed to still be the file at
+    ``lock_path`` afterwards. Without that check a concurrent rename would let
+    two writers hold locks on different inodes and serialize against nothing.
     """
     lock_path = path.with_name(path.name + ".lock")
-    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
-    finally:
+    for _ in range(_LOCK_ACQUIRE_ATTEMPTS):
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            os.fchmod(fd, 0o600)
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            if not _locks_same_file(fd, lock_path):
+                # The lock file was replaced while we waited, so this lock now
+                # protects an inode nobody else will contend for. Start over.
+                continue
+            try:
+                yield
+            finally:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            return
         finally:
             os.close(fd)
+    message = f"could not acquire a stable exec approvals lock at {lock_path}"
+    raise OSError(message)
 
 
 def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:

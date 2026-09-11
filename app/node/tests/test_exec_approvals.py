@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -518,6 +519,91 @@ def test_set_pins_one_path_for_check_and_write(
     )
 
     assert second.read_bytes() == second_bytes
+
+
+def test_set_preserves_a_socket_path_with_surrounding_whitespace(data_dir: Path) -> None:
+    """An unchanged round trip must not silently repoint the socket.
+
+    The redacted snapshot exposes a trimmed path, and leading or trailing spaces
+    are legal in a Unix socket filename, so echoing the redacted value back is
+    not a request to change where the socket lives.
+    """
+    path = data_dir / "exec-approvals.json"
+    document = _policy()
+    document["socket"] = {"path": "  /tmp/sock  ", "token": "   "}
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+    assert snapshot["file"]["socket"] == {"path": "/tmp/sock"}
+
+    exec_approvals.handle_system_exec_approvals_set(
+        {"file": snapshot["file"], "baseHash": snapshot["hash"]}
+    )
+
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["socket"] == {"path": "  /tmp/sock  ", "token": "   "}
+
+
+def test_set_still_accepts_a_genuine_socket_path_change(data_dir: Path) -> None:
+    """Preserving an echoed path must not block an explicit new one."""
+    path = data_dir / "exec-approvals.json"
+    document = _policy()
+    document["socket"] = {"path": "  /tmp/sock  ", "token": "tok"}
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+    edited = dict(snapshot["file"])
+    edited["socket"] = {"path": "/tmp/other.sock"}
+
+    exec_approvals.handle_system_exec_approvals_set({"file": edited, "baseHash": snapshot["hash"]})
+
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["socket"] == {"path": "/tmp/other.sock", "token": "tok"}
+
+
+def test_write_lock_repairs_mode_and_rejects_a_symlinked_lock(data_dir: Path) -> None:
+    """The lock file cannot stay group/world readable or point elsewhere."""
+    target = data_dir / "exec-approvals.json"
+    lock_path = data_dir / "exec-approvals.json.lock"
+
+    lock_path.touch()
+    lock_path.chmod(0o666)
+    exec_approvals.handle_system_exec_approvals_set({"file": _policy()})
+    assert lock_path.stat().st_mode & 0o777 == 0o600
+
+    lock_path.unlink()
+    elsewhere = data_dir / "elsewhere"
+    elsewhere.touch()
+    lock_path.symlink_to(elsewhere)
+
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+    result = exec_approvals.handle_system_exec_approvals_set(
+        {"file": _policy(), "baseHash": snapshot["hash"]}
+    )
+    assert result["error"] == "IO_ERROR"
+    assert target.exists()
+
+
+def test_write_lock_gives_up_when_the_lock_file_keeps_changing(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lock that is replaced on every attempt fails closed instead of writing."""
+    lock_path = data_dir / "exec-approvals.json.lock"
+    real_flock = fcntl.flock
+
+    def replacing_flock(fd: int, operation: int) -> None:
+        real_flock(fd, operation)
+        if operation == fcntl.LOCK_EX:
+            # Stand in for a competing process swapping the lock file out.
+            replacement = data_dir / "replacement"
+            replacement.touch()
+            os.replace(replacement, lock_path)
+
+    monkeypatch.setattr(fcntl, "flock", replacing_flock)
+    result = exec_approvals.handle_system_exec_approvals_set({"file": _policy()})
+
+    assert result["error"] == "IO_ERROR"
+    assert not (data_dir / "exec-approvals.json").exists()
 
 
 def test_set_preserves_a_whitespace_only_socket_token(data_dir: Path) -> None:
