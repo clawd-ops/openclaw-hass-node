@@ -40,8 +40,13 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 
 ### 12. Generated docs site for node command surface + protocols
-- Status: DEFERRED
-- GitHub Pages or similar once Tier A and #11 subagent allowlist land. Scope: command catalog, tier-A/B/C policy, role/identity model, addon ↔ gateway architecture diagram.
+- Status: OPEN (partially implemented) — the MkDocs Material site and strict CI
+  build shipped in PR #273. Public deployment remains deferred; the private
+  OpenClaw portal preview is the current operator-facing route.
+- Python API pages are generated with mkdocstrings. TypeScript API generation is
+  separately tracked in [#279](https://github.com/clawd-ops/openclaw-hass-node/issues/279)
+  because it requires TypeDoc dependencies, output configuration, and a CI drift
+  check rather than a prose-only documentation change.
 
 ### 13. Proactive GitHub event notifications to the agent
 - Status: OPEN (design)
