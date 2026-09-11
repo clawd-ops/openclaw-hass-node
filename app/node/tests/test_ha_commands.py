@@ -976,6 +976,119 @@ async def test_list_automations_trace_non_list_response() -> None:
     assert result["automations"][0]["traces"] == []
 
 
+async def test_list_automations_rejects_unknown_param() -> None:
+    result = await handle_ha_list_automations({"bogus": 1})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert "unknown params" in result["message"]
+
+
+async def test_list_automations_rejects_non_bool_include_traces() -> None:
+    result = await handle_ha_list_automations({"include_traces": "yes"})
+    assert result["error"] == "INVALID_PARAM"
+    assert "include_traces" in result["message"]
+
+
+async def test_list_automations_rejects_empty_entity_filter() -> None:
+    result = await handle_ha_list_automations({"entity_filter": ""})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_list_automations_rejects_non_string_entity_filter() -> None:
+    result = await handle_ha_list_automations({"entity_filter": 5})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_list_automations_rejects_out_of_domain_entity_filter() -> None:
+    result = await handle_ha_list_automations({"entity_filter": "light.*"})
+    assert result["error"] == "INVALID_PARAM"
+    assert "automation." in result["message"]
+
+
+async def test_list_automations_rejects_oversize_entity_filter() -> None:
+    result = await handle_ha_list_automations({"entity_filter": "automation." + "a" * 300})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_list_automations_rejects_empty_state_filter() -> None:
+    result = await handle_ha_list_automations({"state_filter": ""})
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_list_automations_entity_filter_exact_match() -> None:
+    states = [
+        {"entity_id": "automation.morning", "state": "on", "attributes": {"id": "m"}},
+        {"entity_id": "automation.night", "state": "off", "attributes": {"id": "n"}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_automations({"entity_filter": "automation.morning"})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["automations"][0]["entity_id"] == "automation.morning"
+
+
+async def test_list_automations_entity_filter_glob() -> None:
+    states = [
+        {"entity_id": "automation.morning_lights", "state": "on", "attributes": {}},
+        {"entity_id": "automation.morning_music", "state": "on", "attributes": {}},
+        {"entity_id": "automation.night", "state": "off", "attributes": {}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_automations({"entity_filter": "automation.morning_*"})
+    assert result["count"] == 2
+    assert {a["entity_id"] for a in result["automations"]} == {
+        "automation.morning_lights",
+        "automation.morning_music",
+    }
+
+
+async def test_list_automations_entity_filter_no_match_returns_empty() -> None:
+    states = [
+        {"entity_id": "automation.morning", "state": "on", "attributes": {}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_automations(
+            {"entity_filter": "automation.__openclaw_audit_no_match__"}
+        )
+    assert result["ok"] is True
+    assert result["count"] == 0
+    assert result["automations"] == []
+
+
+async def test_list_automations_state_filter_narrows() -> None:
+    states = [
+        {"entity_id": "automation.a", "state": "on", "attributes": {}},
+        {"entity_id": "automation.b", "state": "off", "attributes": {}},
+        {"entity_id": "automation.c", "state": "on", "attributes": {}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_automations({"state_filter": "on"})
+    assert result["count"] == 2
+    assert all(a["state"] == "on" for a in result["automations"])
+
+
+async def test_list_automations_entity_filter_applied_before_traces() -> None:
+    states = [
+        {"entity_id": "automation.match", "state": "on", "attributes": {"id": "m"}},
+        {"entity_id": "automation.skip", "state": "on", "attributes": {"id": "s"}},
+    ]
+    calls: list[str] = []
+
+    async def fake_ws(cmd: str, args: dict[str, Any]) -> list[dict[str, Any]]:
+        calls.append(str(args.get("item_id")))
+        return [{"run_id": "r"}]
+
+    with (
+        patch("openclaw_node.commands.ha.ha_get", return_value=states),
+        patch("openclaw_node.commands.ha.ha_ws_call", side_effect=fake_ws),
+    ):
+        result = await handle_ha_list_automations(
+            {"entity_filter": "automation.match", "include_traces": True}
+        )
+    assert result["count"] == 1
+    assert calls == ["m"], "trace lookup must run only for filtered automations"
+
+
 # ---------------------------------------------------------------------------
 # ha.check_config
 # ---------------------------------------------------------------------------

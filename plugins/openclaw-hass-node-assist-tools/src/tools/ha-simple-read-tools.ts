@@ -96,8 +96,14 @@ export const createHaListAutomationsTool = (): AnyAgentTool =>
     command: "ha.list_automations",
     label: "Automations",
     buildCommandParams: (args) => {
+      const params: Record<string, unknown> = {};
       const include_traces = readBoolean(args, "include_traces");
-      return include_traces === undefined ? {} : { include_traces };
+      if (include_traces !== undefined) params.include_traces = include_traces;
+      const entity_filter = readString(args, "entity_filter");
+      if (entity_filter !== undefined) params.entity_filter = entity_filter;
+      const state_filter = readString(args, "state_filter");
+      if (state_filter !== undefined) params.state_filter = state_filter;
+      return params;
     },
   });
 

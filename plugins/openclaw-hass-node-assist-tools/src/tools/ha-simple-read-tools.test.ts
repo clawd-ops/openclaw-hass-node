@@ -39,7 +39,7 @@ const CASES: Case[] = [
   { name: "ha_list_config_entries", command: "ha.list_config_entries", factory: "createHaListConfigEntriesTool", args: {}, expectedParams: {} },
   { name: "ha_check_config", command: "ha.check_config", factory: "createHaCheckConfigTool", args: {}, expectedParams: {} },
   { name: "ha_list_addons", command: "ha.list_addons", factory: "createHaListAddonsTool", args: {}, expectedParams: {} },
-  { name: "ha_list_automations", command: "ha.list_automations", factory: "createHaListAutomationsTool", args: { include_traces: true }, expectedParams: { include_traces: true } },
+  { name: "ha_list_automations", command: "ha.list_automations", factory: "createHaListAutomationsTool", args: { include_traces: true, entity_filter: "automation.morning_*", state_filter: "on" }, expectedParams: { include_traces: true, entity_filter: "automation.morning_*", state_filter: "on" } },
   { name: "ha_core_logs", command: "ha.core_logs", factory: "createHaCoreLogsTool", args: { lines: 500 }, expectedParams: { lines: 500 } },
   { name: "ha_addon_logs", command: "ha.addon_logs", factory: "createHaAddonLogsTool", args: { slug: "openclaw-hass-node", lines: 200 }, expectedParams: { slug: "openclaw-hass-node", lines: 200 } },
   { name: "ha_addon_info", command: "ha.addon_info", factory: "createHaAddonInfoTool", args: { slug: "openclaw-hass-node" }, expectedParams: { slug: "openclaw-hass-node" } },

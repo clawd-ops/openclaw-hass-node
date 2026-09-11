@@ -183,18 +183,25 @@ fs.read { path: /config/configuration.yaml, offset: 0, length: 32 }
 commented-out Telegram bot API key. A caller that bounded its read to 32 bytes
 received the whole credential-bearing file.
 
-### 2.3 `ha.list_automations` ignores filters — [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259)
+### 2.3 `ha.list_automations` ignores filters — [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259) — **RESOLVED**
 
-`LIVE-FAIL` + `CODE-FAIL` (`commands/ha.py:524-566` — narrows only to the
-`automation.` domain; no caller filter is read).
+Handler now accepts `entity_filter` (fnmatch glob scoped to the `automation.`
+domain) and `state_filter` (exact match), rejects unknown params with
+`INVALID_PARAM`, and applies narrowing before any WS `trace/list` lookup so
+traces are fetched only for the selected automations. Assist descriptor,
+tool builder, and command contract expose both new params; regression tests
+cover exact/glob/no-match, invalid params, out-of-domain rejection, oversize
+filter, and trace-fetch scoping.
+
+Original repro pre-fix:
 
 ```
 ha.list_automations { entity_filter: "automation.zzz_no_match_at_all" }
 → 122,698 characters across 3,496 lines — the full automation set
 ```
 
-Aggravating factor: with `include_traces`, trace lookups run for **every**
-automation because no narrowing exists (`commands/ha.py:542-566`).
+Post-fix: the same call returns `count: 0` and issues zero `trace/list`
+requests.
 
 ### 2.4 `system.run` advertised but unreachable — [#258](https://github.com/clawd-ops/openclaw-hass-node/issues/258)
 

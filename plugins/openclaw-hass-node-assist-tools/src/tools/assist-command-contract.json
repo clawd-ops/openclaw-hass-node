@@ -194,11 +194,15 @@
       "node_command": "ha.list_automations",
       "accepted_tool_params": [
         "node",
-        "include_traces"
+        "include_traces",
+        "entity_filter",
+        "state_filter"
       ],
       "emitted_params": {
         "node": null,
-        "include_traces": "include_traces"
+        "include_traces": "include_traces",
+        "entity_filter": "entity_filter",
+        "state_filter": "state_filter"
       },
       "injected_node_params": {},
       "value_transforms": {}

@@ -9737,20 +9737,30 @@
       ]
     },
     {
-      "acceptance_test_ids": [],
+      "acceptance_test_ids": [
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty",
+          "outcome": "pass"
+        }
+      ],
       "action": null,
       "authorization_class": "read_only",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
             "node",
-            "include_traces"
+            "include_traces",
+            "entity_filter",
+            "state_filter"
           ],
           "client_side_params": {},
           "descriptor": "HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR",
           "emitted_params": {
+            "entity_filter": "entity_filter",
             "include_traces": "include_traces",
-            "node": null
+            "node": null,
+            "state_filter": "state_filter"
           },
           "evidence": [
             {
@@ -9776,12 +9786,6 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
-            },
-            {
-              "method": "PRODUCTION-LIVE",
-              "observation": "A guaranteed no-match filter returned the complete automation set.",
-              "outcome": "fail",
-              "source": "docs/VERIFICATION-2026-09-11.md#23-halist_automations-ignores-filters"
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9795,6 +9799,12 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
+            },
+            {
+              "method": "TEST-PROVEN",
+              "observation": "The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0 with no traces fetched.",
+              "outcome": "pass",
+              "source": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -9818,9 +9828,23 @@
       "canonical_parameters": [
         {
           "aliases": [],
-          "bounds": "unverified; no normalized contract yet",
+          "bounds": "non-empty string, must start with 'automation.', capped at 256 chars; fnmatch-style glob",
           "defaults": [
             "null"
+          ],
+          "name": "entity_filter",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual normalized note",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "False"
           ],
           "name": "include_traces",
           "provenance": {
@@ -9829,12 +9853,26 @@
             "defaults": "source-derived AST expression",
             "name": "source-derived AST accepted key"
           }
+        },
+        {
+          "aliases": [],
+          "bounds": "non-empty string; exact match against the state field",
+          "defaults": [
+            "null"
+          ],
+          "name": "state_filter",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual normalized note",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
         }
       ],
-      "capability_conditions": "HA REST API is reachable; requested entity filters are ignored and trace expansion is unbounded.",
+      "capability_conditions": "HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Unknown params are rejected. Trace expansion runs only after narrowing.",
       "command": "ha.list_automations",
-      "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Installed-node probe returned the complete automation set for a no-match filter; tracked by #259.",
+      "evidence_method": "TEST-PROVEN",
+      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; unknown params fail closed with INVALID_PARAM. Regression tests cover exact/glob/no-match, invalid params, out-of-domain rejection, oversize filter, and that trace fetch runs only for the selected automations.",
       "handler": "openclaw_node.commands.ha:handle_ha_list_automations",
       "id": "ha.list_automations",
       "metadata_provenance": {
@@ -9848,7 +9886,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
