@@ -179,7 +179,9 @@ completion claim has a row in the coverage ledger.
   - [ ] `ha.call_service` `service_data` versus `data`.
   - [ ] URL/path/query percent-encoding.
 - [ ] Propagate handler errors through the transport and plugin. Success text is
-  emitted only after the inner operation succeeds.
+  emitted only after the inner operation succeeds. Implementation is in
+  progress under #266 together with `ha.call_service` payload normalization,
+  because both require the same real wrapper-to-dispatcher contract fixture.
 - [ ] Add cross-language tests that execute real TypeScript wrapper output
   through the Python dispatcher against a controlled HA/Supervisor stub.
 
