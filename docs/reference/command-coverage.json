@@ -976,7 +976,13 @@
       ]
     },
     {
-      "acceptance_test_ids": [],
+      "acceptance_test_ids": [
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed",
+          "outcome": "pass"
+        }
+      ],
       "action": null,
       "authorization_class": "read_path_policy",
       "callers": {
@@ -1000,12 +1006,6 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
-            },
-            {
-              "method": "CODE-PROVEN",
-              "observation": "The originally reproduced defect (offset=1000000, length=1 against a 4486-byte file returning ok=true and the full file) now returns OFFSET_BEYOND_EOF.",
-              "outcome": "pass",
-              "source": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed"
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1019,6 +1019,12 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
+            },
+            {
+              "method": "TEST-PROVEN",
+              "observation": "The originally reproduced defect (offset=1000000, length=1 against a 4486-byte file returning ok=true and the full file) now returns OFFSET_BEYOND_EOF.",
+              "outcome": "pass",
+              "source": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -1113,7 +1119,7 @@
       ],
       "capability_conditions": "Path resolves under a configured allowed root and read size policy permits the response.",
       "command": "fs.read",
-      "evidence_method": "CODE-PROVEN",
+      "evidence_method": "TEST-PROVEN",
       "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.",
       "handler": "openclaw_node.commands.fs:handle_fs_read",
       "id": "fs.read",

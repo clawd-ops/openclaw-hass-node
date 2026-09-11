@@ -54,13 +54,20 @@
         "offset": "non-negative integer (bool rejected); offset > file_size fails with OFFSET_BEYOND_EOF",
         "length": "positive integer when supplied (bool rejected); length > max_bytes fails with TOO_LARGE"
       },
-      "evidence_method": "CODE-PROVEN",
+      "evidence_method": "TEST-PROVEN",
       "outcome": "pass",
+      "acceptance_test_ids": [
+        {
+          "id": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        }
+      ],
       "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.",
       "caller_observations": {
-        "direct_nodes_invoke": [
+        "handler_dispatch": [
           {
-            "method": "CODE-PROVEN",
+            "method": "TEST-PROVEN",
             "outcome": "pass",
             "source": "app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed",
             "observation": "The originally reproduced defect (offset=1000000, length=1 against a 4486-byte file returning ok=true and the full file) now returns OFFSET_BEYOND_EOF."
