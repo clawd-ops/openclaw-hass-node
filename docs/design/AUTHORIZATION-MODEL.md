@@ -161,18 +161,27 @@ steps (snapshot read, lock teardown) are swallowed rather than raised so a
 committed policy can never be reported as `IO_ERROR`.
 
 `system.run` itself was re-gated onto this contract in #258. The handler now
-accepts the Gateway-forwarded canonical plan (`command` argv, optional
-`cwd`/`rawCommand`/`env`/`timeout`/`agentId`/`sessionKey`/`proposalId`) and
-reuses the same argv/rawCommand/env/cwd validators the prepare handler used, so
-a malformed forward is refused at the node for the same reasons it would have
-been refused at prepare time. The `cwd` is re-resolved against the node's own
-allowed roots before the subprocess is spawned; the subprocess inherits only a
-sanitised base environment (`PATH`, `HOME`, `LANG`, `TZ`, `USER`, `TERM`,
-`LOGNAME`) plus caller-supplied entries whose keys do not match `TOKEN`,
-`SECRET`, `KEY`, `PASS`, `CREDENTIAL`, `AUTH`, or `PWD`. The `proposalId`
-travels with the invoke as audit metadata only and never as authorization.
-The inert `OPENCLAW_ADMIN_TOKEN` gate and its `_admin_token_ok` helper have
-been removed from `commands/system_run.py`.
+accepts the Gateway-forwarded canonical plan (`command` argv, `systemRunPlan`,
+`runId`, an approval signal — `approved=true`, `approvalDecision` in
+`{allow-once, allow-always}`, or a non-empty `approvalSource` — plus optional
+`cwd`/`rawCommand`/`env`/`timeoutMs`/`agentId`/`sessionKey`/`proposalId`) and
+fails closed at the node entry unless every required envelope field is
+present. It reuses the same argv/rawCommand/env/cwd validators the prepare
+handler used, so a malformed forward is refused at the node for the same
+reasons it would have been refused at prepare time, and it cross-checks the
+forwarded argv / cwd / commandText / agentId / sessionKey against the stored
+`systemRunPlan`: any mismatch is refused rather than trusted. The `cwd` is
+re-resolved against the node's own allowed roots before the subprocess is
+spawned; the subprocess inherits only a sanitised base environment (`PATH`,
+`HOME`, `LANG`, `TZ`, `USER`, `TERM`, `LOGNAME`) plus caller-supplied entries
+whose keys do not match `TOKEN`, `SECRET`, `KEY`, `PASS`, `CREDENTIAL`,
+`AUTH`, or `PWD`. Timeout is read from `timeoutMs` (native wire, milliseconds),
+and the successful payload returns the native exec wire contract
+(`success`/`exitCode`/`timedOut`/`stdout`/`stderr`) so the exec tool parser
+sees a well-formed result. The `proposalId` is accepted as audit metadata
+only; it is not part of the Gateway's forward whitelist and travels only when
+a caller supplies it. The inert `OPENCLAW_ADMIN_TOKEN` gate and its
+`_admin_token_ok` helper have been removed from `commands/system_run.py`.
 
 `system.run` is retained and re-gated, not removed. Running scripts from the
 Home Assistant directory is a supported use case.

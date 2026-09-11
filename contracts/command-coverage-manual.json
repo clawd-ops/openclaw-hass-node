@@ -136,22 +136,32 @@
     },
     "system.run": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. proposalId is audit metadata only, never authorization. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
+      "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
       "evidence_method": "TEST-PROVEN",
       "outcome": "pass",
       "acceptance_test_ids": [
         {
-          "id": "app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_ok",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_native_payload",
           "caller": "handler_dispatch",
           "outcome": "pass"
         },
         {
-          "id": "app/node/tests/test_system_run_gateway_contract.py::test_raw_command_mismatch_is_reported_as_command_failure",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_gateway_forward_without_plan_is_refused",
           "caller": "handler_dispatch",
           "outcome": "pass"
         },
         {
-          "id": "app/node/tests/test_system_run_gateway_contract.py::test_cwd_outside_allowed_roots_is_reported_as_command_failure",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_argv_diverging_from_stored_plan_is_refused",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_timeout_ms_is_forwarded_to_subprocess",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_subprocess_timeout_returns_timed_out_payload",
           "caller": "handler_dispatch",
           "outcome": "pass"
         }
@@ -170,13 +180,13 @@
             "method": "TEST-PROVEN",
             "outcome": "pass",
             "source": "app/node/tests/test_system_run_gateway_contract.py",
-            "observation": "The GatewayClient._handle_invoke entry point executes a forwarded plan, rejects malformed forwards (missing command, rawCommand mismatch, cwd outside allowed roots), and rejects the legacy cmd/admin_token shape."
+            "observation": "The GatewayClient._handle_invoke entry point rejects a forward that lacks the Gateway approval envelope (systemRunPlan + runId + approval signal), rejects a forward whose argv/cwd disagrees with the stored plan, honors timeoutMs on the subprocess, and returns success/exitCode/timedOut in the terminal payload for the exec tool parser."
           }
         ]
       },
       "evidence_note": "Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.",
       "bounds": {
-        "timeout": "validated positive number capped by the source-defined maximum"
+        "timeoutMs": "validated positive integer milliseconds, capped by OPENCLAW_RUN_TIMEOUT_MAX_MS"
       },
       "assist_unavailable_reason": "Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.",
       "actions": {}

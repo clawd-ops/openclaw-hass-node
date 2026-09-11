@@ -90,9 +90,14 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 - `system.run` is bound to OpenClaw's native exec-approval contract. The
   Gateway prepares a canonical `systemRunPlan` via `system.run.prepare`,
   prompts an operator, and only forwards `system.run` after approval; direct
-  `nodes.invoke system.run` is refused. The node re-validates the forwarded
-  argv/rawCommand/env, re-resolves `cwd` beneath the allowed roots, and
-  rejects credential-shaped env keys before execution. The inert
+  `nodes.invoke system.run` is refused. The node fails closed unless the
+  forward carries `systemRunPlan`, a non-empty `runId`, and an approval
+  signal (`approved=true`, `approvalDecision`, or `approvalSource`);
+  re-validates the forwarded argv/rawCommand/env; re-resolves `cwd` beneath
+  the allowed roots; cross-checks argv / cwd / commandText / agentId /
+  sessionKey against the stored plan; and rejects credential-shaped env keys
+  before execution. Timeout is read from `timeoutMs` (native wire); the
+  successful payload uses `success`/`exitCode`/`timedOut`. The inert
   `OPENCLAW_ADMIN_TOKEN` gate has been removed. See
   [Authorization model](AUTHORIZATION-MODEL.md).
 - Supervisor API access uses `SUPERVISOR_TOKEN` against

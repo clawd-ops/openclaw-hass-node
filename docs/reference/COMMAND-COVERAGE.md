@@ -3803,9 +3803,9 @@ rows are intentionally retained. Regenerate after editing source or
 ### `system.run`
 
 - Handler: `openclaw_node.commands.system_run:handle_system_run`
-- Canonical parameters: agentId, command, cwd, env, proposalId, rawCommand, sessionKey, timeout
+- Canonical parameters: agentId, approvalDecision, approvalSource, approved, command, cwd, env, proposalId, rawCommand, runId, sessionKey, systemRunPlan, timeoutMs
 - Authorization: `operator_approval`
-- Capability conditions: Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. proposalId is audit metadata only, never authorization. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.
+- Capability conditions: Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -3817,6 +3817,21 @@ rows are intentionally retained. Regenerate after editing source or
 - Assist caller: Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.
 - Parameter details:
   - `agentId`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `approvalDecision`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `approvalSource`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `approved`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -3846,15 +3861,25 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `runId`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `sessionKey`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
-  - `timeout`
+  - `systemRunPlan`
     - aliases: `[]`
-    - defaults: `["_DEFAULT_TIMEOUT_S"]`
-    - bounds: validated positive number capped by the source-defined maximum
+    - defaults: `["null", "required-or-validated-before-access"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `timeoutMs`
+    - aliases: `[]`
+    - defaults: `["_DEFAULT_TIMEOUT_MS"]`
+    - bounds: validated positive integer milliseconds, capped by OPENCLAW_RUN_TIMEOUT_MAX_MS
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
@@ -3862,11 +3887,13 @@ rows are intentionally retained. Regenerate after editing source or
   - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`refused-as-designed`**: Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan. (source: `docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable`)
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no shell-execution wrapper; shell execution is an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
-  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The GatewayClient._handle_invoke entry point executes a forwarded plan, rejects malformed forwards (missing command, rawCommand mismatch, cwd outside allowed roots), and rejects the legacy cmd/admin_token shape. (source: `app/node/tests/test_system_run_gateway_contract.py`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The GatewayClient._handle_invoke entry point rejects a forward that lacks the Gateway approval envelope (systemRunPlan + runId + approval signal), rejects a forward whose argv/cwd disagrees with the stored plan, honors timeoutMs on the subprocess, and returns success/exitCode/timedOut in the terminal payload for the exec tool parser. (source: `app/node/tests/test_system_run_gateway_contract.py`)
 - Curated acceptance-test IDs:
-  - `app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_ok` / `handler_dispatch` / `pass`
-  - `app/node/tests/test_system_run_gateway_contract.py::test_raw_command_mismatch_is_reported_as_command_failure` / `handler_dispatch` / `pass`
-  - `app/node/tests/test_system_run_gateway_contract.py::test_cwd_outside_allowed_roots_is_reported_as_command_failure` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_native_payload` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_gateway_forward_without_plan_is_refused` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_argv_diverging_from_stored_plan_is_refused` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_timeout_ms_is_forwarded_to_subprocess` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_system_run_gateway_contract.py::test_subprocess_timeout_returns_timed_out_payload` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_gateway_ws.py`
