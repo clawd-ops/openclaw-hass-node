@@ -794,7 +794,7 @@
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. plan.commandText is always the canonical rendering of the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. plan.commandPreview is emitted only for the literal /bin/sh -c and /bin/sh -lc argv that buildNodeShellCommand produces, so a previewed payload always belongs to /bin/sh. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.",
+      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. plan.commandText is always the canonical rendering of the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. plan.commandPreview is emitted only for the literal /bin/sh -c and /bin/sh -lc argv that buildNodeShellCommand produces, so a previewed payload always belongs to /bin/sh. Executes nothing; execution happens later under system.run only after the operator approves this canonical plan.",
       "assist_unavailable_reason": "Assist does not expose host shell preparation; exec approvals are an operator surface.",
       "actions": {}
     },

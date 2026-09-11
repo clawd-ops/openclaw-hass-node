@@ -25,10 +25,18 @@ from openclaw_node.commands.system_run import (
 
 
 def _plan(**overrides: Any) -> dict[str, Any]:
-    """Return an approval-envelope-shaped systemRunPlan for the tests."""
+    """Return an approval-envelope-shaped systemRunPlan for the tests.
+
+    Includes every approval-bound field the node handler now requires to be
+    present. Optional fields default to ``None`` (the shape the Gateway
+    forwards when the operator did not bind them).
+    """
     base: dict[str, Any] = {
         "argv": ["true"],
         "commandText": "true",
+        "cwd": None,
+        "agentId": None,
+        "sessionKey": None,
     }
     base.update(overrides)
     return base
@@ -233,6 +241,151 @@ def test_system_run_plan_agent_id_mismatch_is_refused() -> None:
             "agentId": "other-agent",
         }
     )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+# ---------------------------------------------------------------------------
+# Regression: every approval-bound field must be PRESENT in the stored plan.
+# A missing/null field in the stored plan is a refusal, not a skipped check;
+# otherwise a partial plan lets the forward smuggle unchecked values.
+# ---------------------------------------------------------------------------
+
+
+def test_plan_missing_command_text_is_refused() -> None:
+    plan = {"argv": ["true"]}  # commandText absent
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "rawCommand": "true",
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_null_command_text_is_refused() -> None:
+    plan = {"argv": ["true"], "commandText": None}
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "rawCommand": "true",
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_missing_cwd_with_forwarded_cwd_is_refused(tmp_path: Path) -> None:
+    plan = {"argv": ["true"], "commandText": "true"}  # cwd key absent
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "cwd": str(tmp_path),
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_null_cwd_with_forwarded_cwd_is_refused(tmp_path: Path) -> None:
+    plan = {"argv": ["true"], "commandText": "true", "cwd": None}
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "cwd": str(tmp_path),
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_missing_agent_id_with_forwarded_agent_id_is_refused() -> None:
+    plan = {"argv": ["true"], "commandText": "true"}  # agentId key absent
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+            "agentId": "drifted-agent",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_null_agent_id_with_forwarded_agent_id_is_refused() -> None:
+    plan = {"argv": ["true"], "commandText": "true", "agentId": None}
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+            "agentId": "drifted-agent",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_missing_session_key_with_forwarded_session_key_is_refused() -> None:
+    plan = {"argv": ["true"], "commandText": "true"}  # sessionKey key absent
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+            "sessionKey": "drifted-session",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_plan_null_session_key_with_forwarded_session_key_is_refused() -> None:
+    plan = {"argv": ["true"], "commandText": "true", "sessionKey": None}
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "systemRunPlan": plan,
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+            "sessionKey": "drifted-session",
+        }
+    )
+    assert result["error"] == "PLAN_MISMATCH"
+
+
+def test_reviewer_reproduction_partial_plan_with_drifted_cwd_is_refused(
+    tmp_path: Path,
+) -> None:
+    """Reviewer's P0 reproduction from PR #277 comment 5641299694.
+
+    ``systemRunPlan={"argv":["true"]}`` plus forwarded ``rawCommand``,
+    ``cwd``, ``agentId``, ``sessionKey`` must NOT execute; the handler
+    must return PLAN_MISMATCH because the plan omits every approval-bound
+    field beyond argv.
+    """
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "rawCommand": "true",
+            "cwd": str(tmp_path),
+            "agentId": "drifted-agent",
+            "sessionKey": "drifted-session",
+            "systemRunPlan": {"argv": ["true"]},
+            "runId": "run-uuid",
+            "approvalDecision": "allow-once",
+        }
+    )
+    assert result.get("ok") is False
     assert result["error"] == "PLAN_MISMATCH"
 
 

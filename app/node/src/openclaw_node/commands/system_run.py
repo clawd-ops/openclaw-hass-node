@@ -169,6 +169,14 @@ def _verify_authorization(params: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+_APPROVAL_BOUND_FIELDS: Final[tuple[str, ...]] = (
+    "commandText",
+    "cwd",
+    "agentId",
+    "sessionKey",
+)
+
+
 def _verify_plan_consistency(
     plan: dict[str, Any],
     argv: list[str],
@@ -176,30 +184,50 @@ def _verify_plan_consistency(
     command_text: str,
     params: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Verify the stored plan matches the forwarded canonical fields."""
+    """Verify the stored plan matches the forwarded canonical fields.
+
+    Every approval-bound field must be PRESENT in the stored plan and match
+    the forwarded value exactly. A missing key or null plan value means the
+    forwarded value must also be absent/null — otherwise a partial plan
+    would let the caller supply unconstrained values that were never
+    approved. Fail-closed at the node handler as defense in depth on top of
+    the Gateway's sanitizer.
+    """
     plan_argv = plan.get("argv")
     if not isinstance(plan_argv, list) or plan_argv != argv:
         return _error(
             "PLAN_MISMATCH",
             "command does not match the approved systemRunPlan argv",
         )
-    plan_text = plan.get("commandText")
-    if isinstance(plan_text, str) and plan_text != command_text:
+
+    # commandText: required, must be a string, must match the resolved text.
+    if "commandText" not in plan:
+        return _error(
+            "PLAN_MISMATCH",
+            "systemRunPlan is missing the approval-bound commandText",
+        )
+    plan_text = plan["commandText"]
+    if not isinstance(plan_text, str) or plan_text != command_text:
         return _error(
             "PLAN_MISMATCH",
             "commandText does not match the approved systemRunPlan",
         )
-    plan_cwd = plan.get("cwd")
-    if plan_cwd is not None and plan_cwd != resolved_cwd:
-        return _error(
-            "PLAN_MISMATCH",
-            "cwd does not match the approved systemRunPlan",
-        )
-    for field in ("agentId", "sessionKey"):
-        plan_value = plan.get(field)
-        if plan_value is None:
-            continue
-        if params.get(field) != plan_value:
+
+    # cwd/agentId/sessionKey: the plan key must exist, and forwarded values
+    # must match the stored value exactly. A null plan value means the
+    # forwarded field must also be absent/null.
+    forwarded: dict[str, Any] = {
+        "cwd": resolved_cwd,
+        "agentId": params.get("agentId"),
+        "sessionKey": params.get("sessionKey"),
+    }
+    for field in ("cwd", "agentId", "sessionKey"):
+        if field not in plan:
+            return _error(
+                "PLAN_MISMATCH",
+                f"systemRunPlan is missing the approval-bound {field}",
+            )
+        if plan[field] != forwarded[field]:
             return _error(
                 "PLAN_MISMATCH",
                 f"{field} does not match the approved systemRunPlan",

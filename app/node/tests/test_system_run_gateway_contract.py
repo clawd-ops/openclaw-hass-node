@@ -30,9 +30,18 @@ from openclaw_node.identity import generate_identity
 
 
 def _plan(**overrides: Any) -> dict[str, Any]:
+    """Full approval-bound plan shape the Gateway forwards.
+
+    Optional fields default to ``None`` so the handler's requires-key
+    check is satisfied by the fixture; individual tests override to drive
+    a specific mismatch or binding.
+    """
     base: dict[str, Any] = {
         "argv": ["echo", "hi"],
         "commandText": "echo hi",
+        "cwd": None,
+        "agentId": None,
+        "sessionKey": None,
     }
     base.update(overrides)
     return base

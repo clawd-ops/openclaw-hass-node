@@ -145,9 +145,10 @@ It is exec, so it uses OpenClaw's node exec approvals with a canonical
 `systemRunPlan`. The gateway rejects the run if `command`, `rawCommand`, `cwd`,
 `agentId`, or `sessionKey` changed between prepare and the approved forward,
 which supplies approval-bound-to-canonical-parameters without building it here.
-A proposal ID travels with the request as audit metadata; it is never itself
-an authorization token, and mutating it does not permit an execution the
-canonical plan would not.
+A `proposalId` is never authorization. It is not part of the Gateway's native
+`system.run` forward whitelist, so the transported request does not carry it
+by default; a caller may set it as audit metadata, but mutating it cannot
+permit an execution the canonical plan would not.
 
 The node-side protocol methods that participate in this contract
 (`system.run.prepare`, `system.execApprovals.get`, and `system.execApprovals.set`)
