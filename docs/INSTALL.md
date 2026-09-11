@@ -2,7 +2,7 @@
 
 > 🕷️ **With great power comes great responsibility.** This add-on hands
 > an AI agent a direct line into your Home Assistant — entities, services,
-> `/config` files, addon logs, and (gated behind `OPENCLAW_ADMIN_TOKEN`)
+> `/config` files, addon logs, and (gated behind operator approval)
 > shell + config reload. We harden every surface we can, but a misbehaving
 > or jailbroken agent can still wipe automations, brick an addon, or leak
 > secrets. If your agent torches the box, that is on you and your agent —

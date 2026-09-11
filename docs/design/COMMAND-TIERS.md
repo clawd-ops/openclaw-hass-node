@@ -3,7 +3,7 @@
 Addon-management commands are grouped by blast radius. Tier A is the
 only tier subagents are ever allowed to call. Tier B is operator-only.
 Lifecycle commands use the paired operator boundary plus explicit slug
-policy; separate admin effects retain their admin-token gate. Tier C is
+policy; separate admin effects require operator approval. Tier C is
 explicitly out of scope.
 
 This file replaces the old `HANDOFF-2026-06-20-addon-command-surface.md`,
@@ -58,23 +58,25 @@ Decide before iterating on `ha.addon_info`.
 ## Tier B — lifecycle + admin, NEVER on the subagent allowlist
 
 Reserved for the primary agent or Rob himself. Tier B has two
-authorization levels (#262 reconciliation):
+authorization levels (#262 reconciliation). Neither uses an add-on admin
+token; see [Authorization model](AUTHORIZATION-MODEL.md).
 
-### Tier B lifecycle (pairing auth + slug policy, no admin token)
+### Tier B lifecycle (pairing auth + slug policy)
 
 Authenticated by the established pairing session. The node checks
-slug allowlist/denylist policy but does **not** consult
-`OPENCLAW_ADMIN_TOKEN`. The plugin requires `allowAdminOps` only.
+slug allowlist/denylist policy. The plugin requires `allowAdminOps` only.
 
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
 - `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version (Supervisor API, slug-based)
 
-### Tier B admin (admin token required)
+### Tier B admin (operator approval required)
 
-Same `OPENCLAW_ADMIN_TOKEN` gate as `system.run`. The plugin
-requires both `allowAdminOps` AND `adminToken`.
+No add-on admin token exists. These commands require `allowAdminOps` plus a
+resolved OpenClaw plugin permission request, the same gate used for other
+Home Assistant mutations. See
+[Authorization model](AUTHORIZATION-MODEL.md).
 
 - `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;
   reloads the HA core configuration only. The handler accepts a `domain`
@@ -106,7 +108,7 @@ file a separate proposal — not an opportunistic add.
 Note: `ha.addon_update` and `ha.update_install` are intentionally Tier B rather
 than Tier C. Both bring existing installations forward without changing which
 component is installed. `ha.update_install` is entity-scoped (must be `update.*`)
-and uses the `OPENCLAW_ADMIN_TOKEN` gate without a slug allowlist, since update
+and is gated by operator approval without a slug allowlist, since update
 entities are HA-registry objects rather than Supervisor slugs.
 
 ## Gateway allowlist sync — required, easy to forget
@@ -137,8 +139,11 @@ that cache after a release.
 - One Tier A command per PR, each individually reviewable.
 - Tier B initially landed with an admin token gate and slug allowlist. Current
   lifecycle authorization uses the paired session plus slug policy without a
-  separate token; `ha.reload_config` and `ha.update_install` retain their
-  separate admin-token gate.
+  separate token. `ha.reload_config` and `ha.update_install` still *carry* the
+  admin-token check in code, but that gate is inert because the variable cannot
+  be set, so both commands are unreachable. The ratified target removes the
+  token from those two commands and gates them on operator approval instead.
+  See [Authorization model](AUTHORIZATION-MODEL.md).
 - Tier C never lands without a fresh, scoped ask.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.

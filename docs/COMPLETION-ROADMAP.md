@@ -251,11 +251,12 @@ semantics on both direct and Assist paths; unknown input cannot broaden scope.
 - [x] Ratify Tier B add-on lifecycle authorization as trusted principal context
   plus node-enforced slug allow/deny and effect policy. Resolved in #270:
   lifecycle ops (addon_start/stop/restart/update) require only `allowAdminOps`
-  with pairing-session authentication and slug policy; admin ops
-  (reload_config, update_install) require `allowAdminOps` plus `adminToken`
-  from plugin config. The unwired plugin token claim is removed. Dedicated and
-  generic service paths must still converge on the same decision (Phase 2
-  remainder).
+  with pairing-session authentication and slug policy. #270 left admin ops
+  (reload_config, update_install) on `adminToken`; the ratified authorization
+  model removes the add-on admin token entirely in favor of OpenClaw's native
+  approval APIs, so those move to operator approval. See
+  `design/AUTHORIZATION-MODEL.md`. Dedicated and generic service paths must
+  still converge on the same decision (Phase 2 remainder).
 
 **Exit:** direct, Assist, alias, replay, spoofing, and generic-service paths
 cannot bypass policy; Rob can see and resolve a pending approval end to end.

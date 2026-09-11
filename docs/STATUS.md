@@ -78,7 +78,7 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
   session, with token-delta streaming back into HA. Mid-turn
   tool-named progress lines (e.g. `🔧 Calling weather...`) surface
   in the conversation UI while the agent is still working.
-- **53 commands** registered in the dispatcher:
+- **56 commands** registered in the dispatcher:
   - `ha.*` (39): list/get states, call service, list areas/devices/
     services/entity-registry, config, events, config entries, core logs,
     calendar events, logbook, history, reload config,
@@ -97,8 +97,12 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
     cannot authorize it; the trusted verifier and human round-trip are absent.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
-  - `system.*` (2): `system.run` (admin-token-gated), `system.which`
-    (basename-only lookup).
+  - `system.*` (5): `system.run` (currently unreachable, see
+    [Authorization model](design/AUTHORIZATION-MODEL.md)), `system.which`
+    (basename-only lookup), and the native exec-approval protocol methods
+    delivered by #274: `system.run.prepare`, `system.execApprovals.get`,
+    and `system.execApprovals.set`. `system.run` itself is not yet re-gated
+    onto that contract; that is tracked as #258.
   - `ping`.
 - **Local HTTP API is fail-closed.** When `local_api_token` is unset
   every non-public path returns `401 NO_TOKEN_CONFIGURED`; when set,
