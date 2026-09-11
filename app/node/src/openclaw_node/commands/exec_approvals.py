@@ -464,24 +464,43 @@ def _merge_socket(document: dict[str, Any], current: dict[str, Any]) -> dict[str
     stored = current.get("socket")
     stored = stored if isinstance(stored, dict) else {}
 
-    def pick(field: str) -> str | None:
+    def stored_str(field: str) -> str | None:
+        value = stored.get(field)
+        return value if isinstance(value, str) else None
+
+    def pick_path() -> str | None:
         # The exact stored string is carried over, not a trimmed copy. The closed
-        # schema allows any string, so normalising here would silently destroy a
-        # whitespace-only token this node has no way to mint again, or repoint a
-        # socket whose filename legitimately has leading or trailing spaces.
-        stored_value = stored.get(field)
-        stored_value = stored_value if isinstance(stored_value, str) else None
-        incoming_value = incoming.get(field)
+        # schema allows any string, so normalising here would repoint a socket
+        # whose filename legitimately has leading or trailing spaces.
+        stored_value = stored_str("path")
+        incoming_value = incoming.get("path")
         if not isinstance(incoming_value, str):
             return stored_value
-        # An unchanged round trip returns the redacted view of what is stored.
-        # That is not a request to change the value, so keep the stored string.
+        # The path *is* disclosed, in trimmed form. An unchanged round trip
+        # therefore returns the redacted view of what is stored, which is not a
+        # request to change the value, so keep the exact stored string.
+        #
+        # Known limitation: a deliberate edit from a whitespace-padded path to
+        # exactly its own trimmed form is indistinguishable from that echo and
+        # keeps the padded value. Repointing to any other path works normally.
         if stored_value is not None and incoming_value == _redact_socket_value(stored_value):
             return stored_value
         return incoming_value
 
+    def pick_token() -> str | None:
+        # The token is never disclosed, so a caller cannot echo it back. Any
+        # present string is therefore an explicit write and must be honoured
+        # exactly, including an empty string that clears the credential.
+        # Applying the redacted-view comparison here would silently discard a
+        # genuine replacement or revocation and report success.
+        incoming_value = incoming.get("token")
+        if not isinstance(incoming_value, str):
+            return stored_str("token")
+        return incoming_value
+
     merged = dict(document)
-    socket = {field: value for field in ("path", "token") if (value := pick(field)) is not None}
+    picked = {"path": pick_path(), "token": pick_token()}
+    socket = {field: value for field, value in picked.items() if value is not None}
     if socket:
         merged["socket"] = socket
     else:
@@ -633,8 +652,16 @@ def _approvals_write_lock(path: Path) -> Iterator[None]:
     The lock is opened without following symlinks, its mode is repaired on every
     acquisition because the ``os.open`` mode argument does not apply to an
     existing file, and the locked descriptor is confirmed to still be the file at
-    ``lock_path`` afterwards. Without that check a concurrent rename would let
-    two writers hold locks on different inodes and serialize against nothing.
+    ``lock_path`` afterwards. That check narrows the window in which a rename
+    leaves two writers holding different inodes; it does not close it. The
+    identity is verified once, before ``yield``, so a replacement landing after
+    the check still splits the writers.
+
+    Closing that window entirely needs a coordination primitive whose identity
+    cannot be swapped mid-section. It is deliberately not built here: the lock
+    lives in the node's private data directory, and an attacker able to rename a
+    file there can already rewrite the policy document directly. The trust
+    boundary is the directory, not this lock.
     """
     lock_path = path.with_name(path.name + ".lock")
     for _ in range(_LOCK_ACQUIRE_ATTEMPTS):
@@ -709,9 +736,13 @@ def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
                 handle.write(_serialize_document(merged))
                 handle.flush()
                 os.fsync(handle.fileno())
+            # os.replace is the commit point. The temp descriptor was already
+            # fchmod'ed to 0600 above, so the destination has its final mode the
+            # instant it becomes visible. Nothing fallible may run after this:
+            # an error raised post-commit would report IO_ERROR for a policy that
+            # is already active, which is the opposite of fail-closed.
             os.replace(temp_path, path)
             temp_path = None
-            os.chmod(path, 0o600)
             return _snapshot(path)
     except OSError as exc:
         _LOG.warning("failed to write exec approvals document at %s: %s", path, exc)

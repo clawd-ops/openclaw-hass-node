@@ -901,3 +901,89 @@ def test_commands_are_advertised() -> None:
         "system.execApprovals.set",
     ):
         assert command in node_commands
+
+
+def test_set_honours_an_explicit_token_that_matches_its_trimmed_form(data_dir: Path) -> None:
+    """The token is never disclosed, so a supplied token is always a write.
+
+    A stored ``" old-token "`` redacts to nothing at all, so an incoming
+    ``"old-token"`` cannot be an echo. Treating it as one kept the padded
+    credential on disk while reporting success, which makes a genuine
+    replacement look applied when it was discarded.
+    """
+    path = data_dir / "exec-approvals.json"
+    document = _policy()
+    document["socket"] = {"path": "/run/openclaw/exec.sock", "token": " old-token "}
+    path.write_text(json.dumps(document), encoding="utf-8")
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    edited = dict(snapshot["file"])
+    edited["socket"] = {"path": "/run/openclaw/exec.sock", "token": "old-token"}
+    exec_approvals.handle_system_exec_approvals_set({"file": edited, "baseHash": snapshot["hash"]})
+
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["socket"]["token"] == "old-token"
+
+
+def test_set_clears_a_whitespace_only_token_when_asked(data_dir: Path) -> None:
+    """Revocation must not be mistaken for a redacted echo."""
+    path = data_dir / "exec-approvals.json"
+    document = _policy()
+    document["socket"] = {"path": "/run/openclaw/exec.sock", "token": "   "}
+    path.write_text(json.dumps(document), encoding="utf-8")
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    edited = dict(snapshot["file"])
+    edited["socket"] = {"path": "/run/openclaw/exec.sock", "token": ""}
+    exec_approvals.handle_system_exec_approvals_set({"file": edited, "baseHash": snapshot["hash"]})
+
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["socket"]["token"] == ""
+
+
+def test_set_still_preserves_the_token_when_the_field_is_omitted(data_dir: Path) -> None:
+    """Omission, not echo, is what carries the undisclosed credential across."""
+    path = data_dir / "exec-approvals.json"
+    document = _policy()
+    document["socket"] = {"path": "/run/openclaw/exec.sock", "token": " padded "}
+    path.write_text(json.dumps(document), encoding="utf-8")
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    assert "token" not in snapshot["file"]["socket"]
+    exec_approvals.handle_system_exec_approvals_set(
+        {"file": snapshot["file"], "baseHash": snapshot["hash"]}
+    )
+
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["socket"]["token"] == " padded "
+
+
+def test_set_reports_no_error_once_the_policy_is_committed(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No fallible step may run after ``os.replace``.
+
+    A post-commit failure previously returned ``IO_ERROR`` while the new, more
+    permissive policy was already active, telling an administrator their
+    authorization change had failed when it had not.
+    """
+    path = data_dir / "exec-approvals.json"
+    path.write_text(json.dumps(_policy()), encoding="utf-8")
+    snapshot = exec_approvals.handle_system_exec_approvals_get({})
+
+    replacement = _policy()
+    replacement["defaults"] = {**replacement["defaults"], "security": "full"}
+
+    def _explode(*args: Any, **kwargs: Any) -> None:
+        message = "chmod must not run after the commit point"
+        raise OSError(message)
+
+    monkeypatch.setattr(os, "chmod", _explode)
+    result = exec_approvals.handle_system_exec_approvals_set(
+        {"file": replacement, "baseHash": snapshot["hash"]}
+    )
+
+    assert "error" not in result
+    stored = json.loads(path.read_text(encoding="utf-8"))
+    assert stored["defaults"]["security"] == "full"
+    assert path.stat().st_mode & 0o777 == 0o600
