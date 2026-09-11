@@ -749,19 +749,19 @@
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.",
+      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. The approval text in plan.commandText is always derived from the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.",
       "assist_unavailable_reason": "Assist does not expose host shell preparation; exec approvals are an operator surface.",
       "actions": {}
     },
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed.",
+      "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "actions": {}
     },
     "system.execApprovals.set": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Accepts the Gateway-native file and optional baseHash contract, rejects stale writes, and replaces validated policy through a unique owner-only temporary file with failure cleanup.",
+      "capability_conditions": "Accepts the Gateway-native file and baseHash contract, requires a matching base hash whenever the document already exists, validates the closed nested policy schema, preserves the redacted socket credential, and replaces validated policy through a unique owner-only temporary file with failure cleanup.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "actions": {}
     }

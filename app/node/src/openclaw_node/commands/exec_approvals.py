@@ -40,6 +40,44 @@ _MAX_ARGV: Final[int] = 256
 _MAX_ARG_LEN: Final[int] = 8192
 _MISSING_HASH: Final[str] = "missing:" + hashlib.sha256(b"").hexdigest()
 
+# The only argv shape for which this node accepts a caller-supplied ``rawCommand``
+# that is not the canonical rendering of argv. OpenClaw builds exactly this form
+# for POSIX node hosts (``buildNodeShellCommand``), and its own node helper
+# (``extractPreparedNodeShellPayload``) recognises the same narrow shape.
+#
+# Full parity with the Gateway's shell-wrapper resolver is deliberately not
+# reimplemented here. Any argv outside this form must present a rawCommand equal
+# to the canonical text or be rejected, so the node can never widen what the
+# Gateway would accept.
+_INLINE_SHELL_WRAPPERS: Final[frozenset[str]] = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
+_INLINE_SHELL_FLAGS: Final[frozenset[str]] = frozenset({"-c", "-lc"})
+
+# Characters matched by the JavaScript ``\s`` class, plus the literal quote, as
+# used by OpenClaw's ``formatExecCommand`` quoting test.
+_JS_QUOTE_TRIGGERS: Final[frozenset[str]] = frozenset(
+    '"'
+    + "".join(
+        chr(code)
+        for code in (
+            0x0009,  # tab
+            0x000A,  # line feed
+            0x000B,  # vertical tab
+            0x000C,  # form feed
+            0x000D,  # carriage return
+            0x0020,  # space
+            0x00A0,  # no-break space
+            0x1680,  # ogham space mark
+            0x2028,  # line separator
+            0x2029,  # paragraph separator
+            0x202F,  # narrow no-break space
+            0x205F,  # medium mathematical space
+            0x3000,  # ideographic space
+            0xFEFF,  # zero width no-break space
+            *range(0x2000, 0x200B),  # en quad through hair space
+        )
+    )
+)
+
 
 def _error(code: str, message: str) -> dict[str, Any]:
     """Return a standard node command error payload."""
@@ -107,6 +145,172 @@ def _validate_env(value: Any) -> dict[str, Any] | None:
     return None
 
 
+def _format_exec_command(argv: list[str]) -> str:
+    r"""Render argv exactly like OpenClaw's ``formatExecCommand``.
+
+    The quoting trigger is ``/\s|"/`` in JavaScript, which is not the same set
+    as :meth:`str.isspace`. ``str.isspace`` also matches U+001C-U+001F and
+    U+0085 and does not match U+FEFF, so the set is spelled out rather than
+    inferred. A divergence here would make the node advertise approval text that
+    the Gateway renders differently for the same argv.
+    """
+    parts: list[str] = []
+    for arg in argv:
+        if not arg:
+            parts.append('""')
+        elif not any(char in _JS_QUOTE_TRIGGERS for char in arg):
+            parts.append(arg)
+        else:
+            parts.append('"' + arg.replace('"', '\\"') + '"')
+    return " ".join(parts)
+
+
+def _inline_shell_payload(argv: list[str]) -> str | None:
+    """Return the inline payload of the one supported POSIX wrapper form."""
+    if len(argv) != 3:
+        return None
+    executable = argv[0].replace("\\", "/").rsplit("/", 1)[-1].strip().lower()
+    if executable not in _INLINE_SHELL_WRAPPERS:
+        return None
+    if argv[1].strip() not in _INLINE_SHELL_FLAGS:
+        return None
+    payload = argv[2].strip()
+    return payload or None
+
+
+def _resolve_command_text(
+    argv: list[str], raw_command: Any
+) -> tuple[tuple[str, str | None] | None, dict[str, Any] | None]:
+    """Bind approval text to argv, returning ``(commandText, commandPreview)``.
+
+    ``commandText`` is always the canonical rendering of the argv that would
+    actually run, never caller-supplied text. A ``rawCommand`` that describes a
+    different command is rejected instead of being echoed back, because the
+    Gateway uses ``plan.commandText`` as both the approval prompt and the
+    transport raw command.
+    """
+    if raw_command is not None and not isinstance(raw_command, str):
+        return None, _error("INVALID_PARAM", "rawCommand must be a string")
+    raw = raw_command.strip() if isinstance(raw_command, str) else ""
+    command_text = _format_exec_command(argv)
+    payload = _inline_shell_payload(argv)
+    preview = payload if payload is not None and payload != command_text else None
+    if not raw:
+        return (command_text, preview), None
+    if raw != command_text and raw != payload:
+        return None, {
+            "ok": False,
+            "error": "RAW_COMMAND_MISMATCH",
+            "message": "INVALID_REQUEST: rawCommand does not match command",
+            "inferred": command_text,
+            "formattedArgv": command_text,
+        }
+    return (command_text, preview), None
+
+
+def _is_one_of(value: Any, allowed: frozenset[str]) -> bool:
+    """Test string membership without assuming the value is hashable."""
+    return isinstance(value, str) and value in allowed
+
+
+def _validate_optional_string(
+    scope: str, container: dict[str, Any], field: str
+) -> dict[str, Any] | None:
+    """Validate an optional string, where an explicit null is not an absent key.
+
+    ``Type.Optional(Type.String())`` accepts a missing key but rejects ``null``,
+    so presence is tested rather than truthiness.
+    """
+    if field not in container:
+        return None
+    if not isinstance(container[field], str):
+        return _error("INVALID_PARAM", f"{scope}.{field} must be a string")
+    return None
+
+
+def _validate_non_empty_string(scope: str, value: Any) -> dict[str, Any] | None:
+    """Require a string carrying at least one non-whitespace character."""
+    if not isinstance(value, str) or not value.strip():
+        return _error("INVALID_PARAM", f"{scope} must be a non-empty string")
+    return None
+
+
+def _validate_timestamp(
+    scope: str, container: dict[str, Any], field: str, *, required: bool
+) -> dict[str, Any] | None:
+    """Validate a non-negative finite number, rejecting an explicit null."""
+    if field not in container:
+        if required:
+            return _error("INVALID_PARAM", f"{scope}.{field} is required")
+        return None
+    value = container[field]
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return _error("INVALID_PARAM", f"{scope}.{field} must be a number")
+    if value != value or value in (float("inf"), float("-inf")):
+        return _error("INVALID_PARAM", f"{scope}.{field} must be a finite number")
+    if value < 0:
+        return _error("INVALID_PARAM", f"{scope}.{field} must be greater than or equal to 0")
+    return None
+
+
+_ALLOWLIST_ENTRY_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "id",
+        "pattern",
+        "source",
+        "commandText",
+        "argPattern",
+        "lastUsedAt",
+        "lastUsedCommand",
+        "lastResolvedPath",
+    }
+)
+_MCP_TOOL_FIELDS: Final[frozenset[str]] = frozenset(
+    {"server", "tool", "source", "addedAt", "lastUsedAt"}
+)
+
+
+def _validate_allowlist_entry(scope: str, entry: Any) -> dict[str, Any] | None:
+    """Validate one allowlist entry against the Gateway's closed schema."""
+    if not isinstance(entry, dict):
+        return _error("INVALID_PARAM", f"{scope} must be an object")
+    unknown = set(entry) - _ALLOWLIST_ENTRY_FIELDS
+    if unknown:
+        return _error("INVALID_PARAM", f"{scope} contains unknown fields: {sorted(unknown)}")
+    if not isinstance(entry.get("pattern"), str):
+        return _error("INVALID_PARAM", f"{scope}.pattern must be a string")
+    if "id" in entry:
+        error = _validate_non_empty_string(f"{scope}.id", entry["id"])
+        if error is not None:
+            return error
+    if "source" in entry and entry["source"] != "allow-always":
+        return _error("INVALID_PARAM", f"{scope}.source must be 'allow-always'")
+    for field_name in ("commandText", "argPattern", "lastUsedCommand", "lastResolvedPath"):
+        error = _validate_optional_string(scope, entry, field_name)
+        if error is not None:
+            return error
+    return _validate_timestamp(scope, entry, "lastUsedAt", required=False)
+
+
+def _validate_mcp_tool(scope: str, entry: Any) -> dict[str, Any] | None:
+    """Validate one persisted MCP tool approval against the closed schema."""
+    if not isinstance(entry, dict):
+        return _error("INVALID_PARAM", f"{scope} must be an object")
+    unknown = set(entry) - _MCP_TOOL_FIELDS
+    if unknown:
+        return _error("INVALID_PARAM", f"{scope} contains unknown fields: {sorted(unknown)}")
+    for field_name in ("server", "tool"):
+        error = _validate_non_empty_string(f"{scope}.{field_name}", entry.get(field_name))
+        if error is not None:
+            return error
+    if entry.get("source") != "allow-always":
+        return _error("INVALID_PARAM", f"{scope}.source must be 'allow-always'")
+    error = _validate_timestamp(scope, entry, "addedAt", required=True)
+    if error is not None:
+        return error
+    return _validate_timestamp(scope, entry, "lastUsedAt", required=False)
+
+
 def _validate_policy(
     scope: str, policy: dict[str, Any], *, allow_allowlist: bool
 ) -> dict[str, Any] | None:
@@ -115,49 +319,33 @@ def _validate_policy(
     unknown = set(policy) - allowed
     if unknown:
         return _error("INVALID_PARAM", f"{scope} contains unknown fields: {sorted(unknown)}")
-    security = policy.get("security")
-    ask = policy.get("ask")
-    fallback = policy.get("askFallback")
-    auto_allow = policy.get("autoAllowSkills")
-    if security is not None and security not in _VALID_SECURITY:
+    if "security" in policy and not _is_one_of(policy["security"], _VALID_SECURITY):
         return _error("INVALID_PARAM", f"{scope}.security must be one of {sorted(_VALID_SECURITY)}")
-    if ask is not None and ask not in _VALID_ASK:
+    if "ask" in policy and not _is_one_of(policy["ask"], _VALID_ASK):
         return _error("INVALID_PARAM", f"{scope}.ask must be one of {sorted(_VALID_ASK)}")
-    if fallback is not None and fallback not in _VALID_SECURITY:
+    if "askFallback" in policy and not _is_one_of(policy["askFallback"], _VALID_SECURITY):
         return _error(
             "INVALID_PARAM", f"{scope}.askFallback must be one of {sorted(_VALID_SECURITY)}"
         )
-    if auto_allow is not None and not isinstance(auto_allow, bool):
+    if "autoAllowSkills" in policy and not isinstance(policy["autoAllowSkills"], bool):
         return _error("INVALID_PARAM", f"{scope}.autoAllowSkills must be boolean")
 
-    allowlist = policy.get("allowlist")
-    if allowlist is not None:
+    if "allowlist" in policy:
+        allowlist = policy["allowlist"]
         if not isinstance(allowlist, list):
             return _error("INVALID_PARAM", f"{scope}.allowlist must be a list")
-        allowed_entry_fields = {
-            "id",
-            "pattern",
-            "source",
-            "commandText",
-            "argPattern",
-            "lastUsedAt",
-            "lastUsedCommand",
-            "lastResolvedPath",
-        }
         for index, entry in enumerate(allowlist):
-            if not isinstance(entry, dict) or not isinstance(entry.get("pattern"), str):
-                return _error(
-                    "INVALID_PARAM", f"{scope}.allowlist[{index}] requires a string pattern"
-                )
-            if set(entry) - allowed_entry_fields:
-                return _error(
-                    "INVALID_PARAM", f"{scope}.allowlist[{index}] contains unknown fields"
-                )
-            if entry.get("source") not in (None, "allow-always"):
-                return _error("INVALID_PARAM", f"{scope}.allowlist[{index}].source is invalid")
-    mcp_tools = policy.get("mcpTools")
-    if mcp_tools is not None and not isinstance(mcp_tools, list):
-        return _error("INVALID_PARAM", f"{scope}.mcpTools must be a list")
+            error = _validate_allowlist_entry(f"{scope}.allowlist[{index}]", entry)
+            if error is not None:
+                return error
+    if "mcpTools" in policy:
+        mcp_tools = policy["mcpTools"]
+        if not isinstance(mcp_tools, list):
+            return _error("INVALID_PARAM", f"{scope}.mcpTools must be a list")
+        for index, entry in enumerate(mcp_tools):
+            error = _validate_mcp_tool(f"{scope}.mcpTools[{index}]", entry)
+            if error is not None:
+                return error
     return None
 
 
@@ -167,23 +355,25 @@ def _validate_document(value: Any) -> dict[str, Any] | None:
         return _error("INVALID_PARAM", "file must be an object")
     if set(value) - {"version", "socket", "defaults", "agents"}:
         return _error("INVALID_PARAM", "file contains unknown fields")
-    if value.get("version") != APPROVALS_DOC_VERSION:
+    version = value.get("version")
+    # ``True == 1`` in Python but ``Type.Literal(1)`` rejects a JSON boolean.
+    if isinstance(version, bool) or version != APPROVALS_DOC_VERSION:
         return _error("INVALID_PARAM", f"file.version must be {APPROVALS_DOC_VERSION}")
-    socket = value.get("socket")
-    if socket is not None:
+    if "socket" in value:
+        socket = value["socket"]
         if not isinstance(socket, dict) or set(socket) - {"path", "token"}:
             return _error("INVALID_PARAM", "file.socket is invalid")
         if any(not isinstance(item, str) for item in socket.values()):
             return _error("INVALID_PARAM", "file.socket values must be strings")
-    defaults = value.get("defaults")
-    if defaults is not None:
+    if "defaults" in value:
+        defaults = value["defaults"]
         if not isinstance(defaults, dict):
             return _error("INVALID_PARAM", "file.defaults must be an object")
         error = _validate_policy("file.defaults", defaults, allow_allowlist=False)
         if error is not None:
             return error
-    agents = value.get("agents")
-    if agents is not None:
+    if "agents" in value:
+        agents = value["agents"]
         if not isinstance(agents, dict):
             return _error("INVALID_PARAM", "file.agents must be an object")
         for agent_id, policy in agents.items():
@@ -216,7 +406,52 @@ def _read_snapshot() -> tuple[dict[str, Any], bytes | None]:
     return document, raw
 
 
-def _snapshot() -> dict[str, Any]:
+def _redact_document(document: dict[str, Any]) -> dict[str, Any]:
+    """Drop the socket credential exactly like OpenClaw's ``redactExecApprovals``.
+
+    The socket token authenticates the local exec host. It is never disclosed to
+    a caller, and a caller therefore cannot echo it back, which is why
+    ``_merge_socket`` restores it on write.
+    """
+    redacted = dict(document)
+    socket = document.get("socket")
+    socket_path = socket.get("path") if isinstance(socket, dict) else None
+    if isinstance(socket_path, str) and socket_path.strip():
+        redacted["socket"] = {"path": socket_path.strip()}
+    else:
+        redacted.pop("socket", None)
+    return redacted
+
+
+def _merge_socket(document: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    """Carry the stored socket path and token across a redacted round trip.
+
+    Unlike the Gateway's own host, this node never fabricates a socket path or
+    mints a token. It only preserves what is already stored, so a read-edit-write
+    through the redacted snapshot cannot erase the credential.
+    """
+    incoming = document.get("socket")
+    incoming = incoming if isinstance(incoming, dict) else {}
+    stored = current.get("socket")
+    stored = stored if isinstance(stored, dict) else {}
+
+    def pick(field: str) -> str | None:
+        for source in (incoming, stored):
+            value = source.get(field)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    merged = dict(document)
+    socket = {field: value for field in ("path", "token") if (value := pick(field)) is not None}
+    if socket:
+        merged["socket"] = socket
+    else:
+        merged.pop("socket", None)
+    return merged
+
+
+def _snapshot(*, redact: bool = True) -> dict[str, Any]:
     """Return the exact file-backed snapshot shape consumed by the Gateway."""
     path = _approvals_path()
     document, raw = _read_snapshot()
@@ -224,7 +459,7 @@ def _snapshot() -> dict[str, Any]:
         "path": str(path),
         "exists": raw is not None,
         "hash": _MISSING_HASH if raw is None else hashlib.sha256(raw).hexdigest(),
-        "file": document,
+        "file": _redact_document(document) if redact else document,
     }
 
 
@@ -281,9 +516,12 @@ def handle_system_run_prepare(params: dict[str, Any]) -> dict[str, Any]:
         return error
     assert argv is not None
 
-    raw_command = params.get("rawCommand")
-    if not isinstance(raw_command, str) or not raw_command.strip():
-        return _error("INVALID_PARAM", "rawCommand must be a non-empty string")
+    resolved_text, error = _resolve_command_text(argv, params.get("rawCommand"))
+    if error is not None:
+        return error
+    assert resolved_text is not None
+    command_text, command_preview = resolved_text
+
     env_error = _validate_env(params.get("env"))
     if env_error is not None:
         return env_error
@@ -310,7 +548,8 @@ def handle_system_run_prepare(params: dict[str, Any]) -> dict[str, Any]:
         "plan": {
             "argv": argv,
             "cwd": resolved_cwd,
-            "commandText": raw_command,
+            "commandText": command_text,
+            "commandPreview": command_preview,
             "agentId": agent_id,
             "sessionKey": session_key,
             "policySnapshot": policy,
@@ -338,10 +577,22 @@ def handle_system_exec_approvals_set(params: dict[str, Any]) -> dict[str, Any]:
         return error
     document = cast(dict[str, Any], document)
 
-    current = _snapshot()
-    base_hash = params.get("baseHash")
-    if base_hash is not None and base_hash != current["hash"]:
+    current = _snapshot(redact=False)
+    raw_base_hash = params.get("baseHash")
+    base_hash = raw_base_hash.strip() if isinstance(raw_base_hash, str) else ""
+    if current["exists"]:
+        if not current["hash"]:
+            return _error(
+                "INVALID_REQUEST", "exec approvals base hash unavailable; reload and retry"
+            )
+        if not base_hash:
+            return _error("INVALID_REQUEST", "exec approvals base hash required; reload and retry")
+        if base_hash != current["hash"]:
+            return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
+    elif base_hash and base_hash != current["hash"]:
         return _error("INVALID_REQUEST", "exec approvals changed; reload and retry")
+
+    document = _merge_socket(document, cast(dict[str, Any], current["file"]))
 
     path = _approvals_path()
     temp_path: Path | None = None
