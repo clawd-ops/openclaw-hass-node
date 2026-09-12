@@ -31,6 +31,13 @@ This is containment only, not a working approval flow or a deployed fix.
 See [the completion roadmap](COMPLETION-ROADMAP.md) for the remaining work.
 Older release and non-config claims below still await the wider reconciliation.
 
+The generic `ha.call_service` path also has bounded Phase 0 containment in
+unreleased source (#287): lifecycle, update, reload, host, shell, and shutdown
+effects return `SERVICE_DENIED` before HA I/O, while ordinary operations such
+as `light.turn_on` remain available. Input names and aliases are normalized and
+validated before the policy decision. This is not the final approval-aware
+effect policy and has not been deployed or production-proven.
+
 ## Where we are
 
 **Additional unreleased coverage foundation (#268):** a deterministic generator

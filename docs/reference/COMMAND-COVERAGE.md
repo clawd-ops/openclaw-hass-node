@@ -59,7 +59,7 @@ rows are intentionally retained. Regenerate after editing source or
 | `ha.addon_stop` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
 | `ha.addon_update` | unavailable<br>CODE-PROVEN:fail | unavailable<br>CODE-PROVEN:fail<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `PRODUCTION-LIVE` | **`fail`** |
 | `ha.calendar_get_events` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
-| `ha.call_service` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>TEST-PROVEN:pass | `node_effect_policy_missing` | `TEST-PROVEN` | **`partial`** |
+| `ha.call_service` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>TEST-PROVEN:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass<br>TEST-PROVEN:pass<br>TEST-PROVEN:refused-as-designed | `interim_node_effect_denylist` | `TEST-PROVEN` | **`partial`** |
 | `ha.check_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
 | `ha.config.area_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
 | `ha.config.area_registry#create` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** |
@@ -1059,13 +1059,13 @@ rows are intentionally retained. Regenerate after editing source or
 
 - Handler: `openclaw_node.commands.ha:handle_ha_call_service`
 - Canonical parameters: data (alias: service_data), domain, service, target
-- Authorization: `node_effect_policy_missing`
-- Capability conditions: HA REST API is reachable. Plugin policy may restrict callers, but the node does not yet classify service effects.
-- Semantic result: UNVERIFIED CONTRACT: HA changed_states list from service response; service_data is normalized to data before dispatch.
+- Authorization: `interim_node_effect_denylist`
+- Capability conditions: HA REST API is reachable. The node permits ordinary services such as light.turn_on but refuses lifecycle, update, reload, host, shell, and shutdown effects before HA I/O. Top-level and target keys fail closed; target accepts only entity_id, area_id, and device_id. This is Phase 0 containment, not the final effect-policy or approval path.
+- Semantic result: Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
 - **Outcome: `partial`**
-- Evidence note: Stacked PR #267 tests data/service_data parity and semantic error propagation; effect authorization remains incomplete.
+- Evidence note: Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -1086,12 +1086,12 @@ rows are intentionally retained. Regenerate after editing source or
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `domain`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `service`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `target`
@@ -1102,12 +1102,28 @@ rows are intentionally retained. Regenerate after editing source or
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `TEST-PROVEN` / **`refused-as-designed`**: The real node.invoke request path returns SERVICE_DENIED and makes no HA request for a privileged host effect. (source: `app/node/tests/test_gateway_ws.py::test_handle_invoke_call_service_denies_privileged_effect_before_ha`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `TEST-PROVEN` / **`pass`**: The wrapper preserves service payload data and returns the node result; node-side effect authorization remains incomplete. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::invokes ha.call_service and forwards to the node`)
+  - `assist_wrapper` / `TEST-PROVEN` / **`pass`**: The wrapper preserves service payload data for an ordinary permitted service and returns the node result. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::invokes ha.call_service and forwards to the node`)
+  - `assist_wrapper` / `TEST-PROVEN` / **`refused-as-designed`**: The Assist execution boundary rejects unknown top-level keys before resolving or invoking the node. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::rejects unknown parameters before resolving or invoking the node`)
+  - `assist_wrapper` / `TEST-PROVEN` / **`refused-as-designed`**: The Assist execution boundary rejects unknown target keys before resolving or invoking the node. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::rejects unknown target parameters before resolving or invoking the node`)
+  - `assist_wrapper` / `TEST-PROVEN` / **`refused-as-designed`**: The real Assist wrapper-to-node path returns SERVICE_DENIED without an HA request for representative lifecycle, host, update, and shell effects. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::denies representative privileged services through the real Assist and node path`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`refused-as-designed`**: Handler regressions cover lifecycle, update, reload, host, shell, and shutdown service families and prove denial before HA I/O. (source: `app/node/tests/test_ha_commands.py::test_call_service_denies_privileged_effects_before_ha`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The handler normalizes and preserves an ordinary light.turn_on operation. (source: `app/node/tests/test_ha_commands.py::test_call_service_preserves_ordinary_light_action`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`refused-as-designed`**: The handler rejects target keys other than entity_id, area_id, and device_id before HA I/O. (source: `app/node/tests/test_ha_commands.py::test_call_service_rejects_unknown_target_param_before_ha`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`refused-as-designed`**: The handler rejects unknown top-level keys and malformed or non-canonical domain/service values before HA I/O. (source: `app/node/tests/test_ha_commands.py::test_call_service_rejects_noncanonical_or_unknown_params_before_ha`)
 - Curated acceptance-test IDs:
+  - `app/node/tests/test_ha_commands.py::test_call_service_denies_privileged_effects_before_ha` / `handler_dispatch` / `refused-as-designed`
+  - `app/node/tests/test_ha_commands.py::test_call_service_preserves_ordinary_light_action` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_ha_commands.py::test_call_service_rejects_unknown_target_param_before_ha` / `handler_dispatch` / `refused-as-designed`
+  - `app/node/tests/test_ha_commands.py::test_call_service_rejects_noncanonical_or_unknown_params_before_ha` / `handler_dispatch` / `refused-as-designed`
+  - `app/node/tests/test_gateway_ws.py::test_handle_invoke_call_service_denies_privileged_effect_before_ha` / `direct_nodes_invoke` / `refused-as-designed`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::invokes ha.call_service and forwards to the node` / `assist_wrapper` / `pass`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::rejects unknown parameters before resolving or invoking the node` / `assist_wrapper` / `refused-as-designed`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts::rejects unknown target parameters before resolving or invoking the node` / `assist_wrapper` / `refused-as-designed`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::accepts equal aliases but rejects conflicts before any gateway or HA call` / `assist_wrapper` / `pass`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::denies representative privileged services through the real Assist and node path` / `assist_wrapper` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts`

@@ -34,9 +34,15 @@ export const HaCallServiceToolSchema = Type.Object({
   node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
   domain: Type.String({
     description: "HA service domain, e.g. 'light', 'switch', 'homeassistant'.",
+    minLength: 1,
+    maxLength: 64,
+    pattern: "^[a-z0-9_]+$",
   }),
   service: Type.String({
     description: "HA service name, e.g. 'turn_on', 'turn_off', 'update_entity'.",
+    minLength: 1,
+    maxLength: 64,
+    pattern: "^[a-z0-9_]+$",
   }),
   target: Type.Optional(
     Type.Object(
@@ -51,7 +57,10 @@ export const HaCallServiceToolSchema = Type.Object({
           Type.Union([Type.String(), Type.Array(Type.String())]),
         ),
       },
-      { description: "HA service target (entity_id / area_id / device_id)." },
+      {
+        description: "HA service target (entity_id / area_id / device_id).",
+        additionalProperties: false,
+      },
     ),
   ),
   data: Type.Optional(
@@ -64,13 +73,13 @@ export const HaCallServiceToolSchema = Type.Object({
       description: "Compatibility alias for data. If both are supplied they must agree; conflicting values are rejected before calling HA.",
     }),
   ),
-});
+}, { additionalProperties: false });
 
 export const HA_CALL_SERVICE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: call service",
   name: "ha_call_service",
   description:
-    "On the paired Home Assistant node: call a HA service (e.g. light.turn_on, switch.toggle). Pass service options in data; service_data remains a compatibility alias. Conflicting aliases are rejected. This tool reaches the hass node, not the OC host. Gateway command access and HA credentials apply; per-service effect approvals are not implemented yet.",
+    "On the paired Home Assistant node: call an ordinary HA service (e.g. light.turn_on, switch.toggle). Pass service options in data; service_data remains a compatibility alias. Conflicting aliases and unknown parameters are rejected. Interim node policy denies lifecycle, update, reload, host, shell, and shutdown effects until their dedicated approval paths are available. This tool reaches the hass node, not the OC host.",
   parameters: HaCallServiceToolSchema,
 };
 
