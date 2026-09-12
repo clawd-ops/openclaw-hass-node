@@ -168,9 +168,11 @@ function createAdminTool(input: AdminInput): AnyAgentTool {
       };
 
       if (input.command === "ha.reload_config") {
+        // `domain` is optional and only "core" is supported. Forward it when
+        // supplied so the node, not the plugin, owns the rejection message for
+        // an unsupported domain.
         const domain = readTrimmedString(params, "domain");
-        if (!domain) throw new Error("domain required");
-        commandParams.domain = domain;
+        if (domain) commandParams.domain = domain;
       } else if (input.command === "ha.update_install") {
         const entityId = readTrimmedString(params, "entity_id");
         if (!entityId) throw new Error("entity_id required");

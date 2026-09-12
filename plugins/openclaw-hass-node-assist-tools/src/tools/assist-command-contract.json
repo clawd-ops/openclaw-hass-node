@@ -435,12 +435,7 @@
       "injected_node_params": {
         "$policy.adminToken": "admin_token"
       },
-      "known_unaccepted_node_params": {
-        "domain": {
-          "issue": "#263",
-          "reason": "Node ignores requested domain and reloads core config; tracked in the completion roadmap."
-        }
-      },
+      "known_unaccepted_node_params": {},
       "value_transforms": {}
     },
     {

@@ -137,17 +137,20 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     assert rows_by_id["system.run"]["callers"]["direct_nodes_invoke"]["status"] == "unavailable"
     for command in ("ha.addon_update", "ha.update_install"):
         assert rows_by_id[command]["callers"]["node_advertisement"]["status"] == "advertised"
-    assert rows_by_id["ha.reload_config"]["outcome"] == "fail"
-    assert rows_by_id["ha.reload_config"]["callers"]["assist_wrapper"][
-        "known_unaccepted_node_params"
-    ] == {
-        "domain": {
-            "issue": "#263",
-            "reason": (
-                "Node ignores requested domain and reloads core config; tracked in the "
-                "completion roadmap."
-            ),
-        }
+    # `domain` used to be emitted by the Assist wrapper and ignored by the node,
+    # which the ledger recorded as an acknowledged mismatch and a `fail` outcome.
+    # The node now accepts `domain`, supports only `core`, and rejects anything
+    # else before HA I/O, so the mismatch is retired. The row stays `partial`
+    # rather than `pass`: per-domain reload is still unimplemented, the
+    # admin-token gate is not the ratified authorization model, and the fix is
+    # not in a released artifact.
+    assert rows_by_id["ha.reload_config"]["outcome"] == "partial"
+    assert (
+        rows_by_id["ha.reload_config"]["callers"]["assist_wrapper"]["known_unaccepted_node_params"]
+        == {}
+    )
+    assert "domain" in {
+        parameter["name"] for parameter in rows_by_id["ha.reload_config"]["canonical_parameters"]
     }
     assert rows_by_id["ha.list_states"]["callers"]["assist_wrapper"]["client_side_params"] == {
         "entity_filter": {
