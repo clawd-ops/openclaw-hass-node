@@ -12,8 +12,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from openclaw_node.commands.dispatcher import _REGISTRY
 from openclaw_node.config import NodeConfig
 from openclaw_node.gateway_ws import (
+    _INTENTIONALLY_UNADVERTISED,
     _NODE_COMMANDS,
     GatewayClient,
     _format_retry_at_utc,
@@ -89,6 +91,37 @@ def test_gateway_client_with_pairing_callback() -> None:
     assert client.pairing_state is PairingState.UNKNOWN
 
 
+def test_advertised_matches_registry() -> None:
+    """Advertised connect-frame commands must equal the dispatcher registry,
+    minus any commands explicitly listed in ``_INTENTIONALLY_UNADVERTISED``.
+
+    This is the drift gate for #260: a dispatcher-registered command that is
+    not advertised (and not on the documented exemption list) is unreachable
+    to any caller because the gateway caches the connect-frame command list.
+    """
+    registered = {c for c in _REGISTRY if not c.startswith("test.")}
+    advertised = set(_NODE_COMMANDS)
+    unadvertised = registered - advertised
+    unexpected_unadvertised = unadvertised - _INTENTIONALLY_UNADVERTISED
+    assert not unexpected_unadvertised, (
+        "dispatcher-registered commands missing from _NODE_COMMANDS "
+        f"(and not in _INTENTIONALLY_UNADVERTISED): {sorted(unexpected_unadvertised)}"
+    )
+    stale_exemptions = _INTENTIONALLY_UNADVERTISED - registered
+    assert not stale_exemptions, (
+        "_INTENTIONALLY_UNADVERTISED lists commands that are not registered: "
+        f"{sorted(stale_exemptions)}"
+    )
+    advertised_not_registered = advertised - registered
+    assert not advertised_not_registered, (
+        "_NODE_COMMANDS advertises commands the dispatcher does not register: "
+        f"{sorted(advertised_not_registered)}"
+    )
+    assert len(_NODE_COMMANDS) == len(set(_NODE_COMMANDS)), (
+        "_NODE_COMMANDS contains duplicate entries"
+    )
+
+
 def test_connect_commands_advertise_full_surface() -> None:
     assert _NODE_COMMANDS == [
         "ping",
@@ -136,6 +169,8 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.addon_start",
         "ha.addon_stop",
         "ha.addon_restart",
+        "ha.addon_update",
+        "ha.update_install",
         "ha.config.lovelace",
         "ha.config.automation",
         "ha.config.script",

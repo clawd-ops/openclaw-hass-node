@@ -49,7 +49,8 @@ its allowlist. The HA node ships 42 commands across `ha.*`, `fs.*`,
         "fs.read", "fs.list", "fs.stat", "fs.glob",
         "fs.write", "fs.restore", "fs.history", "fs.diff",
         "fs.move", "fs.delete", "fs.patch",
-        "system.run", "system.which",
+        "system.run", "system.run.prepare", "system.which",
+        "system.execApprovals.get", "system.execApprovals.set",
         "ha.list_states", "ha.get_state", "ha.call_service",
         "ha.list_areas", "ha.list_devices", "ha.list_services",
         "ha.get_config", "ha.list_events", "ha.list_config_entries",
@@ -59,7 +60,12 @@ its allowlist. The HA node ships 42 commands across `ha.*`, `fs.*`,
         "ha.list_automations", "ha.check_config",
         "ha.addon_logs", "ha.list_addons", "ha.addon_info",
         "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation",
-        "ha.addon_start", "ha.addon_stop", "ha.addon_restart"
+        "ha.addon_start", "ha.addon_stop", "ha.addon_restart",
+        "ha.addon_update", "ha.update_install",
+        "ha.config.lovelace", "ha.config.automation", "ha.config.script",
+        "ha.config.scene", "ha.config.helpers",
+        "ha.config.area_registry", "ha.config.device_registry",
+        "ha.config.entity_registry", "ha.config.config_entries"
       ]
     }
   }

@@ -2556,20 +2556,14 @@
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "The command is registered but not advertised, so direct node invocation cannot reach it.",
-              "outcome": "fail",
-              "source": "node advertisement reconciliation"
-            },
-            {
-              "method": "PRODUCTION-LIVE",
-              "observation": "Live probe of ha.addon_update returned \"node command not allowed\" because the command is not advertised.",
-              "outcome": "fail",
-              "source": "docs/VERIFICATION-2026-09-11.md#25-haaddon_update--haupdateinstall-unreachable"
+              "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+              "outcome": "unverified",
+              "source": "dispatcher + node connect frame"
             }
           ],
-          "reason": "The command is registered but not advertised, so direct node invocation cannot reach it.",
-          "source": "node advertisement reconciliation",
-          "status": "unavailable"
+          "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+          "source": "dispatcher + node connect frame",
+          "status": "advertised-unverified"
         },
         "handler_dispatch": {
           "evidence": [
@@ -2588,14 +2582,14 @@
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
-              "outcome": "fail",
+              "observation": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+              "outcome": "pass",
               "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS"
             }
           ],
-          "reason": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
+          "reason": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
           "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
-          "status": "unavailable"
+          "status": "advertised"
         }
       },
       "canonical_parameters": [
@@ -2614,10 +2608,10 @@
           }
         }
       ],
-      "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260). The Assist plugin requires allowAdminOps; no admin token is required for lifecycle ops.",
+      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "command": "ha.addon_update",
-      "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Installed-node direct invocation was rejected because the command is not advertised.",
+      "evidence_method": "CODE-PROVEN",
+      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_update",
       "id": "ha.addon_update",
       "metadata_provenance": {
@@ -2631,11 +2625,12 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_gateway_ws.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
@@ -10947,14 +10942,14 @@
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "The command is registered but not advertised, so direct node invocation cannot reach it.",
-              "outcome": "fail",
-              "source": "node advertisement reconciliation"
+              "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+              "outcome": "unverified",
+              "source": "dispatcher + node connect frame"
             }
           ],
-          "reason": "The command is registered but not advertised, so direct node invocation cannot reach it.",
-          "source": "node advertisement reconciliation",
-          "status": "unavailable"
+          "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+          "source": "dispatcher + node connect frame",
+          "status": "advertised-unverified"
         },
         "handler_dispatch": {
           "evidence": [
@@ -10973,14 +10968,14 @@
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
-              "outcome": "fail",
+              "observation": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+              "outcome": "pass",
               "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS"
             }
           ],
-          "reason": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
+          "reason": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
           "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
-          "status": "unavailable"
+          "status": "advertised"
         }
       },
       "canonical_parameters": [
@@ -11041,10 +11036,10 @@
           }
         }
       ],
-      "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260). The Assist plugin requires both allowAdminOps and adminToken.",
+      "capability_conditions": "HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.",
       "command": "ha.update_install",
       "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Not advertised in the node connect frame; unreachable through nodes.invoke. No independent live probe was performed for this command; absence inferred from advertisement inventory (CODE-PROVEN).",
+      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
       "handler": "openclaw_node.commands.ha:handle_ha_update_install",
       "id": "ha.update_install",
       "metadata_provenance": {
@@ -11058,11 +11053,12 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_gateway_ws.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
@@ -11952,15 +11948,12 @@
   "schema_version": 1,
   "summary": {
     "action_variants": 31,
-    "advertised_commands": 54,
+    "advertised_commands": 56,
     "advertised_not_registered": [],
     "assist_wrapped_commands": 30,
     "ledger_rows": 87,
     "registered_commands": 56,
-    "registered_not_advertised": [
-      "ha.addon_update",
-      "ha.update_install"
-    ],
+    "registered_not_advertised": [],
     "registered_without_assist_wrapper": [
       "fs.delete",
       "fs.diff",

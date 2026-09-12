@@ -41,7 +41,7 @@ effect policy and has not been deployed or production-proven.
 ## Where we are
 
 **Coverage ledger foundation (#268, delivered by merged PR #269):** a deterministic generator
-now reconciles 56 dispatcher commands, 54 node advertisements, 30 Assist wrapper
+now reconciles 56 dispatcher commands, 56 node advertisements, 30 Assist wrapper
 registrations, and 31 action variants into 87 explicit rows. The Assist
 registration contract is executable by the plugin and records each tool,
 descriptor, factory, node command, accepted tool key, and emitted node-key

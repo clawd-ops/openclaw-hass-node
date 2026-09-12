@@ -9,10 +9,12 @@
 
 Commands intended for the `node.invoke` surface. Group prefixes match OpenClaw
 conventions where they exist. The dispatcher registers 56 commands
-(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 39), while the node advertises
-54. `ha.addon_update` and `ha.update_install` are registered but unadvertised;
-the four exec-approval methods (`system.run`, `system.run.prepare`,
-`system.execApprovals.get`, `system.execApprovals.set`) are advertised.
+(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 39) and the node advertises
+the same 56. The four exec-approval methods (`system.run`,
+`system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`)
+are advertised, and `_INTENTIONALLY_UNADVERTISED` in `gateway_ws.py` is
+empty; the `test_advertised_matches_registry` drift gate keeps advertisement
+and registration in sync (see #260).
 Direct `nodes.invoke system.run` and `nodes.invoke system.run.prepare` are
 refused by the Gateway; both commands are only reachable through the
 OpenClaw exec tool with `host=node`, which prepares a canonical
