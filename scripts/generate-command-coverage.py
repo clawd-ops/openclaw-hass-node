@@ -59,23 +59,34 @@ VALID_TEST_CALLERS = ROW_CALLERS
 _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
 
 
-def _latest_released_tag() -> str | None:
-    """Return the most-recently-created release tag, without leading 'v', or None."""
-    try:
-        result = subprocess.run(
-            ["git", "tag", "--sort=creatordate"],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError):
+def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
+    """Order a `YYYY.M.D[ab]N` version numerically, not lexicographically.
+
+    Lexicographic ordering is wrong here: `2026.6.20b3` sorts before `2026.6.8a8`
+    as text, because `2` precedes `8`. Alpha sorts before beta at the same date.
+    """
+    match = re.match(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})([ab])(\d+)$", version)
+    if not match:  # pragma: no cover - guarded by _validate_first_shipped_in
+        raise ValueError(f"unsortable version: {version!r}")
+    year, month, day, stage, serial = match.groups()
+    return (int(year), int(month), int(day), 0 if stage == "a" else 1, int(serial))
+
+
+def _latest_released_version(first_shipped_by_command: dict[str, str]) -> str | None:
+    """Return the highest released version recorded in the manual ledger, or None.
+
+    Deliberately derived from the ledger data rather than from `git tag`. The
+    generated artifact is committed and then re-verified by `--check` in CI,
+    where the checkout is shallow and carries no tags: a tag-derived value
+    produces one result locally and a different one in CI, so the committed file
+    can never match and the gate fails permanently. Anything feeding a generated
+    artifact has to come from tracked repository content, not from ambient git
+    state that varies by environment.
+    """
+    released = [v for v in first_shipped_by_command.values() if v != "unreleased"]
+    if not released:
         return None
-    tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    if not tags:
-        return None
-    latest = tags[-1]
-    return latest.lstrip("v")
+    return max(released, key=_version_sort_key)
 
 
 def _validate_first_shipped_in(command: str, value: object) -> None:
@@ -1126,10 +1137,10 @@ def build_ledger() -> dict[str, Any]:
                 }
             )
 
-    latest_release = _latest_released_tag()
     first_shipped_by_command = {
         cmd: manual["commands"][cmd]["first_shipped_in"] for cmd in sorted(registry)
     }
+    latest_release = _latest_released_version(first_shipped_by_command)
     commands_new_in_latest_release = (
         sorted(cmd for cmd, v in first_shipped_by_command.items() if v == latest_release)
         if latest_release
@@ -1232,8 +1243,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
             [
                 f"## New in this release ({latest_release})",
                 "",
-                "Commands whose `first_shipped_in` matches the most-recently-tagged release. "
-                "These are new since the previous release.",
+                "Commands whose `first_shipped_in` matches the highest released version "
+                "recorded in the ledger. These are new since the previous release.",
                 "",
             ]
         )
@@ -1248,8 +1259,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
             [
                 "## New in this release",
                 "",
-                "_(no git release tags are reachable from this worktree; "
-                "cannot determine the latest release)_",
+                "_(no released version is recorded in the ledger yet; "
+                "every command is still unreleased)_",
                 "",
             ]
         )

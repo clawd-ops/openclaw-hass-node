@@ -461,3 +461,51 @@ def test_missing_first_shipped_in_in_manual_fails_build(
         match=r"ping first_shipped_in must be a non-empty string",
     ):
         generator.build_ledger()
+
+
+def test_version_sort_key_orders_numerically_not_lexicographically() -> None:
+    """`2026.6.8a8` precedes `2026.6.20b3` even though it sorts later as text."""
+    generator = _load_generator()
+    versions = ["2026.6.20b3", "2026.6.8a8", "2026.7.23b1", "2026.6.20b4"]
+    assert sorted(versions, key=generator._version_sort_key) == [
+        "2026.6.8a8",
+        "2026.6.20b3",
+        "2026.6.20b4",
+        "2026.7.23b1",
+    ]
+
+
+def test_version_sort_key_orders_alpha_before_beta_same_date() -> None:
+    generator = _load_generator()
+    assert generator._version_sort_key("2026.6.8a8") < generator._version_sort_key("2026.6.8b1")
+
+
+def test_latest_released_version_ignores_unreleased() -> None:
+    generator = _load_generator()
+    latest = generator._latest_released_version(
+        {"a": "2026.6.8a8", "b": "2026.7.23b1", "c": "unreleased"}
+    )
+    assert latest == "2026.7.23b1"
+
+
+def test_latest_released_version_is_none_when_all_unreleased() -> None:
+    """Degrades explicitly rather than crashing when nothing has shipped yet."""
+    generator = _load_generator()
+    assert generator._latest_released_version({"a": "unreleased"}) is None
+
+
+def test_latest_released_version_does_not_consult_git(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The value must come from ledger data, never from ambient git state.
+
+    A tag-derived value differs between a local clone and CI's shallow tagless
+    checkout, so the committed artifact could never match `--check`.
+    """
+    generator = _load_generator()
+
+    def explode(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("generator must not shell out to git")
+
+    monkeypatch.setattr(subprocess, "run", explode)
+    assert generator._latest_released_version({"a": "2026.7.23b1"}) == "2026.7.23b1"

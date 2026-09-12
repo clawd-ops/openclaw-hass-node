@@ -20,7 +20,7 @@ rows are intentionally retained. Regenerate after editing source or
 
 ## New in this release (2026.7.23b1)
 
-Commands whose `first_shipped_in` matches the most-recently-tagged release. These are new since the previous release.
+Commands whose `first_shipped_in` matches the highest released version recorded in the ledger. These are new since the previous release.
 
 - `ha.config.area_registry`
 - `ha.config.automation`
