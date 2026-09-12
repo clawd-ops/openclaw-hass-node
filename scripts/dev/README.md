@@ -122,6 +122,30 @@ file edits, no sub-agents, exactly one `gh pr comment`), the correct
 ```
 scripts/dev/spawn-codex-review 123
 scripts/dev/spawn-codex-review 123 reviews/pr-123-narrowing.md
+REVIEW_MODEL_SLUG=openai/gpt-5.6-sol scripts/dev/spawn-codex-review 123
+```
+
+### Reviewer attribution
+
+One value drives both the spawn and the brief, so a verdict names the model that
+actually produced it. Set `REVIEW_MODEL_SLUG` to target a variant; the wrapper
+substitutes it into `<MODEL_SLUG>` and rejects anything that is not a full
+`provider/model` slug. The template never hardcodes one, or every reviewer would
+claim the same identity regardless of what ran.
+
+A valid sign-off looks like:
+
+```
+Reviewer model: openai/gpt-5.6-sol — reviewed at abc12345 (base def67890).
+```
+
+Bare `Codex` is **not** valid attribution. It is indistinguishable across every
+variant, which defeats the purpose of pinning a verdict to a reviewer. A
+reviewer that genuinely cannot determine its own model must say so explicitly
+rather than fall back to a family name:
+
+```
+Reviewer model: unconfirmed (session_status not available in toolset) — reviewed at abc12345 (base def67890).
 ```
 
 ---

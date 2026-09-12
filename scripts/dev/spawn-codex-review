@@ -5,14 +5,27 @@ set -euo pipefail
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 TEMPLATE="$REPO_ROOT/scripts/dev/templates/codex-review-brief.md"
 CHECKER="$REPO_ROOT/scripts/dev/confidentiality-check"
+DEFAULT_MODEL_SLUG="openai/gpt-5.6-sol"
 
 if [[ $# -lt 1 || $# -gt 2 ]] || [[ ! "$1" =~ ^[1-9][0-9]*$ ]]; then
     echo "usage: spawn-codex-review <pr-number> [narrowing-file]" >&2
+    echo "  REVIEW_MODEL_SLUG=<provider/model> to target a variant" >&2
+    echo "  (default: ${DEFAULT_MODEL_SLUG})" >&2
     exit 1
 fi
 
 PR="$1"
 NARROWING_FILE="${2:-}"
+
+# One value drives both the brief and the spawn, so the reviewer signs off with
+# the slug it was actually run as. Overridable because reviews target different
+# variants; deliberately not fixed in the template, or every reviewer would
+# claim the same identity no matter what ran.
+MODEL_SLUG="${REVIEW_MODEL_SLUG:-$DEFAULT_MODEL_SLUG}"
+if [[ ! "$MODEL_SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
+    echo "spawn-codex-review: REVIEW_MODEL_SLUG must be a full provider/model slug" >&2
+    exit 1
+fi
 if [[ ! -f "$TEMPLATE" ]]; then
     echo "spawn-codex-review: template not found" >&2
     exit 1
@@ -29,16 +42,19 @@ if [[ -n "$NARROWING_FILE" ]]; then
     NARROWING=$(<"$NARROWING_FILE")
 fi
 
-BRIEF=$(python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" "$TEMPLATE" << 'PYEOF'
+BRIEF=$(python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" "$TEMPLATE" "$MODEL_SLUG" << 'PYEOF'
 import sys
 from pathlib import Path
 
-head_sha, base_sha, pr, narrowing, template = sys.argv[1:]
+head_sha, base_sha, pr, narrowing, template, model_slug = sys.argv[1:]
 content = Path(template).read_text(encoding="utf-8")
 content = content.replace("<PR>", pr)
 content = content.replace("<HEAD_SHA>", head_sha)
 content = content.replace("<BASE_SHA>", base_sha)
 content = content.replace("<NARROWING>", narrowing)
+content = content.replace("<MODEL_SLUG>", model_slug)
+if "<MODEL_SLUG>" in content:  # pragma: no cover - defensive
+    sys.exit("spawn-codex-review: MODEL_SLUG substitution failed")
 sys.stdout.write(content)
 PYEOF
 )
@@ -60,7 +76,7 @@ cleanup() {
 trap cleanup EXIT
 
 {
-    printf '%s\n' 'Call sessions_spawn exactly once with runtime="subagent", mode="run", context="isolated", model="openai/gpt-5.6-sol", visible=true, and expectsCompletionMessage=true.'
+    printf '%s\n' "Call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", visible=true, and expectsCompletionMessage=true."
     printf '%s\n' 'Use the complete review brief below as the task. Do not perform the review yourself. Return only the accepted spawn receipt as compact JSON with no fence or commentary.'
     printf '\n%s\n' "$BRIEF"
 } > "$PROMPT_FILE"
@@ -69,7 +85,7 @@ trap cleanup EXIT
 if ! openclaw agent \
     --agent "$LAUNCHER_AGENT" \
     --session-key "$SESSION_KEY" \
-    --model openai/gpt-5.6-sol \
+    --model "$MODEL_SLUG" \
     --thinking low \
     --message-file "$PROMPT_FILE" \
     --json > "$RESULT_FILE" 2> "$ERROR_FILE"; then

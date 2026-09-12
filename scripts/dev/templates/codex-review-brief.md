@@ -42,5 +42,24 @@ Examine the diff for:
 ## Attribution Line (required, verbatim, final line of comment)
 
 ```
-Reviewer model: openai/gpt-5.6-sol
+Reviewer model: <MODEL_SLUG> — reviewed at <HEAD_SHA> (base <BASE_SHA>).
+```
+
+`<MODEL_SLUG>` is substituted by `scripts/dev/spawn-codex-review` from the model
+the reviewer is actually spawned as. It is deliberately not hardcoded here:
+different reviews target different variants, and a fixed slug in the template
+would make every reviewer claim the same identity regardless of what ran.
+
+The sign-off MUST contain the exact model slug you were spawned as, in full
+`provider/model` form — for example
+`Reviewer model: openai/gpt-5.6-sol — reviewed at abc12345 (base def67890).`
+Bare `Codex` is NOT a valid attribution: it is indistinguishable across every
+variant and defeats the point of pinning a verdict to a reviewer. No
+abbreviations, no ranges, no synonyms, no family names.
+
+If you genuinely cannot determine your own model, do not guess and do not fall
+back to a generic name. Sign off exactly:
+
+```
+Reviewer model: unconfirmed (session_status not available in toolset) — reviewed at <HEAD_SHA> (base <BASE_SHA>).
 ```

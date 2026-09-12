@@ -474,6 +474,7 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
         .replace("<HEAD_SHA>", "0" * 40)
         .replace("<BASE_SHA>", f"{1:040d}")
         .replace("<NARROWING>", "(no additional narrowing)")
+        .replace("<MODEL_SLUG>", "openai/gpt-5.6-sol")
         .rstrip("\n")
     )
     env = os.environ.copy()
@@ -534,6 +535,9 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
     assert "Reviewer model: openai/gpt-5.6-sol" in prompt
     assert "PR **7**" in prompt
     assert "--model openai/gpt-5.6-sol" in captured_args.read_text(encoding="utf-8")
+    # The placeholder must never survive into a dispatched brief: an
+    # unsubstituted <MODEL_SLUG> would ship a reviewer with no identity to sign.
+    assert "<MODEL_SLUG>" not in prompt
 
 
 def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> None:
