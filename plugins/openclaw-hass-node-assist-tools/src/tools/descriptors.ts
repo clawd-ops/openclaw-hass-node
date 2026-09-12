@@ -230,8 +230,9 @@ export const HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
       ),
       state_filter: Type.Optional(
         Type.String({
+          maxLength: 256,
           description:
-            "Exact match against automation state (typically 'on' or 'off').",
+            "Exact match against automation state (typically 'on' or 'off'); maximum 256 characters.",
         }),
       ),
     },

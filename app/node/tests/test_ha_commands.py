@@ -1015,6 +1015,12 @@ async def test_list_automations_rejects_empty_state_filter() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+async def test_list_automations_rejects_oversize_state_filter() -> None:
+    result = await handle_ha_list_automations({"state_filter": "x" * 257})
+    assert result["error"] == "INVALID_PARAM"
+    assert "256" in result["message"]
+
+
 async def test_list_automations_entity_filter_exact_match() -> None:
     states = [
         {"entity_id": "automation.morning", "state": "on", "attributes": {"id": "m"}},

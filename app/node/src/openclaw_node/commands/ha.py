@@ -550,6 +550,7 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
 _LIST_AUTOMATIONS_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset(
     {"include_traces", "entity_filter", "state_filter"}
 )
+_MAX_AUTOMATION_FILTER_LENGTH: Final[int] = 256
 
 
 async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
@@ -592,12 +593,20 @@ async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
                 "INVALID_PARAM",
                 "entity_filter must be scoped to the 'automation.' domain",
             )
-        if len(entity_filter) > 256:
-            return _error("INVALID_PARAM", "entity_filter exceeds 256 chars")
+        if len(entity_filter) > _MAX_AUTOMATION_FILTER_LENGTH:
+            return _error(
+                "INVALID_PARAM",
+                f"entity_filter exceeds {_MAX_AUTOMATION_FILTER_LENGTH} chars",
+            )
 
     state_filter = params.get("state_filter")
     if state_filter is not None and (not isinstance(state_filter, str) or not state_filter):
         return _error("INVALID_PARAM", "state_filter must be a non-empty string")
+    if state_filter is not None and len(state_filter) > _MAX_AUTOMATION_FILTER_LENGTH:
+        return _error(
+            "INVALID_PARAM",
+            f"state_filter exceeds {_MAX_AUTOMATION_FILTER_LENGTH} chars",
+        )
 
     try:
         raw = await ha_get("/api/states")

@@ -220,6 +220,35 @@ describe("ha_list_automations forwards narrowing params verbatim", () => {
     ).rejects.toThrow(/INVALID_PARAM.*unknown.*entity_fiter/i);
     expect(invokeMock).not.toHaveBeenCalled();
   });
+
+  it("rejects an oversize state_filter at the schema boundary", () => {
+    expect(
+      Value.Check(HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR.parameters, {
+        node: "hass",
+        state_filter: "x".repeat(257),
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects an oversize state_filter before invoking the node command", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: {},
+    });
+    invokeMock.mockResolvedValue({ ok: true });
+    const tool = await load("createHaListAutomationsTool");
+
+    await expect(
+      tool.execute(
+        "call-oversize-state-filter",
+        { node: "hass", state_filter: "x".repeat(257) },
+        new AbortController().signal,
+        () => undefined,
+      ),
+    ).rejects.toThrow(/INVALID_PARAM.*state_filter exceeds 256 chars/);
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("addon tools reject missing slug", () => {

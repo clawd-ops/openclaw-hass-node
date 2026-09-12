@@ -88,6 +88,7 @@ const HA_LIST_AUTOMATIONS_TOOL_KEYS = new Set([
   "entity_filter",
   "state_filter",
 ]);
+const MAX_AUTOMATION_FILTER_LENGTH = 256;
 
 function rejectUnknownAutomationArgs(args: Record<string, unknown>): void {
   const unknownKeys = Object.keys(args)
@@ -96,6 +97,15 @@ function rejectUnknownAutomationArgs(args: Record<string, unknown>): void {
   if (unknownKeys.length > 0) {
     throw new Error(
       `INVALID_PARAM: ha_list_automations received unknown parameter(s): ${unknownKeys.join(", ")}`,
+    );
+  }
+}
+
+function rejectOversizeAutomationFilters(args: Record<string, unknown>): void {
+  const stateFilter = args.state_filter;
+  if (typeof stateFilter === "string" && stateFilter.length > MAX_AUTOMATION_FILTER_LENGTH) {
+    throw new Error(
+      `INVALID_PARAM: ha_list_automations state_filter exceeds ${MAX_AUTOMATION_FILTER_LENGTH} chars`,
     );
   }
 }
@@ -110,6 +120,9 @@ export const createHaListAutomationsTool = (): AnyAgentTool =>
       // and this explicit execution-boundary check keeps direct callers from
       // bypassing the schema and dropping a misspelled narrowing parameter.
       rejectUnknownAutomationArgs(args);
+      // Keep the execution boundary aligned with the descriptor and Python
+      // handler so direct callers cannot bypass the bounded-filter contract.
+      rejectOversizeAutomationFilters(args);
       // Forward each optional filter verbatim when the caller supplied it, so
       // the Python handler is the single source of truth for narrowing shape.
       // Trimming, empty-string coercion, or type normalization here would let
