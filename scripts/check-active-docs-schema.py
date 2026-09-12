@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """Reject drift between active docs and the shipped node command surface.
 
-Two gates run per invocation:
+Three gates run per invocation:
 
 1. Retired key: ``gateway.nodes.allowCommands`` is only kept in the
    Gateway as a migration alias; this alpha repo publishes canonical
    ``gateway.nodes.commands.allow`` shape only. Fails when any file
    under ``ACTIVE_PATHS`` still mentions the retired flat key.
 
-2. Advertised inventory: the operator-facing count/inventory claims in
-   README and INSTALL must match the live ``_NODE_COMMANDS`` list in
-   ``app/node/src/openclaw_node/gateway_ws.py``. Fails when the total
-   command count or per-namespace tallies (``ha.*``, ``fs.*``,
+2. Advertised inventory tallies: the operator-facing count/inventory
+   claims in README and INSTALL must match the live ``_NODE_COMMANDS``
+   list in ``app/node/src/openclaw_node/gateway_ws.py``. Fails when the
+   total command count or per-namespace tallies (``ha.*``, ``fs.*``,
    ``system.*``, ``ping``) do not match the shipped advertisement.
+
+3. Advertised inventory exact set: the copy-pasteable
+   ``gateway.nodes.commands.allow`` example block in ``docs/INSTALL.md``
+   must list exactly the commands in ``_NODE_COMMANDS`` — no additions,
+   no omissions, no duplicates. A same-count substitution (swap one
+   valid name for a stale/nonexistent name) must fail this gate.
 """
 
 # ruff: noqa: TRY003
@@ -20,6 +26,7 @@ Two gates run per invocation:
 from __future__ import annotations
 
 import ast
+import json
 import re
 import sys
 from collections import Counter
@@ -100,6 +107,69 @@ COUNT_CLAIMS: tuple[tuple[Path, str, dict[str, str]], ...] = (
 )
 
 
+INSTALL_MD = ROOT / "docs/INSTALL.md"
+
+_JSON_FENCE = re.compile(r"```json\s*\n(?P<body>.*?)\n```", re.DOTALL)
+
+
+def _extract_install_inventory() -> list[str]:
+    """Return the exact command list ordered as it appears in INSTALL.md.
+
+    Parses the first ```json fenced block in ``docs/INSTALL.md`` that
+    contains ``gateway.nodes.commands.allow`` and returns the raw list
+    (with any duplicates preserved so this gate can detect them).
+    """
+    text = INSTALL_MD.read_text()
+    for match in _JSON_FENCE.finditer(text):
+        body = match.group("body")
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError:
+            continue
+        try:
+            allow = payload["gateway"]["nodes"]["commands"]["allow"]
+        except (KeyError, TypeError):
+            continue
+        if isinstance(allow, list) and all(isinstance(c, str) for c in allow):
+            return list(allow)
+    raise SystemExit(
+        "ERROR: docs/INSTALL.md is missing a ```json block containing "
+        "gateway.nodes.commands.allow — inventory gate cannot run."
+    )
+
+
+def _check_inventory_set(commands: list[str]) -> list[str]:
+    problems: list[str] = []
+    listed = _extract_install_inventory()
+
+    counts = Counter(listed)
+    duplicates = sorted(name for name, n in counts.items() if n > 1)
+    if duplicates:
+        problems.append(
+            f"  docs/INSTALL.md: duplicate command entries in "
+            f"`commands.allow`: {', '.join(duplicates)}"
+        )
+
+    listed_set = set(listed)
+    shipped_set = set(commands)
+
+    missing = sorted(shipped_set - listed_set)
+    if missing:
+        problems.append(
+            "  docs/INSTALL.md: `commands.allow` is missing commands "
+            f"advertised by _NODE_COMMANDS: {', '.join(missing)}"
+        )
+
+    extra = sorted(listed_set - shipped_set)
+    if extra:
+        problems.append(
+            "  docs/INSTALL.md: `commands.allow` lists names not "
+            f"advertised by _NODE_COMMANDS: {', '.join(extra)}"
+        )
+
+    return problems
+
+
 def _check_retired_key() -> list[str]:
     problems: list[str] = []
     for path in ACTIVE_PATHS:
@@ -163,12 +233,25 @@ def main() -> int:
         for line in count_problems:
             print(line, file=sys.stderr)
 
+    inventory_problems = _check_inventory_set(commands)
+    if inventory_problems:
+        ok = False
+        print(
+            "ERROR: INSTALL.md `commands.allow` inventory drift from "
+            "_NODE_COMMANDS (a same-count substitution or duplicate would "
+            "hit this check):",
+            file=sys.stderr,
+        )
+        for line in inventory_problems:
+            print(line, file=sys.stderr)
+
     if not ok:
         return 1
     print(
         f"OK: {len(ACTIVE_PATHS)} active docs paths free of `{RETIRED_KEY}`, "
-        f"and count/inventory claims match _NODE_COMMANDS "
-        f"(total={tallies['total']})."
+        f"count/inventory claims match _NODE_COMMANDS "
+        f"(total={tallies['total']}), and INSTALL.md `commands.allow` "
+        f"matches _NODE_COMMANDS exactly."
     )
     return 0
 
