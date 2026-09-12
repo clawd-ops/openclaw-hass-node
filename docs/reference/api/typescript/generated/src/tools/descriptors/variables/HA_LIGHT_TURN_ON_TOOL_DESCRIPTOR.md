@@ -10,4 +10,4 @@
 const HA_LIGHT_TURN_ON_TOOL_DESCRIPTOR: AssistToolDescriptor;
 ```
 
-Defined in: [src/tools/descriptors.ts:397](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L397)
+Defined in: [src/tools/descriptors.ts:412](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L412)

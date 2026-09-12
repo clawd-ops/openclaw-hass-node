@@ -10,4 +10,4 @@
 const HA_UPDATE_INSTALL_TOOL_DESCRIPTOR: AssistToolDescriptor;
 ```
 
-Defined in: [src/tools/descriptors.ts:480](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L480)
+Defined in: [src/tools/descriptors.ts:495](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L495)

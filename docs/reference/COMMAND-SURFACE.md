@@ -98,9 +98,9 @@ follow the base surface below.
 | `ha.list_areas`           | Via WS API                             |
 | `ha.list_devices`         | Via WS API                             |
 | `ha.list_entity_registry` | Via WS API                             |
-| `ha.logbook`              | `entity_id?`, `start?`, `end?` (REST) |
-| `ha.history`              | `entity_id?`, `start?`, `end?` (REST) |
-| `ha.reload_config`        | `domain`, `admin_token`; gated by `OPENCLAW_ADMIN_TOKEN` |
+| `ha.logbook`              | `entity_id?`, `start_time?`, `end_time?` (REST). **Known defect:** timestamps are not percent-encoded, so use the `Z` form; a `+00:00` offset is not transmitted correctly. The Assist tool accepts `start`/`end` and maps them, but a direct invoke must use `start_time`/`end_time` or the bound is silently dropped |
+| `ha.history`              | `entity_ids?` (list), `start_time?`, `end_time?`, `minimal_response?`, `no_attributes?`, `significant_changes_only?` (REST). **Known defects:** timestamps are not percent-encoded, so use the `Z` form; an unknown entity returns `{ok: true, count: 0}`, indistinguishable from real empty history. The Assist tool accepts `entity_id`/`start`/`end` and maps them, but a direct invoke must use the node names or the filter and bounds are silently dropped |
+| `ha.reload_config`        | `admin_token`; gated by `OPENCLAW_ADMIN_TOKEN`. **Known defect:** a `domain` argument is accepted and ignored — this always calls `homeassistant.reload_core_config`, never a per-domain reload. **Unverified authorization:** the admin-token gate is not the ratified model and moves to operator approval (see [`design/AUTHORIZATION-MODEL.md`](../design/AUTHORIZATION-MODEL.md)) |
 | `ha.light_turn_on`        | `entity_id` or `area_id` or `device_id` |
 | `ha.light_turn_off`       | `entity_id` or `area_id` or `device_id` |
 | `ha.list_automations`     | `include_traces?`, `entity_filter?` (fnmatch glob scoped to `automation.`, max 256 chars), `state_filter?` (exact match, max 256 chars); unknown params rejected; narrowing applied before trace lookup |

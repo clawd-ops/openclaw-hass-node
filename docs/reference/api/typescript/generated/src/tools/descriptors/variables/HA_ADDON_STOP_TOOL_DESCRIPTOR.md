@@ -10,4 +10,4 @@
 const HA_ADDON_STOP_TOOL_DESCRIPTOR: AssistToolDescriptor;
 ```
 
-Defined in: [src/tools/descriptors.ts:436](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L436)
+Defined in: [src/tools/descriptors.ts:451](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L451)
