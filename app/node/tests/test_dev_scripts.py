@@ -581,7 +581,11 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
     prompt = captured_prompt.read_text(encoding="utf-8")
     assert "Call session_status exactly once before any spawn" in prompt
     assert "call sessions_spawn exactly once" in prompt
-    assert "Reviewer model: openai/gpt-5.6-sol" in prompt
+    # Attribution moved to the parent: the child has no session_status and
+    # cannot prove which model ran, so the brief forbids it signing rather
+    # than telling it which slug to claim.
+    assert "no `Reviewer model:` line" in prompt
+    assert "The parent posts the review comment" in prompt
     assert "**example/project PR 7**" in prompt
     assert "example/project" in prompt
     assert f"git -C {_REPO_ROOT}" in prompt
@@ -781,5 +785,7 @@ def test_review_template_binds_repository_and_complete_confidentiality_scope() -
     assert "complete binary diff" in text
     assert "every added or modified head blob" in text
     assert "every deleted base blob" in text
-    assert "complete proposed comment" in text
-    assert "--repo <REPOSITORY>" in text
+    assert "Scan your complete findings" in text
+    # The child no longer posts to GitHub, so it needs no repo flag;
+    # it must instead be told explicitly not to post.
+    assert "Do not post anything to GitHub" in text
