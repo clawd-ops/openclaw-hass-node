@@ -157,7 +157,20 @@ an unsupported bound is accepted silently instead of rejected.
 
 ### 2.2 `fs.read` ignores `offset` and `length` — [#257](https://github.com/clawd-ops/openclaw-hass-node/issues/257)
 
-`LIVE-FAIL` + `CODE-FAIL` (`commands/fs.py:153-198` — consumes only `path`,
+**RESOLVED** on branch `fix/257-fs-read-offset-length`. `handle_fs_read` now
+validates `offset` (non-negative integer, bool rejected) and `length`
+(positive integer when supplied, bool rejected), reads via `os.pread` so the
+returned slice is exactly the requested byte range, and fails closed on
+`OFFSET_BEYOND_EOF`, `BAD_OFFSET`, `BAD_LENGTH`, and `TOO_LARGE`
+(`length > max_bytes`) rather than returning unrelated content as success.
+Byte offsets are independent of `encoding`; a ranged read that splits a
+multi-byte UTF-8 sequence returns `DECODE_ERROR`. Path containment and
+safe-fd protections are preserved. The pre-fix defect that returned the
+whole 4,486-byte credential-bearing file for `offset=1000000, length=1`
+now returns `OFFSET_BEYOND_EOF` and is covered by
+`test_fs_read_offset_beyond_eof_fails_closed`. Original reproduction below.
+
+`LIVE-FAIL` + `CODE-FAIL` (`commands/fs.py:153-198` — consumed only `path`,
 `encoding`, `max_bytes`).
 
 ```
@@ -165,7 +178,7 @@ fs.read { path: /config/configuration.yaml, offset: 0, length: 32 }
 → ok: true, size: 4486, entire file returned
 ```
 
-**Severity is higher than "parameter ignored."** The body included
+**Severity was higher than "parameter ignored."** The body included
 `recorder.db_url` with the MySQL username and password in cleartext, plus a
 commented-out Telegram bot API key. A caller that bounded its read to 32 bytes
 received the whole credential-bearing file.

@@ -128,30 +128,49 @@ def _open(path: str, *, dir_fd_only: bool = False) -> int:
     return open_safe_fd(path, roots, dir_fd_only=dir_fd_only)
 
 
-def _read_bounded(fd: int, max_bytes: int) -> bytes:
-    """Read at most ``max_bytes + 1`` bytes from *fd*.
+def _is_plain_int(value: Any) -> bool:
+    """Return ``True`` when *value* is an ``int`` but not ``bool``.
+
+    Booleans subclass ``int`` in Python; treat them as invalid so that
+    ``offset=True`` cannot silently become ``offset=1``.
+    """
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _read_range(fd: int, offset: int, cap: int, *, probe_overflow: bool) -> bytes:
+    """Read a bounded byte range starting at *offset* using ``pread``.
+
+    Uses :func:`os.pread` so the read is independent of the fd's current
+    position and does not require a prior ``lseek`` on the caller's behalf.
 
     Args:
         fd: Readable file descriptor.
-        max_bytes: Caller limit.
+        offset: Byte offset within the file (``>= 0``).
+        cap: Maximum bytes to read.
+        probe_overflow: Request one extra byte so callers can distinguish
+            "hit the cap exactly" from "wanted more". This must be false for
+            an explicit caller-supplied length so the read never accesses a
+            byte outside the requested range.
 
     Returns:
-        Bytes read.  A length greater than *max_bytes* means the caller must
-        treat the file as too large.
+        Bytes read from ``[offset, offset + cap)`` plus one byte only when
+        *probe_overflow* is true.
     """
     chunks: list[bytes] = []
-    remaining = max_bytes + 1
+    remaining = cap + int(probe_overflow)
+    pos = offset
     while remaining > 0:
-        chunk = os.read(fd, remaining)
+        chunk = os.pread(fd, remaining, pos)
         if not chunk:
             break
         chunks.append(chunk)
         remaining -= len(chunk)
+        pos += len(chunk)
     return b"".join(chunks)
 
 
 def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
-    """Handle ``fs.read`` - return a file's contents.
+    """Handle ``fs.read`` - return a file's contents, optionally a byte range.
 
     Args:
         params: Command parameters. Recognised keys:
@@ -159,14 +178,43 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
             - ``path`` (str, required): Absolute path inside an allowed root.
             - ``encoding`` (str, optional): ``"utf-8"`` (default) for text,
               ``"binary"`` for base64-encoded bytes.
-            - ``max_bytes`` (int, optional): Maximum bytes to read; default
-              1 MiB, hard cap 16 MiB.
+            - ``max_bytes`` (int, optional): Safety cap on returned bytes;
+              default 1 MiB, hard cap 16 MiB. Non-integer or non-positive
+              values fall back to the default.
+            - ``offset`` (int, optional): Byte offset at which the read
+              starts. Default ``0``. Must be a non-negative integer;
+              ``bool`` is rejected. ``offset > file_size`` returns
+              ``OFFSET_BEYOND_EOF``. ``offset == file_size`` is valid and
+              returns an empty payload with ``eof=True``.
+            - ``length`` (int, optional): Requested number of bytes to
+              return starting at ``offset``. When omitted the handler
+              reads to end-of-file (still bounded by ``max_bytes``). Must
+              be a positive integer when supplied; ``bool``, zero, or
+              negative values return ``BAD_LENGTH``. When ``length`` is
+              supplied ``max_bytes`` is the safety ceiling: ``length >
+              max_bytes`` returns ``TOO_LARGE`` up-front without reading.
+
+    Semantics:
+        Offsets are **byte** offsets against the raw file, independent of
+        ``encoding``. A ranged read whose slice ends inside a multi-byte
+        UTF-8 sequence therefore returns ``DECODE_ERROR`` (the same failure
+        mode as an invalid whole-file decode) rather than fabricating a
+        replacement character. Use ``encoding="binary"`` when reading
+        arbitrary byte ranges. Beyond-EOF offsets fail closed with
+        ``OFFSET_BEYOND_EOF`` — the handler never returns unrelated bytes
+        as success.
+
+        ``sha256`` and ``size`` describe the returned slice, not the whole
+        file. ``file_size`` reports the underlying file size at read time
+        and ``eof`` is ``True`` when the read reached end-of-file.
 
     Returns:
-        On success, dict with keys ``ok``, ``path``, ``size``, ``encoding``,
+        On success, dict with keys ``ok``, ``path``, ``size``,
+        ``file_size``, ``offset``, ``length``, ``eof``, ``encoding``,
         ``content``, ``sha256``. On failure, dict with ``ok=False`` and an
         ``error`` code (``PATH_REQUIRED``, ``PATH_NOT_FOUND``,
         ``IS_DIRECTORY``, ``OUT_OF_BOUNDS``, ``NO_ALLOWED_ROOTS``,
+        ``BAD_OFFSET``, ``BAD_LENGTH``, ``OFFSET_BEYOND_EOF``,
         ``TOO_LARGE``, ``DECODE_ERROR``).
 
     Example:
@@ -178,9 +226,47 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
         return _error("PATH_REQUIRED", "Missing required 'path' parameter")
     encoding = str(params.get("encoding", "utf-8"))
     max_bytes_raw = params.get("max_bytes", _DEFAULT_READ_MAX_BYTES)
-    if not isinstance(max_bytes_raw, int):
+    if not _is_plain_int(max_bytes_raw):
         max_bytes_raw = _DEFAULT_READ_MAX_BYTES
     max_bytes = _clamp(max_bytes_raw, _DEFAULT_READ_MAX_BYTES, _HARD_READ_MAX_BYTES)
+
+    offset_raw = params.get("offset", 0)
+    if not _is_plain_int(offset_raw):
+        return _error(
+            "BAD_OFFSET",
+            "'offset' must be a non-negative integer",
+            path=raw_path,
+        )
+    offset = int(offset_raw)
+    if offset < 0:
+        return _error(
+            "BAD_OFFSET",
+            "'offset' must be a non-negative integer",
+            path=raw_path,
+            offset=offset,
+        )
+
+    length_supplied = "length" in params
+    length: int | None
+    if length_supplied:
+        length_raw = params["length"]
+        if not _is_plain_int(length_raw) or int(length_raw) <= 0:
+            return _error(
+                "BAD_LENGTH",
+                "'length' must be a positive integer when supplied",
+                path=raw_path,
+            )
+        length = int(length_raw)
+        if length > max_bytes:
+            return _error(
+                "TOO_LARGE",
+                f"Requested length {length} exceeds max_bytes {max_bytes}",
+                path=raw_path,
+                length=length,
+                max_bytes=max_bytes,
+            )
+    else:
+        length = None
 
     try:
         fd = _open(raw_path)
@@ -195,15 +281,30 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
         if stat_mod.S_ISDIR(st.st_mode):
             return _error("IS_DIRECTORY", f"Path is a directory: {raw_path}", path=raw_path)
 
-        data = _read_bounded(fd, max_bytes)
-        if len(data) > max_bytes:
+        file_size = int(st.st_size)
+        if offset > file_size:
+            return _error(
+                "OFFSET_BEYOND_EOF",
+                f"offset {offset} is past end of file (size {file_size})",
+                path=raw_path,
+                offset=offset,
+                file_size=file_size,
+            )
+
+        cap = length if length is not None else max_bytes
+        data = _read_range(fd, offset, cap, probe_overflow=length is None)
+        if len(data) > cap:
             return _error(
                 "TOO_LARGE",
-                f"File exceeds limit of {max_bytes} bytes",
+                f"File slice exceeds limit of {max_bytes} bytes",
                 path=raw_path,
                 size=len(data),
                 max_bytes=max_bytes,
+                offset=offset,
+                file_size=file_size,
             )
+
+        eof = (offset + len(data)) >= file_size
         sha = hashlib.sha256(data).hexdigest()
         if encoding == "binary":
             content: str = base64.b64encode(data).decode("ascii")
@@ -217,6 +318,8 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
                     f"Cannot decode file as {encoding}: {exc}",
                     path=raw_path,
                     encoding=encoding,
+                    offset=offset,
+                    length=len(data),
                 )
             out_encoding = encoding
     finally:
@@ -226,6 +329,10 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
         "ok": True,
         "path": raw_path,
         "size": len(data),
+        "file_size": file_size,
+        "offset": offset,
+        "length": len(data),
+        "eof": eof,
         "encoding": out_encoding,
         "content": content,
         "sha256": sha,

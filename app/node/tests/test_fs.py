@@ -100,7 +100,10 @@ def test_fs_read_too_large_when_file_grows_midflight(
 
     monkeypatch.setattr("openclaw_node.commands.fs.open_safe_fd", lambda *_a, **_k: fake_fd)
     monkeypatch.setattr("openclaw_node.commands.fs.os.fstat", lambda _fd: st)
-    monkeypatch.setattr("openclaw_node.commands.fs.os.read", lambda _fd, _n: b"x" * 11)
+    monkeypatch.setattr(
+        "openclaw_node.commands.fs.os.pread",
+        lambda _fd, _n, _off: b"x" * 11,
+    )
     monkeypatch.setattr("openclaw_node.commands.fs.os.close", lambda fd: closes.append(fd))
 
     result = handle_fs_read({"path": str(tmp_path / "small"), "max_bytes": 10})
@@ -135,6 +138,220 @@ def test_fs_read_unknown_encoding(tmp_path: Path) -> None:
     f.write_text("hi")
     result = handle_fs_read({"path": str(f), "encoding": "not-a-codec"})
     assert result["error"] == "DECODE_ERROR"
+
+
+# ---------------------------------------------------------------------------
+# fs.read - offset / length range semantics (#257)
+# ---------------------------------------------------------------------------
+
+
+def _write(tmp_path: Path, name: str, data: bytes) -> Path:
+    p = tmp_path / name
+    p.write_bytes(data)
+    return p
+
+
+def test_fs_read_range_beginning(tmp_path: Path) -> None:
+    p = _write(tmp_path, "abc.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 0, "length": 3})
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"abc"
+    assert result["size"] == 3
+    assert result["file_size"] == 10
+    assert result["offset"] == 0
+    assert result["length"] == 3
+    assert result["eof"] is False
+
+
+def test_fs_read_range_middle(tmp_path: Path) -> None:
+    p = _write(tmp_path, "mid.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 3, "length": 4})
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"defg"
+    assert result["offset"] == 3
+    assert result["length"] == 4
+    assert result["eof"] is False
+
+
+def test_fs_read_range_to_eof(tmp_path: Path) -> None:
+    p = _write(tmp_path, "eof.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 7, "length": 100})
+    # length was capped to max_bytes (default 1 MiB), so no TOO_LARGE and we
+    # simply read what remains.
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"hij"
+    assert result["size"] == 3
+    assert result["eof"] is True
+
+
+def test_fs_read_range_no_length_reads_to_eof_from_offset(tmp_path: Path) -> None:
+    p = _write(tmp_path, "nolen.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 4})
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"efghij"
+    assert result["eof"] is True
+    assert result["offset"] == 4
+
+
+def test_fs_read_offset_beyond_eof_fails_closed(tmp_path: Path) -> None:
+    """Regression for #257: offset past EOF must not return unrelated data."""
+    p = _write(tmp_path, "small.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "offset": 1_000_000, "length": 1})
+    assert result["ok"] is False
+    assert result["error"] == "OFFSET_BEYOND_EOF"
+    assert result["file_size"] == 10
+    assert result["offset"] == 1_000_000
+
+
+def test_fs_read_offset_at_eof_returns_empty(tmp_path: Path) -> None:
+    p = _write(tmp_path, "eq.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 10})
+    assert result["ok"] is True
+    assert result["size"] == 0
+    assert result["eof"] is True
+    assert result["content"] == ""
+
+
+def test_fs_read_offset_negative_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "offset": -1})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_OFFSET"
+
+
+def test_fs_read_offset_non_int_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "offset": "0"})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_OFFSET"
+
+
+def test_fs_read_offset_bool_rejected(tmp_path: Path) -> None:
+    """bool is a subclass of int; reject it explicitly."""
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "offset": True})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_OFFSET"
+
+
+def test_fs_read_offset_float_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "offset": 1.5})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_OFFSET"
+
+
+def test_fs_read_length_zero_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "length": 0})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_LENGTH"
+
+
+def test_fs_read_length_negative_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "length": -5})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_LENGTH"
+
+
+def test_fs_read_length_non_int_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "length": "1"})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_LENGTH"
+
+
+def test_fs_read_length_bool_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"abc")
+    result = handle_fs_read({"path": str(p), "length": True})
+    assert result["ok"] is False
+    assert result["error"] == "BAD_LENGTH"
+
+
+def test_fs_read_length_greater_than_max_bytes_rejected(tmp_path: Path) -> None:
+    p = _write(tmp_path, "n.bin", b"a" * 100)
+    result = handle_fs_read({"path": str(p), "length": 50, "max_bytes": 10})
+    assert result["ok"] is False
+    assert result["error"] == "TOO_LARGE"
+    assert result["length"] == 50
+    assert result["max_bytes"] == 10
+
+
+def test_fs_read_length_within_max_bytes_wins(tmp_path: Path) -> None:
+    """length <= max_bytes → range read succeeds with exactly length bytes."""
+    p = _write(tmp_path, "n.bin", b"abcdefghij")
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "length": 4, "max_bytes": 4})
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"abcd"
+    assert result["size"] == 4
+
+
+def test_fs_read_explicit_length_never_reads_extra_byte(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    p = _write(tmp_path, "bounded.bin", b"abcdefghij")
+    calls: list[tuple[int, int]] = []
+    real_pread = os.pread
+
+    def recording_pread(fd: int, size: int, offset: int) -> bytes:
+        calls.append((size, offset))
+        return real_pread(fd, size, offset)
+
+    monkeypatch.setattr("openclaw_node.commands.fs.os.pread", recording_pread)
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 2, "length": 3})
+
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"cde"
+    assert calls == [(3, 2)]
+
+
+def test_fs_read_range_sha256_is_of_slice(tmp_path: Path) -> None:
+    import hashlib as _h
+
+    payload = b"abcdefghij"
+    p = _write(tmp_path, "sha.bin", payload)
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "offset": 2, "length": 5})
+    assert result["ok"] is True
+    assert result["sha256"] == _h.sha256(payload[2:7]).hexdigest()
+
+
+def test_fs_read_range_splits_utf8_boundary_returns_decode_error(
+    tmp_path: Path,
+) -> None:
+    # "café" in UTF-8 is 5 bytes: b'caf\xc3\xa9'. Read length=4 splits the
+    # é in the middle -> must return DECODE_ERROR, not fabricate a
+    # replacement character or claim ok.
+    p = _write(tmp_path, "utf8.txt", "café".encode())
+    result = handle_fs_read({"path": str(p), "length": 4})
+    assert result["ok"] is False
+    assert result["error"] == "DECODE_ERROR"
+    assert result["encoding"] == "utf-8"
+
+
+def test_fs_read_range_splits_utf8_boundary_ok_as_binary(tmp_path: Path) -> None:
+    p = _write(tmp_path, "utf8.txt", "café".encode())
+    result = handle_fs_read({"path": str(p), "encoding": "binary", "length": 4})
+    assert result["ok"] is True
+    assert base64.b64decode(result["content"]) == b"caf\xc3"
+
+
+def test_fs_read_range_preserves_path_containment(tmp_path: Path) -> None:
+    """Range parameters must not weaken the allowed-root gate."""
+    result = handle_fs_read({"path": "/etc/passwd", "offset": 0, "length": 1})
+    assert result["ok"] is False
+    assert result["error"] == "OUT_OF_BOUNDS"
+
+
+def test_fs_read_default_no_range_still_returns_new_fields(tmp_path: Path) -> None:
+    p = _write(tmp_path, "d.bin", b"hello")
+    result = handle_fs_read({"path": str(p)})
+    assert result["ok"] is True
+    assert result["file_size"] == 5
+    assert result["offset"] == 0
+    assert result["length"] == 5
+    assert result["eof"] is True
 
 
 # ---------------------------------------------------------------------------
