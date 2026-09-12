@@ -3303,12 +3303,12 @@ rows are intentionally retained. Regenerate after editing source or
 - Handler: `openclaw_node.commands.ha:handle_ha_list_automations`
 - Canonical parameters: entity_filter, include_traces, state_filter
 - Authorization: `read_only`
-- Capability conditions: HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Unknown params are rejected. Trace expansion runs only after narrowing.
+- Capability conditions: HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Both filters are capped at 256 characters. Unknown params are rejected. Trace expansion runs only after narrowing.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
 - **Outcome: `pass`**
-- Evidence note: Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; unknown params fail closed with INVALID_PARAM. Regression tests cover exact/glob/no-match, invalid params, out-of-domain rejection, oversize filter, and that trace fetch runs only for the selected automations.
+- Evidence note: Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3335,7 +3335,7 @@ rows are intentionally retained. Regenerate after editing source or
   - `state_filter`
     - aliases: `[]`
     - defaults: `["null"]`
-    - bounds: non-empty string; exact match against the state field
+    - bounds: non-empty string, capped at 256 chars; exact match against the state field
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
@@ -3344,9 +3344,11 @@ rows are intentionally retained. Regenerate after editing source or
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
   - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty`)
   - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: With include_traces=True and entity_filter='automation.match', the patched ha_ws_call trace lookup runs exactly once, and only for the surviving automation ('m'); traces are never fetched for filtered-out entities. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The handler rejects a state_filter longer than 256 characters with INVALID_PARAM and reports the configured boundary. (source: `app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter`)
 - Curated acceptance-test IDs:
   - `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty` / `handler_dispatch` / `pass`
   - `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`

@@ -83,8 +83,8 @@ filtering locally. Its optional parameters are:
 - `entity_filter`: a case-sensitive, `fnmatch`-style entity-ID glob. It must be
   a non-empty string beginning with `automation.` and is limited to 256
   characters. A literal entity ID is valid.
-- `state_filter`: a non-empty string matched exactly against the automation
-  state, usually `on` or `off`.
+- `state_filter`: a non-empty string limited to 256 characters and matched
+  exactly against the automation state, usually `on` or `off`.
 - `include_traces`: a boolean that defaults to `false`. When true, the node
   fetches traces only after applying both filters.
 
@@ -104,10 +104,10 @@ Example:
 
 If a requested filter is invalid, correct it or report the error; never retry
 without the filter because that widens the request. The node returns
-`INVALID_PARAM` for empty or non-string filter values, an out-of-domain or
-oversized `entity_filter`, and unknown parameters. A valid no-match filter
-returns an empty list. In Assist, use the `ha_list_automations` wrapper with the
-same filter semantics.
+`INVALID_PARAM` for empty or non-string filter values, an out-of-domain
+`entity_filter`, either filter exceeding 256 characters, and unknown parameters.
+A valid no-match filter returns an empty list. In Assist, use the
+`ha_list_automations` wrapper with the same filter semantics.
 
 ## Safety Boundaries
 

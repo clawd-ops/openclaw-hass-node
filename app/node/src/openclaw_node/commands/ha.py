@@ -561,9 +561,10 @@ async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
             list per automation via WS ``trace/list``. Default False.
         entity_filter (str, optional): fnmatch-style glob applied to
             ``entity_id``. Must be scoped to the ``automation.`` domain, e.g.
-            ``"automation.morning_*"`` or a literal ``"automation.foo"``.
+            ``"automation.morning_*"`` or a literal ``"automation.foo"``;
+            maximum 256 characters.
         state_filter (str, optional): Exact match against the entity ``state``
-            (typically ``"on"`` or ``"off"``).
+            (typically ``"on"`` or ``"off"``); maximum 256 characters.
 
     Unknown params are rejected with ``INVALID_PARAM``; narrowing is applied
     before any trace lookup so traces are fetched only for selected automations.

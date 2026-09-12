@@ -75,8 +75,8 @@ optionally fetches traces:
 - `entity_filter` is an `fnmatch`-style glob over `entity_id`. It must be a
   non-empty string beginning with `automation.` and is limited to 256
   characters. A literal entity ID such as `automation.morning` is also valid.
-- `state_filter` is a non-empty string matched exactly against the automation's
-  state, commonly `on` or `off`.
+- `state_filter` is a non-empty string, limited to 256 characters, matched
+  exactly against the automation's state, commonly `on` or `off`.
 - `include_traces` defaults to `false`. When true, traces are requested only for
   automations that remain after both filters are applied.
 

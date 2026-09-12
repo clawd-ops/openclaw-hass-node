@@ -9747,6 +9747,11 @@
           "caller": "handler_dispatch",
           "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces",
           "outcome": "pass"
+        },
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter",
+          "outcome": "pass"
         }
       ],
       "action": null,
@@ -9816,6 +9821,12 @@
               "observation": "With include_traces=True and entity_filter='automation.match', the patched ha_ws_call trace lookup runs exactly once, and only for the surviving automation ('m'); traces are never fetched for filtered-out entities.",
               "outcome": "pass",
               "source": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces"
+            },
+            {
+              "method": "TEST-PROVEN",
+              "observation": "The handler rejects a state_filter longer than 256 characters with INVALID_PARAM and reports the configured boundary.",
+              "outcome": "pass",
+              "source": "app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -9867,7 +9878,7 @@
         },
         {
           "aliases": [],
-          "bounds": "non-empty string; exact match against the state field",
+          "bounds": "non-empty string, capped at 256 chars; exact match against the state field",
           "defaults": [
             "null"
           ],
@@ -9880,10 +9891,10 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Unknown params are rejected. Trace expansion runs only after narrowing.",
+      "capability_conditions": "HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Both filters are capped at 256 characters. Unknown params are rejected. Trace expansion runs only after narrowing.",
       "command": "ha.list_automations",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; unknown params fail closed with INVALID_PARAM. Regression tests cover exact/glob/no-match, invalid params, out-of-domain rejection, oversize filter, and that trace fetch runs only for the selected automations.",
+      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.",
       "handler": "openclaw_node.commands.ha:handle_ha_list_automations",
       "id": "ha.list_automations",
       "metadata_provenance": {
