@@ -15,4 +15,4 @@ const HaCalendarGetEventsToolSchema: TObject<{
 }>;
 ```
 
-Defined in: [src/tools/descriptors.ts:116](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L116)
+Defined in: [src/tools/descriptors.ts:125](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L125)
