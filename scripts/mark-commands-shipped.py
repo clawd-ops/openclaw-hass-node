@@ -189,11 +189,29 @@ def _snapshot_originals(paths: list[Path]) -> dict[Path, tuple[bytes, os.stat_re
     """Capture bytes and metadata before candidate generation reads any target."""
     originals: dict[Path, tuple[bytes, os.stat_result] | None] = {}
     for path in paths:
-        if not path.exists():
-            originals[path] = None
-            continue
-        metadata = path.stat()
-        originals[path] = (path.read_bytes(), metadata)
+        metadata: os.stat_result | None = None
+        try:
+            if not path.exists():
+                originals[path] = None
+                continue
+            metadata = path.stat()
+            original = path.read_bytes()
+        except BaseException as exc:
+            # A failed read may already have advanced this target's access
+            # time. Restore every earlier snapshot too, even when this target
+            # failed before its metadata could be captured.
+            partial = dict(originals)
+            if metadata is not None:
+                partial[path] = (b"", metadata)
+            try:
+                _restore_snapshot_metadata(partial)
+            except ShipError as restore_exc:
+                raise ShipError(
+                    f"snapshot acquisition failed ({exc}); metadata recovery also failed: "
+                    f"{restore_exc}"
+                ) from exc
+            raise
+        originals[path] = (original, metadata)
     return originals
 
 

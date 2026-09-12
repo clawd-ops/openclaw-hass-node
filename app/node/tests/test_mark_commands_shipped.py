@@ -320,6 +320,47 @@ def test_candidate_failure_restores_output_metadata(
     assert list(tmp_path.glob(".*")) == []
 
 
+@pytest.mark.parametrize("failed_index", [1, 2])
+def test_snapshot_read_failure_restores_partial_metadata(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failed_index: int
+) -> None:
+    """A failed second or third snapshot read restores every touched target."""
+    helper = _load_helper()
+    paths = [tmp_path / "manual.json", tmp_path / "generated.json", tmp_path / "ledger.md"]
+    modes = [0o640, 0o604, 0o644]
+    atimes = [1_400_000_000_000_000_000 + index for index in range(3)]
+    mtimes = [1_500_000_000_000_000_000 + index for index in range(3)]
+    for path, mode, atime, mtime in zip(paths, modes, atimes, mtimes, strict=True):
+        path.write_bytes(b"original\n")
+        path.chmod(mode)
+        os.utime(path, ns=(atime, mtime))
+
+    generator = SimpleNamespace(JSON_OUTPUT=paths[1], MARKDOWN_OUTPUT=paths[2])
+    monkeypatch.setattr(helper, "MANUAL_PATH", paths[0])
+    monkeypatch.setattr(helper, "_load_generator", lambda: generator)
+    original_read_bytes = Path.read_bytes
+
+    def fail_during_snapshot(path: Path) -> bytes:
+        data = original_read_bytes(path)
+        index = paths.index(path)
+        os.utime(path, ns=(atimes[index] + 10_000, mtimes[index]))
+        if index == failed_index:
+            raise OSError("injected snapshot read failure")
+        return data
+
+    monkeypatch.setattr(Path, "read_bytes", fail_during_snapshot)
+
+    with pytest.raises(OSError, match="injected snapshot read failure"):
+        helper._prepare_replacements("2026.8.1b1")
+
+    restored_stats = [path.stat() for path in paths]
+    assert [stat.S_IMODE(metadata.st_mode) for metadata in restored_stats] == modes
+    assert [metadata.st_atime_ns for metadata in restored_stats] == atimes
+    assert [metadata.st_mtime_ns for metadata in restored_stats] == mtimes
+    assert all(original_read_bytes(path) == b"original\n" for path in paths)
+    assert list(tmp_path.glob(".*")) == []
+
+
 def test_successful_replacement_preserves_existing_target_modes(tmp_path: Path) -> None:
     helper = _load_helper()
     paths = [tmp_path / "manual.json", tmp_path / "generated.json"]

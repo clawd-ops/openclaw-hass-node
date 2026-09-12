@@ -133,7 +133,7 @@ def _validate_first_shipped_in(command: str, value: object) -> None:
         raise LedgerError(
             f"command {command} first_shipped_in must be a non-empty string, got {value!r}"
         )
-    if value != "unreleased" and not _FIRST_SHIPPED_VERSION_RE.match(value):
+    if value != "unreleased" and not _FIRST_SHIPPED_VERSION_RE.fullmatch(value):
         raise LedgerError(
             f"command {command} first_shipped_in {value!r} is neither 'unreleased' nor a "
             "valid version string supported for releases (for example '2026.6.8a8', "

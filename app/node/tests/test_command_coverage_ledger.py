@@ -106,7 +106,7 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
         fsi = row.get("first_shipped_in")
         assert isinstance(fsi, str), f"row {row['id']} first_shipped_in must be a string"
         assert fsi, f"row {row['id']} first_shipped_in must not be empty"
-        fsi_valid = fsi == "unreleased" or bool(_version_re.match(fsi))
+        fsi_valid = fsi == "unreleased" or bool(_version_re.fullmatch(fsi))
         assert fsi_valid, f"row {row['id']} first_shipped_in {fsi!r} is not valid"
         assert set(row["callers"]) == {
             "assist_wrapper",
@@ -447,6 +447,17 @@ def test_first_shipped_in_invalid_version_fails() -> None:
         match=r"first_shipped_in.*neither 'unreleased' nor a valid version string",
     ):
         generator._validate_first_shipped_in("test.cmd", "not-a-version")
+
+
+@pytest.mark.parametrize("value", ["2026.9.12\n", "2026.9.12suffix"])
+def test_first_shipped_in_rejects_trailing_content(value: str) -> None:
+    """A canonical prefix does not make a longer value valid."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in.*neither 'unreleased' nor a valid version string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", value)
 
 
 def test_first_shipped_in_valid_alpha_version_passes() -> None:

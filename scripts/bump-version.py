@@ -123,7 +123,7 @@ def _check(version: str | None) -> int:
 
 def _bump(new_version: str, sources: Iterable[VersionFile]) -> int:
     """Rewrite each source to *new_version*. Returns 0 if any change applied."""
-    if not _PEP440_RE.match(new_version):
+    if not _PEP440_RE.fullmatch(new_version):
         raise SystemExit(  # noqa: TRY003
             f"error: {new_version!r} does not look like a PEP 440 version "
             f"(expected e.g. 2026.6.20b7 or 2026.7.0)"
