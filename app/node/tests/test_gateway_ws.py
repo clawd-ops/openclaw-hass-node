@@ -108,6 +108,11 @@ def _assert_advertised_matches_registry(
         "_INTENTIONALLY_UNADVERTISED lists commands that are not registered: "
         f"{sorted(stale_exemptions)}"
     )
+    advertised_exemptions = set(exemptions) & advertised
+    assert not advertised_exemptions, (
+        "_INTENTIONALLY_UNADVERTISED lists commands that are already advertised in "
+        f"_NODE_COMMANDS; remove the obsolete exemption(s): {sorted(advertised_exemptions)}"
+    )
     advertised_not_registered = advertised - registered
     assert not advertised_not_registered, (
         "_NODE_COMMANDS advertises commands the dispatcher does not register: "
@@ -155,6 +160,24 @@ def test_intentionally_unadvertised_rejects_empty_rationale() -> None:
     with pytest.raises(AssertionError, match="non-empty rationale"):
         _assert_advertised_matches_registry(
             set(_REGISTRY) | {command}, _NODE_COMMANDS, {command: "   "}
+        )
+
+
+def test_intentionally_unadvertised_rejects_advertised_command() -> None:
+    """Exemptions for commands that are already advertised must fail closed.
+
+    Regression for the review finding on PR #284: previously the gate only
+    rejected exemptions whose command was unregistered. An exemption whose
+    command was still both registered and advertised was silently accepted,
+    which would mask a future drop from ``_NODE_COMMANDS`` for that command.
+    """
+    command = "ping"
+    assert command in _NODE_COMMANDS
+    with pytest.raises(AssertionError, match=command):
+        _assert_advertised_matches_registry(
+            set(_REGISTRY),
+            _NODE_COMMANDS,
+            {command: "obsolete rationale"},
         )
 
 
