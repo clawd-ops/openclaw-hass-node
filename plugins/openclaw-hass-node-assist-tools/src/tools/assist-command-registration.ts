@@ -82,6 +82,8 @@ const FACTORY_LOADERS: Record<string, () => Promise<AnyAgentTool>> = {
     (await import("./ha-simple-read-tools.js")).createHaAddonChangelogTool(),
   createHaAddonDocumentationTool: async () =>
     (await import("./ha-simple-read-tools.js")).createHaAddonDocumentationTool(),
+  createHaSupervisorInfoTool: async () =>
+    (await import("./ha-simple-read-tools.js")).createHaSupervisorInfoTool(),
   createHaLogbookTool: async () =>
     (await import("./ha-entity-scoped-read-tools.js")).createHaLogbookTool(),
   createHaHistoryTool: async () =>

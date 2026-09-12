@@ -9,6 +9,7 @@ import {
   HA_ADDON_INFO_TOOL_DESCRIPTOR,
   HA_ADDON_LOGS_TOOL_DESCRIPTOR,
   HA_ADDON_STATS_TOOL_DESCRIPTOR,
+  HA_SUPERVISOR_INFO_TOOL_DESCRIPTOR,
   HA_CHECK_CONFIG_TOOL_DESCRIPTOR,
   HA_CORE_LOGS_TOOL_DESCRIPTOR,
   HA_GET_CONFIG_TOOL_DESCRIPTOR,
@@ -202,4 +203,11 @@ export const createHaAddonDocumentationTool = (): AnyAgentTool =>
     command: "ha.addon_documentation",
     label: "Add-on documentation",
     buildCommandParams: slugOnly,
+  });
+
+export const createHaSupervisorInfoTool = (): AnyAgentTool =>
+  createHaMetadataReadTool({
+    descriptor: HA_SUPERVISOR_INFO_TOOL_DESCRIPTOR,
+    command: "ha.supervisor_info",
+    label: "Supervisor info",
   });

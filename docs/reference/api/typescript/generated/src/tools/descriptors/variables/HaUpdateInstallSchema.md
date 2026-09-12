@@ -15,4 +15,4 @@ const HaUpdateInstallSchema: TObject<{
 }>;
 ```
 
-Defined in: [src/tools/descriptors.ts:468](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L468)
+Defined in: [src/tools/descriptors.ts:476](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L476)

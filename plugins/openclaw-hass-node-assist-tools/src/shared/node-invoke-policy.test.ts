@@ -938,7 +938,7 @@ describe("Contract-to-policy-switch parity", () => {
   const registrations = assistCommandContract.registrations;
 
   it("has exactly 30 registrations", () => {
-    expect(registrations).toHaveLength(30);
+    expect(registrations).toHaveLength(31);
   });
 
   for (const reg of registrations) {

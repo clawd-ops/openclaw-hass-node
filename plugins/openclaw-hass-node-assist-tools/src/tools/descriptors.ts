@@ -365,6 +365,14 @@ export const HA_ADDON_STATS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   parameters: AddonSlugSchema(),
 };
 
+export const HA_SUPERVISOR_INFO_TOOL_DESCRIPTOR: AssistToolDescriptor = {
+  label: "Home Assistant: supervisor info",
+  name: "ha_supervisor_info",
+  description:
+    "On the paired Home Assistant node: allowlisted host-level runtime info from the Supervisor (arch, machine, supervisor version, homeassistant version, hassos, operating_system, docker, channel). Hostname and network details are excluded. Read-only. This tool reaches the hass node — NOT the OC host.",
+  parameters: NodeOnlySchema(),
+};
+
 export const HA_ADDON_CHANGELOG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon changelog",
   name: "ha_addon_changelog",

@@ -29,6 +29,8 @@ Commands in this module:
 - ``ha.list_addons``          — list Supervisor add-ons with slug + state (read-only).
 - ``ha.addon_info``           — per-addon metadata, options STRIPPED (read-only).
 - ``ha.addon_stats``          — per-addon CPU/memory/network/io numbers (read-only).
+- ``ha.supervisor_info``      — allowlisted host/Supervisor versions and architecture
+  (read-only); ``hostname`` and network fields are deliberately not exposed.
 - ``ha.addon_changelog``      — per-addon changelog markdown (read-only).
 - ``ha.addon_documentation``  — per-addon documentation markdown (read-only).
 - ``ha.addon_start``          — start an explicitly allowlisted add-on (Tier B).
@@ -1198,6 +1200,97 @@ async def handle_ha_addon_stats(params: dict[str, Any]) -> dict[str, Any]:
 
     stats = {field: data.get(field) for field in _ADDON_STATS_FIELDS}
     return {"ok": True, "slug": slug, "stats": stats}
+
+
+# Supervisor /info returns host-level runtime details. The allowlist below
+# exposes only the architecture and software version fields needed for live
+# verification of the COMPLETION-ROADMAP Phase 0 recording step.
+#
+# SECURITY: `hostname`, `timezone`, and network fields are deliberately OMITTED.
+# `hostname` is an internal Supervisor hostname that can reveal infrastructure
+# naming conventions. Do not "helpfully" add it — expose only what the roadmap
+# needs and nothing more.
+_SUPERVISOR_INFO_FIELDS: Final[tuple[str, ...]] = (
+    "arch",
+    "machine",
+    "supervisor",
+    "homeassistant",
+    "hassos",
+    "operating_system",
+    "docker",
+    "channel",
+)
+
+# Selecting by key name alone is not enough at a confidentiality boundary. If a
+# future Supervisor release turns one of these fields into an object, that object
+# would ride through the name filter carrying whatever it contains, `hostname`
+# and network details included. Every one of the eight fields is a version
+# string, an architecture name, or null in the current Supervisor schema, so the
+# value is validated as well as the key.
+#
+# The check is deliberately `type(value) is str`, not `isinstance`. A `str`
+# subclass can override `__repr__`/`__str__` and carry arbitrary payload while
+# passing an isinstance test. Such a value is not constructible through the JSON
+# decoder today, but an exact type check costs nothing and removes the question.
+#
+# The length bound matters for a reachable case rather than a theoretical one:
+# `supervisor_get_json` accepts up to a 1 MiB response, so without a cap an
+# arbitrarily long attacker-influenced string in an allowlisted field would be
+# returned verbatim. Real values here are short — "amd64", "2024.01.0",
+# "Home Assistant OS 12.0" — so anything longer is not a legitimate value.
+_SUPERVISOR_INFO_MAX_VALUE_LEN: Final[int] = 128
+
+
+def _supervisor_info_value(value: Any) -> str | None:
+    """Return ``value`` when it is a plain, bounded string, else ``None``.
+
+    Anything that is not exactly a ``str`` — including ``str`` subclasses,
+    numbers, containers, and arbitrary objects — is dropped, as is a string
+    longer than ``_SUPERVISOR_INFO_MAX_VALUE_LEN``.
+    """
+    if type(value) is not str:
+        return None
+    return value if len(value) <= _SUPERVISOR_INFO_MAX_VALUE_LEN else None
+
+
+async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return allowlisted host-level runtime info from the Supervisor.
+
+    Hits ``GET http://supervisor/info``. Read-only by construction. Both the key
+    and the value are filtered: only the ``_SUPERVISOR_INFO_FIELDS`` names are
+    selected, and each selected value must be a plain bounded string. Sensitive
+    fields such as ``hostname``, ``timezone``, and network details are therefore
+    not exposed at the top level, nested inside an allowlisted field, or through
+    an upstream error body. Accepts no parameters (``_params`` is required by
+    the handler protocol but is ignored).
+
+    Returns:
+        ``{ok: True, info}`` where ``info`` contains the allowlisted fields
+        (missing, non-string, or oversized source values surface as ``None``),
+        or an error dict whose message is fixed text rather than upstream
+        content.
+    """
+    try:
+        raw = await supervisor_get_json("/info")
+    except HAClientError as exc:
+        # `supervisor_get_json` embeds up to 512 bytes of the upstream error
+        # body in `exc.message`, and a Supervisor error body may name the host.
+        # Neither the response nor the log records it: node logs can be read by
+        # a broader audience than the caller and may be shipped off-box, so the
+        # log is not a safe place to park content the response is not allowed to
+        # return. Only the stable error code crosses, which is enough to tell
+        # auth from not-found from a generic upstream failure.
+        _LOG.warning("ha.supervisor_info upstream error (%s)", exc.code)
+        return _error(exc.code, "Supervisor /info request failed")
+
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /info")
+    data = raw.get("data")
+    if not isinstance(data, dict):
+        return _error("HA_BAD_RESPONSE", "Supervisor /info response missing 'data'")
+
+    info = {field: _supervisor_info_value(data.get(field)) for field in _SUPERVISOR_INFO_FIELDS}
+    return {"ok": True, "info": info}
 
 
 # Markdown bodies (changelog + documentation) can be large; cap at a similar

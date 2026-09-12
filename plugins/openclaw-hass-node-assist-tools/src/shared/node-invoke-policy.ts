@@ -381,6 +381,7 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.addon_stats":
         case "ha.addon_changelog":
         case "ha.addon_documentation":
+        case "ha.supervisor_info":
           return await enforceMetadataRead(ctx, params);
         case "ha.logbook":
         case "ha.history":

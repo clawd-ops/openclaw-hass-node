@@ -10907,6 +10907,104 @@
     {
       "acceptance_test_ids": [],
       "action": null,
+      "authorization_class": "read_only",
+      "callers": {
+        "assist_wrapper": {
+          "accepted_tool_params": [
+            "node"
+          ],
+          "client_side_params": {},
+          "descriptor": "HA_SUPERVISOR_INFO_TOOL_DESCRIPTOR",
+          "emitted_params": {
+            "node": null
+          },
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "The executable Assist registration contract maps this tool to the node command.",
+              "outcome": "pass",
+              "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
+            }
+          ],
+          "factory": "createHaSupervisorInfoTool",
+          "injected_node_params": {},
+          "known_unaccepted_node_params": {},
+          "reason": "The executable Assist registration contract maps this tool to the node command.",
+          "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
+          "status": "wrapper-exposed",
+          "tool_name": "ha_supervisor_info",
+          "value_transforms": {}
+        },
+        "direct_nodes_invoke": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+              "outcome": "unverified",
+              "source": "dispatcher + node connect frame"
+            }
+          ],
+          "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+          "source": "dispatcher + node connect frame",
+          "status": "advertised-unverified"
+        },
+        "handler_dispatch": {
+          "evidence": [
+            {
+              "method": "UNVERIFIED",
+              "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
+              "outcome": "unverified",
+              "source": "handler and dispatch_async test matrix"
+            }
+          ],
+          "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
+          "source": "handler and dispatch_async test matrix",
+          "status": "path-present-unverified"
+        },
+        "node_advertisement": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+              "outcome": "pass",
+              "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS"
+            }
+          ],
+          "reason": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+          "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
+          "status": "advertised"
+        }
+      },
+      "canonical_parameters": [],
+      "capability_conditions": "Supervisor API is reachable.",
+      "command": "ha.supervisor_info",
+      "evidence_method": "CODE-PROVEN",
+      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "handler": "openclaw_node.commands.ha:handle_ha_supervisor_info",
+      "id": "ha.supervisor_info",
+      "metadata_provenance": {
+        "acceptance_test_ids": "manually curated behavioral IDs",
+        "authorization_class": "manual reality pass",
+        "capability_conditions": "manual reality pass",
+        "evidence_method": "manual evidence classification",
+        "inventory": "source-derived",
+        "outcome": "manual outcome classification",
+        "semantic_errors": "manual reality pass",
+        "semantic_result": "manual reality pass",
+        "source_mentions": "source-derived textual references; not proof"
+      },
+      "outcome": "unverified",
+      "registered": true,
+      "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
+      "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
+      "source_mentions": [
+        "app/node/tests/test_gateway_ws.py",
+        "plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts"
+      ]
+    },
+    {
+      "acceptance_test_ids": [],
+      "action": null,
       "authorization_class": "admin_token",
       "callers": {
         "assist_wrapper": {
@@ -11954,11 +12052,11 @@
   "schema_version": 1,
   "summary": {
     "action_variants": 31,
-    "advertised_commands": 56,
+    "advertised_commands": 57,
     "advertised_not_registered": [],
-    "assist_wrapped_commands": 30,
-    "ledger_rows": 87,
-    "registered_commands": 56,
+    "assist_wrapped_commands": 31,
+    "ledger_rows": 88,
+    "registered_commands": 57,
     "registered_not_advertised": [],
     "registered_without_assist_wrapper": [
       "fs.delete",

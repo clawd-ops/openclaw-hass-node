@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -37,6 +38,7 @@ from openclaw_node.commands.ha import (
     handle_ha_list_states,
     handle_ha_logbook,
     handle_ha_reload_config,
+    handle_ha_supervisor_info,
     handle_ha_update_install,
 )
 from openclaw_node.ha_client import HAClientError
@@ -1784,6 +1786,189 @@ async def test_addon_stats_supervisor_unavailable() -> None:
         side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
     ):
         result = await handle_ha_addon_stats({"slug": "self"})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------
+# ha.supervisor_info
+# ---------------------------------------------------------------------------
+
+
+async def test_supervisor_info_happy_path() -> None:
+    payload = {
+        "data": {
+            "arch": "amd64",
+            "machine": "generic-x86-64",
+            "supervisor": "2024.01.0",
+            "homeassistant": "2024.1.0",
+            "hassos": "12.0",
+            "operating_system": "Home Assistant OS 12.0",
+            "docker": "24.0.5",
+            "channel": "stable",
+            # Sensitive fields that MUST NOT leak:
+            "hostname": "internal-host-name",
+            "timezone": "America/New_York",
+            "ip_address": "192.0.2.100",
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+    assert result["ok"] is True
+    info = result["info"]
+    assert set(info.keys()) == {
+        "arch",
+        "machine",
+        "supervisor",
+        "homeassistant",
+        "hassos",
+        "operating_system",
+        "docker",
+        "channel",
+    }
+    assert info["arch"] == "amd64"
+    assert info["machine"] == "generic-x86-64"
+    assert info["supervisor"] == "2024.01.0"
+    assert info["channel"] == "stable"
+    # Confidentiality: sensitive fields must not appear
+    assert "hostname" not in info
+    assert "timezone" not in info
+    assert "ip_address" not in info
+
+
+async def test_supervisor_info_missing_fields_surface_as_none() -> None:
+    payload = {"data": {"arch": "aarch64"}}
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+    assert result["ok"] is True
+    info = result["info"]
+    assert info["arch"] == "aarch64"
+    assert info["machine"] is None
+    assert info["supervisor"] is None
+
+
+async def test_supervisor_info_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=["nope"]):
+        result = await handle_ha_supervisor_info({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_supervisor_info_missing_data_key() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={}):
+        result = await handle_ha_supervisor_info({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_supervisor_info_drops_nested_values_under_allowed_fields() -> None:
+    """A structured value under an allowlisted key must not ride through.
+
+    Selecting by key name alone would pass the whole object, so a Supervisor
+    release that turned one of these fields into an object would leak whatever
+    it carried. Non-scalar values are dropped to `None` instead.
+    """
+    payload = {
+        "data": {
+            "arch": "amd64",
+            # An allowlisted key whose value smuggles sensitive content.
+            "operating_system": {
+                "hostname": "internal-host-name",
+                "ip_address": "192.0.2.100",
+                "version": "12.0",
+            },
+            "machine": ["generic-x86-64", {"hostname": "internal-host-name"}],
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+
+    assert result["ok"] is True
+    info = result["info"]
+    assert info["arch"] == "amd64"
+    assert info["operating_system"] is None
+    assert info["machine"] is None
+    assert "internal-host-name" not in repr(result)
+    assert "192.0.2.100" not in repr(result)
+
+
+async def test_supervisor_info_does_not_echo_upstream_error_body() -> None:
+    """`HAClientError.message` can carry up to 512 bytes of the upstream body.
+
+    That body may name the host, so this command returns fixed text and keeps
+    only the error code.
+    """
+    leaky = HAClientError(
+        "HA_HTTP_ERROR",
+        "Supervisor returned 500: {'hostname': 'internal-host-name', 'ip_address': '192.0.2.100'}",
+    )
+    with patch("openclaw_node.commands.ha.supervisor_get_json", side_effect=leaky):
+        result = await handle_ha_supervisor_info({})
+
+    assert result["ok"] is False
+    assert result["error"] == "HA_HTTP_ERROR"
+    assert "internal-host-name" not in repr(result)
+    assert "192.0.2.100" not in repr(result)
+    assert result["message"] == "Supervisor /info request failed"
+
+
+async def test_supervisor_info_does_not_log_upstream_error_body(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The log is not a safe parking spot for what the response may not return.
+
+    Node logs can be read by a broader audience than the caller and may be
+    shipped off-box, so the upstream message must not land there either.
+    """
+    leaky = HAClientError(
+        "HA_HTTP_ERROR",
+        "Supervisor returned 500: {'hostname': 'internal-host-name', 'ip_address': '192.0.2.100'}",
+    )
+    with (
+        caplog.at_level(logging.WARNING, logger="openclaw_node.commands.ha"),
+        patch("openclaw_node.commands.ha.supervisor_get_json", side_effect=leaky),
+    ):
+        await handle_ha_supervisor_info({})
+
+    logged = caplog.text
+    assert "HA_HTTP_ERROR" in logged
+    assert "internal-host-name" not in logged
+    assert "192.0.2.100" not in logged
+
+
+async def test_supervisor_info_rejects_str_subclass_and_oversized_values() -> None:
+    """Key-plus-value filtering must not be defeated by a lookalike string.
+
+    A `str` subclass passes `isinstance` while overriding `__repr__`, and an
+    arbitrarily long string is network-reachable up to the 1 MiB response cap.
+    Both are dropped by exact-type and length checks.
+    """
+
+    class SneakyStr(str):
+        def __repr__(self) -> str:  # pragma: no cover - must never be called
+            return "hostname=internal-host-name"
+
+    payload = {
+        "data": {
+            "arch": SneakyStr("amd64"),
+            "machine": "x" * 5000 + "internal-host-name",
+            "supervisor": "2024.01.0",
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+
+    assert result["ok"] is True
+    info = result["info"]
+    assert info["arch"] is None
+    assert info["machine"] is None
+    assert info["supervisor"] == "2024.01.0"
+    assert "internal-host-name" not in repr(result)
+
+
+async def test_supervisor_info_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_supervisor_info({})
     assert result["error"] == "SUPERVISOR_UNAVAILABLE"
 
 

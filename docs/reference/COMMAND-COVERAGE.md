@@ -10,11 +10,11 @@ rows are intentionally retained. Regenerate after editing source or
 
 ## Summary
 
-- Registered commands: **56**
-- Advertised commands: **56**
-- Assist-wrapped commands: **30**
+- Registered commands: **57**
+- Advertised commands: **57**
+- Assist-wrapped commands: **31**
 - Action variants: **31**
-- Ledger rows: **87**
+- Ledger rows: **88**
 - Registered but unadvertised: `none`
 - Advertised but unregistered: `none`
 
@@ -118,6 +118,7 @@ rows are intentionally retained. Regenerate after editing source or
 | `ha.list_states` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.logbook` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
 | `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** |
+| `ha.supervisor_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.update_install` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** |
 | `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
 | `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
@@ -3689,6 +3690,42 @@ rows are intentionally retained. Regenerate after editing source or
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
+
+### `ha.supervisor_info`
+
+- Handler: `openclaw_node.commands.ha:handle_ha_supervisor_info`
+- Canonical parameters: none observed
+- Authorization: `read_only`
+- Capability conditions: Supervisor API is reachable.
+- Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
+- Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
+- Evidence method: `CODE-PROVEN`
+- **Outcome: `unverified`**
+- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
+- Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
+- Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
+- Assist caller: The executable Assist registration contract maps this tool to the node command.
+  - Assist tool: `ha_supervisor_info`
+  - Descriptor/factory: `HA_SUPERVISOR_INFO_TOOL_DESCRIPTOR` / `createHaSupervisorInfoTool`
+  - Tool parameters: `["node"]`
+  - Emitted node mapping: `{"node": null}`
+  - Injected node mapping: `{}`
+  - Known unaccepted node parameters: `{}`
+  - Value transforms: `{}`
+  - Client-side parameters: `{}`
+- Parameter details:
+  - none observed
+- Caller evidence:
+  - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
+  - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+- Curated acceptance-test IDs:
+  - none; do not treat source mentions as behavioral proof
+- Source mentions (not acceptance evidence):
+  - `app/node/tests/test_gateway_ws.py`
+  - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.update_install`
 

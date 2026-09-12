@@ -76,12 +76,19 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (39 commands)
+## `ha.*` — Home Assistant control (40 commands)
 
-Includes the base observability/control surface (28), Tier B addon
-lifecycle including update (1 extra), and the nine `ha.config.*`
-domain-config editors (9). Sections for each `ha.config.*` command
-follow the base surface below.
+Counted by group, each group being disjoint:
+
+| Group | Count |
+|---|---|
+| Base observability/control surface | 26 |
+| Tier B addon lifecycle (`ha.addon_start`, `ha.addon_stop`, `ha.addon_restart`, `ha.addon_update`) | 4 |
+| Tier B admin `ha.update_install` | 1 |
+| `ha.config.*` domain-config editors | 9 |
+| **Total** | **40** |
+
+Sections for each `ha.config.*` command follow the base surface below.
 
 
 | Command                   | Args / Notes                           |
@@ -109,6 +116,7 @@ follow the base surface below.
 | `ha.list_addons`          | List Supervisor add-ons (slug, name, state, version, version_latest, update_available), read-only. `repository` is dropped because for community/private addons it holds an operator-private repo URL |
 | `ha.addon_info`           | `slug`; per-addon metadata (slug, name, state, description, version, version_latest, update_available, boot, startup, stage, arch, machine, ingress, ingress_port). **`options` (current option VALUES), `schema` (option field NAMES), and `repository` are dropped at the boundary** — option values are secrets, schema field names can reveal which integrations are configured, and `repository` for non-core addons can leak an operator-private hostname. Supervisor response body is also capped at 1 MiB before parsing. Read-only |
 | `ha.addon_stats`          | `slug`; allowlisted utilisation metrics (cpu_percent, memory_usage/limit/percent, network_rx/tx, blk_read/write). Read-only |
+| `ha.supervisor_info`      | No params; allowlisted host-level Supervisor runtime info (arch, machine, supervisor version, homeassistant version, hassos, operating_system, docker, channel). `hostname`, `timezone`, and network fields are excluded. Read-only / Tier A |
 | `ha.addon_changelog`      | `slug`; addon changelog markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_documentation`  | `slug`; addon documentation markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_start`          | `slug`; Tier B lifecycle command. Requires `allowAdminOps` + explicit `addon_lifecycle.allowlist` opt-in, authenticated via pairing session (no admin token). Always denied for `homeassistant`, `supervisor`, and `core_*` slugs |
