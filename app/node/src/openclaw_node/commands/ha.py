@@ -102,7 +102,14 @@ _INTERIM_DENIED_SERVICE_PATTERNS: Final[dict[str, str]] = {
 }
 
 
-def _encode_path_segment(value: str) -> str:
+# A path segment of exactly "." or ".." is a relative reference, not data. The
+# HTTP client normalizes dot segments before sending, so such a value silently
+# retargets the request: "/api/states/.." becomes "/api/". Percent-encoding does
+# not help, because "%2E%2E" is normalized too. These values must be rejected.
+_DOT_SEGMENTS: Final[frozenset[str]] = frozenset({".", ".."})
+
+
+def _encode_path_segment(value: str) -> str | None:
     """Percent-encode a caller-supplied value used as a single URL path segment.
 
     ``/``, ``?``, ``#``, ``%``, and whitespace are encoded so a caller cannot
@@ -110,7 +117,13 @@ def _encode_path_segment(value: str) -> str:
     ``.`` are left literal: all three are legal in a path segment, entity IDs
     contain ``.``, and ISO-8601 timestamps contain ``:`` and may carry a ``+``
     offset, which is not a space in path position.
+
+    Returns:
+        The encoded segment, or ``None`` when the value is a bare dot segment and
+        therefore cannot be carried safely in a path at all.
     """
+    if value in _DOT_SEGMENTS:
+        return None
     return quote(value, safe=":+.")
 
 
@@ -219,8 +232,12 @@ async def handle_ha_get_state(params: dict[str, Any]) -> dict[str, Any]:
     if not entity_id:
         return _error("MISSING_PARAM", "entity_id is required")
 
+    encoded_entity_id = _encode_path_segment(entity_id)
+    if encoded_entity_id is None:
+        return _error("INVALID_PARAM", "entity_id must not be a bare '.' or '..' path segment")
+
     try:
-        state = await ha_get(f"/api/states/{_encode_path_segment(entity_id)}")
+        state = await ha_get(f"/api/states/{encoded_entity_id}")
     except HAClientError as exc:
         return _to_error(exc)
 
@@ -480,7 +497,10 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
     path = "/api/logbook"
     start_time = str(params.get("start_time", ""))
     if start_time:
-        path = f"{path}/{_encode_path_segment(start_time)}"
+        encoded_start = _encode_path_segment(start_time)
+        if encoded_start is None:
+            return _error("INVALID_PARAM", "start_time must not be a bare '.' or '..' path segment")
+        path = f"{path}/{encoded_start}"
 
     query_parts: list[str] = []
     end_time = str(params.get("end_time", ""))
@@ -527,7 +547,10 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
     path = "/api/history/period"
     start_time = str(params.get("start_time", ""))
     if start_time:
-        path = f"{path}/{_encode_path_segment(start_time)}"
+        encoded_start = _encode_path_segment(start_time)
+        if encoded_start is None:
+            return _error("INVALID_PARAM", "start_time must not be a bare '.' or '..' path segment")
+        path = f"{path}/{encoded_start}"
 
     query_parts: list[str] = []
     end_time = str(params.get("end_time", ""))
