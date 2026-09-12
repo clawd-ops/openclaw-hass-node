@@ -152,6 +152,12 @@ nav:
               - Overview: reference/api/typescript/index.md
               - Generated API:
                   - Modules: reference/api/typescript/generated/README.md
+                  - Plugin entry point: reference/api/typescript/generated/index/README.md
+                  - Node invoke policy: reference/api/typescript/generated/src/shared/node-invoke-policy/README.md
+                  - Per-node policy: reference/api/typescript/generated/src/shared/per-node-policy/README.md
+                  - Assist registration: reference/api/typescript/generated/src/tools/assist-command-registration/README.md
+                  - Tool descriptors: reference/api/typescript/generated/src/tools/descriptors/README.md
+                  - Node invocation: reference/api/typescript/generated/src/tools/node-tool-invoke/README.md
   - Research:
       - OpenClaw Integration: research/OPENCLAW-INTEGRATION.md
       - Agent Bridge Connectivity: research/AGENT-BRIDGE-CONNECTIVITY.md
