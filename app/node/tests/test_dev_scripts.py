@@ -703,3 +703,24 @@ def test_spawn_review_refuses_when_session_status_is_unavailable(tmp_path: Path)
     )
     # Nothing may be dispatched when self-identification is impossible.
     assert "accepted" not in result.stdout
+
+
+def test_spawn_review_reports_launcher_self_identification_failure(tmp_path: Path) -> None:
+    """A launcher that cannot prove identity reports the required upstream state."""
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    launch_result = json.loads(env["LAUNCH_RESULT"])
+    launch_result["result"]["payloads"] = [{"text": "SELF_IDENTIFICATION_FAILED"}]
+    launch_result["result"]["meta"]["agentMeta"]["terminalReceipt"]["successfulToolNames"] = [
+        "session_status"
+    ]
+    env["LAUNCH_RESULT"] = json.dumps(launch_result)
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 1
+    assert (
+        "Reviewer failed self-identification. No review posted. PR is not review-ready."
+        in result.stderr
+    )

@@ -153,7 +153,8 @@ launcher must successfully call `session_status` before it may call
 `sessions_spawn`. A parent-agent tool catalog is not accepted as proof because
 it can differ from the spawned runtime's toolset. If the preflight cannot
 self-identify, the wrapper refuses to spawn and reports that no review was
-posted and the PR is not review-ready. There is no bypass.
+posted and the PR is not review-ready. The reviewer repeats the check because
+its child runtime can still expose a different toolset. There is no bypass.
 
 ---
 
