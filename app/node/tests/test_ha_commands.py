@@ -1006,6 +1006,89 @@ async def test_reload_config_missing_token_param_denied(monkeypatch: pytest.Monk
 
 
 # ---------------------------------------------------------------------------
+# ha.reload_config domain semantics
+#
+# `domain` used to be accepted and silently ignored, so asking to reload
+# `automation` performed a core-config reload and reported success. Per-domain
+# reload is a distinct effect per domain and needs the Phase 2 effect policy,
+# so an unsupported domain now fails closed instead.
+# ---------------------------------------------------------------------------
+
+
+async def test_reload_config_omitted_domain_reloads_core(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post", return_value=None) as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "secret"})
+    assert result == {"ok": True, "domain": "core"}
+    mock_post.assert_called_once_with("/api/services/homeassistant/reload_core_config")
+
+
+async def test_reload_config_explicit_core_domain_reloads_core(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post", return_value=None) as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "core"})
+    assert result == {"ok": True, "domain": "core"}
+    mock_post.assert_called_once_with("/api/services/homeassistant/reload_core_config")
+
+
+async def test_reload_config_rejects_per_domain_reload_without_calling_ha(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post") as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "automation"})
+    assert result["ok"] is False
+    assert result["error"] == "UNSUPPORTED"
+    assert "automation" in result["message"]
+    mock_post.assert_not_called()
+
+
+async def test_reload_config_rejects_template_domain(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post") as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "template"})
+    assert result["error"] == "UNSUPPORTED"
+    mock_post.assert_not_called()
+
+
+async def test_reload_config_rejects_non_string_domain(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post") as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "secret", "domain": 7})
+    assert result["error"] == "INVALID_PARAM"
+    mock_post.assert_not_called()
+
+
+async def test_reload_config_blank_domain_is_treated_as_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post", return_value=None) as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "  "})
+    assert result == {"ok": True, "domain": "core"}
+    mock_post.assert_called_once_with("/api/services/homeassistant/reload_core_config")
+
+
+async def test_reload_config_domain_rejected_after_auth_not_before(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On the direct node path, an unauthorized caller must not learn the domains.
+
+    Scoped deliberately to direct invocation. On the Assist path the TypeBox
+    `core` literal is an executable constraint that rejects other values before
+    the tool runs, so that boundary refuses earlier and for a different reason.
+    This test pins the handler's own ordering: admin gate first, domain second.
+    """
+    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
+    with patch("openclaw_node.commands.ha.ha_post") as mock_post:
+        result = await handle_ha_reload_config({"admin_token": "wrong", "domain": "automation"})
+    assert result["error"] == "PERMISSION_DENIED"
+    mock_post.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # ha.light_turn_on
 # ---------------------------------------------------------------------------
 

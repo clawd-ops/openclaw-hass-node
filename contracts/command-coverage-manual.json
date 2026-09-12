@@ -438,8 +438,8 @@
     },
     "ha.reload_config": {
       "authorization_class": "admin_token",
-      "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Documented domain scoping is ignored and currently reloads core config (#263).",
-      "outcome": "fail",
+      "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
+      "outcome": "partial",
       "actions": {}
     },
     "ha.light_turn_on": {

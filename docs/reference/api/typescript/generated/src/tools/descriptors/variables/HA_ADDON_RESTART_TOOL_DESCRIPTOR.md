@@ -10,4 +10,4 @@
 const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor;
 ```
 
-Defined in: [src/tools/descriptors.ts:448](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L448)
+Defined in: [src/tools/descriptors.ts:450](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L450)

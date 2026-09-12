@@ -117,7 +117,7 @@ rows are intentionally retained. Regenerate after editing source or
 | `ha.list_services` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.list_states` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.logbook` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
-| `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>CODE-PROVEN:fail | `admin_token` | `CODE-PROVEN` | **`fail`** |
+| `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** |
 | `ha.update_install` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** |
 | `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
 | `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
@@ -3647,13 +3647,13 @@ rows are intentionally retained. Regenerate after editing source or
 ### `ha.reload_config`
 
 - Handler: `openclaw_node.commands.ha:handle_ha_reload_config`
-- Canonical parameters: admin_token
+- Canonical parameters: admin_token, domain
 - Authorization: `admin_token`
-- Capability conditions: The Assist plugin requires both allowAdminOps and adminToken for the target node. Documented domain scoping is ignored and currently reloads core config (#263).
+- Capability conditions: The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
-- **Outcome: `fail`**
+- **Outcome: `partial`**
 - Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
@@ -3664,7 +3664,7 @@ rows are intentionally retained. Regenerate after editing source or
   - Tool parameters: `["node", "domain"]`
   - Emitted node mapping: `{"domain": "domain", "node": null}`
   - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
-  - Known unaccepted node parameters: `{"domain": {"issue": "#263", "reason": "Node ignores requested domain and reloads core config; tracked in the completion roadmap."}}`
+  - Known unaccepted node parameters: `{}`
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
@@ -3673,11 +3673,15 @@ rows are intentionally retained. Regenerate after editing source or
     - defaults: `["''"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `domain`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `CODE-PROVEN` / **`fail`**: Emitted node parameter 'domain' is not accepted (#263): Node ignores requested domain and reloads core config; tracked in the completion roadmap. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof

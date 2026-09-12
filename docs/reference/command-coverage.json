@@ -10794,24 +10794,13 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
-            },
-            {
-              "method": "CODE-PROVEN",
-              "observation": "Emitted node parameter 'domain' is not accepted (#263): Node ignores requested domain and reloads core config; tracked in the completion roadmap.",
-              "outcome": "fail",
-              "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
             }
           ],
           "factory": "createHaReloadConfigTool",
           "injected_node_params": {
             "$policy.adminToken": "admin_token"
           },
-          "known_unaccepted_node_params": {
-            "domain": {
-              "issue": "#263",
-              "reason": "Node ignores requested domain and reloads core config; tracked in the completion roadmap."
-            }
-          },
+          "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
           "status": "wrapper-exposed",
@@ -10872,9 +10861,23 @@
             "defaults": "source-derived AST expression",
             "name": "source-derived AST accepted key"
           }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "domain",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
         }
       ],
-      "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Documented domain scoping is ignored and currently reloads core config (#263).",
+      "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
       "command": "ha.reload_config",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
@@ -10891,7 +10894,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",

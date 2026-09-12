@@ -64,6 +64,10 @@ from openclaw_node.ha_client import (
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _SERVICE_COMPONENT_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_]{1,64}$")
+
+# The only reload ha.reload_config implements. Per-domain reload is a separate
+# effect per domain and needs the Phase 2 effect policy before it is offered.
+_RELOAD_CORE_DOMAIN: Final[str] = "core"
 _CALL_SERVICE_PARAMS: Final[frozenset[str]] = frozenset(
     {"domain", "service", "target", "data", "service_data"}
 )
@@ -582,28 +586,45 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     This is an operator-admin action; the caller must supply a valid
     ``OPENCLAW_ADMIN_TOKEN`` in the environment (same gate as ``system.run``).
 
-    Known defect: a ``domain`` parameter is advertised but never read. This
-    always calls ``homeassistant.reload_core_config``, so a request to reload
-    ``automation`` or ``template`` silently reloads core config instead. Do not
-    present this as a per-domain reload until the parameter is either
-    implemented or rejected.
+    Params:
+        domain (str, optional): Must be ``"core"`` when supplied; omitting it is
+            equivalent. Any other value is rejected.
+        admin_token (str): Operator admin token.
+
+    Per-domain reload is deliberately not implemented. Each ``<domain>.reload``
+    service is a distinct effect needing its own policy decision, which is Phase
+    2 work, so an unsupported domain fails closed rather than silently performing
+    a different reload. ``ha.call_service`` is not a way around this: ``*.reload``
+    is on the interim denylist.
 
     Unverified authorization: the ``OPENCLAW_ADMIN_TOKEN`` gate is not the
     ratified authorization model. Admin ops move to operator approval; see
     ``design/AUTHORIZATION-MODEL.md``.
 
     Returns:
-        ``{ok: True}`` on success or an error dict.
+        ``{ok: True, domain: "core"}`` on success or an error dict.
     """
     denied = _admin_token_ok(params, "ha.reload_config")
     if denied is not None:
         return denied
 
+    raw_domain = params.get("domain")
+    if raw_domain is not None:
+        if not isinstance(raw_domain, str):
+            return _error("INVALID_PARAM", "domain must be a string when supplied")
+        requested = raw_domain.strip()
+        if requested and requested != _RELOAD_CORE_DOMAIN:
+            return _error(
+                "UNSUPPORTED",
+                f"ha.reload_config only reloads core config; domain={requested!r} is not "
+                f"implemented. Supply domain={_RELOAD_CORE_DOMAIN!r} or omit it.",
+            )
+
     try:
         await ha_post("/api/services/homeassistant/reload_core_config")
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True}
+    return {"ok": True, "domain": _RELOAD_CORE_DOMAIN}
 
 
 def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:

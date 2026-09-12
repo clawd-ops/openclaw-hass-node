@@ -79,10 +79,10 @@ Home Assistant mutations. See
 [Authorization model](AUTHORIZATION-MODEL.md).
 
 - `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;
-  reloads the HA core configuration only. The handler accepts a `domain`
-  argument but currently ignores it, so per-domain reloads are not available
-  through this command. Tracked in #263; update this entry when the handler
-  changes.
+  reloads the HA core configuration only. The optional `domain` argument may
+  be omitted, blank, or `core`; all three select the core reload. Any other
+  domain is rejected with `UNSUPPORTED` before HA I/O. Per-domain reloads are
+  not implemented and remain pending the effect policy.
 - `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Entity ID must be in the `update.` domain.
 
 Additional constraints on lifecycle ops (on top of the `allowAdminOps` gate):

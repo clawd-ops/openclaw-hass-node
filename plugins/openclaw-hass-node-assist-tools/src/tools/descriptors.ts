@@ -419,13 +419,15 @@ export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: reload config",
   name: "ha_reload_config",
   description:
-    "On the paired Home Assistant node: reload Home Assistant core configuration. KNOWN DEFECT, do not rely on this for per-domain reloads: the domain parameter is accepted and then ignored, and the node always calls homeassistant.reload_core_config. Asking for 'automation' or 'template' silently reloads core config instead. UNVERIFIED authorization: the adminToken gate described here is not the ratified authorization model and is being replaced by operator approval. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: reload Home Assistant core configuration. This reloads core config only; per-domain reload is not implemented, and naming any domain other than 'core' is rejected rather than silently reloading core config. UNVERIFIED authorization: the adminToken gate described here is not the ratified authorization model and is being replaced by operator approval. This tool reaches the hass node — NOT the OC host.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
-    domain: Type.String({
-      description:
-        "ACCEPTED AND IGNORED. The node never reads this value and always reloads core config, so naming a domain such as 'automation' does not reload that domain. Required by this Assist schema and the plugin wrapper, not by the node itself.",
-    }),
+    domain: Type.Optional(
+      Type.Literal("core", {
+        description:
+          "Only 'core' is accepted here, and omitting it is equivalent. Per-domain reload is not implemented. This literal is an executable constraint, so on this Assist path any other value, including a blank or whitespace-only string, is refused by schema validation before the tool runs. The node's UNSUPPORTED result, and its treatment of a whitespace-only domain as omitted, describe direct node invocation rather than this path.",
+      }),
+    ),
   }),
 };
 
