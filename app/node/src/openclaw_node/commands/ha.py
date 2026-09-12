@@ -29,6 +29,8 @@ Commands in this module:
 - ``ha.list_addons``          — list Supervisor add-ons with slug + state (read-only).
 - ``ha.addon_info``           — per-addon metadata, options STRIPPED (read-only).
 - ``ha.addon_stats``          — per-addon CPU/memory/network/io numbers (read-only).
+- ``ha.supervisor_info``      — allowlisted host/Supervisor versions and architecture
+  (read-only); ``hostname`` and network fields are deliberately not exposed.
 - ``ha.addon_changelog``      — per-addon changelog markdown (read-only).
 - ``ha.addon_documentation``  — per-addon documentation markdown (read-only).
 - ``ha.addon_start``          — start an explicitly allowlisted add-on (Tier B).
