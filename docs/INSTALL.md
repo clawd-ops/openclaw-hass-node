@@ -236,7 +236,7 @@ first successful pairing** — it's consumed.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 37
+#         Commands: list of 56
 ```
 
 Or round-trip a command directly from the gateway side:
