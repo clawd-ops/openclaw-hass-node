@@ -1,7 +1,41 @@
-# openclaw-hass-node documentation
+<section class="oc-hero" markdown>
+<div class="oc-hero__eyebrow">OPENCLAW × HOME ASSISTANT</div>
 
-Navigation hub for everything under `docs/`. New here? Start with
-[Orientation](#orientation). Resuming a session post-compaction? Start
+# A native Home Assistant node for OpenClaw
+
+Operate Home Assistant through a typed, policy-aware command surface with
+explicit authorization boundaries, auditable coverage, and recovery-focused
+operations.
+
+[Install the node](INSTALL.md){ .md-button .md-button--primary }
+[See current status](STATUS.md){ .md-button }
+</section>
+
+<div class="oc-card-grid">
+<a class="oc-card" href="reference/COMMAND-SURFACE/">
+  <span class="oc-card__icon" aria-hidden="true">⌁</span>
+  <strong>Command surface</strong>
+  <span>Browse every registered command, parameter, and policy tier.</span>
+</a>
+<a class="oc-card" href="design/AUTHORIZATION-MODEL/">
+  <span class="oc-card__icon" aria-hidden="true">◈</span>
+  <strong>Authorization</strong>
+  <span>Understand identities, approval boundaries, and fail-closed behavior.</span>
+</a>
+<a class="oc-card" href="reference/api/python/">
+  <span class="oc-card__icon" aria-hidden="true">{ }</span>
+  <strong>Python API</strong>
+  <span>Explore generated package, transport, policy, and command APIs.</span>
+</a>
+<a class="oc-card" href="operations/RELEASE/">
+  <span class="oc-card__icon" aria-hidden="true">↗</span>
+  <strong>Operate and release</strong>
+  <span>Use the tested release, verification, recovery, and UAT procedures.</span>
+</a>
+</div>
+
+This site is the navigation hub for everything under `docs/`. New here? Start
+with [Orientation](#orientation). Resuming work after context compaction? Start
 with [`MEMORY.md`](MEMORY.md).
 
 ## Orientation

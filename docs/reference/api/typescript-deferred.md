@@ -1,7 +1,8 @@
 # TypeScript API Reference (Deferred)
 
 TypeScript API documentation for `plugins/openclaw-hass-node-assist-tools` is
-a planned follow-up task.
+a planned follow-up tracked by
+[#279](https://github.com/clawd-ops/openclaw-hass-node/issues/279).
 
 ## Why it is deferred
 
@@ -18,8 +19,9 @@ markdown output into MkDocs requires:
 3. Adding a CI step (or pre-commit hook) to regenerate the output on change.
 4. Wiring the generated pages into `mkdocs.yml` nav.
 
-That work is tracked as a follow-up. It is a build-system change, not a
-documentation content change, and belongs in its own PR.
+That work is a build-system change, not only a documentation content change,
+and belongs in its own PR. Issue #279 defines the generation, navigation, and
+CI drift-check acceptance criteria.
 
 ## What the plugin does
 
