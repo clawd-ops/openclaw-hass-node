@@ -59,8 +59,10 @@ the token check deleted; see the closing note in
 `ha.*` gates remain in place until the corresponding plugin-approval work
 lands.
 
-The generated coverage ledger reached the same conclusion independently,
-reporting `ha.reload_config` and `ha.update_install` with status `fail`.
+The generated coverage ledger now reports `ha.reload_config` and
+`ha.update_install` as `partial` from source-only evidence. That status does
+not establish released or live behavior, nor does it complete the ratified
+authorization work.
 
 PR #270 already moved the four add-on lifecycle commands off the token and onto
 paired-session authentication plus slug policy. This document finishes that
