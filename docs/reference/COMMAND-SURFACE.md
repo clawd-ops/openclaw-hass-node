@@ -101,7 +101,7 @@ follow the base surface below.
 | `ha.reload_config`        | `domain`, `admin_token`; gated by `OPENCLAW_ADMIN_TOKEN` |
 | `ha.light_turn_on`        | `entity_id` or `area_id` or `device_id` |
 | `ha.light_turn_off`       | `entity_id` or `area_id` or `device_id` |
-| `ha.list_automations`     | `include_traces?`; filters to `automation.` prefix |
+| `ha.list_automations`     | `include_traces?`, `entity_filter?` (fnmatch glob scoped to `automation.`, max 256 chars), `state_filter?` (exact match, max 256 chars); unknown params rejected; narrowing applied before trace lookup |
 | `ha.check_config`         | Validates HA core config before reload |
 | `ha.addon_logs`           | `slug`, `lines?` (1–5000, default 200); Supervisor add-on logs, read-only; trims from a bounded 1 MiB trailing byte window |
 | `ha.list_addons`          | List Supervisor add-ons (slug, name, state, version, version_latest, update_available), read-only. `repository` is dropped because for community/private addons it holds an operator-private repo URL |

@@ -42,6 +42,7 @@ Commands in this module:
 
 from __future__ import annotations
 
+import fnmatch
 import hmac
 import logging
 import os
@@ -546,17 +547,68 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "changed_states": changed}
 
 
+_LIST_AUTOMATIONS_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset(
+    {"include_traces", "entity_filter", "state_filter"}
+)
+_MAX_AUTOMATION_FILTER_LENGTH: Final[int] = 256
+
+
 async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
-    """List automation entities, optionally including recent traces.
+    """List automation entities, optionally narrowed and with recent traces.
 
     Params:
         include_traces (bool, optional): If True, attach the most recent trace
             list per automation via WS ``trace/list``. Default False.
+        entity_filter (str, optional): fnmatch-style glob applied to
+            ``entity_id``. Must be scoped to the ``automation.`` domain, e.g.
+            ``"automation.morning_*"`` or a literal ``"automation.foo"``;
+            maximum 256 characters.
+        state_filter (str, optional): Exact match against the entity ``state``
+            (typically ``"on"`` or ``"off"``); maximum 256 characters.
+
+    Unknown params are rejected with ``INVALID_PARAM``; narrowing is applied
+    before any trace lookup so traces are fetched only for selected automations.
 
     Returns:
         ``{ok: True, count, automations}`` where each automation has
         ``entity_id``, ``state``, ``attributes`` and optionally ``traces``.
     """
+    unknown = set(params) - _LIST_AUTOMATIONS_ALLOWED_PARAMS
+    if unknown:
+        allowed = sorted(_LIST_AUTOMATIONS_ALLOWED_PARAMS)
+        return _error(
+            "INVALID_PARAM",
+            f"unknown params {sorted(unknown)!r}; allowed: {allowed!r}",
+        )
+
+    include_traces = params.get("include_traces", False)
+    if not isinstance(include_traces, bool):
+        return _error("INVALID_PARAM", "include_traces must be a bool")
+
+    entity_filter = params.get("entity_filter")
+    if entity_filter is not None:
+        if not isinstance(entity_filter, str) or not entity_filter:
+            return _error("INVALID_PARAM", "entity_filter must be a non-empty string")
+        if not entity_filter.startswith("automation."):
+            return _error(
+                "INVALID_PARAM",
+                "entity_filter must be scoped to the 'automation.' domain",
+            )
+        if len(entity_filter) > _MAX_AUTOMATION_FILTER_LENGTH:
+            return _error(
+                "INVALID_PARAM",
+                f"entity_filter exceeds {_MAX_AUTOMATION_FILTER_LENGTH} chars",
+            )
+
+    state_filter = params.get("state_filter")
+    if state_filter is not None and (not isinstance(state_filter, str) or not state_filter):
+        return _error("INVALID_PARAM", "state_filter must be a non-empty string")
+    if state_filter is not None and len(state_filter) > _MAX_AUTOMATION_FILTER_LENGTH:
+        return _error(
+            "INVALID_PARAM",
+            f"state_filter exceeds {_MAX_AUTOMATION_FILTER_LENGTH} chars",
+        )
+
     try:
         raw = await ha_get("/api/states")
     except HAClientError as exc:
@@ -564,13 +616,18 @@ async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, list):
         return _error("HA_BAD_RESPONSE", "Expected list from /api/states")
 
-    automations: list[dict[str, Any]] = [
-        s
-        for s in raw
-        if isinstance(s.get("entity_id"), str) and s["entity_id"].startswith("automation.")
-    ]
+    automations: list[dict[str, Any]] = []
+    for state in raw:
+        entity_id = state.get("entity_id") if isinstance(state, dict) else None
+        if not isinstance(entity_id, str) or not entity_id.startswith("automation."):
+            continue
+        if entity_filter is not None and not fnmatch.fnmatchcase(entity_id, entity_filter):
+            continue
+        if state_filter is not None and state.get("state") != state_filter:
+            continue
+        automations.append(state)
 
-    if params.get("include_traces"):
+    if include_traces:
         for auto in automations:
             entity_id = auto["entity_id"]
             automation_id = (auto.get("attributes") or {}).get("id")

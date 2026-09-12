@@ -362,17 +362,50 @@
     },
     "ha.list_automations": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; requested entity filters are ignored and trace expansion is unbounded.",
-      "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "fail",
-      "evidence_note": "Installed-node probe returned the complete automation set for a no-match filter; tracked by #259.",
+      "capability_conditions": "HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Both filters are capped at 256 characters. Unknown params are rejected. Trace expansion runs only after narrowing.",
+      "bounds": {
+        "entity_filter": "non-empty string, must start with 'automation.', capped at 256 chars; fnmatch-style glob",
+        "state_filter": "non-empty string, capped at 256 chars; exact match against the state field"
+      },
+      "evidence_method": "TEST-PROVEN",
+      "outcome": "pass",
+      "acceptance_test_ids": [
+        {
+          "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
+        }
+      ],
+      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.",
       "caller_observations": {
-        "direct_nodes_invoke": [
+        "handler_dispatch": [
           {
-            "method": "PRODUCTION-LIVE",
-            "outcome": "fail",
-            "source": "docs/VERIFICATION-2026-09-11.md#23-halist_automations-ignores-filters",
-            "observation": "A guaranteed no-match filter returned the complete automation set."
+            "method": "TEST-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty",
+            "observation": "The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0."
+          },
+          {
+            "method": "TEST-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces",
+            "observation": "With include_traces=True and entity_filter='automation.match', the patched ha_ws_call trace lookup runs exactly once, and only for the surviving automation ('m'); traces are never fetched for filtered-out entities."
+          },
+          {
+            "method": "TEST-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter",
+            "observation": "The handler rejects a state_filter longer than 256 characters with INVALID_PARAM and reports the configured boundary."
           }
         ]
       },

@@ -109,7 +109,7 @@ rows are intentionally retained. Regenerate after editing source or
 | `ha.light_turn_on` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
 | `ha.list_addons` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.list_areas` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
-| `ha.list_automations` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `PRODUCTION-LIVE` | **`fail`** |
+| `ha.list_automations` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `TEST-PROVEN` | **`pass`** |
 | `ha.list_config_entries` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.list_devices` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
 | `ha.list_entity_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
@@ -3301,40 +3301,54 @@ rows are intentionally retained. Regenerate after editing source or
 ### `ha.list_automations`
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_automations`
-- Canonical parameters: include_traces
+- Canonical parameters: entity_filter, include_traces, state_filter
 - Authorization: `read_only`
-- Capability conditions: HA REST API is reachable; requested entity filters are ignored and trace expansion is unbounded.
+- Capability conditions: HA REST API is reachable; caller may narrow results server-side via entity_filter glob (scoped to the 'automation.' domain) and state_filter (exact match). Both filters are capped at 256 characters. Unknown params are rejected. Trace expansion runs only after narrowing.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `PRODUCTION-LIVE`
-- **Outcome: `fail`**
-- Evidence note: Installed-node probe returned the complete automation set for a no-match filter; tracked by #259.
+- Evidence method: `TEST-PROVEN`
+- **Outcome: `pass`**
+- Evidence note: Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: The executable Assist registration contract maps this tool to the node command.
   - Assist tool: `ha_list_automations`
   - Descriptor/factory: `HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR` / `createHaListAutomationsTool`
-  - Tool parameters: `["node", "include_traces"]`
-  - Emitted node mapping: `{"include_traces": "include_traces", "node": null}`
+  - Tool parameters: `["node", "include_traces", "entity_filter", "state_filter"]`
+  - Emitted node mapping: `{"entity_filter": "entity_filter", "include_traces": "include_traces", "node": null, "state_filter": "state_filter"}`
   - Injected node mapping: `{}`
   - Known unaccepted node parameters: `{}`
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - `include_traces`
+  - `entity_filter`
     - aliases: `[]`
     - defaults: `["null"]`
+    - bounds: non-empty string, must start with 'automation.', capped at 256 chars; fnmatch-style glob
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `include_traces`
+    - aliases: `[]`
+    - defaults: `["False"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `state_filter`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: non-empty string, capped at 256 chars; exact match against the state field
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: A guaranteed no-match filter returned the complete automation set. (source: `docs/VERIFICATION-2026-09-11.md#23-halist_automations-ignores-filters`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: With include_traces=True and entity_filter='automation.match', the patched ha_ws_call trace lookup runs exactly once, and only for the surviving automation ('m'); traces are never fetched for filtered-out entities. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The handler rejects a state_filter longer than 256 characters with INVALID_PARAM and reports the configured boundary. (source: `app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter`)
 - Curated acceptance-test IDs:
-  - none; do not treat source mentions as behavioral proof
+  - `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`

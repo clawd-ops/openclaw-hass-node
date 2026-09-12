@@ -188,7 +188,7 @@ completion claim has a row in the coverage ledger.
   - [ ] `system.which` `binary` versus `name`.
   - [ ] `ha.list_states` filter naming and result bounds.
   - [ ] `ha.history` and `ha.logbook` time/entity aliases.
-  - [ ] `ha.list_automations` filtering before trace expansion.
+  - [x] `ha.list_automations` filtering before trace expansion (#259).
   - [ ] `ha.reload_config` domain semantics.
   - [ ] `ha.call_service` `service_data` versus `data`. Implemented in unreleased
     #266 / PR #267; independent review and CI acceptance pending.

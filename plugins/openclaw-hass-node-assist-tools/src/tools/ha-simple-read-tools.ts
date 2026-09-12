@@ -36,14 +36,6 @@ function readString(
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 }
 
-function readBoolean(
-  params: Record<string, unknown>,
-  key: string,
-): boolean | undefined {
-  const v = params[key];
-  return typeof v === "boolean" ? v : undefined;
-}
-
 // --- pure node-only reads ---
 
 export const createHaListServicesTool = (): AnyAgentTool =>
@@ -90,14 +82,63 @@ export const createHaListAddonsTool = (): AnyAgentTool =>
 
 // --- reads with extra params ---
 
+const HA_LIST_AUTOMATIONS_TOOL_KEYS = new Set([
+  "node",
+  "include_traces",
+  "entity_filter",
+  "state_filter",
+]);
+const MAX_AUTOMATION_FILTER_LENGTH = 256;
+
+function rejectUnknownAutomationArgs(args: Record<string, unknown>): void {
+  const unknownKeys = Object.keys(args)
+    .filter((key) => !HA_LIST_AUTOMATIONS_TOOL_KEYS.has(key))
+    .sort();
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `INVALID_PARAM: ha_list_automations received unknown parameter(s): ${unknownKeys.join(", ")}`,
+    );
+  }
+}
+
+function rejectOversizeAutomationFilters(args: Record<string, unknown>): void {
+  const stateFilter = args.state_filter;
+  if (typeof stateFilter === "string" && stateFilter.length > MAX_AUTOMATION_FILTER_LENGTH) {
+    throw new Error(
+      `INVALID_PARAM: ha_list_automations state_filter exceeds ${MAX_AUTOMATION_FILTER_LENGTH} chars`,
+    );
+  }
+}
+
 export const createHaListAutomationsTool = (): AnyAgentTool =>
   createHaMetadataReadTool({
     descriptor: HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR,
     command: "ha.list_automations",
     label: "Automations",
     buildCommandParams: (args) => {
-      const include_traces = readBoolean(args, "include_traces");
-      return include_traces === undefined ? {} : { include_traces };
+      // The descriptor rejects unknown keys during ordinary tool validation,
+      // and this explicit execution-boundary check keeps direct callers from
+      // bypassing the schema and dropping a misspelled narrowing parameter.
+      rejectUnknownAutomationArgs(args);
+      // Keep the execution boundary aligned with the descriptor and Python
+      // handler so direct callers cannot bypass the bounded-filter contract.
+      rejectOversizeAutomationFilters(args);
+      // Forward each optional filter verbatim when the caller supplied it, so
+      // the Python handler is the single source of truth for narrowing shape.
+      // Trimming, empty-string coercion, or type normalization here would let
+      // malformed inputs (e.g. "" or "   ") fail open by silently dropping
+      // the narrowing param before it reaches the handler.
+      const params: Record<string, unknown> = {};
+      if (Object.prototype.hasOwnProperty.call(args, "include_traces")) {
+        params.include_traces = args.include_traces;
+      }
+      if (Object.prototype.hasOwnProperty.call(args, "entity_filter")) {
+        params.entity_filter = args.entity_filter;
+      }
+      if (Object.prototype.hasOwnProperty.call(args, "state_filter")) {
+        params.state_filter = args.state_filter;
+      }
+      return params;
     },
   });
 
