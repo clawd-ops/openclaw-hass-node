@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "docs:api": "typedoc --options typedoc.json"
+    "docs:api": "typedoc --options typedoc.json && find ../../docs/reference/api/typescript/generated -type f -name '*.md' -exec sed -i 's/[[:space:]]\\+$//' {} +"
   },
   "devDependencies": {
     "@types/node": "^22",

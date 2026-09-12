@@ -9,10 +9,9 @@ site.
 
 The generated reference covers the plugin entry point plus the `src/` modules
 that define supported configuration, node-invoke policy, Assist registration,
-tool-schema, and invocation contracts. It intentionally excludes individual
-tool factories and private helper modules: operators configure the plugin
-through its manifest and per-node policy, not by importing implementation
-helpers.
+tool schemas, and invocation contracts. It intentionally excludes individual
+tool factories and non-exported helper modules. Operators configure the plugin
+through its manifest and per-node policy rather than importing tool factories.
 
 For the operational contract, start with the
 [plugin README](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/README.md)

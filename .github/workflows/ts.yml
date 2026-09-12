@@ -11,6 +11,7 @@ on:
       - "pnpm-workspace.yaml"
       - "tsconfig.json"
       - "docs/reference/api/typescript/**"
+      - "scripts/check-typescript-api-docs.sh"
       - ".github/workflows/ts.yml"
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - "pnpm-workspace.yaml"
       - "tsconfig.json"
       - "docs/reference/api/typescript/**"
+      - "scripts/check-typescript-api-docs.sh"
       - ".github/workflows/ts.yml"
 
 jobs:
