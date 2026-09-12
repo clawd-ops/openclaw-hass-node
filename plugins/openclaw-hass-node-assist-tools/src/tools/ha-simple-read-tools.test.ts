@@ -4,6 +4,8 @@
 // include_traces) get forwarded correctly.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Value } from "typebox/value";
+import { HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR } from "./descriptors.js";
 
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
@@ -185,6 +187,38 @@ describe("ha_list_automations forwards narrowing params verbatim", () => {
     );
     const commandParams = invokeMock.mock.calls[0]?.[0]?.commandParams;
     expect(commandParams).toEqual({});
+  });
+
+  it("rejects unknown arguments at the schema boundary", () => {
+    expect(
+      Value.Check(HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR.parameters, {
+        node: "hass",
+        entity_fiter: "automation.__openclaw_audit_no_match__",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a misspelled filter before invoking an unfiltered node command", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: {},
+    });
+    invokeMock.mockResolvedValue({ ok: true });
+    const tool = await load("createHaListAutomationsTool");
+
+    await expect(
+      tool.execute(
+        "call-unknown-filter",
+        {
+          node: "hass",
+          entity_fiter: "automation.__openclaw_audit_no_match__",
+        },
+        new AbortController().signal,
+        () => undefined,
+      ),
+    ).rejects.toThrow(/INVALID_PARAM.*unknown.*entity_fiter/i);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });
 

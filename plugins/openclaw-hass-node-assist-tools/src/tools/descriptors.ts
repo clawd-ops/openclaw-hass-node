@@ -214,26 +214,29 @@ export const HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   name: "ha_list_automations",
   description:
     "On the paired Home Assistant node: enumerate automations (entities with the 'automation.' prefix). Supports server-side narrowing via entity_filter (fnmatch glob under 'automation.') and state_filter (exact match). Narrowing is applied before traces are fetched. This tool reaches the hass node — NOT the OC host.",
-  parameters: Type.Object({
-    node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
-    include_traces: Type.Optional(
-      Type.Boolean({
-        description: "Include recent traces per automation. Larger payload.",
-      }),
-    ),
-    entity_filter: Type.Optional(
-      Type.String({
-        description:
-          "fnmatch-style glob applied to entity_id; must be scoped to the 'automation.' domain (e.g. 'automation.morning_*').",
-      }),
-    ),
-    state_filter: Type.Optional(
-      Type.String({
-        description:
-          "Exact match against automation state (typically 'on' or 'off').",
-      }),
-    ),
-  }),
+  parameters: Type.Object(
+    {
+      node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
+      include_traces: Type.Optional(
+        Type.Boolean({
+          description: "Include recent traces per automation. Larger payload.",
+        }),
+      ),
+      entity_filter: Type.Optional(
+        Type.String({
+          description:
+            "fnmatch-style glob applied to entity_id; must be scoped to the 'automation.' domain (e.g. 'automation.morning_*').",
+        }),
+      ),
+      state_filter: Type.Optional(
+        Type.String({
+          description:
+            "Exact match against automation state (typically 'on' or 'off').",
+        }),
+      ),
+    },
+    { additionalProperties: false },
+  ),
 };
 
 export const HA_CHECK_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {

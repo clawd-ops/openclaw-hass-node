@@ -82,12 +82,34 @@ export const createHaListAddonsTool = (): AnyAgentTool =>
 
 // --- reads with extra params ---
 
+const HA_LIST_AUTOMATIONS_TOOL_KEYS = new Set([
+  "node",
+  "include_traces",
+  "entity_filter",
+  "state_filter",
+]);
+
+function rejectUnknownAutomationArgs(args: Record<string, unknown>): void {
+  const unknownKeys = Object.keys(args)
+    .filter((key) => !HA_LIST_AUTOMATIONS_TOOL_KEYS.has(key))
+    .sort();
+  if (unknownKeys.length > 0) {
+    throw new Error(
+      `INVALID_PARAM: ha_list_automations received unknown parameter(s): ${unknownKeys.join(", ")}`,
+    );
+  }
+}
+
 export const createHaListAutomationsTool = (): AnyAgentTool =>
   createHaMetadataReadTool({
     descriptor: HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR,
     command: "ha.list_automations",
     label: "Automations",
     buildCommandParams: (args) => {
+      // The descriptor rejects unknown keys during ordinary tool validation,
+      // and this explicit execution-boundary check keeps direct callers from
+      // bypassing the schema and dropping a misspelled narrowing parameter.
+      rejectUnknownAutomationArgs(args);
       // Forward each optional filter verbatim when the caller supplied it, so
       // the Python handler is the single source of truth for narrowing shape.
       // Trimming, empty-string coercion, or type normalization here would let

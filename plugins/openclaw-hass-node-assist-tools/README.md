@@ -82,8 +82,9 @@ optionally fetches traces:
 
 Supplied strings are forwarded without trimming or coercion. Empty or
 wrong-typed values are rejected by the tool schema or node instead of silently
-turning them into an unfiltered request. The node also rejects unknown
-parameters with `INVALID_PARAM`.
+turning them into an unfiltered request. Unknown Assist arguments are rejected
+by both the closed tool schema and the wrapper execution boundary; the node also
+rejects unknown command parameters with `INVALID_PARAM`.
 
 For example, `entity_filter: "automation.morning_*"` with
 `state_filter: "on"` returns only enabled matching automations. A valid filter
