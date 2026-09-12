@@ -436,7 +436,7 @@ export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     domain: Type.String({
       description:
-        "ACCEPTED AND IGNORED. The node never reads this value and always reloads core config, so naming a domain such as 'automation' does not reload that domain. Still required because the node declares it.",
+        "ACCEPTED AND IGNORED. The node never reads this value and always reloads core config, so naming a domain such as 'automation' does not reload that domain. Required by this Assist schema and the plugin wrapper, not by the node itself.",
     }),
   }),
 };
