@@ -401,7 +401,7 @@ definition of complete.
 | [#258](https://github.com/clawd-ops/openclaw-hass-node/issues/258) | 3 | Decide supported shell route; do not evade the reserved command. |
 | [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259) | 1 | Part of filtering and strict schemas. |
 | [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260) | 1, 3 | Generate advertisement from contract, then live-test update path. |
-| [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | Fix skill/docs contract and verify intended file-transfer boundary. |
+| [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | ~~Fix skill/docs contract and verify intended file-transfer boundary.~~ Skill now describes the real surface: the node registers `ping` + `fs.*` + `system.*` + `ha.*` and does **not** advertise the OpenClaw `file-transfer` protocol (`file.fetch` / `dir.list` / `dir.fetch`); `allowReadPaths` does not apply here. Acceptance direction 1 (implement compatible `file.fetch`/`dir.*` handlers with policy tests) is deliberately deferred; this repo takes direction 2. |
 | [#262](https://github.com/clawd-ops/openclaw-hass-node/issues/262) | 2 | ~~Ratify one lifecycle policy and remove contradictory token claims.~~ Resolved in #270: lifecycle/admin split implemented and tested. Remaining: converge dedicated and generic service paths on the same policy decision. |
 | TODO 7 | 5 | Issue triage automation. |
 | TODO 11 | Closed | Home Assistant MCP retirement is complete; residual caller-policy work belongs to phase 2 and does not reopen it. |
