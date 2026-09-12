@@ -12,7 +12,7 @@ Good fits:
 - Reading Home Assistant entity state, services, areas, devices, registries, automations, add-ons, logs, or metadata.
 - Running bounded diagnostics against the Home Assistant node.
 - Performing explicitly authorized Home Assistant actions.
-- Inspecting or editing supported config/file paths through the node.
+- Inspecting supported config/file paths through the node, or editing them under the current mutation availability (see Safety Boundaries: `ha.config.*` mutations and protected-root / `agent_bridge` file writes are refused at this head; direct writes to unprotected paths are supported).
 - Wiring agents or subagents to the Home Assistant node command surface.
 
 **Context scope:** this skill applies in chat, cron, main-session, and subagent contexts where `nodes.invoke` is available. It does NOT apply in Assist contexts (HA voice/text turns relayed through `openclaw-hass-node-app`). In Assist, `nodes.invoke` is intentionally filtered out per the OpenClaw reduced trusted surface (≥ 2026.3.31). For Assist HA operations, the operator must enable and configure the `openclaw-hass-node-assist-tools` plugin, which exposes scoped `ha_*` wrappers that work within Assist's tool filter. Subagents spawned from an Assist turn inherit Assist's tool filter and therefore cannot use this skill unless `nodes.invoke` is actually present in their context.
@@ -72,8 +72,8 @@ Examples:
 Current primary command families include:
 
 - `ha.*` for Home Assistant API operations: states, services, areas, devices, registries, add-ons, config checks, and approved control actions.
-- `ha.config.*` for HA-native domain-config editing (lovelace dashboards, automations, scripts, scenes, helpers, area/device/entity registries, integrations/config_entries). Every mutating action is proposal-gated (`proposal_id` required, `"direct"` refused). REST-based per-id domains (`ha.config.automation` / `script` / `scene`) validate `id` against HA's `cv.slug` (`^[a-z0-9_]+$`). WS-based domains use HA's storage-collection surface. Enumeration for the REST-per-id domains goes through the existing `ha.list_automations` and `ha.list_states` filtered by `script.*` / `scene.*`.
-- `fs.*` for supported file inspection or proposal-gated file work exposed by the node.
+- `ha.config.*` for HA-native domain-config editing (lovelace dashboards, automations, scripts, scenes, helpers, area/device/entity registries, integrations/config_entries). **Mutating actions are currently unavailable at this head.** `commands/config_mutation.py` returns `PROPOSAL_REQUIRED` for every mutation because no trusted approval verifier is implemented yet; a caller-supplied `proposal_id` is audit metadata, not authorization, and cannot bypass the refusal. Read-only enumeration remains available: REST-based per-id domains (`ha.config.automation` / `script` / `scene`) validate `id` against HA's `cv.slug` (`^[a-z0-9_]+$`), and enumeration for the REST-per-id domains goes through the existing `ha.list_automations` and `ha.list_states` filtered by `script.*` / `scene.*`.
+- `fs.*` for supported file inspection and direct writes to unprotected paths inside `OPENCLAW_ALLOWED_ROOTS`. Writes routed through protected roots or the `agent_bridge` flag are currently unavailable: `commands/fs_write.py` and `commands/fs_move_delete.py` return `PROPOSAL_REQUIRED` because the gateway-side proposal bridge (P3.3) is not shipped yet. Writes to `.storage/` return `STORAGE_READONLY` and must go through the HA REST config API instead.
 - `system.*` for bounded node/system diagnostics.
 - `ping` for connectivity and basic health.
 
@@ -131,7 +131,7 @@ Actions that need extra care:
 - Add-on start, stop, or restart.
 - Reloads.
 - Any command that changes Home Assistant state.
-- Any `ha.config.*` mutating action (`save` / `delete` / `create` / `update` / `remove`). These edit the HA config store directly and must carry a real `proposal_id` naming the agent-bridge proposal that authorized the change. Never pass `proposal_id="direct"`. For `config_entries.disable` / `enable`, cite a `docs.lookup` for the integration before mutating so a reviewer can see why the change was made.
+- Any `ha.config.*` mutating action (`save` / `delete` / `create` / `update` / `remove`). **These paths currently refuse unconditionally with `PROPOSAL_REQUIRED` regardless of `proposal_id`.** Re-enabling them requires the trusted approval verifier and human round-trip described in `docs/design/AUTHORIZATION-MODEL.md`, not a params flag; there is no valid `proposal_id` for this surface at this head. When that ships, mutations will additionally require citing a `docs.lookup` for integration-level `config_entries.disable` / `enable` so a reviewer can see why the change was made.
 - Any command that changes add-on state.
 - Any command that edits configuration or files.
 - Any broad or generic command where the effect is unclear.
