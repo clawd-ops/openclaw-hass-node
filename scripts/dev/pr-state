@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# pr-state <num> — emit a single JSON object summarising PR state.
+#
+# Replaces six separate `gh api` calls.  Review bodies are piped through
+# confidentiality-check before surfacing; the script fails closed if a leak
+# is detected.
+#
+# Usage:
+#   scripts/dev/pr-state 123
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+CONFIDENTIALITY_CHECK="$REPO_ROOT/scripts/dev/confidentiality-check"
+
+if [[ $# -ne 1 ]] || [[ -z "$1" ]]; then
+    echo "usage: pr-state <pr-number>" >&2
+    exit 1
+fi
+
+PR="$1"
+
+# Fetch PR core fields.
+PR_JSON=$(gh api "repos/{owner}/{repo}/pulls/$PR" \
+    --jq '{
+        head_sha: .head.sha,
+        base_sha: .base.sha,
+        mergeable_state: .mergeable_state,
+        state: .state
+    }')
+
+HEAD_SHA=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['head_sha'])")
+BASE_SHA=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['base_sha'])")
+
+# Fetch CI check runs for the head commit.
+CHECKS_JSON=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
+    --jq '[.check_runs[] | {name: .name, conclusion: .conclusion}]')
+
+# Fetch the latest Codex review (look for a review with a body starting "Codex").
+REVIEWS_JSON=$(gh api "repos/{owner}/{repo}/pulls/$PR/reviews" --paginate \
+    --jq '[.[] | select(.body != null and .body != "")] | last // {}')
+
+REVIEW_BODY=$(echo "$REVIEWS_JSON" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+if isinstance(d, dict):
+    print(d.get('body', ''))
+elif isinstance(d, list) and d:
+    print(d[-1].get('body', ''))
+else:
+    print('')
+" 2>/dev/null || echo "")
+
+REVIEW_SHA=$(echo "$REVIEWS_JSON" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+if isinstance(d, dict):
+    print(d.get('commit_id', ''))
+elif isinstance(d, list) and d:
+    print(d[-1].get('commit_id', ''))
+else:
+    print('')
+" 2>/dev/null || echo "")
+
+# Extract first line of review body as the verdict.
+REVIEW_VERDICT=$(echo "$REVIEW_BODY" | head -1)
+
+# Run the review verdict through confidentiality-check before surfacing it.
+if [[ -n "$REVIEW_VERDICT" ]]; then
+    if ! echo "$REVIEW_VERDICT" | "$CONFIDENTIALITY_CHECK"; then
+        echo "pr-state: confidentiality check failed on review body — output suppressed" >&2
+        exit 1
+    fi
+fi
+
+# Determine whether pinned SHA equals current head.
+if [[ -n "$REVIEW_SHA" ]] && [[ "$REVIEW_SHA" == "$HEAD_SHA" ]]; then
+    PINNED_MATCHES_HEAD="true"
+else
+    PINNED_MATCHES_HEAD="false"
+fi
+
+# Assemble final JSON output via python3 to handle escaping correctly.
+python3 - "$PR_JSON" "$CHECKS_JSON" "$REVIEW_VERDICT" "$REVIEW_SHA" "$PINNED_MATCHES_HEAD" << 'PYEOF'
+import sys, json
+
+pr = json.loads(sys.argv[1])
+checks = json.loads(sys.argv[2])
+review_verdict = sys.argv[3]
+review_sha = sys.argv[4]
+pinned_matches_head = sys.argv[5] == "true"
+
+output = {
+    "head_sha": pr["head_sha"],
+    "base_sha": pr["base_sha"],
+    "mergeable_state": pr["mergeable_state"],
+    "state": pr["state"],
+    "checks": checks,
+    "review_verdict": review_verdict,
+    "review_pinned_sha": review_sha,
+    "pinned_sha_matches_head": pinned_matches_head,
+}
+print(json.dumps(output, indent=2))
+PYEOF

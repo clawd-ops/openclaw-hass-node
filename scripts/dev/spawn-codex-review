@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# spawn-codex-review <num> [narrowing-file] — assemble and emit a Codex review
+# brief for PR <num>.
+#
+# Substitutes <PR>, <HEAD_SHA>, <BASE_SHA>, and an optional per-PR narrowing
+# section into the central template, then prints the result to stdout.
+# The caller pipes this output into `sessions_spawn`.
+#
+# Usage:
+#   scripts/dev/spawn-codex-review 123
+#   scripts/dev/spawn-codex-review 123 path/to/narrowing.md
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+TEMPLATE="$REPO_ROOT/scripts/dev/templates/codex-review-brief.md"
+
+if [[ $# -lt 1 ]] || [[ -z "$1" ]]; then
+    echo "usage: spawn-codex-review <pr-number> [narrowing-file]" >&2
+    exit 1
+fi
+
+PR="$1"
+NARROWING_FILE="${2:-}"
+
+if [[ ! -f "$TEMPLATE" ]]; then
+    echo "spawn-codex-review: template not found: $TEMPLATE" >&2
+    exit 1
+fi
+
+# Resolve SHA values from the live PR.
+HEAD_SHA=$(gh pr view "$PR" --json headRefOid --jq '.headRefOid')
+BASE_SHA=$(gh pr view "$PR" --json baseRefOid --jq '.baseRefOid')
+
+# Load optional narrowing section.
+if [[ -n "$NARROWING_FILE" ]]; then
+    if [[ ! -f "$NARROWING_FILE" ]]; then
+        echo "spawn-codex-review: narrowing file not found: $NARROWING_FILE" >&2
+        exit 1
+    fi
+    NARROWING="$(cat "$NARROWING_FILE")"
+else
+    NARROWING="(no additional narrowing)"
+fi
+
+# Perform substitutions via python3 to avoid sed portability issues.
+python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" < "$TEMPLATE" << 'PYEOF'
+import sys
+
+head_sha = sys.argv[1]
+base_sha = sys.argv[2]
+pr = sys.argv[3]
+narrowing = sys.argv[4]
+
+content = sys.stdin.read()
+content = content.replace("<PR>", pr)
+content = content.replace("<HEAD_SHA>", head_sha)
+content = content.replace("<BASE_SHA>", base_sha)
+content = content.replace("<NARROWING>", narrowing)
+sys.stdout.write(content)
+PYEOF

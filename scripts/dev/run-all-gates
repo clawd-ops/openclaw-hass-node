@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# run-all-gates — run the full local gate suite, stopping on first failure.
+#
+# NOTE: TS contract tests require the Python venv to include the node package:
+#   uv sync --package openclaw-node --python 3.13
+# Without that, 9 tests fail with: spawnSync .venv/bin/python ENOENT
+#
+# Usage (from repo root):
+#   scripts/dev/run-all-gates
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+fail() {
+    echo ""
+    echo "GATE FAILED: $1"
+    echo "Re-run alone: $2"
+    exit 1
+}
+
+# ── 1. ruff format ──────────────────────────────────────────────────────────
+echo ">>> ruff format --check"
+uv run ruff format --check app/node/src app/node/tests \
+    || fail "ruff format --check" "uv run ruff format --check app/node/src app/node/tests"
+
+# ── 2. ruff lint ────────────────────────────────────────────────────────────
+echo ">>> ruff check"
+uv run ruff check app/node/src app/node/tests \
+    || fail "ruff check" "uv run ruff check app/node/src app/node/tests"
+
+# ── 3. mypy ─────────────────────────────────────────────────────────────────
+echo ">>> mypy --strict"
+uv run mypy --strict app/node/src app/node/tests \
+    || fail "mypy --strict" "uv run mypy --strict app/node/src app/node/tests"
+
+# ── 4. pytest (95% coverage gate) ───────────────────────────────────────────
+echo ">>> pytest"
+uv run pytest app/node/tests/ -q \
+    || fail "pytest" "uv run pytest app/node/tests/ -q"
+
+# ── 5. command coverage ledger ──────────────────────────────────────────────
+echo ">>> generate-command-coverage --check"
+python scripts/generate-command-coverage.py --check \
+    || fail "generate-command-coverage --check" "python scripts/generate-command-coverage.py --check"
+
+# ── 6. active docs schema ───────────────────────────────────────────────────
+echo ">>> check-active-docs-schema"
+python scripts/check-active-docs-schema.py \
+    || fail "check-active-docs-schema" "python scripts/check-active-docs-schema.py"
+
+# ── 7. TypeScript API docs ───────────────────────────────────────────────────
+echo ">>> docs:typescript:check"
+pnpm docs:typescript:check \
+    || fail "docs:typescript:check" "pnpm docs:typescript:check"
+
+# ── 8. Plugin tsc --noEmit ──────────────────────────────────────────────────
+echo ">>> plugin typecheck"
+pnpm -r --filter './plugins/*' typecheck \
+    || fail "plugin typecheck" "pnpm -r --filter './plugins/*' typecheck"
+
+# ── 9. Plugin vitest (only if TS files changed vs origin/main) ──────────────
+CHANGED_TS=$(git diff --name-only origin/main..HEAD -- '*.ts' '*.tsx' 2>/dev/null || true)
+if [[ -n "$CHANGED_TS" ]]; then
+    echo ">>> plugin vitest (TS files changed)"
+    pnpm -r --filter './plugins/*' test \
+        || fail "plugin vitest" "pnpm -r --filter './plugins/*' test"
+else
+    echo ">>> plugin vitest (skipped — no TS changes vs origin/main)"
+fi
+
+# ── 10. whitespace check ────────────────────────────────────────────────────
+echo ">>> git diff --check"
+git diff --check \
+    || fail "git diff --check" "git diff --check"
+
+echo ""
+echo "All gates passed."

@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# apply-patch [patch-file] — apply a patch, trying apply_patch → git apply →
+# patch -p1 in that order.
+#
+# Reads from stdin if no file argument is given.
+#
+# Exit codes mirror the underlying tool: 0 = success, non-zero = failure.
+set -euo pipefail
+
+if [[ $# -gt 1 ]]; then
+    echo "usage: apply-patch [patch-file]" >&2
+    exit 1
+fi
+
+PATCH_FILE="${1:-}"
+
+apply_with() {
+    local tool="$1"
+    shift
+    if [[ -n "$PATCH_FILE" ]]; then
+        "$tool" "$@" "$PATCH_FILE"
+    else
+        "$tool" "$@"
+    fi
+}
+
+if command -v apply_patch &>/dev/null; then
+    apply_with apply_patch
+elif command -v git &>/dev/null; then
+    if [[ -n "$PATCH_FILE" ]]; then
+        git apply --allow-empty "$PATCH_FILE"
+    else
+        git apply --allow-empty
+    fi
+elif command -v patch &>/dev/null; then
+    if [[ -n "$PATCH_FILE" ]]; then
+        patch -p1 < "$PATCH_FILE"
+    else
+        patch -p1
+    fi
+else
+    echo "apply-patch: no patch applier available (tried: apply_patch, git apply, patch -p1)" >&2
+    exit 1
+fi

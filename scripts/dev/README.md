@@ -1,0 +1,149 @@
+# scripts/dev — Developer Tooling
+
+Local automation for the openclaw-hass-node development workflow.
+
+---
+
+## Tools
+
+### `confidentiality-check`
+
+Scans content (stdin or a named file) against an operator-local denylist of
+sensitive terms. Fails closed if the denylist is missing or unreadable. On a
+match, prints a single redacted warning and exits 1. Never echoes matched
+terms, matched lines, or the denylist itself.
+
+```
+# Scan a file
+scripts/dev/confidentiality-check path/to/file.txt
+
+# Scan stdout of another command
+git diff origin/main..HEAD | scripts/dev/confidentiality-check
+```
+
+The denylist path defaults to `$HOME/.openclaw/state/confidentiality-denylist.txt`
+and can be overridden with `OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE`.
+
+**Denylist format:** one literal term per line (no regular expressions, no
+comments). The file must be mode 600, outside the repository, and never
+committed. Populate it from your operator's secure store; do not place example
+entries in the repo.
+
+---
+
+### `run-all-gates`
+
+Runs the full local gate suite in order, exiting on the first failure with a
+clear statement of which gate failed and the exact command to re-run it alone.
+
+```
+scripts/dev/run-all-gates
+```
+
+Gates in order:
+
+1. `ruff format --check`
+2. `ruff check`
+3. `mypy --strict`
+4. `pytest` (95% coverage)
+5. `generate-command-coverage.py --check`
+6. `check-active-docs-schema.py`
+7. `pnpm docs:typescript:check`
+8. plugin `tsc --noEmit` (typecheck)
+9. plugin `vitest run` (only when TypeScript files changed vs `origin/main`)
+10. `git diff --check` (whitespace)
+
+> **Note:** TypeScript contract tests require the Python venv to include the
+> node package. Run `uv sync --package openclaw-node --python 3.13` once
+> before the first run, or 9 contract tests will fail with
+> `spawnSync .venv/bin/python ENOENT`.
+
+---
+
+### `pr-state <num>`
+
+Emits one JSON object with:
+
+- `head_sha`, `base_sha`
+- `mergeable_state`, `state`
+- `checks` — every CI check name and its conclusion
+- `review_verdict` — first line of the latest review body
+- `review_pinned_sha` — the SHA that review pins itself to
+- `pinned_sha_matches_head` — boolean
+
+Review body text is piped through `confidentiality-check` before surfacing.
+
+```
+scripts/dev/pr-state 123
+```
+
+---
+
+### `pr-rebase <num>`
+
+Automates the safe rebase workflow:
+
+1. Creates a dedicated worktree (never touching the shared clone checkout)
+2. Fetches `origin`
+3. Rebases the PR branch onto `origin/main`
+4. Regenerates the coverage ledger and docs-schema artifacts
+5. Runs `run-all-gates`
+6. Runs `confidentiality-check` on the full diff
+7. Pushes with `--force-with-lease`
+8. Cleans up the worktree on exit (success or failure)
+
+```
+scripts/dev/pr-rebase 123
+```
+
+Stops loudly at the first failure. Never pushes through a gate or leak failure.
+
+---
+
+### `spawn-codex-review <num> [narrowing-file]`
+
+Assembles a Codex review brief by substituting PR number, head SHA, base SHA,
+and an optional per-PR narrowing section into
+`scripts/dev/templates/codex-review-brief.md`. Prints the result to stdout;
+the caller passes it to `sessions_spawn`.
+
+The template encodes hard constraints (no commits, no pushes, no merges, no
+file edits, no sub-agents, exactly one `gh pr comment`), the correct
+`uv run` tooling rule, and the deterministic attribution line format.
+
+```
+scripts/dev/spawn-codex-review 123
+scripts/dev/spawn-codex-review 123 reviews/pr-123-narrowing.md
+```
+
+---
+
+### `apply-patch [patch-file]`
+
+Applies a patch (from a file or stdin), trying three tools in order:
+
+1. `apply_patch` (if on PATH)
+2. `git apply --allow-empty`
+3. `patch -p1`
+
+Fails clearly if none are available.
+
+```
+cat my.patch | scripts/dev/apply-patch
+scripts/dev/apply-patch my.patch
+```
+
+---
+
+## Denylist location and format
+
+The operator-local denylist lives at:
+
+```
+$HOME/.openclaw/state/confidentiality-denylist.txt
+```
+
+Format: one literal term per line. No regular expressions. No comments. No
+header. The file must be mode 600 and must never be committed to the
+repository. Populate it from your secure store. The path can be overridden
+with the `OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE` environment variable.

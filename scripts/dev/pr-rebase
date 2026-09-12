@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# pr-rebase <num> — safely rebase a PR branch onto origin/main in an isolated
+# worktree, regenerate artifacts, run all gates, audit for leaks, then push.
+#
+# Never mutates the shared clone checkout.  The dedicated worktree is always
+# removed on exit (success or failure).
+#
+# Usage:
+#   scripts/dev/pr-rebase 123
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+CONFIDENTIALITY_CHECK="$REPO_ROOT/scripts/dev/confidentiality-check"
+RUN_ALL_GATES="$REPO_ROOT/scripts/dev/run-all-gates"
+
+if [[ $# -ne 1 ]] || [[ -z "$1" ]]; then
+    echo "usage: pr-rebase <pr-number>" >&2
+    exit 1
+fi
+
+PR="$1"
+WORKTREE_PATH="/tmp/pr-rebase-$PR-$$"
+
+cleanup() {
+    if [[ -d "$WORKTREE_PATH" ]]; then
+        git -C "$REPO_ROOT" worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+# Resolve the PR head branch name.
+BRANCH=$(gh pr view "$PR" --json headRefName --jq '.headRefName')
+echo "PR $PR → branch: $BRANCH"
+
+# Fetch latest state.
+git -C "$REPO_ROOT" fetch origin
+
+# Create isolated worktree on the PR branch.
+git -C "$REPO_ROOT" worktree add "$WORKTREE_PATH" "origin/$BRANCH"
+cd "$WORKTREE_PATH"
+
+# Ensure the local branch tracks origin so push works.
+git checkout -B "$BRANCH" "origin/$BRANCH"
+
+# Rebase onto origin/main.
+echo ">>> git rebase origin/main"
+git rebase origin/main \
+    || { echo "REBASE FAILED — resolve conflicts, then re-run pr-rebase" >&2; exit 1; }
+
+# Regenerate coverage ledger and TS API docs.
+echo ">>> regenerate coverage ledger"
+uv sync --quiet
+python "$REPO_ROOT/scripts/generate-command-coverage.py" 2>/dev/null || true
+python "$REPO_ROOT/scripts/check-active-docs-schema.py" 2>/dev/null || true
+
+# Run the full gate suite.
+echo ">>> run-all-gates"
+"$RUN_ALL_GATES" \
+    || { echo "GATE FAILED — fix failures, then re-run pr-rebase" >&2; exit 1; }
+
+# Confidentiality audit on the diff.
+echo ">>> confidentiality-check on diff"
+git diff "origin/main..HEAD" | "$CONFIDENTIALITY_CHECK" \
+    || { echo "CONFIDENTIAL LEAK in diff — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
+
+# Push with lease to avoid overwriting concurrent updates.
+echo ">>> git push --force-with-lease"
+git push origin "$BRANCH" --force-with-lease
+
+echo ""
+echo "PR $PR rebased and pushed successfully."

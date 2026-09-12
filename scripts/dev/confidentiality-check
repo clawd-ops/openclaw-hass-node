@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# confidentiality-check — scan content for operator-defined sensitive terms.
+#
+# Usage:
+#   confidentiality-check [FILE]
+#   echo "some text" | confidentiality-check
+#
+# Exit codes:
+#   0  — clean (no matches found)
+#   1  — match found (or denylist unavailable / unreadable)
+#
+# The denylist file is never echoed. Matched lines are never echoed.
+set -euo pipefail
+
+DENYLIST_FILE="${OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE:-$HOME/.openclaw/state/confidentiality-denylist.txt}"
+
+if [[ ! -f "$DENYLIST_FILE" ]]; then
+    echo "confidentiality-check: denylist not found: $DENYLIST_FILE" >&2
+    exit 1
+fi
+
+if [[ ! -r "$DENYLIST_FILE" ]]; then
+    echo "confidentiality-check: denylist not readable: $DENYLIST_FILE" >&2
+    exit 1
+fi
+
+if [[ ! -s "$DENYLIST_FILE" ]]; then
+    # Empty denylist — nothing to match against, always clean.
+    exit 0
+fi
+
+# grep -F uses fixed-string matching (no regex interpretation).
+# grep exit codes: 0 = match found, 1 = no match, 2 = error.
+# We deliberately suppress the matched lines; only the presence/absence matters.
+if grep -qiF -f "$DENYLIST_FILE" "${1:-/dev/stdin}"; then
+    echo "CONFIDENTIAL LEAK — matches redacted from output" >&2
+    exit 1
+fi
+
+exit 0
