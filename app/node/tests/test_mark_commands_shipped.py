@@ -238,6 +238,51 @@ def test_keyboard_interrupt_rolls_back_bytes_modes_and_temps(tmp_path: Path) -> 
     assert list(tmp_path.glob(".*.json.*")) == []
 
 
+def test_preparation_snapshots_atime_before_candidate_reads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    helper = _load_helper()
+    paths = [tmp_path / "manual.json", tmp_path / "generated.json", tmp_path / "ledger.md"]
+    atimes = [1_400_000_000_000_000_000 + index for index in range(3)]
+    mtimes = [1_500_000_000_000_000_000 + index for index in range(3)]
+    for path, atime, mtime in zip(paths, atimes, mtimes, strict=True):
+        path.write_bytes(b"original\n")
+        os.utime(path, ns=(atime, mtime))
+
+    generator = SimpleNamespace(JSON_OUTPUT=paths[1], MARKDOWN_OUTPUT=paths[2])
+    monkeypatch.setattr(helper, "MANUAL_PATH", paths[0])
+    monkeypatch.setattr(helper, "_load_generator", lambda: generator)
+
+    def candidate_outputs(
+        _version: str, _generator: SimpleNamespace
+    ) -> tuple[dict[Path, bytes], list[str]]:
+        for index, path in enumerate(paths):
+            path.read_bytes()
+            os.utime(path, ns=(atimes[index] + 10_000, mtimes[index]))
+        return {path: b"new\n" for path in paths}, ["ping"]
+
+    monkeypatch.setattr(helper, "_candidate_outputs", candidate_outputs)
+    replacements, stamped, originals = helper._prepare_replacements("2026.8.1b1")
+    assert stamped == ["ping"]
+    calls = 0
+
+    def fail_second(source: Path, target: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("injected replacement failure")
+        os.replace(source, target)
+
+    with pytest.raises(helper.ShipError, match="all attempted targets restored"):
+        helper._transactional_replace(replacements, replace=fail_second, originals=originals)
+
+    restored_stats = [path.stat() for path in paths]
+    assert [metadata.st_atime_ns for metadata in restored_stats] == atimes
+    assert [metadata.st_mtime_ns for metadata in restored_stats] == mtimes
+    assert all(path.read_bytes() == b"original\n" for path in paths)
+    assert list(tmp_path.glob(".*")) == []
+
+
 def test_successful_replacement_preserves_existing_target_modes(tmp_path: Path) -> None:
     helper = _load_helper()
     paths = [tmp_path / "manual.json", tmp_path / "generated.json"]

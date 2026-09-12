@@ -142,10 +142,13 @@ def _preflight_manual(
     return validated
 
 
-def _candidate_outputs(version: str) -> tuple[dict[Path, bytes], list[str]]:
+def _candidate_outputs(
+    version: str, generator: ModuleType | None = None
+) -> tuple[dict[Path, bytes], list[str]]:
     """Build all replacement bytes without mutating any tracked path."""
     original, data = _read_manual()
-    generator = _load_generator()
+    if generator is None:
+        generator = _load_generator()
     commands = _preflight_manual(data, generator)
     stamped = sorted(
         name for name, entry in commands.items() if entry["first_shipped_in"] == UNRELEASED
@@ -182,6 +185,33 @@ def _candidate_outputs(version: str) -> tuple[dict[Path, bytes], list[str]]:
     return replacements, stamped
 
 
+def _snapshot_originals(paths: list[Path]) -> dict[Path, tuple[bytes, os.stat_result] | None]:
+    """Capture bytes and metadata before candidate generation reads any target."""
+    originals: dict[Path, tuple[bytes, os.stat_result] | None] = {}
+    for path in paths:
+        if not path.exists():
+            originals[path] = None
+            continue
+        metadata = path.stat()
+        originals[path] = (path.read_bytes(), metadata)
+    return originals
+
+
+def _prepare_replacements(
+    version: str,
+) -> tuple[
+    dict[Path, bytes],
+    list[str],
+    dict[Path, tuple[bytes, os.stat_result] | None],
+]:
+    """Snapshot every output before generating replacement candidates."""
+    generator = _load_generator()
+    targets = [MANUAL_PATH, generator.JSON_OUTPUT, generator.MARKDOWN_OUTPUT]
+    originals = _snapshot_originals(targets)
+    replacements, stamped = _candidate_outputs(version, generator)
+    return replacements, stamped, {path: originals[path] for path in replacements}
+
+
 def _write_temporary_sibling(
     path: Path,
     content: bytes,
@@ -215,17 +245,14 @@ def _transactional_replace(
     *,
     replace: Callable[[Path, Path], None] = os.replace,
     rollback_replace: Callable[[Path, Path], None] = os.replace,
+    originals: dict[Path, tuple[bytes, os.stat_result] | None] | None = None,
 ) -> None:
     """Best-effort multi-file replacement with fail-closed preparation and rollback."""
-    originals: dict[Path, tuple[bytes, os.stat_result] | None] = {}
-    for path in replacements:
-        if not path.exists():
-            originals[path] = None
-            continue
-        # Snapshot metadata before reading because the read itself may update
-        # atime on filesystems whose mount policy considers it stale.
-        metadata = path.stat()
-        originals[path] = (path.read_bytes(), metadata)
+    precomputed_originals = originals is not None
+    if originals is None:
+        originals = _snapshot_originals(list(replacements))
+    elif set(originals) != set(replacements):
+        raise ShipError("replacement snapshots do not match replacement targets")
     candidates: dict[Path, Path] = {}
     attempted: list[Path] = []
     try:
@@ -241,7 +268,8 @@ def _transactional_replace(
             replace(temporary, path)
     except BaseException as exc:
         rollback_errors: list[str] = []
-        for path in reversed(attempted):
+        rollback_paths = list(originals) if precomputed_originals else attempted
+        for path in reversed(rollback_paths):
             snapshot = originals[path]
             rollback: Path | None = None
             try:
@@ -270,7 +298,12 @@ def _transactional_replace(
         if not isinstance(exc, Exception):
             raise
         if not attempted:
-            raise ShipError(f"candidate preparation failed; no targets changed: {exc}") from exc
+            detail = (
+                "pre-generation snapshots restored"
+                if precomputed_originals
+                else "no targets changed"
+            )
+            raise ShipError(f"candidate preparation failed; {detail}: {exc}") from exc
         raise ShipError(f"replacement failed; all attempted targets restored: {exc}") from exc
     finally:
         for temporary in candidates.values():
@@ -432,11 +465,11 @@ def main() -> int:
 
     try:
         _require_current_version(version)
-        replacements, stamped = _candidate_outputs(version)
+        replacements, stamped, originals = _prepare_replacements(version)
         if not replacements:
             print(f"nothing to do: no command is marked {UNRELEASED!r}")
             return 0
-        _transactional_replace(replacements)
+        _transactional_replace(replacements, originals=originals)
     except (OSError, ShipError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
