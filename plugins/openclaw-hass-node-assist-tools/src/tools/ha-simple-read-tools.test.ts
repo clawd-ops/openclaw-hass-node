@@ -103,6 +103,91 @@ for (const c of CASES) {
   });
 }
 
+// Fail-closed regression tests for #281 review finding #1:
+// Empty/whitespace/wrong-type narrowing params must never be silently
+// dropped by the Assist wrapper. The wrapper forwards each caller-supplied
+// value verbatim so the Python handler is the single source of truth and
+// rejects with INVALID_PARAM.
+describe("ha_list_automations forwards narrowing params verbatim", () => {
+  const failClosedCases: Array<{
+    label: string;
+    args: Record<string, unknown>;
+    expectedParams: Record<string, unknown>;
+  }> = [
+    {
+      label: "empty entity_filter is forwarded (not dropped)",
+      args: { entity_filter: "" },
+      expectedParams: { entity_filter: "" },
+    },
+    {
+      label: "whitespace entity_filter is forwarded verbatim (no trim)",
+      args: { entity_filter: "   " },
+      expectedParams: { entity_filter: "   " },
+    },
+    {
+      label: "empty state_filter is forwarded (not dropped)",
+      args: { state_filter: "" },
+      expectedParams: { state_filter: "" },
+    },
+    {
+      label: "whitespace state_filter is forwarded verbatim (no trim)",
+      args: { state_filter: "   " },
+      expectedParams: { state_filter: "   " },
+    },
+    {
+      label: "padded entity_filter is forwarded without normalization",
+      args: { entity_filter: "  automation.morning_*  " },
+      expectedParams: { entity_filter: "  automation.morning_*  " },
+    },
+    {
+      label: "non-boolean include_traces is forwarded (not silently dropped)",
+      args: { include_traces: "true" },
+      expectedParams: { include_traces: "true" },
+    },
+  ];
+
+  for (const c of failClosedCases) {
+    it(c.label, async () => {
+      resolveMock.mockResolvedValue({
+        nodeId: "hass-001",
+        nodeDisplayName: "Hass",
+        policy: {},
+      });
+      invokeMock.mockResolvedValue({ ok: true });
+      const tool = await load("createHaListAutomationsTool");
+      await tool.execute(
+        "call-forward",
+        { node: "hass", ...c.args },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
+        command: "ha.list_automations",
+        commandParams: c.expectedParams,
+      });
+    });
+  }
+
+  it("omits filters that were not supplied by the caller", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: {},
+    });
+    invokeMock.mockResolvedValue({ ok: true });
+    const tool = await load("createHaListAutomationsTool");
+    await tool.execute(
+      "call-absent",
+      { node: "hass" },
+      new AbortController().signal,
+      () => undefined,
+    );
+    const commandParams = invokeMock.mock.calls[0]?.[0]?.commandParams;
+    expect(commandParams).toEqual({});
+  });
+});
+
 describe("addon tools reject missing slug", () => {
   it("ha_addon_logs throws when slug missing", async () => {
     resolveMock.mockResolvedValue({

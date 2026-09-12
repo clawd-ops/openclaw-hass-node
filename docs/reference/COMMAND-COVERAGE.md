@@ -3342,9 +3342,11 @@ rows are intentionally retained. Regenerate after editing source or
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
-  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0 with no traces fetched. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty`)
+  - `handler_dispatch` / `TEST-PROVEN` / **`pass`**: With include_traces=True and entity_filter='automation.match', the patched ha_ws_call trace lookup runs exactly once, and only for the surviving automation ('m'); traces are never fetched for filtered-out entities. (source: `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces`)
 - Curated acceptance-test IDs:
   - `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty` / `handler_dispatch` / `pass`
+  - `app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`

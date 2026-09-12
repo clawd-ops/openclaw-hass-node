@@ -36,14 +36,6 @@ function readString(
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 }
 
-function readBoolean(
-  params: Record<string, unknown>,
-  key: string,
-): boolean | undefined {
-  const v = params[key];
-  return typeof v === "boolean" ? v : undefined;
-}
-
 // --- pure node-only reads ---
 
 export const createHaListServicesTool = (): AnyAgentTool =>
@@ -96,13 +88,21 @@ export const createHaListAutomationsTool = (): AnyAgentTool =>
     command: "ha.list_automations",
     label: "Automations",
     buildCommandParams: (args) => {
+      // Forward each optional filter verbatim when the caller supplied it, so
+      // the Python handler is the single source of truth for narrowing shape.
+      // Trimming, empty-string coercion, or type normalization here would let
+      // malformed inputs (e.g. "" or "   ") fail open by silently dropping
+      // the narrowing param before it reaches the handler.
       const params: Record<string, unknown> = {};
-      const include_traces = readBoolean(args, "include_traces");
-      if (include_traces !== undefined) params.include_traces = include_traces;
-      const entity_filter = readString(args, "entity_filter");
-      if (entity_filter !== undefined) params.entity_filter = entity_filter;
-      const state_filter = readString(args, "state_filter");
-      if (state_filter !== undefined) params.state_filter = state_filter;
+      if (Object.prototype.hasOwnProperty.call(args, "include_traces")) {
+        params.include_traces = args.include_traces;
+      }
+      if (Object.prototype.hasOwnProperty.call(args, "entity_filter")) {
+        params.entity_filter = args.entity_filter;
+      }
+      if (Object.prototype.hasOwnProperty.call(args, "state_filter")) {
+        params.state_filter = args.state_filter;
+      }
       return params;
     },
   });

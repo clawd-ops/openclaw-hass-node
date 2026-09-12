@@ -374,6 +374,11 @@
           "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty",
           "caller": "handler_dispatch",
           "outcome": "pass"
+        },
+        {
+          "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces",
+          "caller": "handler_dispatch",
+          "outcome": "pass"
         }
       ],
       "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; unknown params fail closed with INVALID_PARAM. Regression tests cover exact/glob/no-match, invalid params, out-of-domain rejection, oversize filter, and that trace fetch runs only for the selected automations.",
@@ -383,7 +388,13 @@
             "method": "TEST-PROVEN",
             "outcome": "pass",
             "source": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty",
-            "observation": "The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0 with no traces fetched."
+            "observation": "The originally reproduced defect (entity_filter='automation.__openclaw_audit_no_match__' returning the full automation set) now returns count=0."
+          },
+          {
+            "method": "TEST-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_applied_before_traces",
+            "observation": "With include_traces=True and entity_filter='automation.match', the patched ha_ws_call trace lookup runs exactly once, and only for the surviving automation ('m'); traces are never fetched for filtered-out entities."
           }
         ]
       },
