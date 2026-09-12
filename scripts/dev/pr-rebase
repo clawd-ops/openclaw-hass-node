@@ -54,6 +54,7 @@ git rebase origin/main \
 echo ">>> regenerate coverage ledger"
 uv sync --quiet
 python scripts/generate-command-coverage.py
+pnpm install --no-frozen-lockfile
 pnpm docs:typescript
 
 if ! git diff --quiet; then
@@ -78,10 +79,18 @@ echo ">>> run-all-gates"
 scripts/dev/run-all-gates \
     || { echo "GATE FAILED — fix failures, then re-run pr-rebase" >&2; exit 1; }
 
-# Confidentiality audit on the diff.
-echo ">>> confidentiality-check on diff"
-git diff "origin/main...HEAD" | scripts/dev/confidentiality-check \
-    || { echo "CONFIDENTIAL LEAK in diff — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
+# Confidentiality audit on every changed blob and commit message. Reading blobs
+# directly includes binary content that a textual patch would encode or omit.
+echo ">>> confidentiality-check on changed content"
+CHANGED_LIST="$TEMP_ROOT/changed-files"
+git diff --name-only -z --diff-filter=ACMR "origin/main...HEAD" > "$CHANGED_LIST" \
+    || { echo "CONFIDENTIALITY AUDIT FAILED — could not enumerate changes" >&2; exit 1; }
+while IFS= read -r -d '' changed_path; do
+    git cat-file blob "HEAD:$changed_path" | scripts/dev/confidentiality-check \
+        || { echo "CONFIDENTIAL LEAK in changed content — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
+done < "$CHANGED_LIST"
+git log --format='%H%n%B' "origin/main..HEAD" | scripts/dev/confidentiality-check \
+    || { echo "CONFIDENTIAL LEAK in commit messages — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
 
 # Push with lease to avoid overwriting concurrent updates.
 echo ">>> git push --force-with-lease"

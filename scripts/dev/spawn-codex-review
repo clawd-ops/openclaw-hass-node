@@ -47,14 +47,126 @@ printf '%s' "$BRIEF" | "$CHECKER"
 
 LAUNCHER_AGENT="${OPENCLAW_REVIEW_LAUNCHER_AGENT:-clawd}"
 SESSION_KEY="agent:${LAUNCHER_AGENT}:review-launch-${PR}-${HEAD_SHA:0:12}-$$"
+TEMP_DIR=$(mktemp -d "/tmp/spawn-codex-review-${PR}.XXXXXX")
+PROMPT_FILE="$TEMP_DIR/launcher-prompt.txt"
+RESULT_FILE="$TEMP_DIR/launcher-result.json"
+SESSIONS_FILE="$TEMP_DIR/sessions.json"
+HISTORY_FILE="$TEMP_DIR/history.json"
+ERROR_FILE="$TEMP_DIR/launcher-errors.txt"
+cleanup() {
+    rm -f "$PROMPT_FILE" "$RESULT_FILE" "$SESSIONS_FILE" "$HISTORY_FILE" "$ERROR_FILE"
+    rmdir "$TEMP_DIR" 2>/dev/null || true
+}
+trap cleanup EXIT
+
 {
     printf '%s\n' 'Call sessions_spawn exactly once with runtime="subagent", mode="run", context="isolated", model="openai/gpt-5.6-sol", visible=true, and expectsCompletionMessage=true.'
-    printf '%s\n' 'Use the complete review brief below as the task. Do not perform the review yourself. Return only the accepted spawn receipt.'
+    printf '%s\n' 'Use the complete review brief below as the task. Do not perform the review yourself. Return only the accepted spawn receipt as compact JSON with no fence or commentary.'
     printf '\n%s\n' "$BRIEF"
-} | openclaw agent \
+} > "$PROMPT_FILE"
+"$CHECKER" "$PROMPT_FILE"
+
+if ! openclaw agent \
     --agent "$LAUNCHER_AGENT" \
     --session-key "$SESSION_KEY" \
     --model openai/gpt-5.6-sol \
     --thinking low \
-    --message-file - \
-    --json
+    --message-file "$PROMPT_FILE" \
+    --json > "$RESULT_FILE" 2> "$ERROR_FILE"; then
+    "$CHECKER" "$ERROR_FILE" || true
+    echo "spawn-codex-review: launcher turn failed" >&2
+    exit 1
+fi
+"$CHECKER" "$ERROR_FILE"
+"$CHECKER" "$RESULT_FILE"
+
+RECEIPT=$(python3 - "$RESULT_FILE" << 'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+try:
+    result = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    terminal = result["result"]["meta"]["agentMeta"]["terminalReceipt"]
+    if terminal.get("successfulToolNames") != ["sessions_spawn"]:
+        raise ValueError
+    payloads = result["result"]["payloads"]
+    if len(payloads) != 1 or not isinstance(payloads[0].get("text"), str):
+        raise ValueError
+    receipt = json.loads(payloads[0]["text"])
+    if receipt.get("status") != "accepted":
+        raise ValueError
+    if not all(isinstance(receipt.get(key), str) and receipt[key] for key in ("runId", "childSessionKey")):
+        raise ValueError
+except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
+    print("spawn-codex-review: no single accepted sessions_spawn receipt", file=sys.stderr)
+    raise SystemExit(1)
+print(json.dumps(receipt, separators=(",", ":"), sort_keys=True))
+PYEOF
+) || exit 1
+
+if ! openclaw sessions --all-agents --json --limit all > "$SESSIONS_FILE" 2> "$ERROR_FILE"; then
+    "$CHECKER" "$ERROR_FILE" || true
+    echo "spawn-codex-review: could not verify the child session" >&2
+    exit 1
+fi
+"$CHECKER" "$ERROR_FILE"
+python3 - "$SESSIONS_FILE" "$RECEIPT" << 'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+try:
+    sessions = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["sessions"]
+    receipt = json.loads(sys.argv[2])
+    if not any(item.get("key") == receipt["childSessionKey"] for item in sessions):
+        raise ValueError
+except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
+    print("spawn-codex-review: accepted child session was not found", file=sys.stderr)
+    raise SystemExit(1)
+PYEOF
+
+HISTORY_PARAMS=$(python3 - "$RECEIPT" << 'PYEOF'
+import json
+import sys
+
+receipt = json.loads(sys.argv[1])
+print(json.dumps({
+    "name": "sessions_history",
+    "args": {
+        "sessionKey": receipt["childSessionKey"],
+        "limit": 100,
+        "includeTools": False,
+    },
+}))
+PYEOF
+)
+if ! openclaw gateway call tools.invoke --json --params "$HISTORY_PARAMS" \
+    > "$HISTORY_FILE" 2> "$ERROR_FILE"; then
+    "$CHECKER" "$ERROR_FILE" || true
+    echo "spawn-codex-review: could not verify the child task" >&2
+    exit 1
+fi
+"$CHECKER" "$ERROR_FILE"
+"$CHECKER" "$HISTORY_FILE"
+python3 - "$HISTORY_FILE" "$BRIEF" << 'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+try:
+    history = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    messages = history["output"]["details"]["messages"]
+    user_content = next(item["content"] for item in messages if item.get("role") == "user")
+    brief = sys.argv[2]
+    if not isinstance(user_content, str):
+        raise ValueError
+    if user_content != brief and not user_content.endswith("\n" + brief):
+        raise ValueError
+except (KeyError, StopIteration, TypeError, ValueError, json.JSONDecodeError, OSError):
+    print("spawn-codex-review: child task does not match the assembled brief", file=sys.stderr)
+    raise SystemExit(1)
+PYEOF
+
+printf '%s\n' "$RECEIPT" | "$CHECKER"
+printf '%s\n' "$RECEIPT"

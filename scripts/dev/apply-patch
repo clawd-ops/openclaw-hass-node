@@ -28,7 +28,7 @@ if command -v apply_patch &>/dev/null; then
     apply_with apply_patch
 elif command -v git &>/dev/null; then
     if [[ -n "$PATCH_FILE" ]]; then
-        git apply --allow-empty "$PATCH_FILE"
+        git apply --allow-empty < "$PATCH_FILE"
     else
         git apply --allow-empty
     fi

@@ -301,6 +301,44 @@ def test_apply_patch_passes_named_file_on_stdin(tmp_path: Path) -> None:
     assert capture.read_text(encoding="utf-8") == "safe patch body\n"
 
 
+def test_git_fallback_treats_leading_dash_filename_as_stdin(tmp_path: Path) -> None:
+    """The Git fallback never interprets a patch filename as an option."""
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    (stub_bin / "bash").symlink_to(shutil.which("bash") or "/usr/bin/bash")
+    captured_args = tmp_path / "args.txt"
+    captured_patch = tmp_path / "captured.patch"
+    git = stub_bin / "git"
+    git.write_text(
+        '#!/bin/sh\nprintf \'%s\\n\' "$*" > "$CAPTURE_ARGS"\n/bin/cat > "$CAPTURE_PATCH"\n',
+        encoding="utf-8",
+    )
+    git.chmod(0o755)
+    patch_file = tmp_path / "-unsafe.patch"
+    patch_file.write_text("safe patch body\n", encoding="utf-8")
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": str(stub_bin),
+            "CAPTURE_ARGS": str(captured_args),
+            "CAPTURE_PATCH": str(captured_patch),
+        }
+    )
+
+    result = subprocess.run(
+        [str(stub_bin / "bash"), str(_APPLY), patch_file.name],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert captured_args.read_text(encoding="utf-8").strip() == "apply --allow-empty"
+    assert captured_patch.read_text(encoding="utf-8") == "safe patch body\n"
+
+
 def test_pr_state_selects_latest_attributed_comment(tmp_path: Path) -> None:
     """One JSON result uses the latest attributed comment and its pinned head."""
     stub_bin = tmp_path / "bin"
@@ -338,6 +376,7 @@ esac
             [
                 {
                     "created_at": "2026-01-01T00:00:00Z",
+                    "user": {"login": "example"},
                     "body": (
                         f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
                         "Reviewer model: openai/gpt-5.6-sol"
@@ -347,8 +386,19 @@ esac
             [
                 {
                     "created_at": "2026-01-02T00:00:00Z",
+                    "user": {"login": "example"},
                     "body": (
                         f"APPROVE\nReviewed exact head `{head}`.\n\n"
+                        "Reviewer model: openai/gpt-5.6-sol"
+                    ),
+                }
+            ],
+            [
+                {
+                    "created_at": "2026-01-03T00:00:00Z",
+                    "user": {"login": "untrusted"},
+                    "body": (
+                        f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
                         "Reviewer model: openai/gpt-5.6-sol"
                     ),
                 }
@@ -398,14 +448,34 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
     launcher.write_text(
         (
             "#!/bin/sh\n"
-            'printf \'%s\\n\' "$*" > "$CAPTURE_ARGS"\n'
-            'cat > "$CAPTURE_PROMPT"\n'
-            "echo '{\"ok\":true}'\n"
+            'if [ "$1" = "agent" ]; then\n'
+            '  printf \'%s\\n\' "$*" > "$CAPTURE_ARGS"\n'
+            '  previous=""\n'
+            '  for argument in "$@"; do\n'
+            '    if [ "$previous" = "--message-file" ]; then '
+            '/bin/cp "$argument" "$CAPTURE_PROMPT"; fi\n'
+            '    previous="$argument"\n'
+            "  done\n"
+            "  printf '%s\\n' \"$LAUNCH_RESULT\"\n"
+            'elif [ "$1" = "sessions" ]; then\n'
+            "  printf '%s\\n' \"$SESSIONS_RESULT\"\n"
+            'elif [ "$1" = "gateway" ]; then\n'
+            "  printf '%s\\n' \"$HISTORY_RESULT\"\n"
+            "else exit 9; fi\n"
         ),
         encoding="utf-8",
     )
     launcher.chmod(0o755)
     denylist = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    expected_brief = (
+        (_REPO_ROOT / "scripts/dev/templates/codex-review-brief.md")
+        .read_text(encoding="utf-8")
+        .replace("<PR>", "7")
+        .replace("<HEAD_SHA>", "0" * 40)
+        .replace("<BASE_SHA>", f"{1:040d}")
+        .replace("<NARROWING>", "(no additional narrowing)")
+        .rstrip("\n")
+    )
     env = os.environ.copy()
     env.update(
         {
@@ -413,6 +483,44 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
             "CAPTURE_ARGS": str(captured_args),
             "CAPTURE_PROMPT": str(captured_prompt),
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
+            "LAUNCH_RESULT": json.dumps(
+                {
+                    "status": "ok",
+                    "result": {
+                        "payloads": [
+                            {
+                                "text": json.dumps(
+                                    {
+                                        "status": "accepted",
+                                        "runId": "run-1",
+                                        "childSessionKey": "agent:clawd:child-1",
+                                    }
+                                )
+                            }
+                        ],
+                        "meta": {
+                            "agentMeta": {
+                                "terminalReceipt": {"successfulToolNames": ["sessions_spawn"]}
+                            }
+                        },
+                    },
+                }
+            ),
+            "SESSIONS_RESULT": json.dumps({"sessions": [{"key": "agent:clawd:child-1"}]}),
+            "HISTORY_RESULT": json.dumps(
+                {
+                    "output": {
+                        "details": {
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": f"[Subagent Task]\n{expected_brief}",
+                                }
+                            ]
+                        }
+                    }
+                }
+            ),
         }
     )
 
@@ -428,6 +536,60 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
     assert "--model openai/gpt-5.6-sol" in captured_args.read_text(encoding="utf-8")
 
 
+def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> None:
+    """A successful launcher process without one spawn tool call fails closed."""
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    gh = stub_bin / "gh"
+    gh.write_text(
+        "#!/bin/sh\ncase \"$*\" in *headRefOid*) printf '%040d\\n' 0;; "
+        "*) printf '%040d\\n' 1;; esac\n",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    launcher = stub_bin / "openclaw"
+    launcher.write_text(
+        '#!/bin/sh\nif [ "$1" = agent ]; then printf \'%s\\n\' "$LAUNCH_RESULT"; '
+        "else printf '%s\\n' '{\"sessions\":[]}'; fi\n",
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+    denylist = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{stub_bin}:{env['PATH']}",
+            "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
+            "LAUNCH_RESULT": json.dumps(
+                {
+                    "status": "ok",
+                    "result": {
+                        "payloads": [
+                            {
+                                "text": json.dumps(
+                                    {
+                                        "status": "accepted",
+                                        "runId": "invented",
+                                        "childSessionKey": "agent:clawd:invented",
+                                    }
+                                )
+                            }
+                        ],
+                        "meta": {"agentMeta": {"terminalReceipt": {"successfulToolNames": []}}},
+                    },
+                }
+            ),
+        }
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert "no single accepted sessions_spawn receipt" in result.stderr
+
+
 def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
     """Static invariants prevent the shared-checkout and silent-failure regressions."""
     text = _PR_REBASE.read_text(encoding="utf-8")
@@ -436,3 +598,14 @@ def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
     assert '"--force-with-lease=refs/heads/$BRANCH:$EXPECTED_HEAD"' in text
     assert 'generate-command-coverage.py" 2>/dev/null || true' not in text
     assert 'check-active-docs-schema.py" 2>/dev/null || true' not in text
+    assert text.index("pnpm install --no-frozen-lockfile") < text.index("pnpm docs:typescript")
+    assert 'git diff --name-only -z --diff-filter=ACMR "origin/main...HEAD"' in text
+    assert 'git cat-file blob "HEAD:$changed_path"' in text
+
+
+def test_gate_runner_matches_typescript_workflow_scope() -> None:
+    """Node changes run cross-language tests and diff failures have guidance."""
+    text = (_REPO_ROOT / "scripts" / "dev" / "run-all-gates").read_text(encoding="utf-8")
+    assert "app/node/*" in text
+    assert "uv sync --package openclaw-node --python 3.13" in text
+    assert 'fail "changed-path enumeration (branch)"' in text
