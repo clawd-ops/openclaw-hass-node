@@ -444,6 +444,12 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
         end_time (str, optional): ISO-8601 upper bound.
         entity_id (str, optional): Restrict to a single entity.
 
+    Known defect: values are interpolated without percent-encoding. ``end_time``
+    becomes a query value, where ``+`` means a space, so a ``+00:00`` offset is
+    not transmitted correctly and the ``Z`` form should be used. ``start_time``
+    becomes a path segment, where ``+`` is literal; that position is not known to
+    fail and was not separately probed.
+
     Returns:
         ``{ok: True, count, entries}`` or an error dict.
     """
@@ -481,6 +487,15 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
         minimal_response (bool, optional): Reduce payload size (default False).
         no_attributes (bool, optional): Omit attributes (default False).
         significant_changes_only (bool, optional): Only significant changes.
+
+    Known defects: values are interpolated without percent-encoding.
+    ``end_time`` becomes a query value, where ``+`` means a space, so a
+    ``+00:00`` offset is rejected by HA with ``Invalid end_time`` and the ``Z``
+    form must be used; observed live against the installed node. ``start_time``
+    becomes a path segment, where ``+`` is literal; that position is not known to
+    fail and was not separately probed. An unknown entity in ``entity_ids``
+    yields ``{ok: True, count: 0}``, which is indistinguishable from a real
+    entity with no history in the window.
 
     Returns:
         ``{ok: True, count, history}`` where ``history`` is a list of entity
@@ -520,6 +535,16 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
 
     This is an operator-admin action; the caller must supply a valid
     ``OPENCLAW_ADMIN_TOKEN`` in the environment (same gate as ``system.run``).
+
+    Known defect: a ``domain`` parameter is advertised but never read. This
+    always calls ``homeassistant.reload_core_config``, so a request to reload
+    ``automation`` or ``template`` silently reloads core config instead. Do not
+    present this as a per-domain reload until the parameter is either
+    implemented or rejected.
+
+    Unverified authorization: the ``OPENCLAW_ADMIN_TOKEN`` gate is not the
+    ratified authorization model. Admin ops move to operator approval; see
+    ``design/AUTHORIZATION-MODEL.md``.
 
     Returns:
         ``{ok: True}`` on success or an error dict.

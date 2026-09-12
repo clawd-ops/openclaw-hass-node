@@ -296,17 +296,23 @@ export const HA_LOGBOOK_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: logbook",
   name: "ha_logbook",
   description:
-    "On the paired Home Assistant node: read HA logbook entries. This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
+    "On the paired Home Assistant node: read HA logbook entries. KNOWN DEFECT: values are interpolated into the HA request without percent-encoding, and 'end' becomes a query parameter where '+' means a space, so prefer the 'Z' form over a '+00:00' offset for 'end'. This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     entity_id: Type.Optional(
       Type.String({ description: "Filter to a single entity_id." }),
     ),
     start: Type.Optional(
-      Type.String({ description: "ISO-8601 start (inclusive)." }),
+      Type.String({
+        description:
+          "ISO-8601 start (inclusive). Sent as a URL path segment, where a '+00:00' offset is not known to fail but was not separately probed; the 'Z' form is proven.",
+      }),
     ),
     end: Type.Optional(
-      Type.String({ description: "ISO-8601 end (exclusive)." }),
+      Type.String({
+        description:
+          "ISO-8601 end (exclusive). Sent as a query value, where '+' means a space, so prefer the 'Z' form over a '+00:00' offset.",
+      }),
     ),
   }),
 };
@@ -315,17 +321,26 @@ export const HA_HISTORY_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: history",
   name: "ha_history",
   description:
-    "On the paired Home Assistant node: read historical state changes. This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
+    "On the paired Home Assistant node: read historical state changes. KNOWN DEFECTS: values are interpolated into the HA request without percent-encoding, and 'end' becomes a query parameter where '+' means a space, so an 'end' of '+00:00' offset form is rejected by HA with 'Invalid end_time' — use the 'Z' form. An entity_id that does not exist returns an empty result that is indistinguishable from a real entity with no history in the window. This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     entity_id: Type.Optional(
-      Type.String({ description: "Filter to a single entity_id." }),
+      Type.String({
+        description:
+          "Filter to a single entity_id. A nonexistent entity_id yields an empty result rather than an error.",
+      }),
     ),
     start: Type.Optional(
-      Type.String({ description: "ISO-8601 start (inclusive)." }),
+      Type.String({
+        description:
+          "ISO-8601 start (inclusive). Sent as a URL path segment, where a '+00:00' offset is not known to fail but was not separately probed; the 'Z' form is proven.",
+      }),
     ),
     end: Type.Optional(
-      Type.String({ description: "ISO-8601 end (exclusive)." }),
+      Type.String({
+        description:
+          "ISO-8601 end (exclusive). Sent as a query value, where '+' means a space, so a '+00:00' offset is rejected by HA; use the 'Z' form.",
+      }),
     ),
   }),
 };
@@ -416,11 +431,12 @@ export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: reload config",
   name: "ha_reload_config",
   description:
-    "On the paired Home Assistant node: reload a HA config domain (e.g. 'automation', 'template'). Tier B: requires allowAdminOps + adminToken configured on the node. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: reload Home Assistant core configuration. KNOWN DEFECT, do not rely on this for per-domain reloads: the domain parameter is accepted and then ignored, and the node always calls homeassistant.reload_core_config. Asking for 'automation' or 'template' silently reloads core config instead. UNVERIFIED authorization: the adminToken gate described here is not the ratified authorization model and is being replaced by operator approval. This tool reaches the hass node — NOT the OC host.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     domain: Type.String({
-      description: "HA config domain to reload (e.g. 'automation').",
+      description:
+        "ACCEPTED AND IGNORED. The node never reads this value and always reloads core config, so naming a domain such as 'automation' does not reload that domain. Required by this Assist schema and the plugin wrapper, not by the node itself.",
     }),
   }),
 };
