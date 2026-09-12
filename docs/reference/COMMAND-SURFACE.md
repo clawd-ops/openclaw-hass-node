@@ -76,9 +76,9 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
-## `ha.*` — Home Assistant control (39 commands)
+## `ha.*` — Home Assistant control (40 commands)
 
-Includes the base observability/control surface (28), Tier B addon
+Includes the base observability/control surface (29), Tier B addon
 lifecycle including update (1 extra), and the nine `ha.config.*`
 domain-config editors (9). Sections for each `ha.config.*` command
 follow the base surface below.

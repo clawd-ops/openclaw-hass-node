@@ -1801,7 +1801,7 @@ async def test_supervisor_info_happy_path() -> None:
             "supervisor": "2024.01.0",
             "homeassistant": "2024.1.0",
             "hassos": "12.0",
-            "operating_system": {"board": "generic-x86-64", "version": "12.0"},
+            "operating_system": "Home Assistant OS 12.0",
             "docker": "24.0.5",
             "channel": "stable",
             # Sensitive fields that MUST NOT leak:
@@ -1855,6 +1855,57 @@ async def test_supervisor_info_missing_data_key() -> None:
     with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={}):
         result = await handle_ha_supervisor_info({})
     assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_supervisor_info_drops_nested_values_under_allowed_fields() -> None:
+    """A structured value under an allowlisted key must not ride through.
+
+    Selecting by key name alone would pass the whole object, so a Supervisor
+    release that turned one of these fields into an object would leak whatever
+    it carried. Non-scalar values are dropped to `None` instead.
+    """
+    payload = {
+        "data": {
+            "arch": "amd64",
+            # An allowlisted key whose value smuggles sensitive content.
+            "operating_system": {
+                "hostname": "internal-host-name",
+                "ip_address": "192.0.2.100",
+                "version": "12.0",
+            },
+            "machine": ["generic-x86-64", {"hostname": "internal-host-name"}],
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+
+    assert result["ok"] is True
+    info = result["info"]
+    assert info["arch"] == "amd64"
+    assert info["operating_system"] is None
+    assert info["machine"] is None
+    assert "internal-host-name" not in repr(result)
+    assert "192.0.2.100" not in repr(result)
+
+
+async def test_supervisor_info_does_not_echo_upstream_error_body() -> None:
+    """`HAClientError.message` can carry up to 512 bytes of the upstream body.
+
+    That body may name the host, so this command returns fixed text and keeps
+    only the error code.
+    """
+    leaky = HAClientError(
+        "HA_HTTP_ERROR",
+        "Supervisor returned 500: {'hostname': 'internal-host-name', 'ip_address': '192.0.2.100'}",
+    )
+    with patch("openclaw_node.commands.ha.supervisor_get_json", side_effect=leaky):
+        result = await handle_ha_supervisor_info({})
+
+    assert result["ok"] is False
+    assert result["error"] == "HA_HTTP_ERROR"
+    assert "internal-host-name" not in repr(result)
+    assert "192.0.2.100" not in repr(result)
+    assert "see node logs" in result["message"]
 
 
 async def test_supervisor_info_supervisor_unavailable() -> None:

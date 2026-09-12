@@ -1221,24 +1221,51 @@ _SUPERVISOR_INFO_FIELDS: Final[tuple[str, ...]] = (
     "channel",
 )
 
+# Every allowlisted field above is a version string or an architecture name, so
+# a scalar is the only legitimate shape. Selecting by key alone is not enough:
+# if a future Supervisor release turns one of these into an object, that object
+# would ride through the name filter carrying whatever it contains, `hostname`
+# and network details included. Anything non-scalar is therefore dropped rather
+# than returned, which keeps "hostname is never exposed" true by construction
+# instead of by assumption about the upstream shape.
+_SUPERVISOR_INFO_SCALARS: Final[tuple[type, ...]] = (str, int, float, bool)
+
+
+def _scalar_or_none(value: Any) -> Any:
+    """Return ``value`` when it is a safe scalar, else ``None``.
+
+    ``bool`` is a subclass of ``int`` and both are acceptable here, so the
+    ``isinstance`` check needs no special case.
+    """
+    return value if value is None or isinstance(value, _SUPERVISOR_INFO_SCALARS) else None
+
 
 async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
     """Return allowlisted host-level runtime info from the Supervisor.
 
     Hits ``GET http://supervisor/info``. Read-only by construction. Returns
-    only the ``_SUPERVISOR_INFO_FIELDS`` subset so that sensitive fields such
-    as ``hostname``, ``timezone``, and network details are never exposed.
+    only the ``_SUPERVISOR_INFO_FIELDS`` subset, and only where the value is a
+    scalar, so that sensitive fields such as ``hostname``, ``timezone``, and
+    network details are never exposed — neither at the top level, nor nested
+    inside an allowlisted field, nor through an upstream error body.
     Accepts no parameters (``_params`` is required by the handler protocol
     but is ignored).
 
     Returns:
         ``{ok: True, info}`` where ``info`` contains the allowlisted fields
-        (missing source fields surface as ``None``), or an error dict.
+        (missing or non-scalar source fields surface as ``None``), or an error
+        dict whose message is fixed text rather than upstream content.
     """
     try:
         raw = await supervisor_get_json("/info")
     except HAClientError as exc:
-        return _to_error(exc)
+        # `supervisor_get_json` embeds up to 512 bytes of the upstream error
+        # body in `exc.message`, and a Supervisor error body may name the host.
+        # This command is a confidentiality boundary, so the code is preserved
+        # for callers to branch on while the upstream text is dropped. Operators
+        # can still see the full message in the node log.
+        _LOG.warning("ha.supervisor_info upstream error (%s): %s", exc.code, exc.message)
+        return _error(exc.code, "Supervisor /info request failed; see node logs for detail")
 
     if not isinstance(raw, dict):
         return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /info")
@@ -1246,7 +1273,7 @@ async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         return _error("HA_BAD_RESPONSE", "Supervisor /info response missing 'data'")
 
-    info = {field: data.get(field) for field in _SUPERVISOR_INFO_FIELDS}
+    info = {field: _scalar_or_none(data.get(field)) for field in _SUPERVISOR_INFO_FIELDS}
     return {"ok": True, "info": info}
 
 

@@ -29,9 +29,14 @@ Shipped:
 - `ha.list_addons` — `GET /addons` (discovery path for the slug-required commands)
 - `ha.addon_info` — `GET /addons/<slug>/info` (options / schema / repository / capability flags **stripped at the boundary**)
 - `ha.addon_stats` — `GET /addons/<slug>/stats`
-- `ha.supervisor_info` — `GET /supervisor/info` (allowlisted; `hostname` and network fields excluded)
 - `ha.addon_changelog` — `GET /addons/<slug>/changelog`
 - `ha.addon_documentation` — `GET /addons/<slug>/documentation`
+
+Merged but not yet in a released artifact:
+
+- `ha.supervisor_info` — `GET /info` (allowlisted host/Supervisor versions and
+  architecture; `hostname`, `timezone`, and network fields excluded, and
+  non-scalar values dropped so nothing rides through nested)
 
 Every Tier A command MUST:
 
@@ -39,8 +44,14 @@ Every Tier A command MUST:
   as `http://supervisor{path}` — never combined with a user-supplied URL).
 - Apply a fixed field allowlist before returning. Never `return raw`
   (`ha.list_addons`'s allowlist is the canonical example).
-- Validate the slug against the existing `_valid_addon_slug` rule.
+- Validate the slug against the existing `_valid_addon_slug` rule **when the
+  command takes a slug**. A parameterless command such as `ha.supervisor_info`
+  has no caller input to validate; that is a stronger position, not an exemption.
 - Cap response size (`supervisor_get_text` keeps a bounded 1 MiB tail).
+- Never return an upstream error body verbatim when the response is a
+  confidentiality boundary. `supervisor_get_json` embeds up to 512 bytes of the
+  upstream body in `HAClientError.message`, which can name the host, so return
+  fixed text and keep only the error code.
 
 ### Open question on Tier A — reading addon `options`
 
