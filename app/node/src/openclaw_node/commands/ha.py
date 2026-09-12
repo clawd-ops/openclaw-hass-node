@@ -444,9 +444,11 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
         end_time (str, optional): ISO-8601 upper bound.
         entity_id (str, optional): Restrict to a single entity.
 
-    Known defect: ``start_time`` and ``end_time`` are interpolated into the
-    request path and query without percent-encoding, so an offset form such as
-    ``+00:00`` is not transmitted correctly; callers must use the ``Z`` form.
+    Known defect: values are interpolated without percent-encoding. ``end_time``
+    becomes a query value, where ``+`` means a space, so a ``+00:00`` offset is
+    not transmitted correctly and the ``Z`` form should be used. ``start_time``
+    becomes a path segment, where ``+`` is literal; that position is not known to
+    fail and was not separately probed.
 
     Returns:
         ``{ok: True, count, entries}`` or an error dict.
@@ -486,12 +488,14 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
         no_attributes (bool, optional): Omit attributes (default False).
         significant_changes_only (bool, optional): Only significant changes.
 
-    Known defects: ``start_time`` and ``end_time`` are interpolated into the
-    request path and query without percent-encoding, so an offset form such as
-    ``+00:00`` is not transmitted correctly and HA rejects it with
-    ``Invalid end_time``; callers must use the ``Z`` form. An unknown entity in
-    ``entity_ids`` yields ``{ok: True, count: 0}``, which is indistinguishable
-    from a real entity with no history in the window.
+    Known defects: values are interpolated without percent-encoding.
+    ``end_time`` becomes a query value, where ``+`` means a space, so a
+    ``+00:00`` offset is rejected by HA with ``Invalid end_time`` and the ``Z``
+    form must be used; observed live against the installed node. ``start_time``
+    becomes a path segment, where ``+`` is literal; that position is not known to
+    fail and was not separately probed. An unknown entity in ``entity_ids``
+    yields ``{ok: True, count: 0}``, which is indistinguishable from a real
+    entity with no history in the window.
 
     Returns:
         ``{ok: True, count, history}`` where ``history`` is a list of entity
