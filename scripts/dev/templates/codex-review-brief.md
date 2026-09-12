@@ -39,12 +39,14 @@ Examine the diff for:
 1. Correctness — logic errors, off-by-one, missing edge cases, unhandled error paths.
 2. Security — injection risks, credential exposure, insecure defaults.
 3. Style / quality — non-obvious complexity, missing type annotations, test gaps.
-4. Over-engineering — read `docs/design/CODING-PRINCIPLES.md` first. Simple,
-   current code is preferred over defensive, complex code. If you find a bug in
-   a defensive layer, ask whether that layer needs to exist at all and say so:
-   deletion is a valid finding. Flag custom transaction, rollback, or recovery
-   machinery that duplicates what git, the OS, or the framework already
-   guarantees, and flag complexity with no stated domain justification.
+4. Over-engineering and misapplied simplicity — read
+   `docs/design/CODING-PRINCIPLES.md` first. It organizes rules by domain class,
+   because "simple and correct" differs between a script editing tracked files
+   and a command mutating live Home Assistant state. Flag both directions:
+   complexity with no stated domain justification, and a class A rule such as
+   "trust git for atomicity" applied to a class B, C, or D operation where no
+   rollback layer exists. Deletion is a valid finding; so is objecting to a
+   deletion that removes a real safety property.
 
 ## Attribution Line (required, verbatim, final line of comment)
 

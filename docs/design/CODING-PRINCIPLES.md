@@ -1,69 +1,140 @@
 # Coding principles
 
-Simple, current, accurate code is preferred over defensive, robust, complex
-code. This page is context for contributors and for reviewers: a reviewer should
-flag over-engineering as readily as a missing edge case.
+## The principle
 
-## Prefer simple over defensive
+Prefer simple, correct code. Complexity is warranted only when a domain-specific
+requirement justifies it. Deleting code is a valid response to a review finding.
+When a defensive layer causes bugs the reviewer keeps finding, ask first whether
+the layer needs to exist.
 
-Defensive layers are not free. They are code that must be read, maintained,
-tested, and reasoned about, and they carry their own bugs. A recovery path that
-is never exercised in practice is a liability, not a safety net.
+## Why this doc is organized by domain
 
-Before adding machinery that guards against a failure, ask whether the failure is
-real in this system, and whether something below already handles it.
+"Simple and correct" does not mean the same thing everywhere in this repository.
+A script that rewrites a tracked JSON file and a command that turns on a light
+have different recovery stories, and a rule learned from one is actively
+dangerous applied to the other.
 
-## Deletion is a valid response to a review finding
+The classes below say what simple-and-correct means in each. **Before applying a
+rule, identify which class the code belongs to.** Applying a class A rule to a
+class C operation is a defect, and reviewers should flag it as one.
 
-When a review finds a bug in a defensive layer, the first question is **"does
-this layer need to exist?"** — not "how do I fix it?"
+### A. Scripts editing files in this repository
 
-Patching the layer keeps its cost and adds more. Deleting it removes the bug and
-the maintenance burden together. Reach for the fix only once deletion is ruled
-out.
+`scripts/`, and anything else operating on tracked files in a developer or CI
+checkout.
 
-Worked example from this repository: the release stamping script grew a custom
-snapshot, metadata-restore and transactional-replace path so a partial failure
-could be rolled back. A review found a real bug in it, an access-time side
-effect on a failed multi-file acquisition. The script edits tracked files, so
-`git checkout -- .` already recovers a partial run completely. The machinery was
-deleted rather than repaired: 541 lines to 348, and its test file from 734 lines
-to 85. The bug went with it.
+Git provides recovery. A partial run is repaired by `git checkout -- .` followed
+by a retry, and the operator is present to do it. Do not build snapshot,
+rollback, or transactional-replace machinery that only approximates what git
+already guarantees. Fail loudly and early; a clean crash is better than a silent
+partial success plus cleanup code nobody has exercised.
 
-## Trust the layer that already guarantees it
+### B. `fs.*` node commands writing outside the repository
 
-Do not reimplement atomicity, transactions, locking, or rollback that git, the
-operating system, the database, or the framework already provides.
+Eleven commands writing under the allowed roots enforced by `safe_path.py` and
+`safe_fd.py`.
 
-- A script mutating tracked files does not need rollback. Fail cleanly, let the
-  operator run `git checkout -- .` and retry.
-- A single `write_text` does not need a temporary sibling and a rename unless a
-  concurrent reader genuinely exists.
-- Prefer a loud, early failure over a silent partial success followed by
-  cleanup logic nobody has run in anger.
+Git does not help here and the caller may have no retry story. Defensive
+semantics are warranted: atomic writes, path containment enforced at the
+boundary, and explicit structured error codes on refusal. The containment check
+is not optional caution, it is the security property.
 
-## Complexity requires justification tied to a real need
+### C. `ha.*` commands mutating live Home Assistant state
 
-Complexity earns its place by serving a real domain requirement, not an imagined
-failure mode. When it is genuinely needed, say why in a comment at the point of
-difficulty, so the next reader can re-evaluate the tradeoff rather than
-preserving it out of caution.
+Forty commands. **There is no rollback layer.** A `call_service` that flips a
+light is permanent until another call reverses it, and nothing in this repo can
+undo it.
 
-Complexity that does earn its keep is kept. Simplification is not an excuse to
-drop a working gate or a real safety property. In the same change that deleted
-the stamping machinery, the `--check-release-bump` gate was left untouched: it
-is wired into CI and enforces an invariant nothing else checks.
+Defensive coding is required, specifically:
 
-## Fix a class of bug once, in a small place
+- Fail closed on malformed input rather than guessing intent.
+- **Refuse before the side effect**, not after. Ordering is the correctness
+  property: validation and policy checks must complete before the request body
+  is built and sent.
+- Explicit denylist gates for privileged services.
+- Structured, specific errors when a call is refused, so a caller can tell a
+  refusal from a failure.
 
-When the same mistake can occur in several spots, fix it at the root so it stays
-fixed. The `re.match` versus `re.fullmatch` defect was corrected in the shared
-version parser rather than at each call site, so a trailing newline can no
-longer be accepted in one place and rejected in another.
+Authorization envelopes and tier policy earn their complexity here.
 
-## What this is not
+### D. `system.run` and commands with external-system side effects
 
-This is not an argument for sloppiness or for dropping error handling. Handle
-errors that actually occur, validate input that actually arrives from outside,
-and keep the checks that protect a real invariant. The target is invented
-machinery, not care.
+Same posture as C, and for the same reason: the effects are irreversible and
+land on the host rather than in this repo. Approval envelopes, argv binding to
+an approved plan, and plan-mismatch detection are warranted complexity, not
+defensive clutter.
+
+### E. Network I/O
+
+`ha_client.py` and anything else talking to an external system.
+
+Timeouts, bounded retries with backoff, and response size caps are warranted.
+Do not paper over transient failures silently: a swallowed error here becomes a
+wrong answer upstream.
+
+### F. Generic in-repo Python
+
+Handlers, utilities, tests.
+
+Prefer clarity over cleverness. Type hints and docstrings on public interfaces.
+Skip defensive checks for invariants the type system already guarantees; a
+runtime assertion that mypy has already proved is noise.
+
+## Worked examples
+
+### Simplification was correct
+
+**The release stamping script** (`scripts/mark-commands-shipped.py`, PR #305).
+A review found a real bug in its custom snapshot, metadata-restore and
+transactional-replace path. That code was class A: it edits tracked files, so
+git already provided the recovery it was approximating. The machinery was
+deleted rather than repaired. The file went from 541 to 348 lines and its test
+file from 734 to 85; the stamping path itself is now roughly 40 lines, with the
+remaining bulk being the `--check-release-bump` CI gate, which was kept.
+
+**Second example: none yet.** The other recent simplification-shaped findings
+were genuine defects in load-bearing code, not excess machinery. This section
+should gain an entry only when deletion is actually the right call again, not to
+fill the slot.
+
+### Defensive code was warranted
+
+**The exec-approval envelope binding** (`system.run`, PR #277, merge
+`6680114e3be208ecc2cc8516ee7f80d74fdff254`, building on PR #274, merge
+`222ce4451738fb8b6882fc935eac4cc5044bfda6`). Class D. `system.run` executes on
+the host with effects this repo cannot undo, so the approval envelope is the
+security contract rather than a safety net around it. Binding the executed argv
+to the approved plan, and refusing on mismatch, is the feature. A review of this
+code found a partial-plan authorization bypass, and the correct response was to
+tighten the binding, not to question whether binding should exist.
+
+**The `ha.call_service` denylist gate** (PR #295, merge
+`bd66d0cc957f1ab4bfc34e581476277f0af8ff67`). Class C. Generic service calls can
+reach privileged effects that have dedicated, policy-gated commands. The gate
+refuses **before** the request body is built, which is why the ordering is a
+correctness requirement and not a stylistic preference: a check that ran after
+the body was assembled could still dispatch on a bug in the matcher.
+
+## The test before adding a principle here
+
+> Would this principle apply verbatim in a completely different domain class
+> from the one that motivated it? If yes, generalize it or move it into a domain
+> section. If no, qualify it with the domain it applies to.
+
+The motivating case for this document failed that test. "Trust git for
+atomicity" is true for class A and wrong for class C, where no rollback layer
+exists at all.
+
+## What this document is not
+
+This is **not** a record of every lesson learned. It is the smallest set of
+durable principles that generalizes safely across the domain classes above.
+
+A new entry requires a real cross-domain principle. A project-specific incident
+belongs in the PR that fixed it, or in a domain section if it changes what
+simple-and-correct means for that class. Growing this file with incident notes
+would make it the thing it warns against.
+
+It is also not an argument against error handling. Handle errors that occur,
+validate input arriving from outside the process, and keep every check that
+protects a real invariant. The target is invented machinery, not care.
