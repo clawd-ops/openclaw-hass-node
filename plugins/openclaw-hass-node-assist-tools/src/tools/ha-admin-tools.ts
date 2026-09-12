@@ -171,6 +171,12 @@ function createAdminTool(input: AdminInput): AnyAgentTool {
         // `domain` is optional and only "core" is supported. Forward it when
         // supplied so the node, not the plugin, owns the rejection message for
         // an unsupported domain.
+        //
+        // On the Assist tool path the `Type.Literal("core")` descriptor has
+        // already refused every other value, blank and whitespace-only strings
+        // included, so the trim below only ever normalizes "core" there. It
+        // still matters for callers that reach this wrapper without that
+        // schema check.
         const domain = readTrimmedString(params, "domain");
         if (domain) commandParams.domain = domain;
       } else if (input.command === "ha.update_install") {

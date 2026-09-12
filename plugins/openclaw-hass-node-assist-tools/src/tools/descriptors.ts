@@ -425,7 +425,7 @@ export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
     domain: Type.Optional(
       Type.Literal("core", {
         description:
-          "Only 'core' is supported, and omitting it is equivalent. Per-domain reload is not implemented; any other value is rejected with UNSUPPORTED.",
+          "Only 'core' is accepted here, and omitting it is equivalent. Per-domain reload is not implemented. This literal is an executable constraint, so on this Assist path any other value, including a blank or whitespace-only string, is refused by schema validation before the tool runs. The node's UNSUPPORTED result, and its treatment of a whitespace-only domain as omitted, describe direct node invocation rather than this path.",
       }),
     ),
   }),
