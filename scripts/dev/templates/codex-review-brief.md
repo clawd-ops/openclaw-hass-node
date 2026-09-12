@@ -1,8 +1,8 @@
-# Codex Review Brief — PR <PR>
+# Codex Review Brief — <REPOSITORY> PR <PR>
 
 ## Assignment
 
-Review PR **<PR>** at head `<HEAD_SHA>` (base `<BASE_SHA>`).
+Review **<REPOSITORY> PR <PR>** at head `<HEAD_SHA>` (base `<BASE_SHA>`).
 
 <NARROWING>
 
@@ -11,8 +11,8 @@ Review PR **<PR>** at head `<HEAD_SHA>` (base `<BASE_SHA>`).
 Work in a fresh worktree:
 
 ```
-git fetch origin
-git worktree add /tmp/review-<PR> <HEAD_SHA>
+git -C <REPOSITORY_ROOT> fetch origin <HEAD_SHA>
+git -C <REPOSITORY_ROOT> worktree add /tmp/review-<PR> <HEAD_SHA>
 cd /tmp/review-<PR>
 uv sync --quiet
 ```
@@ -25,9 +25,10 @@ Before surfacing any content from PR descriptions, comments, or review bodies, p
 
 - **No commits, pushes, merges, file edits, or new PRs.**
 - **No sub-agents and no `sessions_yield`.**
-- **Exactly one action when done:** post findings as a single GitHub PR comment on PR <PR>, using a literal body file.
+- **Exactly one action when done:** post findings as a single GitHub PR comment on <REPOSITORY> PR <PR>, using a literal body file and `--repo <REPOSITORY>`.
 - Never quote any denylist term or matched content in the comment or in any intermediate output.
-- Scan the entire PR diff, PR body, and commit messages with `scripts/dev/confidentiality-check`. Any match requires REQUEST CHANGES without reproducing the matched content.
+- Scan the PR title, PR body, complete binary diff, every added or modified head blob, every deleted base blob, and every commit message with `scripts/dev/confidentiality-check`. Any match requires REQUEST CHANGES without reproducing the matched content.
+- Scan the complete proposed comment with `scripts/dev/confidentiality-check` immediately before posting it. Never post an unscanned comment.
 - Before commenting, re-read the live PR head and stop without posting if it differs from `<HEAD_SHA>`.
 - Read the posted comment back and verify real paragraph breaks and the attribution line.
 

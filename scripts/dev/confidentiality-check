@@ -29,6 +29,13 @@ if [[ ! -r "$DENYLIST_FILE" ]]; then
     exit 1
 fi
 
+DENYLIST_MODE=$(stat -c '%a' "$DENYLIST_FILE" 2>/dev/null) \
+    || { echo "confidentiality-check: could not verify denylist permissions" >&2; exit 1; }
+if [[ "$DENYLIST_MODE" != "600" ]]; then
+    echo "confidentiality-check: denylist must have mode 600" >&2
+    exit 1
+fi
+
 if [[ ! -s "$DENYLIST_FILE" ]]; then
     # Empty denylist — nothing to match against, always clean.
     exit 0
@@ -38,7 +45,11 @@ fi
 # grep exit codes: 0 = match found, 1 = no match, 2 = error. Capture the
 # status explicitly so input errors fail closed instead of looking clean.
 set +e
-grep -qiF -f "$DENYLIST_FILE" "${1:-/dev/stdin}" 2>/dev/null
+if [[ $# -eq 1 ]]; then
+    grep -qiF -f "$DENYLIST_FILE" -- "$1" 2>/dev/null
+else
+    grep -qiF -f "$DENYLIST_FILE" 2>/dev/null
+fi
 status=$?
 set -e
 case "$status" in

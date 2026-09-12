@@ -36,26 +36,31 @@ if [[ -n "$NARROWING_FILE" && ! -f "$NARROWING_FILE" ]]; then
     exit 1
 fi
 
-HEAD_SHA=$(gh pr view "$PR" --json headRefOid --jq '.headRefOid')
-BASE_SHA=$(gh pr view "$PR" --json baseRefOid --jq '.baseRefOid')
+REPOSITORY=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+HEAD_SHA=$(gh pr view "$PR" --repo "$REPOSITORY" --json headRefOid --jq '.headRefOid')
+BASE_SHA=$(gh pr view "$PR" --repo "$REPOSITORY" --json baseRefOid --jq '.baseRefOid')
 NARROWING="(no additional narrowing)"
 if [[ -n "$NARROWING_FILE" ]]; then
     NARROWING=$(<"$NARROWING_FILE")
 fi
 
-BRIEF=$(python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" "$TEMPLATE" "$MODEL_SLUG" << 'PYEOF'
+BRIEF=$(python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" "$TEMPLATE" "$MODEL_SLUG" "$REPOSITORY" "$REPO_ROOT" << 'PYEOF'
 import sys
+import shlex
 from pathlib import Path
 
-head_sha, base_sha, pr, narrowing, template, model_slug = sys.argv[1:]
+head_sha, base_sha, pr, narrowing, template, model_slug, repository, repo_root = sys.argv[1:]
 content = Path(template).read_text(encoding="utf-8")
 content = content.replace("<PR>", pr)
 content = content.replace("<HEAD_SHA>", head_sha)
 content = content.replace("<BASE_SHA>", base_sha)
 content = content.replace("<NARROWING>", narrowing)
 content = content.replace("<MODEL_SLUG>", model_slug)
-if "<MODEL_SLUG>" in content:  # pragma: no cover - defensive
-    sys.exit("spawn-codex-review: MODEL_SLUG substitution failed")
+content = content.replace("<REPOSITORY>", repository)
+content = content.replace("<REPOSITORY_ROOT>", shlex.quote(repo_root))
+for placeholder in ("<MODEL_SLUG>", "<REPOSITORY>", "<REPOSITORY_ROOT>"):
+    if placeholder in content:  # pragma: no cover - defensive
+        sys.exit(f"spawn-codex-review: {placeholder} substitution failed")
 sys.stdout.write(content)
 PYEOF
 )

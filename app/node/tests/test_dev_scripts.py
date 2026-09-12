@@ -201,6 +201,38 @@ def test_missing_input_file_fails_closed_without_echoing_path(tmp_path: Path) ->
     assert str(missing) not in result.stderr
 
 
+def test_option_shaped_input_filename_is_scanned(tmp_path: Path) -> None:
+    """A leading dash in a file name cannot become a grep option."""
+    dl = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    target = tmp_path / "-v"
+    target.write_text("ACME-PLACEHOLDER\n", encoding="utf-8")
+
+    env = os.environ.copy()
+    env["OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE"] = str(dl)
+    result = subprocess.run(
+        ["bash", str(_CHECK), target.name],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+    assert result.returncode == 1
+    assert "CONFIDENTIAL LEAK" in result.stderr
+
+
+def test_insecure_denylist_mode_fails_closed(tmp_path: Path) -> None:
+    """A denylist readable by other users is rejected."""
+    dl = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    dl.chmod(0o644)
+
+    result = _run_check("clean text", denylist=dl)
+
+    assert result.returncode == 1
+    assert "mode 600" in result.stderr
+
+
 # ---------------------------------------------------------------------------
 # apply-patch — fallback ordering
 # ---------------------------------------------------------------------------
@@ -440,6 +472,8 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
         (
             "#!/bin/sh\n"
             'case "$*" in\n'
+            '  "repo view --json nameWithOwner --jq .nameWithOwner") '
+            "printf '%s\\n' \"example/project\";;\n"
             "  *headRefOid*) printf '%040d\\n' 0;;\n"
             "  *) printf '%040d\\n' 1;;\n"
             "esac\n"
@@ -478,6 +512,8 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
         .replace("<BASE_SHA>", f"{1:040d}")
         .replace("<NARROWING>", "(no additional narrowing)")
         .replace("<MODEL_SLUG>", "openai/gpt-5.6-sol")
+        .replace("<REPOSITORY>", "example/project")
+        .replace("<REPOSITORY_ROOT>", str(_REPO_ROOT))
         .rstrip("\n")
     )
     env = os.environ.copy()
@@ -546,7 +582,9 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
     assert "Call session_status exactly once before any spawn" in prompt
     assert "call sessions_spawn exactly once" in prompt
     assert "Reviewer model: openai/gpt-5.6-sol" in prompt
-    assert "PR **7**" in prompt
+    assert "**example/project PR 7**" in prompt
+    assert "example/project" in prompt
+    assert f"git -C {_REPO_ROOT}" in prompt
     assert "--model openai/gpt-5.6-sol" in captured_args.read_text(encoding="utf-8")
     # The placeholder must never survive into a dispatched brief: an
     # unsubstituted <MODEL_SLUG> would ship a reviewer with no identity to sign.
@@ -624,13 +662,18 @@ def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
     assert text.index("pnpm install --no-frozen-lockfile") < text.index("pnpm docs:typescript")
     assert 'git diff --name-only -z --diff-filter=ACMR "origin/main...HEAD"' in text
     assert 'git cat-file blob "HEAD:$changed_path"' in text
+    assert 'git diff --binary --no-ext-diff "origin/main...HEAD"' in text
+    assert 'git diff --name-only -z --diff-filter=D "origin/main...HEAD"' in text
+    assert 'git cat-file blob "origin/main:$changed_path"' in text
 
 
 def test_gate_runner_matches_typescript_workflow_scope() -> None:
     """Node changes run cross-language tests and diff failures have guidance."""
     text = (_REPO_ROOT / "scripts" / "dev" / "run-all-gates").read_text(encoding="utf-8")
     assert "app/node/*" in text
-    assert "uv sync --package openclaw-node --python 3.13" in text
+    assert "uv sync --all-extras --python 3.13" in text
+    assert text.index("uv sync --all-extras --python 3.13") < text.index("uv run ruff")
+    assert "docker build app" in text
     assert 'fail "changed-path enumeration (branch)"' in text
 
 
@@ -724,3 +767,19 @@ def test_spawn_review_reports_launcher_self_identification_failure(tmp_path: Pat
         "Reviewer failed self-identification. No review posted. PR is not review-ready."
         in result.stderr
     )
+
+
+def test_review_template_binds_repository_and_complete_confidentiality_scope() -> None:
+    """The central brief covers repository identity and every public-content boundary."""
+    text = (_REPO_ROOT / "scripts" / "dev" / "templates" / "codex-review-brief.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "<REPOSITORY> PR <PR>" in text
+    assert "git -C <REPOSITORY_ROOT>" in text
+    assert "PR title" in text
+    assert "complete binary diff" in text
+    assert "every added or modified head blob" in text
+    assert "every deleted base blob" in text
+    assert "complete proposed comment" in text
+    assert "--repo <REPOSITORY>" in text

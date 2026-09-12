@@ -26,6 +26,12 @@ fail() {
     exit 1
 }
 
+# Pin the local Python environment to the same interpreter CI uses before any
+# Python-backed gate runs.
+echo ">>> prepare Python 3.13 environment"
+uv sync --all-extras --python 3.13 \
+    || fail "Python 3.13 environment setup" "uv sync --all-extras --python 3.13"
+
 # ── 1. ruff format ──────────────────────────────────────────────────────────
 echo ">>> ruff format --check"
 uv run ruff format --check app/node/src app/node/tests \
@@ -115,8 +121,6 @@ while IFS= read -r changed_path; do
 done <<< "$CHANGED_PATHS"
 if [[ "$RUN_TS_TESTS" == true ]]; then
     echo ">>> prepare Python for cross-language contract tests"
-    uv sync --package openclaw-node --python 3.13 \
-        || fail "cross-language Python setup" "uv sync --package openclaw-node --python 3.13"
     echo ">>> plugin vitest (TypeScript workflow paths changed)"
     pnpm -r --filter './plugins/*' test \
         || fail "plugin vitest" "pnpm -r --filter './plugins/*' test"
@@ -124,7 +128,12 @@ else
     echo ">>> plugin vitest (skipped — TypeScript workflow paths unchanged)"
 fi
 
-# ── 14. whitespace check ────────────────────────────────────────────────────
+# ── 14. container smoke ─────────────────────────────────────────────────────
+echo ">>> Docker build smoke (amd64)"
+docker build app \
+    || fail "Docker build smoke (amd64)" "docker build app"
+
+# ── 15. whitespace check ────────────────────────────────────────────────────
 echo ">>> git diff --check"
 git diff --check origin/main...HEAD \
     || fail "git diff --check (branch)" "git diff --check origin/main...HEAD"

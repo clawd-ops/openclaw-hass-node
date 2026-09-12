@@ -42,20 +42,22 @@ scripts/dev/run-all-gates
 
 Gates in order:
 
-1. `ruff format --check`
-2. `ruff check`
-3. `mypy --strict`
-4. `pytest` (95% coverage)
-5. `generate-command-coverage.py --check`
-6. `check-active-docs-schema.py`
-7. synchronized release-version check
-8. Bandit and dependency audit
-9. strict MkDocs build
-10. TypeScript dependency install matching CI
-11. `pnpm docs:typescript:check`
-12. plugin `tsc --noEmit` (typecheck)
-13. plugin `vitest run` when paths covered by the CI TypeScript workflow changed
-14. `git diff --check` for the branch, index, and worktree
+1. Python 3.13 environment sync matching CI
+2. `ruff format --check`
+3. `ruff check`
+4. `mypy --strict`
+5. `pytest` (95% coverage)
+6. `generate-command-coverage.py --check`
+7. `check-active-docs-schema.py`
+8. synchronized release-version check
+9. Bandit and dependency audit
+10. strict MkDocs build
+11. TypeScript dependency install matching CI
+12. `pnpm docs:typescript:check`
+13. plugin `tsc --noEmit` (typecheck)
+14. plugin `vitest run` when paths covered by the CI TypeScript workflow changed
+15. Docker application build smoke
+16. `git diff --check` for the branch, index, and worktree
 
 > **Note:** TypeScript contract tests require the Python venv to include the
 > node package. The gate runner prepares that environment automatically before
@@ -93,7 +95,7 @@ Automates the safe rebase workflow:
 3. Rebases the PR branch onto `origin/main`
 4. Regenerates the coverage ledger and TypeScript API docs, committing derived changes when needed
 5. Runs `run-all-gates`
-6. Runs `confidentiality-check` on every changed blob, including binary content, and every commit message
+6. Runs `confidentiality-check` on the complete binary diff, every current changed blob, every deleted base blob, and every commit message
 7. Pushes with an explicit expected-head `--force-with-lease`
 8. Cleans up the worktree on exit (success or failure)
 
@@ -107,13 +109,15 @@ Stops loudly at the first failure. Never pushes through a gate or leak failure.
 
 ### `spawn-codex-review <num> [narrowing-file]`
 
-Assembles a Codex review brief by substituting PR number, head SHA, base SHA,
+Assembles a Codex review brief by substituting repository identity, PR number, head SHA, base SHA,
 and an optional per-PR narrowing section into
 `scripts/dev/templates/codex-review-brief.md`. It checks the assembled brief,
 then uses a dedicated launcher session to invoke `sessions_spawn` for one
 visible exact-head review run. It requires exactly one successful spawn tool
 call, parses an accepted receipt, and verifies the returned child session exists
 and received the complete assembled brief before reporting success.
+The generated brief binds all local Git and GitHub commands to that repository
+instead of relying on the reviewer's starting directory.
 
 The template encodes hard constraints (no commits, no pushes, no merges, no
 file edits, no sub-agents, exactly one `gh pr comment`), the correct
