@@ -197,6 +197,31 @@ def _snapshot_originals(paths: list[Path]) -> dict[Path, tuple[bytes, os.stat_re
     return originals
 
 
+def _restore_snapshot_metadata(
+    originals: dict[Path, tuple[bytes, os.stat_result] | None],
+) -> None:
+    """Undo access-time changes caused by read-only candidate generation."""
+    errors: list[str] = []
+    for path, snapshot in originals.items():
+        if snapshot is None:
+            if path.exists():
+                errors.append(f"{path}: appeared during candidate generation")
+            continue
+        _, metadata = snapshot
+        try:
+            os.utime(
+                path,
+                ns=(metadata.st_atime_ns, metadata.st_mtime_ns),
+                follow_symlinks=False,
+            )
+        except OSError as exc:
+            errors.append(f"{path}: {exc}")
+    if errors:
+        raise ShipError(
+            "could not restore output metadata after candidate generation: " + "; ".join(errors)
+        )
+
+
 def _prepare_replacements(
     version: str,
 ) -> tuple[
@@ -208,7 +233,17 @@ def _prepare_replacements(
     generator = _load_generator()
     targets = [MANUAL_PATH, generator.JSON_OUTPUT, generator.MARKDOWN_OUTPUT]
     originals = _snapshot_originals(targets)
-    replacements, stamped = _candidate_outputs(version, generator)
+    try:
+        replacements, stamped = _candidate_outputs(version, generator)
+    except BaseException as exc:
+        try:
+            _restore_snapshot_metadata(originals)
+        except ShipError as restore_exc:
+            raise ShipError(
+                f"candidate generation failed ({exc}); metadata recovery also failed: {restore_exc}"
+            ) from exc
+        raise
+    _restore_snapshot_metadata(originals)
     return replacements, stamped, {path: originals[path] for path in replacements}
 
 
