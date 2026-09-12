@@ -10,6 +10,8 @@ on:
       - "package.json"
       - "pnpm-workspace.yaml"
       - "tsconfig.json"
+      - "docs/reference/api/typescript/**"
+      - "scripts/check-typescript-api-docs.sh"
       - ".github/workflows/ts.yml"
   push:
     branches: [main]
@@ -21,6 +23,8 @@ on:
       - "package.json"
       - "pnpm-workspace.yaml"
       - "tsconfig.json"
+      - "docs/reference/api/typescript/**"
+      - "scripts/check-typescript-api-docs.sh"
       - ".github/workflows/ts.yml"
 
 jobs:
@@ -56,3 +60,17 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       - name: pnpm test
         run: pnpm -r --filter './plugins/*' test
+
+  api-reference:
+    name: TypeScript API Reference
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: pnpm install
+        run: pnpm install --no-frozen-lockfile
+      - name: Verify generated TypeScript API reference
+        run: pnpm docs:typescript:check

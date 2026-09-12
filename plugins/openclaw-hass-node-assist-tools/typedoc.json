@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "entryPoints": [
+    "index.ts",
+    "src/shared/per-node-policy.ts",
+    "src/shared/node-invoke-policy.ts",
+    "src/tools/assist-command-registration.ts",
+    "src/tools/descriptors.ts",
+    "src/tools/node-tool-invoke.ts"
+  ],
+  "entryPointStrategy": "resolve",
+  "out": "../../docs/reference/api/typescript/generated",
+  "cleanOutputDir": true,
+  "excludeExternals": true,
+  "readme": "none",
+  "hideGenerator": true,
+  "includeVersion": false,
+  "useCodeBlocks": true,
+  "gitRevision": "main",
+  "disableGit": true,
+  "sourceLinkTemplate": "https://github.com/clawd-ops/openclaw-hass-node/blob/{gitRevision}/plugins/openclaw-hass-node-assist-tools/{path}#L{line}",
+  "validation": {
+    "notExported": false
+  }
+}

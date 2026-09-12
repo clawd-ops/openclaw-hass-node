@@ -1,0 +1,15 @@
+[**@openclaw-hass-node/assist-tools**](../../../../README.md)
+
+***
+
+[@openclaw-hass-node/assist-tools](../../../../README.md) / [src/tools/descriptors](../README.md) / HaListEntityRegistryToolSchema
+
+# Variable: HaListEntityRegistryToolSchema
+
+```ts
+const HaListEntityRegistryToolSchema: TObject<{
+  node: TString;
+}>;
+```
+
+Defined in: [src/tools/descriptors.ts:163](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L163)
