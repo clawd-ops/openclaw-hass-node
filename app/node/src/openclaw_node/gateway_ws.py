@@ -32,9 +32,10 @@ import logging
 import os
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final
 
 import websockets
@@ -130,12 +131,13 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.config.config_entries",
 ]
 # Dispatcher-registered commands that are intentionally excluded from the
-# node connect-frame advertisement. Membership requires an explicit,
-# documented reason: an unadvertised command is unreachable to every
+# node connect-frame advertisement. Each key must map to a non-empty
+# rationale string: an unadvertised command is unreachable to every
 # caller because the gateway caches the connect-frame list at pairing
-# approval. Every entry here must correspond to a live registry key
-# (enforced by ``test_advertised_matches_registry``).
-_INTENTIONALLY_UNADVERTISED: Final[frozenset[str]] = frozenset()
+# approval, so opting out of parity must not be silent. The parity gate
+# (``test_advertised_matches_registry``) enforces both that every entry
+# names a live registry key and that every entry carries a rationale.
+_INTENTIONALLY_UNADVERTISED: Final[Mapping[str, str]] = MappingProxyType({})
 # The operator-scope quartet granted by PAIRING_SETUP_BOOTSTRAP_PROFILE
 # in /app/node_modules/openclaw/dist/device-bootstrap-RTH5XJTg.js.
 # Required for chat.send + sessions.messages.subscribe.

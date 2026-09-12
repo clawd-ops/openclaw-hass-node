@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -91,23 +91,19 @@ def test_gateway_client_with_pairing_callback() -> None:
     assert client.pairing_state is PairingState.UNKNOWN
 
 
-def test_advertised_matches_registry() -> None:
-    """Advertised connect-frame commands must equal the dispatcher registry,
-    minus any commands explicitly listed in ``_INTENTIONALLY_UNADVERTISED``.
-
-    This is the drift gate for #260: a dispatcher-registered command that is
-    not advertised (and not on the documented exemption list) is unreachable
-    to any caller because the gateway caches the connect-frame command list.
-    """
-    registered = {c for c in _REGISTRY if not c.startswith("test.")}
-    advertised = set(_NODE_COMMANDS)
-    unadvertised = registered - advertised
-    unexpected_unadvertised = unadvertised - _INTENTIONALLY_UNADVERTISED
+def _assert_advertised_matches_registry(
+    registered: set[str],
+    advertised_commands: list[str],
+    exemptions: Mapping[str, str],
+) -> None:
+    """Assert registration/advertisement parity and valid exemptions."""
+    advertised = set(advertised_commands)
+    unexpected_unadvertised = (registered - advertised) - set(exemptions)
     assert not unexpected_unadvertised, (
         "dispatcher-registered commands missing from _NODE_COMMANDS "
         f"(and not in _INTENTIONALLY_UNADVERTISED): {sorted(unexpected_unadvertised)}"
     )
-    stale_exemptions = _INTENTIONALLY_UNADVERTISED - registered
+    stale_exemptions = set(exemptions) - registered
     assert not stale_exemptions, (
         "_INTENTIONALLY_UNADVERTISED lists commands that are not registered: "
         f"{sorted(stale_exemptions)}"
@@ -117,9 +113,49 @@ def test_advertised_matches_registry() -> None:
         "_NODE_COMMANDS advertises commands the dispatcher does not register: "
         f"{sorted(advertised_not_registered)}"
     )
-    assert len(_NODE_COMMANDS) == len(set(_NODE_COMMANDS)), (
-        "_NODE_COMMANDS contains duplicate entries"
+    assert len(advertised_commands) == len(advertised), "_NODE_COMMANDS contains duplicate entries"
+    unjustified = [cmd for cmd, reason in exemptions.items() if not reason.strip()]
+    assert not unjustified, (
+        "_INTENTIONALLY_UNADVERTISED entries must carry a non-empty rationale: "
+        f"{sorted(unjustified)}"
     )
+
+
+def test_advertised_matches_registry() -> None:
+    """Advertised connect-frame commands must equal the dispatcher registry.
+
+    This is the drift gate for #260. Registry isolation is provided by the
+    autouse fixture in ``conftest.py``, so it compares the full registry with
+    no namespace escape hatch. Exemptions must name live commands and carry
+    a non-empty rationale.
+    """
+    _assert_advertised_matches_registry(set(_REGISTRY), _NODE_COMMANDS, _INTENTIONALLY_UNADVERTISED)
+
+
+@pytest.mark.parametrize("command", ["ha.production_like_leak", "test.production_like"])
+def test_drift_gate_catches_every_unadvertised_command(command: str) -> None:
+    """Fail parity for any unadvertised registration, including ``test.*``."""
+    _REGISTRY[command] = lambda _params: {"ok": True}
+
+    with pytest.raises(AssertionError, match=command):
+        _assert_advertised_matches_registry(
+            set(_REGISTRY), _NODE_COMMANDS, _INTENTIONALLY_UNADVERTISED
+        )
+
+
+def test_intentionally_unadvertised_rejects_empty_rationale() -> None:
+    """The rationale invariant catches wordless exemptions.
+
+    Regression for the review finding on PR #284: prior to this change the
+    exemption structure was a ``frozenset[str]``, so any string added later
+    would silently bypass parity. It is now a ``Mapping[str, str]`` and the
+    gate rejects entries with an empty or whitespace-only rationale.
+    """
+    command = "ha.some_command"
+    with pytest.raises(AssertionError, match="non-empty rationale"):
+        _assert_advertised_matches_registry(
+            set(_REGISTRY) | {command}, _NODE_COMMANDS, {command: "   "}
+        )
 
 
 def test_connect_commands_advertise_full_surface() -> None:
