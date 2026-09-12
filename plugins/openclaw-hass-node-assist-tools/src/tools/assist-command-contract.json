@@ -334,6 +334,20 @@
       "value_transforms": {}
     },
     {
+      "tool_name": "ha_supervisor_info",
+      "descriptor": "HA_SUPERVISOR_INFO_TOOL_DESCRIPTOR",
+      "factory": "createHaSupervisorInfoTool",
+      "node_command": "ha.supervisor_info",
+      "accepted_tool_params": [
+        "node"
+      ],
+      "emitted_params": {
+        "node": null
+      },
+      "injected_node_params": {},
+      "value_transforms": {}
+    },
+    {
       "tool_name": "ha_logbook",
       "descriptor": "HA_LOGBOOK_TOOL_DESCRIPTOR",
       "factory": "createHaLogbookTool",

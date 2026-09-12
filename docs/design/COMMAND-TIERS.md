@@ -29,6 +29,7 @@ Shipped:
 - `ha.list_addons` — `GET /addons` (discovery path for the slug-required commands)
 - `ha.addon_info` — `GET /addons/<slug>/info` (options / schema / repository / capability flags **stripped at the boundary**)
 - `ha.addon_stats` — `GET /addons/<slug>/stats`
+- `ha.supervisor_info` — `GET /supervisor/info` (allowlisted; `hostname` and network fields excluded)
 - `ha.addon_changelog` — `GET /addons/<slug>/changelog`
 - `ha.addon_documentation` — `GET /addons/<slug>/documentation`
 

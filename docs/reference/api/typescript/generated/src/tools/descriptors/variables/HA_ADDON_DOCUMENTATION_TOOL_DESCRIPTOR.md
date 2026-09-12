@@ -10,4 +10,4 @@
 const HA_ADDON_DOCUMENTATION_TOOL_DESCRIPTOR: AssistToolDescriptor;
 ```
 
-Defined in: [src/tools/descriptors.ts:376](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L376)
+Defined in: [src/tools/descriptors.ts:384](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L384)

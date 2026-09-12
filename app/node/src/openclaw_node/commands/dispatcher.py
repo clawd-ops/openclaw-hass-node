@@ -60,6 +60,7 @@ from openclaw_node.commands.ha import (
     handle_ha_list_states,
     handle_ha_logbook,
     handle_ha_reload_config,
+    handle_ha_supervisor_info,
     handle_ha_update_install,
 )
 from openclaw_node.commands.ha_config_area_registry import (
@@ -136,6 +137,7 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.addon_stats": handle_ha_addon_stats,
     "ha.addon_changelog": handle_ha_addon_changelog,
     "ha.addon_documentation": handle_ha_addon_documentation,
+    "ha.supervisor_info": handle_ha_supervisor_info,
     "ha.addon_start": handle_ha_addon_start,
     "ha.addon_stop": handle_ha_addon_stop,
     "ha.addon_restart": handle_ha_addon_restart,

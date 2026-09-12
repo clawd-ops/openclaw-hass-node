@@ -30,9 +30,9 @@ vi.mock("./node-tool-invoke.js", () => ({
 describe("Assist executable command contract", () => {
   it("resolves every manifest row to one descriptor and factory", () => {
     const registrations = resolvedAssistCommandRegistrations();
-    expect(registrations).toHaveLength(30);
-    expect(new Set(registrations.map(({ contract }) => contract.tool_name)).size).toBe(30);
-    expect(new Set(registrations.map(({ contract }) => contract.node_command)).size).toBe(30);
+    expect(registrations).toHaveLength(31);
+    expect(new Set(registrations.map(({ contract }) => contract.tool_name)).size).toBe(31);
+    expect(new Set(registrations.map(({ contract }) => contract.node_command)).size).toBe(31);
     for (const { contract, descriptor, loadTool } of registrations) {
       expect(descriptor.name).toBe(contract.tool_name);
       expect(typeof loadTool).toBe("function");
@@ -93,8 +93,8 @@ describe("Manifest/contract tool parity", () => {
   });
 
   it("30-tool count is explicit", () => {
-    expect(pluginManifest.contracts.tools).toHaveLength(30);
-    expect(assistCommandContract.registrations).toHaveLength(30);
+    expect(pluginManifest.contracts.tools).toHaveLength(31);
+    expect(assistCommandContract.registrations).toHaveLength(31);
   });
 });
 

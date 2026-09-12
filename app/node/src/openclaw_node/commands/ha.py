@@ -1200,6 +1200,55 @@ async def handle_ha_addon_stats(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "slug": slug, "stats": stats}
 
 
+# Supervisor /info returns host-level runtime details. The allowlist below
+# exposes only the architecture and software version fields needed for live
+# verification of the COMPLETION-ROADMAP Phase 0 recording step.
+#
+# SECURITY: `hostname`, `timezone`, and network fields are deliberately OMITTED.
+# `hostname` is an internal Supervisor hostname that can reveal infrastructure
+# naming conventions. Do not "helpfully" add it — expose only what the roadmap
+# needs and nothing more.
+_SUPERVISOR_INFO_FIELDS: Final[tuple[str, ...]] = (
+    "arch",
+    "machine",
+    "supervisor",
+    "homeassistant",
+    "hassos",
+    "operating_system",
+    "docker",
+    "channel",
+)
+
+
+async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
+    """Return allowlisted host-level runtime info from the Supervisor.
+
+    Hits ``GET http://supervisor/info``. Read-only by construction. Returns
+    only the ``_SUPERVISOR_INFO_FIELDS`` subset so that sensitive fields such
+    as ``hostname``, ``timezone``, and network details are never exposed.
+
+    Params:
+        None (no parameters required).
+
+    Returns:
+        ``{ok: True, info}`` where ``info`` contains the allowlisted fields
+        (missing source fields surface as ``None``), or an error dict.
+    """
+    try:
+        raw = await supervisor_get_json("/info")
+    except HAClientError as exc:
+        return _to_error(exc)
+
+    if not isinstance(raw, dict):
+        return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /info")
+    data = raw.get("data")
+    if not isinstance(data, dict):
+        return _error("HA_BAD_RESPONSE", "Supervisor /info response missing 'data'")
+
+    info = {field: data.get(field) for field in _SUPERVISOR_INFO_FIELDS}
+    return {"ok": True, "info": info}
+
+
 # Markdown bodies (changelog + documentation) can be large; cap at a similar
 # 1 MiB trailing window to the addon_logs path. Both endpoints return text.
 _ADDON_DOC_MAX_BYTES: Final[int] = 1_048_576

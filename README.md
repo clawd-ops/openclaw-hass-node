@@ -124,8 +124,8 @@ gateway side. Short version:
 
 ## Status
 
-- **Node command surface**: 56 commands both registered by the
-  dispatcher and advertised in the node's connect-frame — `ha.*` × 39,
+- **Node command surface**: 57 commands both registered by the
+  dispatcher and advertised in the node's connect-frame — `ha.*` × 40,
   `fs.*` × 11, `system.*` × 5, and `ping`. Advertised parity is
   enforced by the `test_advertised_matches_registry` gate: any
   intentional gap between registered and advertised must be listed in

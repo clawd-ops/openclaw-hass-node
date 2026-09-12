@@ -36,7 +36,7 @@ then the **HACS integration**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node advertises 56 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node advertises 57 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
 `gateway.nodes.commands.allow`:
 
@@ -61,6 +61,7 @@ its allowlist. The HA node advertises 56 commands across `ha.*`, `fs.*`,
           "ha.list_automations", "ha.check_config",
           "ha.addon_logs", "ha.list_addons", "ha.addon_info",
           "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation",
+          "ha.supervisor_info",
           "ha.addon_start", "ha.addon_stop", "ha.addon_restart",
           "ha.addon_update", "ha.update_install",
           "ha.config.lovelace", "ha.config.automation",

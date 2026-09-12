@@ -45,11 +45,11 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     rows = ledger["rows"]
     assert ledger["summary"] == {
         "action_variants": 31,
-        "advertised_commands": 56,
+        "advertised_commands": 57,
         "advertised_not_registered": [],
-        "assist_wrapped_commands": 30,
-        "ledger_rows": 87,
-        "registered_commands": 56,
+        "assist_wrapped_commands": 31,
+        "ledger_rows": 88,
+        "registered_commands": 57,
         "registered_not_advertised": [],
         "registered_without_assist_wrapper": [
             "fs.delete",

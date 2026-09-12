@@ -115,6 +115,7 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.addon_stats",
     "ha.addon_changelog",
     "ha.addon_documentation",
+    "ha.supervisor_info",
     "ha.addon_start",
     "ha.addon_stop",
     "ha.addon_restart",

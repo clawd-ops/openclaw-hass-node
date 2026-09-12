@@ -48,6 +48,7 @@ const CASES: Case[] = [
   { name: "ha_addon_stats", command: "ha.addon_stats", factory: "createHaAddonStatsTool", args: { slug: "openclaw-hass-node" }, expectedParams: { slug: "openclaw-hass-node" } },
   { name: "ha_addon_changelog", command: "ha.addon_changelog", factory: "createHaAddonChangelogTool", args: { slug: "openclaw-hass-node" }, expectedParams: { slug: "openclaw-hass-node" } },
   { name: "ha_addon_documentation", command: "ha.addon_documentation", factory: "createHaAddonDocumentationTool", args: { slug: "openclaw-hass-node" }, expectedParams: { slug: "openclaw-hass-node" } },
+  { name: "ha_supervisor_info", command: "ha.supervisor_info", factory: "createHaSupervisorInfoTool", args: {}, expectedParams: {} },
 ];
 
 async function load(factory: string) {

@@ -37,6 +37,7 @@ from openclaw_node.commands.ha import (
     handle_ha_list_states,
     handle_ha_logbook,
     handle_ha_reload_config,
+    handle_ha_supervisor_info,
     handle_ha_update_install,
 )
 from openclaw_node.ha_client import HAClientError
@@ -1784,6 +1785,84 @@ async def test_addon_stats_supervisor_unavailable() -> None:
         side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
     ):
         result = await handle_ha_addon_stats({"slug": "self"})
+    assert result["error"] == "SUPERVISOR_UNAVAILABLE"
+
+
+# ---------------------------------------------------------------------------
+# ha.supervisor_info
+# ---------------------------------------------------------------------------
+
+
+async def test_supervisor_info_happy_path() -> None:
+    payload = {
+        "data": {
+            "arch": "amd64",
+            "machine": "generic-x86-64",
+            "supervisor": "2024.01.0",
+            "homeassistant": "2024.1.0",
+            "hassos": "12.0",
+            "operating_system": {"board": "generic-x86-64", "version": "12.0"},
+            "docker": "24.0.5",
+            "channel": "stable",
+            # Sensitive fields that MUST NOT leak:
+            "hostname": "internal-host-name",
+            "timezone": "America/New_York",
+            "ip_address": "192.0.2.100",
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+    assert result["ok"] is True
+    info = result["info"]
+    assert set(info.keys()) == {
+        "arch",
+        "machine",
+        "supervisor",
+        "homeassistant",
+        "hassos",
+        "operating_system",
+        "docker",
+        "channel",
+    }
+    assert info["arch"] == "amd64"
+    assert info["machine"] == "generic-x86-64"
+    assert info["supervisor"] == "2024.01.0"
+    assert info["channel"] == "stable"
+    # Confidentiality: sensitive fields must not appear
+    assert "hostname" not in info
+    assert "timezone" not in info
+    assert "ip_address" not in info
+
+
+async def test_supervisor_info_missing_fields_surface_as_none() -> None:
+    payload = {"data": {"arch": "aarch64"}}
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+    assert result["ok"] is True
+    info = result["info"]
+    assert info["arch"] == "aarch64"
+    assert info["machine"] is None
+    assert info["supervisor"] is None
+
+
+async def test_supervisor_info_bad_response_shape() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=["nope"]):
+        result = await handle_ha_supervisor_info({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_supervisor_info_missing_data_key() -> None:
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value={}):
+        result = await handle_ha_supervisor_info({})
+    assert result["error"] == "HA_BAD_RESPONSE"
+
+
+async def test_supervisor_info_supervisor_unavailable() -> None:
+    with patch(
+        "openclaw_node.commands.ha.supervisor_get_json",
+        side_effect=HAClientError("SUPERVISOR_UNAVAILABLE", "no token"),
+    ):
+        result = await handle_ha_supervisor_info({})
     assert result["error"] == "SUPERVISOR_UNAVAILABLE"
 
 
