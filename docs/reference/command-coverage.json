@@ -12,6 +12,7 @@
   ],
   "commands_unreleased": [
     "ha.addon_update",
+    "ha.supervisor_info",
     "ha.update_install",
     "system.execApprovals.get",
     "system.execApprovals.set",
@@ -11079,6 +11080,7 @@
       "command": "ha.supervisor_info",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.ha:handle_ha_supervisor_info",
       "id": "ha.supervisor_info",
       "metadata_provenance": {

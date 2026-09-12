@@ -987,6 +987,7 @@
     "ha.supervisor_info": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable.",
+      "first_shipped_in": "unreleased",
       "actions": {}
     }
   }

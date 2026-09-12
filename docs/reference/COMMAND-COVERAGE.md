@@ -37,6 +37,7 @@ Commands whose `first_shipped_in` matches the highest released version recorded 
 Commands with `first_shipped_in: unreleased`. These will ship if a release is cut now.
 
 - `ha.addon_update`
+- `ha.supervisor_info`
 - `ha.update_install`
 - `system.execApprovals.get`
 - `system.execApprovals.set`

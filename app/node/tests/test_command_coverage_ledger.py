@@ -85,9 +85,11 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     assert "latest_release" in ledger
     assert isinstance(ledger["commands_new_in_latest_release"], list)
     assert isinstance(ledger["commands_unreleased"], list)
-    # The five genuinely unreleased commands as of origin/main.
+    # The genuinely unreleased commands as of origin/main. ha.supervisor_info
+    # joined this list when #304 merged; it stamps on the next release cut.
     assert sorted(ledger["commands_unreleased"]) == [
         "ha.addon_update",
+        "ha.supervisor_info",
         "ha.update_install",
         "system.execApprovals.get",
         "system.execApprovals.set",
