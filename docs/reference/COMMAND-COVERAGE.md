@@ -3844,7 +3844,6 @@ Commands with `first_shipped_in: unreleased`. These will ship if a release is cu
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
   - `app/node/tests/test_http_api_auth.py`
-  - `app/node/tests/test_mark_commands_shipped.py`
   - `app/node/tests/test_ping.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 

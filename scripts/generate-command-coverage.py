@@ -86,7 +86,7 @@ def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
     as text, because `2` precedes `8`. PEP 440 stage order is development,
     alpha, beta, release candidate, then final.
     """
-    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+)|\.dev(\d+))?$", version)
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+)|\.dev(\d+))?", version)
     if not match:  # pragma: no cover - guarded by _validate_first_shipped_in
         raise ValueError(f"unsortable version: {version!r}")
     major, minor, patch, stage, serial, dev_serial = match.groups()
