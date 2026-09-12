@@ -482,32 +482,63 @@ def test_version_sort_key_orders_alpha_before_beta_same_date() -> None:
     assert generator._version_sort_key("2026.6.8a8") < generator._version_sort_key("2026.6.8b1")
 
 
-def test_latest_released_version_ignores_unreleased() -> None:
-    generator = _load_generator()
-    latest = generator._latest_released_version(
-        {"a": "2026.6.8a8", "b": "2026.7.23b1", "c": "unreleased"}
-    )
-    assert latest == "2026.7.23b1"
-
-
-def test_latest_released_version_is_none_when_all_unreleased() -> None:
-    """Degrades explicitly rather than crashing when nothing has shipped yet."""
-    generator = _load_generator()
-    assert generator._latest_released_version({"a": "unreleased"}) is None
-
-
-def test_latest_released_version_does_not_consult_git(
-    monkeypatch: pytest.MonkeyPatch,
+def test_tracked_release_version_uses_all_synchronized_sources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The value must come from ledger data, never from ambient git state.
-
-    A tag-derived value differs between a local clone and CI's shallow tagless
-    checkout, so the committed artifact could never match `--check`.
-    """
     generator = _load_generator()
+
+    sources = []
+    for index, (_, pattern) in enumerate(generator._VERSION_SOURCES):
+        path = tmp_path / f"version-{index}"
+        template = next(
+            text
+            for text in (
+                'version: "2026.8.1b1"\n',
+                '  io.hass.version: "2026.8.1b1"\n',
+                'version = "2026.8.1b1"\n',
+                '    __version__ = "2026.8.1b1"\n',
+                '  "version": "2026.8.1b1"\n',
+            )
+            if pattern.search(text)
+        )
+        path.write_text(template, encoding="utf-8")
+        sources.append((path, pattern))
+    monkeypatch.setattr(generator, "_VERSION_SOURCES", tuple(sources))
 
     def explode(*_args: Any, **_kwargs: Any) -> Any:
         raise AssertionError("generator must not shell out to git")
 
     monkeypatch.setattr(subprocess, "run", explode)
-    assert generator._latest_released_version({"a": "2026.7.23b1"}) == "2026.7.23b1"
+    assert generator._tracked_release_version() == "2026.8.1b1"
+
+
+def test_tracked_release_version_rejects_source_drift(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    generator = _load_generator()
+    sources = []
+    for index, (_, pattern) in enumerate(generator._VERSION_SOURCES):
+        version = "2026.8.1b2" if index == 4 else "2026.8.1b1"
+        text_options = (
+            f'version: "{version}"\n',
+            f'  io.hass.version: "{version}"\n',
+            f'version = "{version}"\n',
+            f'    __version__ = "{version}"\n',
+            f'  "version": "{version}"\n',
+        )
+        path = tmp_path / f"version-{index}"
+        path.write_text(
+            next(text for text in text_options if pattern.search(text)), encoding="utf-8"
+        )
+        sources.append((path, pattern))
+    monkeypatch.setattr(generator, "_VERSION_SOURCES", tuple(sources))
+
+    with pytest.raises(generator.LedgerError, match="version drift across tracked sources"):
+        generator._tracked_release_version()
+
+
+def test_release_with_zero_new_commands_has_current_release_heading() -> None:
+    generator = _load_generator()
+    first_shipped = {"ping": "2026.7.23b1", "ha.get_state": "2026.6.8a8"}
+
+    assert generator._commands_new_in_release(first_shipped, "2026.8.1b1") == []

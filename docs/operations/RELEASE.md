@@ -2,16 +2,18 @@
 
 > Status: **live.** `.github/workflows/release-on-version-bump.yml`
 > auto-cuts a release whenever a push to `main` bumps the version in
-> the five tracked files. `scripts/bump-version.py` is the one-command
-> bump. The version-sync CI gate keeps the five version strings in
-> lock-step on every PR. The manual procedure at the bottom is
+> the five tracked files. `scripts/bump-version.py` updates those version
+> sources, and `scripts/mark-commands-shipped.py` stamps current command
+> additions locally in the same atomic release PR. CI keeps both contracts
+> synchronized. The manual procedure at the bottom is
 > preserved for emergency / out-of-band use only.
 
 The project carries the version string in five places (`pyproject.toml`,
 `app/config.yaml`, `app/build.yaml`, `__init__.py` fallback,
 `custom_components/openclaw_hass_node_assist/manifest.json`) and ships through
 two ecosystems (HA Supervisor add-on, HACS custom integration).
-Cutting a release is one command, not five careful edits.
+Preparing a release uses two commands, not five careful edits plus a manual
+ledger sweep.
 
 ## Goals
 
@@ -19,15 +21,20 @@ Cutting a release is one command, not five careful edits.
    never edits a version literal by hand. `scripts/bump-version.py`
    bumps every file together so they can't drift; `Version Sync` CI
    fails the gate on any inconsistency.
-2. **Releases are cut by CI, not by hand.** Pushing a version bump to
+2. **Command release history lands atomically.** The release cutter runs
+   `scripts/mark-commands-shipped.py` locally after the version bump. The
+   manual command ledger and both generated artifacts are committed in the
+   same PR as all five version sources and the changelog. This is not tag
+   automation.
+3. **Releases are cut by CI, not by hand.** Pushing a version bump to
    `main` is what triggers the tag + GitHub release. No human runs
    `git tag` in the normal flow.
-3. **Pre-release markers are first-class.** The project is currently
+4. **Pre-release markers are first-class.** The project is currently
    on the beta track (`2026.6.20b7` at time of writing); pre-1.0 it
    lives on `aN`/`bN`/`rcN` markers. Versions carrying any of those
    suffixes are cut as **prereleases**; final tags (`1.0.0`,
    `2026.7.0`) are full releases.
-4. **No backports, no parallel branches.** `main` is the only branch
+5. **No backports, no parallel branches.** `main` is the only branch
    that ships. Hot-fixes are forward-fixes that cut a new release.
 
 ## Commit messages: Conventional Commits
@@ -76,7 +83,8 @@ makes manual changelog drafting fast.
 
 ## Release procedure (automated)
 
-Two-step flow: bump version + write changelog entry, merge, CI does
+Three-step preparation: bump version, stamp commands, write the changelog,
+then merge and let CI do
 the rest.
 
 ### Step 1 — bump the five version files
@@ -108,7 +116,27 @@ scripts/bump-version.py --get       # print the current version
 The CI `Version Sync` job runs `--check` on every PR; drift fails the
 gate, you can't merge inconsistent versions.
 
-### Step 2 — add the CHANGELOG entry, open + merge the release PR
+### Step 2 — stamp command additions and regenerate the ledger
+
+Run the command stamp locally with the same version:
+
+```sh
+scripts/mark-commands-shipped.py 2026.6.20b8
+python scripts/generate-command-coverage.py --check
+```
+
+The helper preflights the complete manual ledger, prepares both generated
+artifacts before mutation, and replaces all three tracked files as one
+transaction with rollback on failure. It accepts historical alpha and beta
+versions (`aN` and `bN`). If a release has no new commands, it still refreshes
+the generated `latest_release` from the synchronized version sources.
+
+The `Command Coverage Ledger` CI job compares the PR with its base version and
+fails a version bump if any current command remains `unreleased`. This gate does
+not stamp at tag time. Commit the ledger changes with all five version sources
+and the changelog in one atomic version-bump PR.
+
+### Step 3 — add the CHANGELOG entry, open + merge the release PR
 
 Add a section to `app/CHANGELOG.md` for the new version. The heading
 format matters because the release workflow extracts notes by parsing
@@ -126,7 +154,7 @@ this file:
 
 PR title: `release: 2026.6.20b8 — <one-line summary>`. Merge it.
 
-### Step 3 — CI cuts the release (no human action)
+### Step 4 — CI cuts the release (no human action)
 
 `.github/workflows/release-on-version-bump.yml` triggers on push to
 `main` when any of the five version files (or the workflow file

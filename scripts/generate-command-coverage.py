@@ -57,6 +57,29 @@ VALID_TEST_CALLERS = ROW_CALLERS
 # first shipped in 2026.6.8a8 — an alpha tag — and rejecting [a] would fabricate history.
 _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
 
+# The current release is read from all five tracked version sources. Generated
+# artifacts must not depend on command history or ambient git tags, and version
+# drift must fail generation instead of choosing one source arbitrarily.
+_VERSION_SOURCES: tuple[tuple[Path, re.Pattern[str]], ...] = (
+    (ROOT / "app/config.yaml", re.compile(r'^version: "([^"]+)"$', re.MULTILINE)),
+    (
+        ROOT / "app/build.yaml",
+        re.compile(r'^  io\.hass\.version: "([^"]+)"$', re.MULTILINE),
+    ),
+    (
+        ROOT / "app/node/pyproject.toml",
+        re.compile(r'^version = "([^"]+)"$', re.MULTILINE),
+    ),
+    (
+        ROOT / "app/node/src/openclaw_node/__init__.py",
+        re.compile(r'^    __version__ = "([^"]+)"$', re.MULTILINE),
+    ),
+    (
+        ROOT / "custom_components/openclaw_hass_node_assist/manifest.json",
+        re.compile(r'^  "version": "([^"]+)"$', re.MULTILINE),
+    ),
+)
+
 
 def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
     """Order a `YYYY.M.D[ab]N` version numerically, not lexicographically.
@@ -71,21 +94,32 @@ def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
     return (int(year), int(month), int(day), 0 if stage == "a" else 1, int(serial))
 
 
-def _latest_released_version(first_shipped_by_command: dict[str, str]) -> str | None:
-    """Return the highest released version recorded in the manual ledger, or None.
+def _tracked_release_version() -> str:
+    """Return the synchronized release version from tracked project sources."""
+    versions: dict[str, str] = {}
+    for path, pattern in _VERSION_SOURCES:
+        text = path.read_text(encoding="utf-8")
+        match = pattern.search(text)
+        if match is None:
+            raise LedgerError(f"version pattern did not match in {path}")
+        try:
+            label = path.relative_to(ROOT).as_posix()
+        except ValueError:
+            label = str(path)
+        versions[label] = match.group(1)
 
-    Deliberately derived from the ledger data rather than from `git tag`. The
-    generated artifact is committed and then re-verified by `--check` in CI,
-    where the checkout is shallow and carries no tags: a tag-derived value
-    produces one result locally and a different one in CI, so the committed file
-    can never match and the gate fails permanently. Anything feeding a generated
-    artifact has to come from tracked repository content, not from ambient git
-    state that varies by environment.
-    """
-    released = [v for v in first_shipped_by_command.values() if v != "unreleased"]
-    if not released:
-        return None
-    return max(released, key=_version_sort_key)
+    distinct = set(versions.values())
+    if len(distinct) != 1:
+        raise LedgerError(f"version drift across tracked sources: {versions}")
+    version = next(iter(distinct))
+    if not _FIRST_SHIPPED_VERSION_RE.fullmatch(version):
+        raise LedgerError(f"tracked release version {version!r} does not match YYYY.M.D[ab]N")
+    return version
+
+
+def _commands_new_in_release(first_shipped_by_command: dict[str, str], release: str) -> list[str]:
+    """Return commands introduced in *release*, including an empty release."""
+    return sorted(cmd for cmd, version in first_shipped_by_command.items() if version == release)
 
 
 def _validate_first_shipped_in(command: str, value: object) -> None:
@@ -1139,11 +1173,9 @@ def build_ledger() -> dict[str, Any]:
     first_shipped_by_command = {
         cmd: manual["commands"][cmd]["first_shipped_in"] for cmd in sorted(registry)
     }
-    latest_release = _latest_released_version(first_shipped_by_command)
-    commands_new_in_latest_release = (
-        sorted(cmd for cmd, v in first_shipped_by_command.items() if v == latest_release)
-        if latest_release
-        else []
+    latest_release = _tracked_release_version()
+    commands_new_in_latest_release = _commands_new_in_release(
+        first_shipped_by_command, latest_release
     )
     commands_unreleased = sorted(
         cmd for cmd, v in first_shipped_by_command.items() if v == "unreleased"
@@ -1242,8 +1274,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
             [
                 f"## New in this release ({latest_release})",
                 "",
-                "Commands whose `first_shipped_in` matches the highest released version "
-                "recorded in the ledger. These are new since the previous release.",
+                "Commands whose `first_shipped_in` matches the synchronized version in "
+                "the five tracked project sources. These are new since the previous release.",
                 "",
             ]
         )

@@ -20,7 +20,7 @@ rows are intentionally retained. Regenerate after editing source or
 
 ## New in this release (2026.7.23b1)
 
-Commands whose `first_shipped_in` matches the highest released version recorded in the ledger. These are new since the previous release.
+Commands whose `first_shipped_in` matches the synchronized version in the five tracked project sources. These are new since the previous release.
 
 - `ha.config.area_registry`
 - `ha.config.automation`
@@ -3842,6 +3842,7 @@ Commands with `first_shipped_in: unreleased`. These will ship if a release is cu
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
   - `app/node/tests/test_http_api_auth.py`
+  - `app/node/tests/test_mark_commands_shipped.py`
   - `app/node/tests/test_ping.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 
