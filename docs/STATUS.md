@@ -40,7 +40,7 @@ effect policy and has not been deployed or production-proven.
 
 ## Where we are
 
-**Additional unreleased coverage foundation (#268):** a deterministic generator
+**Coverage ledger foundation (#268, delivered by merged PR #269):** a deterministic generator
 now reconciles 53 dispatcher commands, 51 node advertisements, 30 Assist wrapper
 registrations, and 31 action variants into 84 explicit rows. The Assist
 registration contract is executable by the plugin and records each tool,

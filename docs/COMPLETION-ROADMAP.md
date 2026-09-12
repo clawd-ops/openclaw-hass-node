@@ -150,10 +150,10 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   Preserve principal-authorized `light.turn_on`; do not leave the generic P0
   bypass open while the complete policy engine is built. Source containment is
   implemented under #287; deployment/release evidence remains a later gate.
-- [ ] Publish a command/action/caller-path coverage ledger generated from the
+- [x] Publish a command/action/caller-path coverage ledger generated from the
   current source. Record parameters, aliases, limits, response schema, policy,
   feature availability, and an acceptance-test ID for each row. Foundation work
-  is implemented in unreleased PR #269 under #268: 53 registered commands,
+  is delivered by merged PR #269 under #268: 53 registered commands,
   51 advertised commands, 30 executable Assist registrations, and 31 action variants
   produce 84 deterministic rows in
   [`reference/COMMAND-COVERAGE.md`](reference/COMMAND-COVERAGE.md) and
