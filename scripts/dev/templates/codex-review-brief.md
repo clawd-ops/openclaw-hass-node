@@ -57,9 +57,22 @@ Bare `Codex` is NOT a valid attribution: it is indistinguishable across every
 variant and defeats the point of pinning a verdict to a reviewer. No
 abbreviations, no ranges, no synonyms, no family names.
 
-If you genuinely cannot determine your own model, do not guess and do not fall
-back to a generic name. Sign off exactly:
+### Self-identification contract — do this FIRST
 
-```
-Reviewer model: unconfirmed (session_status not available in toolset) — reviewed at <HEAD_SHA> (base <BASE_SHA>).
-```
+1. Call `session_status` at the very start of your run, before reviewing.
+2. If it returns a resolved model, use that exact value in the sign-off and
+   post your review as normal.
+3. **If `session_status` is unavailable, or returns no model, DO NOT POST A
+   REVIEW.** Post no comment at all. Return an explicit error to the parent
+   naming what you tried and how it failed.
+
+There is no fallback sign-off. Do not write `unconfirmed`, `unknown`, `Codex`,
+or any placeholder, and do not substitute the slug you were told you would be
+spawned as. An unattributable review is worse than no review: it looks like
+independent verification while proving nothing about who verified it, and a
+verdict that cannot be traced to a reviewer cannot be trusted or re-run.
+
+The value passed in as `<MODEL_SLUG>` is a routing hint for the spawn, not an
+identity assertion — fallback routing can send the run to a different model. Only
+`session_status` reports what actually executed, so only `session_status` may
+supply the sign-off.

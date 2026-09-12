@@ -460,7 +460,10 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
             'elif [ "$1" = "sessions" ]; then\n'
             "  printf '%s\\n' \"$SESSIONS_RESULT\"\n"
             'elif [ "$1" = "gateway" ]; then\n'
-            "  printf '%s\\n' \"$HISTORY_RESULT\"\n"
+            '  case "$*" in\n'
+            "    *tools.catalog*) printf '%s\\n' \"$CATALOG_RESULT\";;\n"
+            "    *) printf '%s\\n' \"$HISTORY_RESULT\";;\n"
+            "  esac\n"
             "else exit 9; fi\n"
         ),
         encoding="utf-8",
@@ -484,6 +487,7 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
             "CAPTURE_ARGS": str(captured_args),
             "CAPTURE_PROMPT": str(captured_prompt),
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
+            "CATALOG_RESULT": json.dumps({"groups": [{"tools": [{"id": "session_status"}]}]}),
             "LAUNCH_RESULT": json.dumps(
                 {
                     "status": "ok",
@@ -508,6 +512,7 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
                 }
             ),
             "SESSIONS_RESULT": json.dumps({"sessions": [{"key": "agent:clawd:child-1"}]}),
+            "CATALOG_RESULT": json.dumps({"groups": [{"tools": [{"id": "session_status"}]}]}),
             "HISTORY_RESULT": json.dumps(
                 {
                     "output": {
@@ -561,6 +566,7 @@ def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> N
     launcher = stub_bin / "openclaw"
     launcher.write_text(
         '#!/bin/sh\nif [ "$1" = agent ]; then printf \'%s\\n\' "$LAUNCH_RESULT"; '
+        'elif [ "$1" = gateway ]; then printf \'%s\\n\' "$CATALOG_RESULT"; '
         "else printf '%s\\n' '{\"sessions\":[]}'; fi\n",
         encoding="utf-8",
     )
@@ -571,6 +577,7 @@ def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> N
         {
             "PATH": f"{stub_bin}:{env['PATH']}",
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
+            "CATALOG_RESULT": json.dumps({"groups": [{"tools": [{"id": "session_status"}]}]}),
             "LAUNCH_RESULT": json.dumps(
                 {
                     "status": "ok",
@@ -665,3 +672,38 @@ def test_spawn_review_still_fails_on_real_brief_mismatch(tmp_path: Path) -> None
 
     assert result.returncode == 1
     assert "does not match the assembled brief" in result.stderr
+
+
+def test_spawn_review_refuses_when_session_status_is_unavailable(tmp_path: Path) -> None:
+    """No self-identification means no spawn.
+
+    A reviewer that cannot call `session_status` can only guess at its own
+    identity, and the spawn slug is a routing hint rather than proof of what
+    ran. Producing a review nobody can attribute is worse than producing none,
+    so the wrapper refuses before spawning rather than after.
+    """
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env["CATALOG_RESULT"] = json.dumps({"groups": [{"tools": [{"id": "read"}]}]})
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 1
+    assert "session_status is not available" in result.stderr
+    assert "Refusing to spawn" in result.stderr
+    # Nothing may be dispatched when self-identification is impossible.
+    assert "accepted" not in result.stdout
+
+
+def test_spawn_review_preflight_can_be_skipped_explicitly(tmp_path: Path) -> None:
+    """The escape hatch is opt-in and explicit, never a silent default."""
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env["CATALOG_RESULT"] = json.dumps({"groups": [{"tools": [{"id": "read"}]}]})
+    env["SKIP_SESSION_STATUS_PREFLIGHT"] = "1"
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr

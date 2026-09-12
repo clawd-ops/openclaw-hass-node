@@ -140,13 +140,18 @@ Reviewer model: openai/gpt-5.6-sol — reviewed at abc12345 (base def67890).
 ```
 
 Bare `Codex` is **not** valid attribution. It is indistinguishable across every
-variant, which defeats the purpose of pinning a verdict to a reviewer. A
-reviewer that genuinely cannot determine its own model must say so explicitly
-rather than fall back to a family name:
+variant, which defeats the purpose of pinning a verdict to a reviewer.
 
-```
-Reviewer model: unconfirmed (session_status not available in toolset) — reviewed at abc12345 (base def67890).
-```
+There is no fallback sign-off. A reviewer calls `session_status` first; if it
+cannot resolve its own model it posts nothing and returns an error to the
+caller. An unattributable review looks like independent verification while
+proving nothing about who verified it, so no review is the safer outcome.
+
+The wrapper enforces this before spawning: it checks the agent's tool catalog
+for `session_status` and refuses to launch if it is absent, rather than letting
+a reviewer do the work and then discover it cannot sign. Set
+`SKIP_SESSION_STATUS_PREFLIGHT=1` to bypass the check deliberately; it is never
+skipped silently.
 
 ---
 

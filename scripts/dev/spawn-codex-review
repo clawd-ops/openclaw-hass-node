@@ -30,6 +30,48 @@ if [[ ! -f "$TEMPLATE" ]]; then
     echo "spawn-codex-review: template not found" >&2
     exit 1
 fi
+
+# Pre-flight: the reviewer must be able to identify itself, because the sign-off
+# has to name the model that actually ran. The spawn slug is only a routing
+# hint — fallback routing can land the run elsewhere — so `session_status` is
+# the sole acceptable source. If it is not in the agent's catalog, the reviewer
+# could only sign off with a guess, so refuse to spawn rather than produce a
+# review whose attribution proves nothing.
+PREFLIGHT_AGENT="${OPENCLAW_REVIEW_LAUNCHER_AGENT:-clawd}"
+if [[ "${SKIP_SESSION_STATUS_PREFLIGHT:-0}" != "1" ]]; then
+    CATALOG_FILE=$(mktemp)
+    if ! openclaw gateway call tools.catalog --json \
+        --params "{\"agentId\":\"${PREFLIGHT_AGENT}\"}" > "$CATALOG_FILE" 2>/dev/null; then
+        rm -f "$CATALOG_FILE"
+        echo "spawn-codex-review: cannot read the tool catalog; refusing to spawn a reviewer that may not be able to self-identify" >&2
+        exit 1
+    fi
+    if ! python3 - "$CATALOG_FILE" << 'PYEOF'
+import json
+import sys
+from pathlib import Path
+
+try:
+    catalog = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    tools = {
+        tool.get("id")
+        for group in catalog.get("groups", [])
+        for tool in group.get("tools", [])
+    }
+except (json.JSONDecodeError, OSError, TypeError, AttributeError):
+    raise SystemExit(1)
+raise SystemExit(0 if "session_status" in tools else 1)
+PYEOF
+    then
+        rm -f "$CATALOG_FILE"
+        echo "spawn-codex-review: session_status is not available to agent '${PREFLIGHT_AGENT}'." >&2
+        echo "  The reviewer could not verify which model actually ran, so its sign-off" >&2
+        echo "  would be a guess. Refusing to spawn. Enable session_status for that agent" >&2
+        echo "  or review manually." >&2
+        exit 1
+    fi
+    rm -f "$CATALOG_FILE"
+fi
 if [[ -n "$NARROWING_FILE" && ! -f "$NARROWING_FILE" ]]; then
     echo "spawn-codex-review: narrowing file not found" >&2
     exit 1
