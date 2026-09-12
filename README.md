@@ -93,15 +93,18 @@ See **[`docs/INSTALL.md`](docs/INSTALL.md)** for the full end-to-end
 walkthrough, including the **required** `openclaw.json` patch on the
 gateway side. Short version:
 
-1. **OpenClaw gateway config** — patch `gateway.nodes.allowCommands`
+1. **OpenClaw gateway config** — patch `gateway.nodes.commands.allow`
    (the gateway silently drops unknown commands; without this the node
    pairs but no commands work). Load the
    **`openclaw-hass-node-assist-tools`** plugin under
-   `plugins.entries` and add a per-node policy block with the allow
-   lists you want Assist to have (`allowServices`,
-   `allowReadEntities`, `allowCalendars`; optional `allowAdminOps` for
-   Tier B lifecycle commands, plus `adminToken` only for the separate
-   `ha.reload_config` and `ha.update_install` admin effects). Install
+   `plugins.entries`. The plugin's per-node config is routing-only: its
+   schema is `additionalProperties: false` and permits exactly two keys
+   — `allowAdminOps` (Tier B gate for lifecycle + admin commands) and
+   `adminToken` (forwarded for `ha.reload_config` and
+   `ha.update_install` only). There are no `allowServices`,
+   `allowReadEntities`, or `allowCalendars` keys; service, entity, and
+   calendar reach is decided by `gateway.nodes.commands.allow` plus the
+   node's `_NODE_COMMANDS` surface, not the plugin. Install
    **`openclaw-hass-node-skill`** into your OC session skill registry
    so non-Assist sessions can drive the node too.
 2. **HA app** — add this repo as an HA app repository, install
@@ -121,12 +124,17 @@ gateway side. Short version:
 
 ## Status
 
-- **Node command surface**: 56 commands (`ha.*` × 39, `fs.*` × 11,
-  `system.*` × 5, `ping`). `ha.*` includes the full read/observability
-  surface, calendar + logbook + history, add-on lifecycle, and the nine
-  `ha.config.*` domain-config editors (lovelace / automation / script /
-  scene / helpers / area_registry / device_registry / entity_registry /
-  config_entries).
+- **Node command surface**: 56 commands both registered by the
+  dispatcher and advertised in the node's connect-frame — `ha.*` × 39,
+  `fs.*` × 11, `system.*` × 5, and `ping`. Advertised parity is
+  enforced by the `test_advertised_matches_registry` gate: any
+  intentional gap between registered and advertised must be listed in
+  `_INTENTIONALLY_UNADVERTISED` with a rationale (currently empty).
+  `ha.*` includes the full read/observability surface, calendar +
+  logbook + history, add-on lifecycle (including `ha.addon_update` and
+  `ha.update_install`), and the nine `ha.config.*` domain-config
+  editors (lovelace / automation / script / scene / helpers /
+  area_registry / device_registry / entity_registry / config_entries).
   See [`docs/reference/COMMAND-SURFACE.md`](docs/reference/COMMAND-SURFACE.md).
 - **Pairing + connect**: works end-to-end with device-token persistence.
 - **Conversation relay (`/v1/conversation` → OpenClaw chat surface)**:
@@ -144,7 +152,7 @@ gateway side. Short version:
 - **Outbound-only WSS.** The app opens the connection to the gateway. There is no inbound port for the gateway to attack.
 - **Signed handshake.** Pairing uses an Ed25519 key generated inside the app. The private key never leaves `/data`. Connect frames are signed (payload format v3); the gateway verifies the signature against the registered public key.
 - **Device-token persistence with self-heal.** After first pairing the app persists the device token. If the gateway later rejects it (`NOT_PAIRED`, `PAIRING_REQUIRED`, `AUTH_TOKEN_MISMATCH`, `token_mismatch`), the app drops the stored token and falls back to the pairing token, so a stale token doesn't lock you out.
-- **Gateway-side allowlist.** Even if the app were compromised, the gateway only honors commands listed in `gateway.nodes.allowCommands`. Removing a command from that list and restarting the gateway disables it everywhere.
+- **Gateway-side allowlist.** Even if the app were compromised, the gateway only honors commands listed in `gateway.nodes.commands.allow`. Removing a command from that list and restarting the gateway disables it everywhere.
 - **HA Supervisor isolation.** The app runs in its own container with explicit filesystem maps. Removing a map (e.g. `media:rw`) immediately removes the app's access to that area.
 - **No agent reasoning happens here.** This node is purely an executor. Prompts, tool-choice, model selection, and policy all live in the gateway. The node does what the gateway tells it; the gateway does what the agent decides; the agent runs under whatever policy you configure upstream.
 

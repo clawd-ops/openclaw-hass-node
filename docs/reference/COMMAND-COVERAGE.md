@@ -1162,6 +1162,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_active_docs_schema_gate.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
@@ -3040,6 +3041,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_active_docs_schema_gate.py`
   - `app/node/tests/test_chat_relay.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-get-state-tool.test.ts`
@@ -3769,6 +3771,7 @@ rows are intentionally retained. Regenerate after editing source or
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_active_docs_schema_gate.py`
   - `app/node/tests/test_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`

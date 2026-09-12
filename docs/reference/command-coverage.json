@@ -3157,6 +3157,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_active_docs_schema_gate.py",
         "app/node/tests/test_gateway_ws.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts"
       ]
@@ -9037,6 +9038,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_active_docs_schema_gate.py",
         "app/node/tests/test_chat_relay.py",
         "app/node/tests/test_gateway_ws.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-get-state-tool.test.ts",
@@ -11159,6 +11161,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_active_docs_schema_gate.py",
         "app/node/tests/test_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_http_api.py",
