@@ -16,7 +16,6 @@ import copy
 import difflib
 import json
 import re
-import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -54,7 +53,7 @@ ROW_CALLERS = frozenset(
 VALID_TEST_CALLERS = ROW_CALLERS
 
 # Version pattern for first_shipped_in values.
-# Must accept both alpha (a) and beta (b) prerelease markers because 33 commands
+# Must accept both alpha (a) and beta (b) prerelease markers because 28 commands
 # first shipped in 2026.6.8a8 — an alpha tag — and rejecting [a] would fabricate history.
 _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
 

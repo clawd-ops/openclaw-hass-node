@@ -32,12 +32,13 @@ GENERATOR = ROOT / "scripts" / "generate-command-coverage.py"
 
 UNRELEASED = "unreleased"
 
-# Both prerelease markers are accepted. 33 commands first shipped in `2026.6.8a8`,
+# Both prerelease markers are accepted. 28 commands first shipped in `2026.6.8a8`,
 # an alpha tag, so a beta-only pattern would reject real history. Keep `[ab]`.
 VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
 
 
 def main() -> int:
+    """Stamp unreleased ledger entries with the requested release version."""
     parser = argparse.ArgumentParser(
         description="Stamp unreleased commands with a release version.",
         epilog=(
