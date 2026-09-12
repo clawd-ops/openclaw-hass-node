@@ -44,6 +44,7 @@
       "authorization_class": "diagnostic",
       "capability_conditions": "Node is connected and the ping command is allowed by the Gateway.",
       "assist_unavailable_reason": "Assist does not expose the node diagnostic ping command.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.read": {
@@ -75,6 +76,7 @@
         ]
       },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem read wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.list": {
@@ -84,12 +86,14 @@
         "max_entries": "validated integer from 1 through the source-defined hard maximum"
       },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem listing wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.stat": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Path resolves under a configured allowed root.",
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem metadata wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.glob": {
@@ -99,48 +103,56 @@
         "max_matches": "validated integer from 1 through the source-defined hard maximum"
       },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem glob wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.write": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.restore": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem restore wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.history": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Allowed path and readable backup index; collection result currently has no caller limit.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem backup-history wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.diff": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Allowed path and resolvable backup versions.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem diff wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.move": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Both paths resolve under allowed writable roots; protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.delete": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "fs.patch": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "system.run": {
@@ -198,22 +210,26 @@
         "timeoutMs": "validated positive integer milliseconds, capped by OPENCLAW_RUN_TIMEOUT_MAX_MS"
       },
       "assist_unavailable_reason": "Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "system.which": {
       "authorization_class": "diagnostic",
       "capability_conditions": "Requested executable name is valid; documented binary/name drift remains unresolved.",
       "assist_unavailable_reason": "Assist does not expose host executable lookup.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.list_states": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.get_state": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable and the entity exists.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.call_service": {
@@ -341,37 +357,44 @@
         ]
       },
       "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "semantic_result": "Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O."
     },
     "ha.list_areas": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports the area registry list command.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.list_devices": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports the device registry list command.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.list_services": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.get_config": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable.",
+      "first_shipped_in": "2026.6.29b1",
       "actions": {}
     },
     "ha.list_events": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
+      "first_shipped_in": "2026.6.29b1",
       "actions": {}
     },
     "ha.list_config_entries": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
+      "first_shipped_in": "2026.6.29b1",
       "actions": {}
     },
     "ha.core_logs": {
@@ -380,16 +403,19 @@
       "bounds": {
         "lines": "validated integer from 1 through the source-defined maximum"
       },
+      "first_shipped_in": "2026.6.29b1",
       "actions": {}
     },
     "ha.calendar_get_events": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable and the calendar entity/time range is valid.",
+      "first_shipped_in": "2026.6.29b1",
       "actions": {}
     },
     "ha.list_entity_registry": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.logbook": {
@@ -416,6 +442,7 @@
           }
         ]
       },
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.history": {
@@ -434,22 +461,26 @@
           }
         ]
       },
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.reload_config": {
       "authorization_class": "admin_token",
       "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
       "outcome": "partial",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.light_turn_on": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_on; trusted principal context is not node-enforced yet.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.light_turn_off": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_off; trusted principal context is not node-enforced yet.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.list_automations": {
@@ -501,11 +532,13 @@
           }
         ]
       },
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.check_config": {
       "authorization_class": "diagnostic",
       "capability_conditions": "Supervisor API is reachable and permits core config validation.",
+      "first_shipped_in": "2026.6.8a8",
       "actions": {}
     },
     "ha.addon_logs": {
@@ -514,65 +547,77 @@
       "bounds": {
         "lines": "validated integer from 1 through the source-defined maximum"
       },
+      "first_shipped_in": "2026.6.20b3",
       "actions": {}
     },
     "ha.list_addons": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable; collection result has no caller limit.",
+      "first_shipped_in": "2026.6.20b3",
       "actions": {}
     },
     "ha.addon_info": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "first_shipped_in": "2026.6.20b4",
       "actions": {}
     },
     "ha.addon_stats": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "first_shipped_in": "2026.6.20b4",
       "actions": {}
     },
     "ha.addon_changelog": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "first_shipped_in": "2026.6.20b4",
       "actions": {}
     },
     "ha.addon_documentation": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
+      "first_shipped_in": "2026.6.20b4",
       "actions": {}
     },
     "ha.addon_start": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
+      "first_shipped_in": "2026.6.20b7",
       "actions": {}
     },
     "ha.addon_stop": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
+      "first_shipped_in": "2026.6.20b7",
       "actions": {}
     },
     "ha.addon_restart": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
+      "first_shipped_in": "2026.6.20b7",
       "actions": {}
     },
     "ha.addon_update": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
+      "first_shipped_in": "unreleased",
       "actions": {}
     },
     "ha.update_install": {
       "authorization_class": "admin_token",
       "capability_conditions": "HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.",
       "outcome": "partial",
+      "first_shipped_in": "unreleased",
       "actions": {}
     },
     "ha.config.lovelace": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "dashboards_list": {
           "authorization_class": "read_only",
@@ -622,6 +667,7 @@
     },
     "ha.config.automation": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "delete": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -656,6 +702,7 @@
     },
     "ha.config.script": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "delete": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -690,6 +737,7 @@
     },
     "ha.config.scene": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "delete": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -724,6 +772,7 @@
     },
     "ha.config.helpers": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "create": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -771,6 +820,7 @@
     },
     "ha.config.area_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "create": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -815,6 +865,7 @@
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "list": {
           "authorization_class": "read_only",
@@ -838,6 +889,7 @@
     },
     "ha.config.entity_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "get": {
           "authorization_class": "read_only",
@@ -879,6 +931,7 @@
     },
     "ha.config.config_entries": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
+      "first_shipped_in": "2026.7.23b1",
       "actions": {
         "disable": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -914,18 +967,21 @@
       "authorization_class": "operator_approval",
       "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. plan.commandText is always the canonical rendering of the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. plan.commandPreview is emitted only for the literal /bin/sh -c and /bin/sh -lc argv that buildNodeShellCommand produces, so a previewed payload always belongs to /bin/sh. Executes nothing; execution happens later under system.run only after the operator approves this canonical plan.",
       "assist_unavailable_reason": "Assist does not expose host shell preparation; exec approvals are an operator surface.",
+      "first_shipped_in": "unreleased",
       "actions": {}
     },
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
       "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
+      "first_shipped_in": "unreleased",
       "actions": {}
     },
     "system.execApprovals.set": {
       "authorization_class": "operator_approval",
       "capability_conditions": "Accepts the Gateway-native file and baseHash contract. The target path is resolved once, and the snapshot read, the base-hash comparison, and the atomic replacement all happen under an exclusive lock, so among cooperating writers a write whose base hash no longer matches the file being replaced is refused rather than committed. That guarantee holds while the node's private data directory is intact: an actor able to replace the lock pathname there can split writers onto separate lock inodes, but the same access already permits rewriting the policy document directly. A matching non-empty base hash is required whenever the document exists. Nested policy content is validated against the closed Gateway schema, using JavaScript whitespace semantics where the schema does. A stored socket credential is preserved verbatim across a redacted read-edit-write, and the node never fabricates a socket path or token.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
+      "first_shipped_in": "unreleased",
       "actions": {}
     },
     "ha.supervisor_info": {

@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -80,9 +81,30 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
             "system.which",
         ],
     }
+    # New top-level release-tracking fields must be present.
+    assert "latest_release" in ledger
+    assert isinstance(ledger["commands_new_in_latest_release"], list)
+    assert isinstance(ledger["commands_unreleased"], list)
+    # The five genuinely unreleased commands as of origin/main.
+    assert sorted(ledger["commands_unreleased"]) == [
+        "ha.addon_update",
+        "ha.update_install",
+        "system.execApprovals.get",
+        "system.execApprovals.set",
+        "system.run.prepare",
+    ]
+
+    _version_re = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
+
     assert len({row["id"] for row in rows}) == len(rows)
     for row in rows:
         assert row["registered"] is True
+        # Every row must carry a valid first_shipped_in.
+        fsi = row.get("first_shipped_in")
+        assert isinstance(fsi, str), f"row {row['id']} first_shipped_in must be a string"
+        assert fsi, f"row {row['id']} first_shipped_in must not be empty"
+        fsi_valid = fsi == "unreleased" or bool(_version_re.match(fsi))
+        assert fsi_valid, f"row {row['id']} first_shipped_in {fsi!r} is not valid"
         assert set(row["callers"]) == {
             "assist_wrapper",
             "direct_nodes_invoke",
@@ -356,3 +378,86 @@ def test_assist_contract_requires_client_side_semantics_for_null_mapping(
     monkeypatch.setattr(generator, "ASSIST_CONTRACT", mutated)
     with pytest.raises(generator.LedgerError, match="null-mapped params need"):
         generator._assist_callers()
+
+
+# --- first_shipped_in gate tests ---
+
+
+def test_first_shipped_in_missing_fails() -> None:
+    """A command without first_shipped_in is rejected at ledger build time."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in must be a non-empty string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", None)
+
+
+def test_first_shipped_in_empty_string_fails() -> None:
+    """An empty first_shipped_in value is rejected."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in must be a non-empty string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", "")
+
+
+def test_first_shipped_in_non_string_fails() -> None:
+    """A numeric first_shipped_in value is rejected."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in must be a non-empty string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", 123)
+
+
+def test_first_shipped_in_invalid_version_fails() -> None:
+    """A value that is neither 'unreleased' nor a valid version string is rejected."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in.*neither 'unreleased' nor a valid version string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", "not-a-version")
+
+
+def test_first_shipped_in_valid_alpha_version_passes() -> None:
+    """An alpha prerelease version like 2026.6.8a8 is accepted."""
+    generator = _load_generator()
+    generator._validate_first_shipped_in("test.cmd", "2026.6.8a8")
+
+
+def test_first_shipped_in_valid_beta_version_passes() -> None:
+    """A beta prerelease version like 2026.9.12b1 is accepted."""
+    generator = _load_generator()
+    generator._validate_first_shipped_in("test.cmd", "2026.9.12b1")
+
+
+def test_first_shipped_in_unreleased_passes() -> None:
+    """The sentinel value 'unreleased' is accepted."""
+    generator = _load_generator()
+    generator._validate_first_shipped_in("test.cmd", "unreleased")
+
+
+def test_missing_first_shipped_in_in_manual_fails_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """build_ledger() must fail when first_shipped_in is absent from any command entry."""
+    generator = _load_generator()
+    original_load = generator._load_manual
+
+    def without_first_shipped() -> Any:
+        data = original_load()
+        data["commands"]["ping"] = {
+            k: v for k, v in data["commands"]["ping"].items() if k != "first_shipped_in"
+        }
+        return data
+
+    monkeypatch.setattr(generator, "_load_manual", without_first_shipped)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"ping first_shipped_in must be a non-empty string",
+    ):
+        generator.build_ledger()

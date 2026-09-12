@@ -18,6 +18,30 @@ rows are intentionally retained. Regenerate after editing source or
 - Registered but unadvertised: `none`
 - Advertised but unregistered: `none`
 
+## New in this release (2026.7.23b1)
+
+Commands whose `first_shipped_in` matches the most-recently-tagged release. These are new since the previous release.
+
+- `ha.config.area_registry`
+- `ha.config.automation`
+- `ha.config.config_entries`
+- `ha.config.device_registry`
+- `ha.config.entity_registry`
+- `ha.config.helpers`
+- `ha.config.lovelace`
+- `ha.config.scene`
+- `ha.config.script`
+
+## Unreleased command additions
+
+Commands with `first_shipped_in: unreleased`. These will ship if a release is cut now.
+
+- `ha.addon_update`
+- `ha.update_install`
+- `system.execApprovals.get`
+- `system.execApprovals.set`
+- `system.run.prepare`
+
 ## Evidence methods
 
 - **UNVERIFIED:** Present in the ledger but not behaviorally proven.

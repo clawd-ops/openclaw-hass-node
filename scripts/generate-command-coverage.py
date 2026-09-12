@@ -15,6 +15,8 @@ import ast
 import copy
 import difflib
 import json
+import re
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -50,6 +52,43 @@ ROW_CALLERS = frozenset(
 )
 # Acceptance test callers must name a ROW_CALLER.
 VALID_TEST_CALLERS = ROW_CALLERS
+
+# Version pattern for first_shipped_in values.
+# Must accept both alpha (a) and beta (b) prerelease markers because 33 commands
+# first shipped in 2026.6.8a8 — an alpha tag — and rejecting [a] would fabricate history.
+_FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
+
+
+def _latest_released_tag() -> str | None:
+    """Return the most-recently-created release tag, without leading 'v', or None."""
+    try:
+        result = subprocess.run(
+            ["git", "tag", "--sort=creatordate"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    tags = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not tags:
+        return None
+    latest = tags[-1]
+    return latest.lstrip("v")
+
+
+def _validate_first_shipped_in(command: str, value: object) -> None:
+    """Raise LedgerError when first_shipped_in is absent, empty, non-string, or malformed."""
+    if not isinstance(value, str) or not value:
+        raise LedgerError(
+            f"command {command} first_shipped_in must be a non-empty string, got {value!r}"
+        )
+    if value != "unreleased" and not _FIRST_SHIPPED_VERSION_RE.match(value):
+        raise LedgerError(
+            f"command {command} first_shipped_in {value!r} is neither 'unreleased' nor a "
+            "valid version string (YYYY.M.D[ab]N, e.g. '2026.6.8a8' or '2026.9.12b1')"
+        )
 
 
 class LedgerError(RuntimeError):
@@ -709,6 +748,9 @@ def build_ledger() -> dict[str, Any]:
             raise LedgerError(f"manual actions for {command} must be an object")
         _validate_exact(f"action variants for {command}", set(actions), set(declared_actions))
 
+        first_shipped_in = entry.get("first_shipped_in")
+        _validate_first_shipped_in(command, first_shipped_in)
+
         aliases = entry.get("aliases", {})
         if not isinstance(aliases, dict):
             raise LedgerError(f"aliases for {command} must be an object")
@@ -1047,6 +1089,7 @@ def build_ledger() -> dict[str, Any]:
                     "id": row_id,
                     "command": command,
                     "action": action,
+                    "first_shipped_in": first_shipped_in,
                     "handler": f"openclaw_node.commands.{module}:{handler}",
                     "registered": True,
                     "callers": row_callers,
@@ -1083,6 +1126,19 @@ def build_ledger() -> dict[str, Any]:
                 }
             )
 
+    latest_release = _latest_released_tag()
+    first_shipped_by_command = {
+        cmd: manual["commands"][cmd]["first_shipped_in"] for cmd in sorted(registry)
+    }
+    commands_new_in_latest_release = (
+        sorted(cmd for cmd, v in first_shipped_by_command.items() if v == latest_release)
+        if latest_release
+        else []
+    )
+    commands_unreleased = sorted(
+        cmd for cmd, v in first_shipped_by_command.items() if v == "unreleased"
+    )
+
     return {
         "schema_version": 1,
         "title": "OpenClaw Home Assistant node command/action/caller coverage ledger",
@@ -1117,6 +1173,9 @@ def build_ledger() -> dict[str, Any]:
             "advertised_not_registered": sorted(advertised - set(registry)),
             "registered_without_assist_wrapper": sorted(set(registry) - set(assist)),
         },
+        "latest_release": latest_release,
+        "commands_new_in_latest_release": commands_new_in_latest_release,
+        "commands_unreleased": commands_unreleased,
         "rows": rows,
     }
 
@@ -1164,9 +1223,59 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         "- Advertised but unregistered: "
         f"`{', '.join(summary['advertised_not_registered']) or 'none'}`",
         "",
-        "## Evidence methods",
-        "",
     ]
+    # New in this release
+    latest_release = ledger.get("latest_release")
+    new_commands = ledger.get("commands_new_in_latest_release", [])
+    if latest_release:
+        lines.extend(
+            [
+                f"## New in this release ({latest_release})",
+                "",
+                "Commands whose `first_shipped_in` matches the most-recently-tagged release. "
+                "These are new since the previous release.",
+                "",
+            ]
+        )
+        if new_commands:
+            for cmd in new_commands:
+                lines.append(f"- `{cmd}`")
+        else:
+            lines.append("_(no commands are new in this release)_")
+        lines.append("")
+    else:
+        lines.extend(
+            [
+                "## New in this release",
+                "",
+                "_(no git release tags are reachable from this worktree; "
+                "cannot determine the latest release)_",
+                "",
+            ]
+        )
+    # Unreleased command additions
+    unreleased_commands = ledger.get("commands_unreleased", [])
+    lines.extend(
+        [
+            "## Unreleased command additions",
+            "",
+            "Commands with `first_shipped_in: unreleased`. "
+            "These will ship if a release is cut now.",
+            "",
+        ]
+    )
+    if unreleased_commands:
+        for cmd in unreleased_commands:
+            lines.append(f"- `{cmd}`")
+    else:
+        lines.append("_(no unreleased command additions)_")
+    lines.extend(
+        [
+            "",
+            "## Evidence methods",
+            "",
+        ]
+    )
     for level, meaning in ledger["evidence_methods"].items():
         lines.append(f"- **{level}:** {meaning}")
     lines.extend(["", "## Outcomes", ""])
