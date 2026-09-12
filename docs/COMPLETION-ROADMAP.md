@@ -107,16 +107,19 @@ older issue list.
   mutations, with zero-HA-request regression coverage. It is not deployed, and
   the trusted verifier / human approval flow remains open.
 - Protected `fs.*` refuses correctly, but no accepted-proposal path exists.
-- Unreleased #287 adds an interim node-enforced denylist to stop
+- Merged #287 adds an interim node-enforced denylist at source to stop
   `ha.call_service` from reaching lifecycle, update, reload, host, shell, and
-  shutdown effects through the generic route. The final approval-aware effect
-  policy and deployment validation remain incomplete.
+  shutdown effects through the generic route. Source is on `main` but is not
+  yet in a released artifact (per the "How progress is counted" rule); the
+  final approval-aware effect policy also remains incomplete.
 - Baseline finding: Assist `service_data` was lost at the node's `data` input.
-  Unreleased #266 normalizes to `data`, accepts the old alias explicitly, and
-  rejects conflicts before HA I/O. Independent review/release remain pending.
+  Merged #266 normalizes to `data`, accepts the old alias explicitly, and
+  rejects conflicts before HA I/O. Source is on `main` but is not yet in a
+  released artifact.
 - Baseline finding: inner handler failures were wrapped as outer `ok: true`.
-  Unreleased #266 projects failure at the node boundary and rejects legacy
+  Merged #266 projects failure at the node boundary and rejects legacy
   inner failures in the plugin, including SDK `details.nodeError` rejections.
+  Source is on `main` but is not yet in a released artifact.
 - Dispatcher parameters are not schema-validated. Misspellings and stale names
   silently fall back to unbounded reads or default actions.
 - Registered commands and advertised commands are separate manual lists.
@@ -194,7 +197,7 @@ completion claim has a row in the coverage ledger.
   - [ ] `ha.history` and `ha.logbook` time/entity aliases.
   - [x] `ha.list_automations` filtering before trace expansion (#259).
   - [ ] `ha.reload_config` domain semantics.
-  - [x] `ha.call_service` `service_data` versus `data`. PR #267 merged at
+  - [ ] `ha.call_service` `service_data` versus `data`. PR #267 merged at
     `2f44a65`: node normalizes `service_data` → `data` at the boundary,
     accepts the legacy alias, and rejects conflicting duplicates before HA
     I/O. Covered by `tests/test_ha_commands.py` and the cross-language
@@ -282,8 +285,10 @@ cannot bypass policy; Rob can see and resolve a pending approval end to end.
   advertised collection/read that needs them; explicitly reject unsupported
   bounds rather than ignoring them.
 - [ ] Distinguish unknown entities from valid empty history where HA permits it.
-- [x] Make `ha.addon_update` and `ha.update_install` advertisement, gateway
+- [ ] Make `ha.addon_update` and `ha.update_install` advertisement, gateway
   permission, runtime capability, authorization, and plugin exposure agree.
+  Source is merged on `main` but not yet in a released artifact (per the
+  "How progress is counted" rule); tick belongs to the release-tie gate.
   Delivered by #260 via PR #284 at `762dc86`: both commands are now advertised
   in `_NODE_COMMANDS`, `_INTENTIONALLY_UNADVERTISED` is the single documented
   exemption list, and a drift gate (`test_command_coverage_ledger`,
