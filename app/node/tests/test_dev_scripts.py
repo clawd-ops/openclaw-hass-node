@@ -426,8 +426,8 @@ esac
     assert [check["name"] for check in payload["checks"]] == ["CI", "Docs"]
 
 
-def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> None:
-    """The review helper launches a turn whose sole task is one subagent spawn."""
+def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
+    """Build the stubbed environment used by the spawn-review tests."""
     stub_bin = tmp_path / "bin"
     stub_bin.mkdir()
     captured_args = tmp_path / "args.txt"
@@ -525,6 +525,13 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
         }
     )
 
+    return env, captured_prompt, captured_args
+
+
+def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> None:
+    """The wrapper dispatches exactly one subagent with the assembled brief."""
+    env, captured_prompt, captured_args = _spawn_review_env(tmp_path)
+
     result = subprocess.run(
         [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
     )
@@ -613,3 +620,48 @@ def test_gate_runner_matches_typescript_workflow_scope() -> None:
     assert "app/node/*" in text
     assert "uv sync --package openclaw-node --python 3.13" in text
     assert 'fail "changed-path enumeration (branch)"' in text
+
+
+def test_spawn_review_reports_history_api_error_as_unverified(tmp_path: Path) -> None:
+    """An unreachable history API must not be reported as a brief mismatch.
+
+    The spawn is already proven by the accepted receipt and the session lookup.
+    If the history call fails, the brief was never compared, so claiming it did
+    not match accuses the wrong thing and sends the operator hunting a
+    non-existent content bug.
+    """
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env["HISTORY_RESULT"] = json.dumps(
+        {
+            "ok": False,
+            "toolName": "sessions_history",
+            "error": {"code": "validation_error", "message": "no explicit owner"},
+        }
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "brief delivery unverified" in result.stderr
+    assert "does not match the assembled brief" not in result.stderr
+
+
+def test_spawn_review_still_fails_on_real_brief_mismatch(tmp_path: Path) -> None:
+    """A history response that genuinely lacks the brief is still fatal."""
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env["HISTORY_RESULT"] = json.dumps(
+        {
+            "output": {
+                "details": {"messages": [{"role": "user", "content": "some entirely other task"}]}
+            }
+        }
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 1
+    assert "does not match the assembled brief" in result.stderr

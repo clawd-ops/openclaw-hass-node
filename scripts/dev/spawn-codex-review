@@ -157,32 +157,61 @@ print(json.dumps({
 }))
 PYEOF
 )
+# Brief-delivery verification is best-effort on purpose. The spawn itself is
+# already proven by the accepted receipt and the child-session lookup above;
+# this step is extra assurance that the child received the exact brief. The
+# history API is not reachable in every runtime, so an API failure must be
+# reported as an API failure and must not masquerade as a content mismatch.
+# Conflating the two is worse than skipping the check: it accuses the brief of
+# being wrong when nothing was ever compared.
+HISTORY_AVAILABLE=1
 if ! openclaw gateway call tools.invoke --json --params "$HISTORY_PARAMS" \
     > "$HISTORY_FILE" 2> "$ERROR_FILE"; then
     "$CHECKER" "$ERROR_FILE" || true
-    echo "spawn-codex-review: could not verify the child task" >&2
-    exit 1
+    echo "spawn-codex-review: warning — history API call failed; brief delivery unverified" >&2
+    HISTORY_AVAILABLE=0
 fi
-"$CHECKER" "$ERROR_FILE"
-"$CHECKER" "$HISTORY_FILE"
-python3 - "$HISTORY_FILE" "$BRIEF" << 'PYEOF'
+if [[ "$HISTORY_AVAILABLE" -eq 1 ]]; then
+    "$CHECKER" "$ERROR_FILE"
+    "$CHECKER" "$HISTORY_FILE"
+    python3 - "$HISTORY_FILE" "$BRIEF" << 'PYEOF'
 import json
 import sys
 from pathlib import Path
 
+raw = Path(sys.argv[1]).read_text(encoding="utf-8")
+brief = sys.argv[2]
+
 try:
-    history = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+    history = json.loads(raw)
+except (json.JSONDecodeError, OSError) as exc:
+    print(f"spawn-codex-review: warning — history unreadable ({exc}); brief delivery unverified", file=sys.stderr)
+    raise SystemExit(0)
+
+if history.get("ok") is False:
+    message = (history.get("error") or {}).get("message", "unknown error")
+    print(f"spawn-codex-review: warning — history API error ({message}); brief delivery unverified", file=sys.stderr)
+    raise SystemExit(0)
+
+try:
     messages = history["output"]["details"]["messages"]
     user_content = next(item["content"] for item in messages if item.get("role") == "user")
-    brief = sys.argv[2]
-    if not isinstance(user_content, str):
-        raise ValueError
-    if user_content != brief and not user_content.endswith("\n" + brief):
-        raise ValueError
-except (KeyError, StopIteration, TypeError, ValueError, json.JSONDecodeError, OSError):
+except (KeyError, StopIteration, TypeError):
+    print("spawn-codex-review: warning — no user message in history; brief delivery unverified", file=sys.stderr)
+    raise SystemExit(0)
+
+if not isinstance(user_content, str):
+    print("spawn-codex-review: warning — history content is not text; brief delivery unverified", file=sys.stderr)
+    raise SystemExit(0)
+
+# Delivery may wrap the task in a runtime envelope, so require containment
+# rather than exact suffix equality. A genuine mismatch is still fatal: the
+# brief was compared and did not survive.
+if brief not in user_content:
     print("spawn-codex-review: child task does not match the assembled brief", file=sys.stderr)
     raise SystemExit(1)
 PYEOF
+fi
 
 printf '%s\n' "$RECEIPT" | "$CHECKER"
 printf '%s\n' "$RECEIPT"
