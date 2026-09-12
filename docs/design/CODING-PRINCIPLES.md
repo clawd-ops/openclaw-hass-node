@@ -49,7 +49,7 @@ Git provides recovery. A partial run is repaired by `git checkout -- .` followed
 
 Eleven commands writing under the allowed roots enforced by `safe_path.py` and `safe_fd.py`.
 
-Git does not help here and the caller may have no retry story. Defensive semantics are warranted: atomic writes, path containment enforced at the boundary, and explicit structured error codes on refusal. The containment check is not optional caution — it is the security property.
+Git does not help here and the caller may have no retry story. Defensive semantics are warranted: atomic writes, path containment enforced at the boundary (this is the security property, not optional caution), and explicit structured error codes on refusal. The node's `fs.*` write commands snapshot changes automatically so `fs.history` and `fs.restore` can undo them; the recovery story is built into the surface rather than left to callers, but individual handlers must not bypass or duplicate it.
 
 ### C. `ha.*` commands mutating live Home Assistant state
 
@@ -103,17 +103,57 @@ Before adding a new file or module, ask whether the code belongs in an existing 
 
 ## Worked examples
 
-### Simplification was correct
+### Simpler was correct
 
-**The release stamping script** (`scripts/mark-commands-shipped.py`, PR #305). A review found a real bug in its custom snapshot, metadata-restore and transactional-replace path. That code was class A: it edits tracked files, so git already provided the recovery it was approximating. The machinery was deleted rather than repaired. The file went from 541 to 348 lines and its test file from 734 to 85; the stamping path itself is now roughly 40 lines, with the remaining bulk being the `--check-release-bump` CI gate, which was kept.
+Both versions produce the same result for realistic inputs. The second gets the job done in far fewer lines with nothing hidden:
 
-**Second example: none yet.** The other recent simplification-shaped findings were genuine defects in load-bearing code, not excess machinery. This section should gain an entry only when deletion is actually the right call again, not to fill the slot.
+```python
+# 8 lines
+def format_name(name):
+    if name is None:
+        return ""
+    parts = name.strip().split()
+    formatted = []
+    for part in parts:
+        formatted.append(part.capitalize())
+    return " ".join(formatted)
+```
 
-### Defensive code was warranted
+```python
+# 1 line, same behavior
+def format_name(name):
+    return " ".join(p.capitalize() for p in (name or "").split())
+```
 
-**The exec-approval envelope binding** (`system.run`, PR #277, merge `6680114`, building on PR #274). Class D. `system.run` executes on the host with effects this repo cannot undo, so the approval envelope is the security contract rather than a safety net around it. Binding the executed argv to the approved plan, and refusing on mismatch, is the feature. A review of this code found a partial-plan authorization bypass, and the correct response was to tighten the binding, not to question whether binding should exist.
+Class A / F code. Neither version has a domain-level correctness requirement the other lacks. Prefer the shorter one.
 
-**The `ha.call_service` denylist gate** (PR #295, merge `bd66d0c`). Class C. Generic service calls can reach privileged effects that have dedicated, policy-gated commands. The gate refuses **before** the request body is built, which is why the ordering is a correctness requirement and not a stylistic preference — a check that ran after the body was assembled could still dispatch on a bug in the matcher.
+### Defensive was correct
+
+The simpler version raises generic Python exceptions (`ValueError`, `IndexError`) on malformed input. That's fine deep inside a module; it is not fine at a boundary where the caller needs to distinguish a bad input from an internal bug:
+
+```python
+# Simple but leaks generic internal errors to the caller
+def parse_range(s):
+    lo, hi = s.split("-")
+    return int(lo), int(hi)
+```
+
+```python
+# More lines, every failure produces a specific structured error the caller can route on
+def parse_range(s):
+    parts = s.split("-", 1)
+    if len(parts) != 2:
+        raise InvalidRange("expected 'lo-hi'")
+    try:
+        lo, hi = int(parts[0]), int(parts[1])
+    except ValueError:
+        raise InvalidRange("range parts must be integers")
+    if lo > hi:
+        raise InvalidRange("lo must be <= hi")
+    return lo, hi
+```
+
+At a class B, C, or D boundary the extra lines earn their keep. In pure internal utility code (class F), the first version is fine — the extra machinery is invented at that layer.
 
 ## The test before adding a principle here
 
