@@ -48,6 +48,7 @@ import logging
 import os
 import re
 from typing import Any, Final
+from urllib.parse import quote
 
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
@@ -99,6 +100,31 @@ _INTERIM_DENIED_SERVICE_PATTERNS: Final[dict[str, str]] = {
     "*.reload": "use the dedicated reload/configuration policy path",
     "*.reload_*": "use the dedicated reload/configuration policy path",
 }
+
+
+def _encode_path_segment(value: str) -> str:
+    """Percent-encode a caller-supplied value used as a single URL path segment.
+
+    ``/``, ``?``, ``#``, ``%``, and whitespace are encoded so a caller cannot
+    traverse to a different endpoint or append a query string. ``:``, ``+``, and
+    ``.`` are left literal: all three are legal in a path segment, entity IDs
+    contain ``.``, and ISO-8601 timestamps contain ``:`` and may carry a ``+``
+    offset, which is not a space in path position.
+    """
+    return quote(value, safe=":+.")
+
+
+def _encode_query_value(value: str) -> str:
+    """Percent-encode a caller-supplied value used as a URL query value.
+
+    ``+`` must be encoded here, unlike in a path segment: in a query string it
+    decodes to a space, so an ISO-8601 ``+00:00`` offset sent literally reaches
+    HA as ``00:00`` and is rejected as an invalid timestamp. ``&``, ``=``, ``#``,
+    and ``%`` are encoded so a caller cannot inject extra parameters. ``:`` and
+    ``,`` are left literal: both are legal in a query value, timestamps contain
+    ``:``, and HA's ``filter_entity_id`` is a comma-separated list.
+    """
+    return quote(value, safe=":,")
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -194,7 +220,7 @@ async def handle_ha_get_state(params: dict[str, Any]) -> dict[str, Any]:
         return _error("MISSING_PARAM", "entity_id is required")
 
     try:
-        state = await ha_get(f"/api/states/{entity_id}")
+        state = await ha_get(f"/api/states/{_encode_path_segment(entity_id)}")
     except HAClientError as exc:
         return _to_error(exc)
 
@@ -444,11 +470,9 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
         end_time (str, optional): ISO-8601 upper bound.
         entity_id (str, optional): Restrict to a single entity.
 
-    Known defect: values are interpolated without percent-encoding. ``end_time``
-    becomes a query value, where ``+`` means a space, so a ``+00:00`` offset is
-    not transmitted correctly and the ``Z`` form should be used. ``start_time``
-    becomes a path segment, where ``+`` is literal; that position is not known to
-    fail and was not separately probed.
+    Caller-supplied values are percent-encoded before they reach the URL, so
+    both the ``Z`` and ``+00:00`` offset forms are accepted and an entity ID
+    cannot inject extra query parameters.
 
     Returns:
         ``{ok: True, count, entries}`` or an error dict.
@@ -456,15 +480,15 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
     path = "/api/logbook"
     start_time = str(params.get("start_time", ""))
     if start_time:
-        path = f"{path}/{start_time}"
+        path = f"{path}/{_encode_path_segment(start_time)}"
 
     query_parts: list[str] = []
     end_time = str(params.get("end_time", ""))
     if end_time:
-        query_parts.append(f"end_time={end_time}")
+        query_parts.append(f"end_time={_encode_query_value(end_time)}")
     entity_id = str(params.get("entity_id", ""))
     if entity_id:
-        query_parts.append(f"entity={entity_id}")
+        query_parts.append(f"entity={_encode_query_value(entity_id)}")
     if query_parts:
         path = f"{path}?{'&'.join(query_parts)}"
 
@@ -488,14 +512,13 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
         no_attributes (bool, optional): Omit attributes (default False).
         significant_changes_only (bool, optional): Only significant changes.
 
-    Known defects: values are interpolated without percent-encoding.
-    ``end_time`` becomes a query value, where ``+`` means a space, so a
-    ``+00:00`` offset is rejected by HA with ``Invalid end_time`` and the ``Z``
-    form must be used; observed live against the installed node. ``start_time``
-    becomes a path segment, where ``+`` is literal; that position is not known to
-    fail and was not separately probed. An unknown entity in ``entity_ids``
-    yields ``{ok: True, count: 0}``, which is indistinguishable from a real
-    entity with no history in the window.
+    Caller-supplied values are percent-encoded before they reach the URL, so
+    both the ``Z`` and ``+00:00`` offset forms are accepted and an entity ID
+    cannot inject extra query parameters.
+
+    Known defect, still open: an unknown entity in ``entity_ids`` yields
+    ``{ok: True, count: 0}``, which is indistinguishable from a real entity with
+    no history in the window.
 
     Returns:
         ``{ok: True, count, history}`` where ``history`` is a list of entity
@@ -504,17 +527,17 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
     path = "/api/history/period"
     start_time = str(params.get("start_time", ""))
     if start_time:
-        path = f"{path}/{start_time}"
+        path = f"{path}/{_encode_path_segment(start_time)}"
 
     query_parts: list[str] = []
     end_time = str(params.get("end_time", ""))
     if end_time:
-        query_parts.append(f"end_time={end_time}")
+        query_parts.append(f"end_time={_encode_query_value(end_time)}")
     entity_ids = params.get("entity_ids")
     if entity_ids is not None:
         if not isinstance(entity_ids, list) or not all(isinstance(e, str) for e in entity_ids):
             return _error("INVALID_PARAM", "entity_ids must be a list of strings")
-        query_parts.append(f"filter_entity_id={','.join(entity_ids)}")
+        query_parts.append(f"filter_entity_id={_encode_query_value(','.join(entity_ids))}")
     for flag in ("minimal_response", "no_attributes", "significant_changes_only"):
         if params.get(flag):
             query_parts.append(flag)
