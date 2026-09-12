@@ -50,7 +50,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 13. Proactive GitHub event notifications to the agent
 - Status: OPEN (design)
-- Webhook bridge GitHub → OpenClaw (likely `oc-hooks.landry.me/plugins/github-bridge`, following pocket/linear/agentmail pattern). Events: PR opened/synchronized/closed, check_suite completed, pull_request_review submitted, issues opened/labeled.
+- Webhook bridge GitHub → OpenClaw (github-bridge plugin, following pocket/linear/agentmail pattern). Events: PR opened/synchronized/closed, check_suite completed, pull_request_review submitted, issues opened/labeled.
 - Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on Rob's gateway-flip approval.
 
 ### 17. Open GitHub issues (not otherwise tracked above)

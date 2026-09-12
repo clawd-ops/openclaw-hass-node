@@ -2,8 +2,9 @@
 
 **Status:** active planning baseline
 
-**Baseline:** repo `ab03579`; running app `2026.7.23b1`; verification dated
-2026-09-11
+**Baseline:** repo `bc95f95`; running app `2026.7.23b1`; verification dated
+2026-09-12. Version string is aligned in both `app/config.yaml` and
+`app/node/pyproject.toml`; no released tag has advanced past `2026.7.23b1`.
 
 **Evidence source:** [`VERIFICATION-2026-09-11.md`](VERIFICATION-2026-09-11.md)
 
@@ -106,16 +107,19 @@ older issue list.
   mutations, with zero-HA-request regression coverage. It is not deployed, and
   the trusted verifier / human approval flow remains open.
 - Protected `fs.*` refuses correctly, but no accepted-proposal path exists.
-- Unreleased #287 adds an interim node-enforced denylist to stop
+- Merged #287 adds an interim node-enforced denylist at source to stop
   `ha.call_service` from reaching lifecycle, update, reload, host, shell, and
-  shutdown effects through the generic route. The final approval-aware effect
-  policy and deployment validation remain incomplete.
+  shutdown effects through the generic route. Source is on `main` but is not
+  yet in a released artifact (per the "How progress is counted" rule); the
+  final approval-aware effect policy also remains incomplete.
 - Baseline finding: Assist `service_data` was lost at the node's `data` input.
-  Unreleased #266 normalizes to `data`, accepts the old alias explicitly, and
-  rejects conflicts before HA I/O. Independent review/release remain pending.
+  Merged #266 normalizes to `data`, accepts the old alias explicitly, and
+  rejects conflicts before HA I/O. Source is on `main` but is not yet in a
+  released artifact.
 - Baseline finding: inner handler failures were wrapped as outer `ok: true`.
-  Unreleased #266 projects failure at the node boundary and rejects legacy
+  Merged #266 projects failure at the node boundary and rejects legacy
   inner failures in the plugin, including SDK `details.nodeError` rejections.
+  Source is on `main` but is not yet in a released artifact.
 - Dispatcher parameters are not schema-validated. Misspellings and stale names
   silently fall back to unbounded reads or default actions.
 - Registered commands and advertised commands are separate manual lists.
@@ -193,20 +197,31 @@ completion claim has a row in the coverage ledger.
   - [ ] `ha.history` and `ha.logbook` time/entity aliases.
   - [x] `ha.list_automations` filtering before trace expansion (#259).
   - [ ] `ha.reload_config` domain semantics.
-  - [ ] `ha.call_service` `service_data` versus `data`. Implemented in unreleased
-    #266 / PR #267; independent review and CI acceptance pending.
+  - [ ] `ha.call_service` `service_data` versus `data`. PR #267 merged at
+    `2f44a65`: node normalizes `service_data` → `data` at the boundary,
+    accepts the legacy alias, and rejects conflicting duplicates before HA
+    I/O. Covered by `tests/test_ha_commands.py` and the cross-language
+    `tests/contracts/invoke_fixture.py`. Not yet in a released artifact
+    (`2026.7.23b1` still ships the pre-fix behavior); release-tie
+    verification stays with the Phase 6 packaging gate.
   - [ ] URL/path/query percent-encoding.
 - [ ] Propagate handler errors through the transport and plugin. Success text is
-  emitted only after the inner operation succeeds. Implemented in unreleased
-  #266 / PR #267, pending independent review and CI acceptance. Node refusals,
-  HA failures, gateway authorization/schema/policy rejections, transport errors,
-  and malformed results are distinguished; gateway retryability is preserved.
+  emitted only after the inner operation succeeds. PR #267 merged at `2f44a65`:
+  node projects inner failure at the boundary and the plugin rejects legacy
+  inner failures (including SDK `details.nodeError`). CI accepted the change.
+  Broader coverage across every command family and release-tie verification
+  remain open, so the item stays unchecked. Node refusals, HA failures,
+  gateway authorization/schema/policy rejections, transport errors, and
+  malformed results are distinguished for the covered paths; gateway
+  retryability is preserved.
 - [ ] Add cross-language tests that execute real TypeScript wrapper output
   through the Python dispatcher against a controlled HA/Supervisor stub.
-  First fixture implemented in #266 for service payloads, refusals, HA failures,
-  and legacy envelopes. It runs actual wrapper output and Python gateway
-  result frames and asserts the exact nested changed-state payload in the
-  returned tool text; broader command-family coverage is still open.
+  First fixture merged with PR #267 at `2f44a65`
+  (`app/node/tests/contracts/invoke_fixture.py`) covers service payloads,
+  refusals, HA failures, and legacy envelopes. It runs actual wrapper output
+  and Python gateway result frames and asserts the exact nested
+  changed-state payload in the returned tool text; broader command-family
+  coverage across the 87-row ledger is still open.
 
 **Exit:** every supported request has deterministic parameters and result
 semantics on both direct and Assist paths; unknown input cannot broaden scope.
@@ -272,6 +287,15 @@ cannot bypass policy; Rob can see and resolve a pending approval end to end.
 - [ ] Distinguish unknown entities from valid empty history where HA permits it.
 - [ ] Make `ha.addon_update` and `ha.update_install` advertisement, gateway
   permission, runtime capability, authorization, and plugin exposure agree.
+  Source is merged on `main` but not yet in a released artifact (per the
+  "How progress is counted" rule); tick belongs to the release-tie gate.
+  Delivered by #260 via PR #284 at `762dc86`: both commands are now advertised
+  in `_NODE_COMMANDS`, `_INTENTIONALLY_UNADVERTISED` is the single documented
+  exemption list, and a drift gate (`test_command_coverage_ledger`,
+  `test_gateway_ws`) fails CI on any future registered-vs-advertised mismatch.
+  Plugin/Assist and admin-gated authorization paths were already wired; the
+  new gate binds them to the advertised surface. Live update-install execution
+  evidence stays with the Phase 3 durable-receipt item below.
 - [ ] Give app/Core update operations a durable operation ID and receipt that
   survives the process being terminated by its own update. Reconcile exact
   installed version and artifact digest after reconnect; never repeat the effect
@@ -397,11 +421,11 @@ definition of complete.
 
 | Existing tracker | Roadmap phase | Current interpretation |
 |---|---:|---|
-| [#257](https://github.com/clawd-ops/openclaw-hass-node/issues/257) | 1 | Part of strict schemas and bounded reads; credential exposure raises priority. |
-| [#258](https://github.com/clawd-ops/openclaw-hass-node/issues/258) | 3 | Decide supported shell route; do not evade the reserved command. |
-| [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259) | 1 | Part of filtering and strict schemas. |
-| [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260) | 1, 3 | Generate advertisement from contract, then live-test update path. |
-| [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | ~~Fix skill/docs contract and verify intended file-transfer boundary.~~ Skill now describes the real surface: the node registers `ping` + `fs.*` + `system.*` + `ha.*` and does **not** advertise the OpenClaw `file-transfer` protocol (`file.fetch` / `dir.list` / `dir.fetch`); `allowReadPaths` does not apply here. Acceptance direction 1 (implement compatible `file.fetch`/`dir.*` handlers with policy tests) is deliberately deferred; this repo takes direction 2. |
+| [#257](https://github.com/clawd-ops/openclaw-hass-node/issues/257) | 1 | Resolved at source by PR #278 at `bf63142`: `fs.read` honors `offset`/`length` with validated byte-range semantics. |
+| [#258](https://github.com/clawd-ops/openclaw-hass-node/issues/258) | 3 | Resolved by PRs #274 and #277 at `222ce44`/`6680114`: `system.run` bound to the native exec-approval contract; live allow/deny canary still owed as a UAT gate. |
+| [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259) | 1 | Resolved at source by PR #281 at `bfb8a95`: `ha.list_automations` server-side filtering with fail-closed params. |
+| [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260) | 1, 3 | Advertisement + drift gate resolved by PR #284 at `762dc86`; live update-path canary and durable receipt still outstanding under Phase 3. |
+| [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | Skill/docs contract corrected by PR #283 at `bc95f95`: skill now describes the real `ping` + `fs.*` + `system.*` + `ha.*` surface and states the node does **not** advertise `file.fetch` / `dir.list` / `dir.fetch`; `allowReadPaths` does not apply here. Acceptance direction 1 (implement compatible `file.fetch`/`dir.*` handlers with policy tests) is deliberately deferred; this repo takes direction 2. |
 | [#262](https://github.com/clawd-ops/openclaw-hass-node/issues/262) | 2 | ~~Ratify one lifecycle policy and remove contradictory token claims.~~ Resolved in #270: lifecycle/admin split implemented and tested. Remaining: converge dedicated and generic service paths on the same policy decision. |
 | TODO 7 | 5 | Issue triage automation. |
 | TODO 11 | Closed | Home Assistant MCP retirement is complete; residual caller-policy work belongs to phase 2 and does not reopen it. |
