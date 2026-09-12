@@ -91,6 +91,7 @@ nav:
   - Todo: TODO.md
   - Completion Roadmap: COMPLETION-ROADMAP.md
   - Verification: VERIFICATION-2026-09-11.md
+  - Compatibility Matrix: COMPATIBILITY-MATRIX.md
   - Memory: MEMORY.md
   - Design:
       - Plan: design/PLAN.md

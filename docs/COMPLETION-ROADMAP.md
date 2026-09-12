@@ -170,7 +170,15 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   Policy/semantic fields remain explicitly manual and are not executable
   runtime schemas; strict validation remains in later Phase 1 slices.
 - [ ] Record the exact app, plugin, HACS, Gateway, HA Core, Supervisor, and
-  architecture versions used by each live verification.
+  architecture versions used by each live verification. The recording artifact
+  now exists at [`COMPATIBILITY-MATRIX.md`](COMPATIBILITY-MATRIX.md) with the
+  required field set, per-field source provenance (`observed-live`,
+  `repo-declared`, `not recorded`), the current installed environment observed
+  2026-09-12, and the 2026-09-11 verification environment with its unrecorded
+  fields marked rather than reconstructed. The item stays unchecked: the
+  architecture the artifact actually runs on and the loaded plugin/integration
+  versions are not observable through the node's read-only surface, so no
+  environment is yet completely recorded.
 - [ ] Mark all currently unsafe, unreachable, or unverified operations as such in
   user-facing descriptions. Do not advertise them as working during repair.
 - [ ] File or link tracker issues for every untracked stop-ship finding in this
@@ -295,7 +303,11 @@ cannot bypass policy; Rob can see and resolve a pending approval end to end.
   `test_gateway_ws`) fails CI on any future registered-vs-advertised mismatch.
   Plugin/Assist and admin-gated authorization paths were already wired; the
   new gate binds them to the advertised surface. Live update-install execution
-  evidence stays with the Phase 3 durable-receipt item below.
+  evidence stays with the Phase 3 durable-receipt item below. Confirmed by
+  observation on 2026-09-12: the installed `2026.7.23b1` node advertises 51
+  commands and does not include `ha.addon_update` or `ha.update_install`, while
+  source advertises 56. See
+  [`COMPATIBILITY-MATRIX.md`](COMPATIBILITY-MATRIX.md).
 - [ ] Give app/Core update operations a durable operation ID and receipt that
   survives the process being terminated by its own update. Reconcile exact
   installed version and artifact digest after reconnect; never repeat the effect
@@ -452,7 +464,9 @@ definition of complete.
   `reference/command-coverage.json`, with one row per command/action and explicit
   state for each caller path.
 - Compatibility matrix: tested app/plugin/HACS/Gateway/HA/Supervisor versions and
-  architectures.
+  architectures, at [`COMPATIBILITY-MATRIX.md`](COMPATIBILITY-MATRIX.md). One row
+  set per live verification, with per-field source provenance and explicit
+  `not recorded` markers.
 - UAT result packet per release candidate: exact artifact digests, environment,
   tests, expected refusals, observed postconditions, and unresolved rows.
 - Proposal threat model and protocol: trusted fields, signature/capability format,
