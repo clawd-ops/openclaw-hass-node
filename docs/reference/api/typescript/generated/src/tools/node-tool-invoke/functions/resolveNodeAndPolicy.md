@@ -6,7 +6,9 @@
 
 # Function: resolveNodeAndPolicy()
 
-> **resolveNodeAndPolicy**(`input`): `Promise`\<[`ResolvedNode`](../type-aliases/ResolvedNode.md)\>
+```ts
+function resolveNodeAndPolicy(input): Promise<ResolvedNode>;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:58](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L58)
 

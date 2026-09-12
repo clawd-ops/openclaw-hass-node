@@ -6,7 +6,9 @@
 
 # Type Alias: ResolvedNode
 
-> **ResolvedNode** = `object`
+```ts
+type ResolvedNode = object;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:52](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L52)
 
@@ -14,7 +16,9 @@ Defined in: [src/tools/node-tool-invoke.ts:52](https://github.com/clawd-ops/open
 
 ### nodeDisplayName
 
-> **nodeDisplayName**: `string`
+```ts
+nodeDisplayName: string;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:54](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L54)
 
@@ -22,7 +26,9 @@ Defined in: [src/tools/node-tool-invoke.ts:54](https://github.com/clawd-ops/open
 
 ### nodeId
 
-> **nodeId**: `string`
+```ts
+nodeId: string;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:53](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L53)
 
@@ -30,6 +36,10 @@ Defined in: [src/tools/node-tool-invoke.ts:53](https://github.com/clawd-ops/open
 
 ### policy
 
-> **policy**: [`PerNodePolicy`](../../../shared/per-node-policy/type-aliases/PerNodePolicy.md) \| `undefined`
+```ts
+policy:
+  | PerNodePolicy
+  | undefined;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:55](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L55)

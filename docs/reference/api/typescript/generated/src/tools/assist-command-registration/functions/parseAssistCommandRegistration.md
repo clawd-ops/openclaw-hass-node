@@ -6,7 +6,9 @@
 
 # Function: parseAssistCommandRegistration()
 
-> **parseAssistCommandRegistration**(`value`): [`AssistCommandRegistration`](../type-aliases/AssistCommandRegistration.md)
+```ts
+function parseAssistCommandRegistration(value): AssistCommandRegistration;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:330](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L330)
 

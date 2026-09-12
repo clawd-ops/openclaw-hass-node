@@ -6,7 +6,9 @@
 
 # Type Alias: AssistToolsPluginConfig
 
-> **AssistToolsPluginConfig** = `object`
+```ts
+type AssistToolsPluginConfig = object;
+```
 
 Defined in: [src/shared/per-node-policy.ts:18](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/shared/per-node-policy.ts#L18)
 
@@ -14,6 +16,8 @@ Defined in: [src/shared/per-node-policy.ts:18](https://github.com/clawd-ops/open
 
 ### nodes?
 
-> `optional` **nodes?**: `Record`\<`string`, [`PerNodePolicy`](PerNodePolicy.md)\>
+```ts
+optional nodes?: Record<string, PerNodePolicy>;
+```
 
 Defined in: [src/shared/per-node-policy.ts:19](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/shared/per-node-policy.ts#L19)

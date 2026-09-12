@@ -6,6 +6,8 @@
 
 # Variable: HA\_GET\_STATE\_TOOL\_DESCRIPTOR
 
-> `const` **HA\_GET\_STATE\_TOOL\_DESCRIPTOR**: [`AssistToolDescriptor`](../type-aliases/AssistToolDescriptor.md)
+```ts
+const HA_GET_STATE_TOOL_DESCRIPTOR: AssistToolDescriptor;
+```
 
 Defined in: [src/tools/descriptors.ts:86](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L86)

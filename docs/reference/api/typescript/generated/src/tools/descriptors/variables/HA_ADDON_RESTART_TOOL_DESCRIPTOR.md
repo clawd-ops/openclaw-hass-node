@@ -6,6 +6,8 @@
 
 # Variable: HA\_ADDON\_RESTART\_TOOL\_DESCRIPTOR
 
-> `const` **HA\_ADDON\_RESTART\_TOOL\_DESCRIPTOR**: [`AssistToolDescriptor`](../type-aliases/AssistToolDescriptor.md)
+```ts
+const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor;
+```
 
 Defined in: [src/tools/descriptors.ts:419](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L419)

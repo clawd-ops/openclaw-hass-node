@@ -6,7 +6,9 @@
 
 # Function: readPerNodePolicy()
 
-> **readPerNodePolicy**(`pluginConfig`, ...`nodeIdentifiers`): [`PerNodePolicy`](../type-aliases/PerNodePolicy.md) \| `undefined`
+```ts
+function readPerNodePolicy(pluginConfig, ...nodeIdentifiers): PerNodePolicy | undefined;
+```
 
 Defined in: [src/shared/per-node-policy.ts:30](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/shared/per-node-policy.ts#L30)
 

@@ -6,7 +6,9 @@
 
 # Type Alias: AssistValueTransform
 
-> **AssistValueTransform** = `object`
+```ts
+type AssistValueTransform = object;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:14](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L14)
 
@@ -14,7 +16,9 @@ Defined in: [src/tools/assist-command-registration.ts:14](https://github.com/cla
 
 ### description
 
-> **description**: `string`
+```ts
+description: string;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:17](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L17)
 
@@ -22,7 +26,9 @@ Defined in: [src/tools/assist-command-registration.ts:17](https://github.com/cla
 
 ### source\_tool\_key
 
-> **source\_tool\_key**: `string`
+```ts
+source_tool_key: string;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:15](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L15)
 
@@ -30,6 +36,8 @@ Defined in: [src/tools/assist-command-registration.ts:15](https://github.com/cla
 
 ### transform
 
-> **transform**: `string`
+```ts
+transform: string;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:16](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L16)

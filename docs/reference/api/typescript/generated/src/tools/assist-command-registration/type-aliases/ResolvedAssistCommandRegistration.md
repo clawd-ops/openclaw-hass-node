@@ -6,7 +6,9 @@
 
 # Type Alias: ResolvedAssistCommandRegistration
 
-> **ResolvedAssistCommandRegistration** = `object`
+```ts
+type ResolvedAssistCommandRegistration = object;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:38](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L38)
 
@@ -14,7 +16,9 @@ Defined in: [src/tools/assist-command-registration.ts:38](https://github.com/cla
 
 ### contract
 
-> **contract**: [`AssistCommandRegistration`](AssistCommandRegistration.md)
+```ts
+contract: AssistCommandRegistration;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:39](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L39)
 
@@ -22,7 +26,9 @@ Defined in: [src/tools/assist-command-registration.ts:39](https://github.com/cla
 
 ### descriptor
 
-> **descriptor**: [`AssistToolDescriptor`](AssistToolDescriptor.md)
+```ts
+descriptor: AssistToolDescriptor;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:40](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L40)
 
@@ -30,7 +36,9 @@ Defined in: [src/tools/assist-command-registration.ts:40](https://github.com/cla
 
 ### loadTool
 
-> **loadTool**: () => `Promise`\<`AnyAgentTool`\>
+```ts
+loadTool: () => Promise<AnyAgentTool>;
+```
 
 Defined in: [src/tools/assist-command-registration.ts:41](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L41)
 

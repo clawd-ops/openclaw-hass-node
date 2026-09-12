@@ -18,7 +18,16 @@ A failed operation, distinct from failure to reach the gateway/node.
 
 ### Constructor
 
-> **new HaCommandError**(`code`, `message`, `source`, `retryable?`, `details?`, `retryAfterMs?`): `HaCommandError`
+```ts
+new HaCommandError(
+   code,
+   message,
+   source,
+   retryable?,
+   details?,
+   retryAfterMs?
+): HaCommandError;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:19](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L19)
 
@@ -54,13 +63,17 @@ Defined in: [src/tools/node-tool-invoke.ts:19](https://github.com/clawd-ops/open
 
 #### Overrides
 
-`Error.constructor`
+```ts
+Error.constructor
+```
 
 ## Properties
 
 ### code
 
-> `readonly` **code**: `string`
+```ts
+readonly code: string;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:20](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L20)
 
@@ -68,7 +81,9 @@ Defined in: [src/tools/node-tool-invoke.ts:20](https://github.com/clawd-ops/open
 
 ### details?
 
-> `readonly` `optional` **details?**: `unknown`
+```ts
+readonly optional details?: unknown;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:24](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L24)
 
@@ -76,7 +91,9 @@ Defined in: [src/tools/node-tool-invoke.ts:24](https://github.com/clawd-ops/open
 
 ### retryable?
 
-> `readonly` `optional` **retryable?**: `boolean`
+```ts
+readonly optional retryable?: boolean;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:23](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L23)
 
@@ -84,7 +101,9 @@ Defined in: [src/tools/node-tool-invoke.ts:23](https://github.com/clawd-ops/open
 
 ### retryAfterMs?
 
-> `readonly` `optional` **retryAfterMs?**: `number`
+```ts
+readonly optional retryAfterMs?: number;
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:25](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L25)
 
@@ -92,6 +111,8 @@ Defined in: [src/tools/node-tool-invoke.ts:25](https://github.com/clawd-ops/open
 
 ### source
 
-> `readonly` **source**: `"node"` \| `"ha"` \| `"gateway"` \| `"transport"`
+```ts
+readonly source: "node" | "ha" | "gateway" | "transport";
+```
 
 Defined in: [src/tools/node-tool-invoke.ts:22](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L22)

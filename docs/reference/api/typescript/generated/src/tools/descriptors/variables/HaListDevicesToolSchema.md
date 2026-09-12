@@ -6,6 +6,10 @@
 
 # Variable: HaListDevicesToolSchema
 
-> `const` **HaListDevicesToolSchema**: `TObject`\<\{ `node`: `TString`; \}\>
+```ts
+const HaListDevicesToolSchema: TObject<{
+  node: TString;
+}>;
+```
 
 Defined in: [src/tools/descriptors.ts:151](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L151)

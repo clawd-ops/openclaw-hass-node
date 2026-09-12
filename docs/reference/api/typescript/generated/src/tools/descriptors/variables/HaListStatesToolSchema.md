@@ -6,6 +6,11 @@
 
 # Variable: HaListStatesToolSchema
 
-> `const` **HaListStatesToolSchema**: `TObject`\<\{ `entity_filter`: `TOptional`\<`TString`\>; `node`: `TString`; \}\>
+```ts
+const HaListStatesToolSchema: TObject<{
+  entity_filter: TOptional<TString>;
+  node: TString;
+}>;
+```
 
 Defined in: [src/tools/descriptors.ts:96](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L96)

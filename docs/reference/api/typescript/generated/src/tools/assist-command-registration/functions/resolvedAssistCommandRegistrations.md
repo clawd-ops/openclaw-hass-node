@@ -6,7 +6,9 @@
 
 # Function: resolvedAssistCommandRegistrations()
 
-> **resolvedAssistCommandRegistrations**(): [`ResolvedAssistCommandRegistration`](../type-aliases/ResolvedAssistCommandRegistration.md)[]
+```ts
+function resolvedAssistCommandRegistrations(): ResolvedAssistCommandRegistration[];
+```
 
 Defined in: [src/tools/assist-command-registration.ts:378](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L378)
 

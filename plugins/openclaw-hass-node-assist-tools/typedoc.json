@@ -16,7 +16,7 @@
   "readme": "none",
   "hideGenerator": true,
   "includeVersion": false,
-  "useCodeBlocks": false,
+  "useCodeBlocks": true,
   "gitRevision": "main",
   "disableGit": true,
   "sourceLinkTemplate": "https://github.com/clawd-ops/openclaw-hass-node/blob/{gitRevision}/plugins/openclaw-hass-node-assist-tools/{path}#L{line}",

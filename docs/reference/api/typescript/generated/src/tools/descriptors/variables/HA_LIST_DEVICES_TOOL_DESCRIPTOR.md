@@ -6,6 +6,8 @@
 
 # Variable: HA\_LIST\_DEVICES\_TOOL\_DESCRIPTOR
 
-> `const` **HA\_LIST\_DEVICES\_TOOL\_DESCRIPTOR**: [`AssistToolDescriptor`](../type-aliases/AssistToolDescriptor.md)
+```ts
+const HA_LIST_DEVICES_TOOL_DESCRIPTOR: AssistToolDescriptor;
+```
 
 Defined in: [src/tools/descriptors.ts:155](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L155)
