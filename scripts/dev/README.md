@@ -127,11 +127,12 @@ REVIEW_MODEL_SLUG=openai/gpt-5.6-sol scripts/dev/spawn-codex-review 123
 
 ### Reviewer attribution
 
-One value drives both the spawn and the brief, so a verdict names the model that
-actually produced it. Set `REVIEW_MODEL_SLUG` to target a variant; the wrapper
-substitutes it into `<MODEL_SLUG>` and rejects anything that is not a full
-`provider/model` slug. The template never hardcodes one, or every reviewer would
-claim the same identity regardless of what ran.
+One value drives both the requested spawn route and the initial brief. Set
+`REVIEW_MODEL_SLUG` to target a variant; the wrapper substitutes it into
+`<MODEL_SLUG>` and rejects anything that is not a full `provider/model` slug.
+The reviewer must replace that routing value if `session_status` reports a
+different resolved model. The template never hardcodes one, or every reviewer
+would claim the same identity regardless of what ran.
 
 A valid sign-off looks like:
 
@@ -147,11 +148,12 @@ cannot resolve its own model it posts nothing and returns an error to the
 caller. An unattributable review looks like independent verification while
 proving nothing about who verified it, so no review is the safer outcome.
 
-The wrapper enforces this before spawning: it checks the agent's tool catalog
-for `session_status` and refuses to launch if it is absent, rather than letting
-a reviewer do the work and then discover it cannot sign. Set
-`SKIP_SESSION_STATUS_PREFLIGHT=1` to bypass the check deliberately; it is never
-skipped silently.
+The wrapper enforces this before spawning with a same-model launcher turn. The
+launcher must successfully call `session_status` before it may call
+`sessions_spawn`. A parent-agent tool catalog is not accepted as proof because
+it can differ from the spawned runtime's toolset. If the preflight cannot
+self-identify, the wrapper refuses to spawn and reports that no review was
+posted and the PR is not review-ready. There is no bypass.
 
 ---
 

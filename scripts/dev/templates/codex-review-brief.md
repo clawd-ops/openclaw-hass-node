@@ -45,10 +45,10 @@ Examine the diff for:
 Reviewer model: <MODEL_SLUG> — reviewed at <HEAD_SHA> (base <BASE_SHA>).
 ```
 
-`<MODEL_SLUG>` is substituted by `scripts/dev/spawn-codex-review` from the model
-the reviewer is actually spawned as. It is deliberately not hardcoded here:
-different reviews target different variants, and a fixed slug in the template
-would make every reviewer claim the same identity regardless of what ran.
+`<MODEL_SLUG>` is substituted by `scripts/dev/spawn-codex-review` from the
+requested route. It is deliberately not hardcoded here because different
+reviews target different variants. The reviewer may use that rendered slug
+only when `session_status` returns the same exact value.
 
 The sign-off MUST contain the exact model slug you were spawned as, in full
 `provider/model` form — for example
@@ -60,8 +60,9 @@ abbreviations, no ranges, no synonyms, no family names.
 ### Self-identification contract — do this FIRST
 
 1. Call `session_status` at the very start of your run, before reviewing.
-2. If it returns a resolved model, use that exact value in the sign-off and
-   post your review as normal.
+2. If it returns a resolved model, use that exact value in the sign-off,
+   replacing the rendered routing value if they differ, and post your review
+   as normal.
 3. **If `session_status` is unavailable, or returns no model, DO NOT POST A
    REVIEW.** Post no comment at all. Return an explicit error to the parent
    naming what you tried and how it failed.

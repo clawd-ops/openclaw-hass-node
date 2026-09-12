@@ -379,7 +379,8 @@ esac
                     "user": {"login": "example"},
                     "body": (
                         f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
-                        "Reviewer model: openai/gpt-5.6-sol"
+                        f"Reviewer model: openai/gpt-5.6-sol — reviewed at {old} "
+                        f"(base {'b' * 40})."
                     ),
                 },
             ],
@@ -389,7 +390,8 @@ esac
                     "user": {"login": "example"},
                     "body": (
                         f"APPROVE\nReviewed exact head `{head}`.\n\n"
-                        "Reviewer model: openai/gpt-5.6-sol"
+                        f"Reviewer model: openai/gpt-5.6-luna — reviewed at {head} "
+                        f"(base {'b' * 40})."
                     ),
                 }
             ],
@@ -399,7 +401,8 @@ esac
                     "user": {"login": "untrusted"},
                     "body": (
                         f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
-                        "Reviewer model: openai/gpt-5.6-sol"
+                        f"Reviewer model: openai/gpt-5.6-sol — reviewed at {old} "
+                        f"(base {'b' * 40})."
                     ),
                 }
             ],
@@ -460,10 +463,7 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
             'elif [ "$1" = "sessions" ]; then\n'
             "  printf '%s\\n' \"$SESSIONS_RESULT\"\n"
             'elif [ "$1" = "gateway" ]; then\n'
-            '  case "$*" in\n'
-            "    *tools.catalog*) printf '%s\\n' \"$CATALOG_RESULT\";;\n"
-            "    *) printf '%s\\n' \"$HISTORY_RESULT\";;\n"
-            "  esac\n"
+            "  printf '%s\\n' \"$HISTORY_RESULT\"\n"
             "else exit 9; fi\n"
         ),
         encoding="utf-8",
@@ -487,7 +487,6 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
             "CAPTURE_ARGS": str(captured_args),
             "CAPTURE_PROMPT": str(captured_prompt),
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
-            "CATALOG_RESULT": json.dumps({"groups": [{"tools": [{"id": "session_status"}]}]}),
             "LAUNCH_RESULT": json.dumps(
                 {
                     "status": "ok",
@@ -505,14 +504,15 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
                         ],
                         "meta": {
                             "agentMeta": {
-                                "terminalReceipt": {"successfulToolNames": ["sessions_spawn"]}
+                                "terminalReceipt": {
+                                    "successfulToolNames": ["session_status", "sessions_spawn"]
+                                }
                             }
                         },
                     },
                 }
             ),
             "SESSIONS_RESULT": json.dumps({"sessions": [{"key": "agent:clawd:child-1"}]}),
-            "CATALOG_RESULT": json.dumps({"groups": [{"tools": [{"id": "session_status"}]}]}),
             "HISTORY_RESULT": json.dumps(
                 {
                     "output": {
@@ -543,7 +543,8 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
 
     assert result.returncode == 0, result.stderr
     prompt = captured_prompt.read_text(encoding="utf-8")
-    assert "Call sessions_spawn exactly once" in prompt
+    assert "Call session_status exactly once before any spawn" in prompt
+    assert "call sessions_spawn exactly once" in prompt
     assert "Reviewer model: openai/gpt-5.6-sol" in prompt
     assert "PR **7**" in prompt
     assert "--model openai/gpt-5.6-sol" in captured_args.read_text(encoding="utf-8")
@@ -593,7 +594,11 @@ def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> N
                                 )
                             }
                         ],
-                        "meta": {"agentMeta": {"terminalReceipt": {"successfulToolNames": []}}},
+                        "meta": {
+                            "agentMeta": {
+                                "terminalReceipt": {"successfulToolNames": ["session_status"]}
+                            }
+                        },
                     },
                 }
             ),
@@ -683,27 +688,18 @@ def test_spawn_review_refuses_when_session_status_is_unavailable(tmp_path: Path)
     so the wrapper refuses before spawning rather than after.
     """
     env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
-    env["CATALOG_RESULT"] = json.dumps({"groups": [{"tools": [{"id": "read"}]}]})
+    launch_result = json.loads(env["LAUNCH_RESULT"])
+    launch_result["result"]["meta"]["agentMeta"]["terminalReceipt"]["successfulToolNames"] = []
+    env["LAUNCH_RESULT"] = json.dumps(launch_result)
 
     result = subprocess.run(
         [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
     )
 
     assert result.returncode == 1
-    assert "session_status is not available" in result.stderr
-    assert "Refusing to spawn" in result.stderr
+    assert (
+        "Reviewer failed self-identification. No review posted. PR is not review-ready."
+        in result.stderr
+    )
     # Nothing may be dispatched when self-identification is impossible.
     assert "accepted" not in result.stdout
-
-
-def test_spawn_review_preflight_can_be_skipped_explicitly(tmp_path: Path) -> None:
-    """The escape hatch is opt-in and explicit, never a silent default."""
-    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
-    env["CATALOG_RESULT"] = json.dumps({"groups": [{"tools": [{"id": "read"}]}]})
-    env["SKIP_SESSION_STATUS_PREFLIGHT"] = "1"
-
-    result = subprocess.run(
-        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
-    )
-
-    assert result.returncode == 0, result.stderr

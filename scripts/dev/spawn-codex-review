@@ -17,10 +17,10 @@ fi
 PR="$1"
 NARROWING_FILE="${2:-}"
 
-# One value drives both the brief and the spawn, so the reviewer signs off with
-# the slug it was actually run as. Overridable because reviews target different
-# variants; deliberately not fixed in the template, or every reviewer would
-# claim the same identity no matter what ran.
+# One value drives both the requested route and the initial brief. The reviewer
+# still has to replace it when session_status reports a different resolved
+# model. It is overridable because reviews target different variants and must
+# never be fixed in the shared template.
 MODEL_SLUG="${REVIEW_MODEL_SLUG:-$DEFAULT_MODEL_SLUG}"
 if [[ ! "$MODEL_SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
     echo "spawn-codex-review: REVIEW_MODEL_SLUG must be a full provider/model slug" >&2
@@ -31,47 +31,6 @@ if [[ ! -f "$TEMPLATE" ]]; then
     exit 1
 fi
 
-# Pre-flight: the reviewer must be able to identify itself, because the sign-off
-# has to name the model that actually ran. The spawn slug is only a routing
-# hint — fallback routing can land the run elsewhere — so `session_status` is
-# the sole acceptable source. If it is not in the agent's catalog, the reviewer
-# could only sign off with a guess, so refuse to spawn rather than produce a
-# review whose attribution proves nothing.
-PREFLIGHT_AGENT="${OPENCLAW_REVIEW_LAUNCHER_AGENT:-clawd}"
-if [[ "${SKIP_SESSION_STATUS_PREFLIGHT:-0}" != "1" ]]; then
-    CATALOG_FILE=$(mktemp)
-    if ! openclaw gateway call tools.catalog --json \
-        --params "{\"agentId\":\"${PREFLIGHT_AGENT}\"}" > "$CATALOG_FILE" 2>/dev/null; then
-        rm -f "$CATALOG_FILE"
-        echo "spawn-codex-review: cannot read the tool catalog; refusing to spawn a reviewer that may not be able to self-identify" >&2
-        exit 1
-    fi
-    if ! python3 - "$CATALOG_FILE" << 'PYEOF'
-import json
-import sys
-from pathlib import Path
-
-try:
-    catalog = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-    tools = {
-        tool.get("id")
-        for group in catalog.get("groups", [])
-        for tool in group.get("tools", [])
-    }
-except (json.JSONDecodeError, OSError, TypeError, AttributeError):
-    raise SystemExit(1)
-raise SystemExit(0 if "session_status" in tools else 1)
-PYEOF
-    then
-        rm -f "$CATALOG_FILE"
-        echo "spawn-codex-review: session_status is not available to agent '${PREFLIGHT_AGENT}'." >&2
-        echo "  The reviewer could not verify which model actually ran, so its sign-off" >&2
-        echo "  would be a guess. Refusing to spawn. Enable session_status for that agent" >&2
-        echo "  or review manually." >&2
-        exit 1
-    fi
-    rm -f "$CATALOG_FILE"
-fi
 if [[ -n "$NARROWING_FILE" && ! -f "$NARROWING_FILE" ]]; then
     echo "spawn-codex-review: narrowing file not found" >&2
     exit 1
@@ -118,7 +77,8 @@ cleanup() {
 trap cleanup EXIT
 
 {
-    printf '%s\n' "Call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", visible=true, and expectsCompletionMessage=true."
+    printf '%s\n' 'Call session_status exactly once before any spawn. If it is unavailable or returns no resolved model, do not call sessions_spawn; return only SELF_IDENTIFICATION_FAILED.'
+    printf '%s\n' "If session_status succeeds, call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", visible=true, and expectsCompletionMessage=true."
     printf '%s\n' 'Use the complete review brief below as the task. Do not perform the review yourself. Return only the accepted spawn receipt as compact JSON with no fence or commentary.'
     printf '\n%s\n' "$BRIEF"
 } > "$PROMPT_FILE"
@@ -146,7 +106,14 @@ from pathlib import Path
 try:
     result = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     terminal = result["result"]["meta"]["agentMeta"]["terminalReceipt"]
-    if terminal.get("successfulToolNames") != ["sessions_spawn"]:
+    successful = terminal.get("successfulToolNames")
+    if not isinstance(successful, list) or "session_status" not in successful:
+        print(
+            "Reviewer failed self-identification. No review posted. PR is not review-ready.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    if successful.count("session_status") != 1 or successful.count("sessions_spawn") != 1:
         raise ValueError
     payloads = result["result"]["payloads"]
     if len(payloads) != 1 or not isinstance(payloads[0].get("text"), str):
