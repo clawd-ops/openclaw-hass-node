@@ -4,8 +4,9 @@
 > auto-cuts a release whenever a push to `main` bumps the version in
 > the five tracked files. `scripts/bump-version.py` updates those version
 > sources, and `scripts/mark-commands-shipped.py` stamps current command
-> additions locally in the same atomic release PR. CI keeps both contracts
-> synchronized. The manual procedure at the bottom is
+> additions locally in the same release PR. PR CI checks the transition, and
+> the push-triggered release workflow checks it again before creating a tag or
+> release. The manual procedure at the bottom is
 > preserved for emergency / out-of-band use only.
 
 The project carries the version string in five places (`pyproject.toml`,
@@ -21,11 +22,12 @@ ledger sweep.
    never edits a version literal by hand. `scripts/bump-version.py`
    bumps every file together so they can't drift; `Version Sync` CI
    fails the gate on any inconsistency.
-2. **Command release history lands atomically.** The release cutter runs
+2. **Command release history lands with the version bump.** The maintainer runs
    `scripts/mark-commands-shipped.py` locally after the version bump. The
    manual command ledger and both generated artifacts are committed in the
    same PR as all five version sources and the changelog. This is not tag
-   automation.
+   automation. The helper prepares every candidate before replacement and uses
+   best-effort rollback if a replacement fails or is interrupted.
 3. **Releases are cut by CI, not by hand.** Pushing a version bump to
    `main` is what triggers the tag + GitHub release. No human runs
    `git tag` in the normal flow.
@@ -113,8 +115,9 @@ scripts/bump-version.py --check     # confirm sources agree
 scripts/bump-version.py --get       # print the current version
 ```
 
-The CI `Version Sync` job runs `--check` on every PR; drift fails the
-gate, you can't merge inconsistent versions.
+The CI `Version Sync` job runs `--check` on every PR and reports drift as a
+failed executable check. Repository settings determine whether that check is a
+required merge gate.
 
 ### Step 2 — stamp command additions and regenerate the ledger
 
@@ -125,16 +128,30 @@ scripts/mark-commands-shipped.py 2026.6.20b8
 python scripts/generate-command-coverage.py --check
 ```
 
-The helper preflights the complete manual ledger, prepares both generated
-artifacts before mutation, and replaces all three tracked files as one
-transaction with rollback on failure. It accepts historical alpha and beta
-versions (`aN` and `bN`). If a release has no new commands, it still refreshes
-the generated `latest_release` from the synchronized version sources.
+The helper preflights the complete manual ledger and prepares every replacement
+before mutating a tracked path. It then applies the files in sequence, catches
+ordinary failures and interruptions, and makes a best-effort rollback that
+restores original bytes and file modes. This is not filesystem-level atomicity:
+a hard process kill, host power loss, or rollback failure can leave a partial
+update. In that case the helper reports incomplete recovery and names the paths
+that require inspection. Candidate and rollback temporary files are cleaned on
+handled paths.
 
-The `Command Coverage Ledger` CI job compares the PR with its base version and
-fails a version bump if any current command remains `unreleased`. This gate does
-not stamp at tag time. Commit the ledger changes with all five version sources
-and the changelog in one atomic version-bump PR.
+Shipment values accept the same canonical forms as `scripts/bump-version.py`:
+historical alpha and beta versions (`aN` and `bN`), release candidates (`rcN`),
+development releases (`.devN`), and final releases. If a release has no new
+commands, the helper still refreshes the generated `latest_release` from the
+synchronized version sources.
+
+The `Command Coverage Ledger` PR check compares the base and head ledgers when
+the synchronized version changes. Existing released history must remain exact;
+commands that were unreleased at the base or are new in the head must equal the
+head version. This is an executable PR check, not a claim about branch
+protection. The push-triggered release workflow reruns the same transition check
+against the pre-push commit before any tag or GitHub release is created, which
+provides tag-time protection even if repository merge settings do not require
+the PR check. Commit the ledger changes with all five version sources and the
+changelog in the same version-bump PR.
 
 ### Step 3 — add the CHANGELOG entry, open + merge the release PR
 
@@ -161,12 +178,13 @@ PR title: `release: 2026.6.20b8 — <one-line summary>`. Merge it.
 itself) changes. It:
 
 1. Reads the current synced version via `scripts/bump-version.py --get`.
-2. Skips if a matching `v<version>` git tag already exists
+2. Validates the base-to-head command shipment transition before tagging.
+3. Skips if a matching `v<version>` git tag already exists
    (idempotent — safe to re-trigger).
-3. Extracts the `app/CHANGELOG.md` section matching this version
+4. Extracts the `app/CHANGELOG.md` section matching this version
    (heading line like `## 2026.6.20b8 (...)`). Falls back to a stub
    if no matching section is found.
-4. Creates the tag and a GitHub release with those notes. Versions
+5. Creates the tag and a GitHub release with those notes. Versions
    carrying a PEP 440 prerelease marker (`aN`/`bN`/`rcN`/`.devN`) are
    cut as prereleases; final releases are full.
 

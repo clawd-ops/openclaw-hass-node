@@ -65,6 +65,10 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
           echo "Current synced version: $VERSION"
+      - name: Verify command shipment transition before tagging
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: python scripts/mark-commands-shipped.py --check-release-bump "$BASE_SHA"
       - name: Skip if tag already exists
         id: tag_check
         env:

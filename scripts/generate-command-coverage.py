@@ -52,10 +52,8 @@ ROW_CALLERS = frozenset(
 # Acceptance test callers must name a ROW_CALLER.
 VALID_TEST_CALLERS = ROW_CALLERS
 
-# Version pattern for first_shipped_in values.
-# Must accept both alpha (a) and beta (b) prerelease markers because 28 commands
-# first shipped in 2026.6.8a8 — an alpha tag — and rejecting [a] would fabricate history.
-_FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
+# Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE.
+_FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 
 # The current release is read from all five tracked version sources. Generated
 # artifacts must not depend on command history or ambient git tags, and version
@@ -82,16 +80,23 @@ _VERSION_SOURCES: tuple[tuple[Path, re.Pattern[str]], ...] = (
 
 
 def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
-    """Order a `YYYY.M.D[ab]N` version numerically, not lexicographically.
+    """Order supported release versions numerically, not lexicographically.
 
     Lexicographic ordering is wrong here: `2026.6.20b3` sorts before `2026.6.8a8`
-    as text, because `2` precedes `8`. Alpha sorts before beta at the same date.
+    as text, because `2` precedes `8`. PEP 440 stage order is development,
+    alpha, beta, release candidate, then final.
     """
-    match = re.match(r"^(\d{4})\.(\d{1,2})\.(\d{1,2})([ab])(\d+)$", version)
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+)|\.dev(\d+))?$", version)
     if not match:  # pragma: no cover - guarded by _validate_first_shipped_in
         raise ValueError(f"unsortable version: {version!r}")
-    year, month, day, stage, serial = match.groups()
-    return (int(year), int(month), int(day), 0 if stage == "a" else 1, int(serial))
+    major, minor, patch, stage, serial, dev_serial = match.groups()
+    stage_order = {"a": 1, "b": 2, "rc": 3, None: 4}
+    if dev_serial is not None:
+        stage_rank, stage_serial = 0, int(dev_serial)
+    else:
+        stage_rank = stage_order[stage]
+        stage_serial = 0 if serial is None else int(serial)
+    return (int(major), int(minor), int(patch), stage_rank, stage_serial)
 
 
 def _tracked_release_version() -> str:
@@ -113,7 +118,7 @@ def _tracked_release_version() -> str:
         raise LedgerError(f"version drift across tracked sources: {versions}")
     version = next(iter(distinct))
     if not _FIRST_SHIPPED_VERSION_RE.fullmatch(version):
-        raise LedgerError(f"tracked release version {version!r} does not match YYYY.M.D[ab]N")
+        raise LedgerError(f"tracked release version {version!r} is not a supported release version")
     return version
 
 
@@ -131,7 +136,9 @@ def _validate_first_shipped_in(command: str, value: object) -> None:
     if value != "unreleased" and not _FIRST_SHIPPED_VERSION_RE.match(value):
         raise LedgerError(
             f"command {command} first_shipped_in {value!r} is neither 'unreleased' nor a "
-            "valid version string (YYYY.M.D[ab]N, e.g. '2026.6.8a8' or '2026.9.12b1')"
+            "valid version string supported for releases (for example '2026.6.8a8', "
+            "'2026.9.12rc1', "
+            "or '2026.9.12')"
         )
 
 
@@ -1189,6 +1196,10 @@ def build_ledger() -> dict[str, Any]:
             "Deterministic source inventory plus explicitly labelled manual reality metadata; "
             "no runtime command is enabled by this ledger."
         ),
+        "release_version_format": (
+            "PEP 440 three-part release: alpha (aN), beta (bN), release candidate (rcN), "
+            "development (.devN), or final"
+        ),
         "evidence_methods": {
             "UNVERIFIED": "Present in the ledger but not behaviorally proven.",
             "CODE-PROVEN": "Established from source review; not a live result.",
@@ -1252,6 +1263,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         "combined with explicitly manual policy/semantic notes. `UNVERIFIED` and failure",
         "rows are intentionally retained. Regenerate after editing source or",
         "`contracts/command-coverage-manual.json`.",
+        "Shipment versions use the same canonical forms as `scripts/bump-version.py`:",
+        "`aN`, `bN`, `rcN`, `.devN`, or a final three-part release.",
         "",
         "## Summary",
         "",

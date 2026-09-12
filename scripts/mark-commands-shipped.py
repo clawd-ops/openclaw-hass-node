@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Stamp unreleased commands while preparing an atomic version-bump PR.
+# ruff: noqa: TRY003
+"""Stamp unreleased commands while preparing a version-bump PR.
 
 Run this locally after ``scripts/bump-version.py <version>`` and commit the
 manual ledger, both generated artifacts, all five version sources, and the
 CHANGELOG entry in the same PR. This is release preparation, not tag
-automation. CI uses ``--check-release-bump`` to reject a version-bump PR that
-still has current commands marked ``unreleased``.
+automation. CI and the release workflow use ``--check-release-bump`` to verify
+the base-to-head command-history transition before a release is cut.
 """
 
 from __future__ import annotations
@@ -18,20 +19,22 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 MANUAL_PATH = ROOT / "contracts" / "command-coverage-manual.json"
 GENERATOR = ROOT / "scripts" / "generate-command-coverage.py"
 VERSION_SOURCE = "app/node/pyproject.toml"
+MANUAL_SOURCE = "contracts/command-coverage-manual.json"
 
 UNRELEASED = "unreleased"
 
-# Both prerelease markers are accepted. 28 commands first shipped in `2026.6.8a8`,
-# an alpha tag, so a beta-only pattern would reject real history. Keep `[ab]`.
-VERSION_RE = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
+# Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE. Historical
+# command releases include alpha and beta tags; current release tooling also
+# supports release candidates, development releases, and final releases.
+VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 PYPROJECT_VERSION_RE = re.compile(r'^version = "([^"]+)"$', re.MULTILINE)
 
 
@@ -59,6 +62,52 @@ def _read_manual() -> tuple[bytes, dict[str, object]]:
     if not isinstance(data, dict):
         raise ShipError("manual ledger must be a JSON object")
     return original, data
+
+
+def _read_ref_file(ref: str, source: str) -> bytes:
+    """Read *source* from a verified commit ref without accepting git options."""
+    resolved = subprocess.run(
+        ["git", "rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if resolved.returncode != 0:
+        detail = resolved.stderr.strip()
+        suffix = f": {detail}" if detail else ""
+        raise ShipError(f"cannot resolve base ref {ref!r}{suffix}")
+    commit = resolved.stdout.strip()
+    result = subprocess.run(
+        ["git", "show", f"{commit}:{source}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.decode(errors="replace").strip()
+        raise ShipError(detail or f"cannot read {source} at {ref!r}")
+    return result.stdout
+
+
+def _read_manual_at_ref(ref: str, generator: ModuleType) -> dict[str, dict[str, object]]:
+    """Load and validate shipment fields from the manual ledger at *ref*."""
+    raw = _read_ref_file(ref, MANUAL_SOURCE)
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ShipError(f"base manual ledger is not valid UTF-8 JSON: {exc}") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("commands"), dict):
+        raise ShipError("base manual ledger has no 'commands' object")
+    commands: dict[str, dict[str, object]] = {}
+    for name, entry in data["commands"].items():
+        if not isinstance(name, str):
+            raise ShipError(f"base manual command name must be a string, got {name!r}")
+        if not isinstance(entry, dict):
+            raise ShipError(f"base manual command entry for {name} must be an object")
+        generator._validate_first_shipped_in(name, entry.get("first_shipped_in"))
+        commands[name] = entry
+    return commands
 
 
 def _preflight_manual(
@@ -123,49 +172,90 @@ def _candidate_outputs(version: str) -> tuple[dict[Path, bytes], list[str]]:
     return replacements, stamped
 
 
-def _write_temporary_sibling(path: Path, content: bytes) -> Path:
+def _write_temporary_sibling(
+    path: Path,
+    content: bytes,
+    *,
+    mode: int | None = None,
+    times_ns: tuple[int, int] | None = None,
+) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="wb", prefix=f".{path.name}.", dir=path.parent, delete=False
-    ) as temporary:
-        temporary.write(content)
-        temporary.flush()
-        os.fsync(temporary.fileno())
-        return Path(temporary.name)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", prefix=f".{path.name}.", dir=path.parent, delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(content)
+            temporary.flush()
+            if mode is not None:
+                os.fchmod(temporary.fileno(), mode)
+            os.fsync(temporary.fileno())
+        if times_ns is not None:
+            os.utime(temporary_path, ns=times_ns)
+    except BaseException:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+        raise
+    return temporary_path
 
 
 def _transactional_replace(
     replacements: dict[Path, bytes],
     *,
     replace: Callable[[Path, Path], None] = os.replace,
+    rollback_replace: Callable[[Path, Path], None] = os.replace,
 ) -> None:
-    """Replace every target, rolling back byte-for-byte on any failure."""
-    originals = {path: path.read_bytes() if path.exists() else None for path in replacements}
-    candidates = {
-        path: _write_temporary_sibling(path, content) for path, content in replacements.items()
+    """Best-effort multi-file replacement with fail-closed preparation and rollback."""
+    originals = {
+        path: (path.read_bytes(), path.stat()) if path.exists() else None for path in replacements
     }
-    replaced: list[Path] = []
+    candidates: dict[Path, Path] = {}
+    attempted: list[Path] = []
     try:
+        # Finish every fallible candidate write before changing any target.
+        for path, content in replacements.items():
+            snapshot = originals[path]
+            mode = None if snapshot is None else snapshot[1].st_mode & 0o7777
+            candidates[path] = _write_temporary_sibling(path, content, mode=mode)
         for path, temporary in candidates.items():
+            # Record before the call: an interrupt can arrive immediately after the
+            # filesystem replacement but before Python executes the next statement.
+            attempted.append(path)
             replace(temporary, path)
-            replaced.append(path)
-    except OSError as exc:
+    except BaseException as exc:
         rollback_errors: list[str] = []
-        for path in reversed(replaced):
-            original = originals[path]
+        for path in reversed(attempted):
+            snapshot = originals[path]
+            rollback: Path | None = None
             try:
-                if original is None:
+                if snapshot is None:
                     path.unlink(missing_ok=True)
                 else:
-                    rollback = _write_temporary_sibling(path, original)
-                    os.replace(rollback, path)
-            except OSError as rollback_exc:
+                    original, metadata = snapshot
+                    rollback = _write_temporary_sibling(
+                        path,
+                        original,
+                        mode=metadata.st_mode & 0o7777,
+                        times_ns=(metadata.st_atime_ns, metadata.st_mtime_ns),
+                    )
+                    rollback_replace(rollback, path)
+            except BaseException as rollback_exc:
                 rollback_errors.append(f"{path}: {rollback_exc}")
+            finally:
+                if rollback is not None:
+                    rollback.unlink(missing_ok=True)
         if rollback_errors:
             raise ShipError(
-                f"replacement failed ({exc}); rollback also failed: {'; '.join(rollback_errors)}"
+                f"replacement failed or was interrupted ({exc}); incomplete recovery: "
+                f"could not restore {'; '.join(rollback_errors)}; inspect the listed targets "
+                "before retrying"
             ) from exc
-        raise ShipError(f"replacement failed; all tracked files restored: {exc}") from exc
+        if not isinstance(exc, Exception):
+            raise
+        if not attempted:
+            raise ShipError(f"candidate preparation failed; no targets changed: {exc}") from exc
+        raise ShipError(f"replacement failed; all attempted targets restored: {exc}") from exc
     finally:
         for temporary in candidates.values():
             temporary.unlink(missing_ok=True)
@@ -194,16 +284,8 @@ def _require_current_version(version: str) -> None:
 
 
 def _version_at_ref(ref: str) -> str:
-    result = subprocess.run(
-        ["git", "show", f"{ref}:{VERSION_SOURCE}"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        raise ShipError(result.stderr.strip() or f"cannot read version at {ref}")
-    match = PYPROJECT_VERSION_RE.search(result.stdout)
+    text = _read_ref_file(ref, VERSION_SOURCE).decode("utf-8")
+    match = PYPROJECT_VERSION_RE.search(text)
     if match is None:
         raise ShipError(f"version pattern did not match {VERSION_SOURCE} at {ref}")
     return match.group(1)
@@ -218,17 +300,34 @@ def _check_release_bump(base_ref: str) -> int:
     if base_version == current_version:
         print(f"ok: no release version bump ({current_version})")
         return 0
-    unreleased = sorted(
-        name for name, entry in commands.items() if entry["first_shipped_in"] == UNRELEASED
-    )
-    if unreleased:
+    base_commands = _read_manual_at_ref(base_ref, generator)
+    errors: list[str] = []
+    removed = sorted(set(base_commands) - set(commands))
+    if removed:
+        errors.append(
+            "base command(s) were removed or renamed during the release transition: "
+            + ", ".join(removed)
+        )
+    for name in sorted(set(base_commands) & set(commands)):
+        base_value = base_commands[name]["first_shipped_in"]
+        head_value = commands[name]["first_shipped_in"]
+        expected = current_version if base_value == UNRELEASED else base_value
+        if head_value != expected:
+            errors.append(
+                f"{name}: base {base_value!r}, head {head_value!r}, expected {expected!r}"
+            )
+    for name in sorted(set(commands) - set(base_commands)):
+        head_value = commands[name]["first_shipped_in"]
+        if head_value != current_version:
+            errors.append(f"{name}: newly added with {head_value!r}, expected {current_version!r}")
+    if errors:
         print(
             f"error: release version changed from {base_version} to {current_version}, "
-            f"but {len(unreleased)} current command(s) remain {UNRELEASED!r}:",
+            "but command shipment history does not match the required transition:",
             file=sys.stderr,
         )
-        for name in unreleased:
-            print(f"  {name}", file=sys.stderr)
+        for error in errors:
+            print(f"  {error}", file=sys.stderr)
         print(
             f"run scripts/mark-commands-shipped.py {current_version} locally and commit "
             "the source plus generated artifacts in this version-bump PR",
@@ -237,12 +336,13 @@ def _check_release_bump(base_ref: str) -> int:
         return 1
     print(
         f"ok: release version changed from {base_version} to {current_version}; "
-        "no current command remains unreleased"
+        "released history is unchanged and every pending/new command is stamped exactly"
     )
     return 0
 
 
 def main() -> int:
+    """Validate arguments, prepare release artifacts, and apply replacements."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "version",
@@ -252,7 +352,7 @@ def main() -> int:
     parser.add_argument(
         "--check-release-bump",
         metavar="BASE_REF",
-        help="fail if the version differs from BASE_REF while a current command is unreleased",
+        help="validate the command-history transition when the version differs from BASE_REF",
     )
     args = parser.parse_args()
     if args.check_release_bump:
@@ -275,7 +375,8 @@ def main() -> int:
         return 2
     if not VERSION_RE.fullmatch(version):
         print(
-            f"error: {version!r} does not match YYYY.M.D[ab]N, e.g. 2026.9.12b1",
+            f"error: {version!r} is not a supported PEP 440 release version, "
+            "e.g. 2026.9.12a1, 2026.9.12b1, 2026.9.12rc1, or 2026.9.12",
             file=sys.stderr,
         )
         return 2

@@ -19,7 +19,7 @@ jobs:
           python-version: "3.13"
       - name: Verify generated command/action/caller coverage
         run: python scripts/generate-command-coverage.py --check
-      - name: Verify release bumps stamp every current command
+      - name: Verify release shipment transition
         if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

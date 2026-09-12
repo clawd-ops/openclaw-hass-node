@@ -7,6 +7,8 @@ Source-derived registry, advertisement, caller, action, and accepted-key facts a
 combined with explicitly manual policy/semantic notes. `UNVERIFIED` and failure
 rows are intentionally retained. Regenerate after editing source or
 `contracts/command-coverage-manual.json`.
+Shipment versions use the same canonical forms as `scripts/bump-version.py`:
+`aN`, `bN`, `rcN`, `.devN`, or a final three-part release.
 
 ## Summary
 

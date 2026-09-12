@@ -35,6 +35,7 @@
     "refused-as-designed": "The operation was intentionally unavailable and refused.",
     "unverified": "No behavioral outcome is claimed."
   },
+  "release_version_format": "PEP 440 three-part release: alpha (aN), beta (bN), release candidate (rcN), development (.devN), or final",
   "rows": [
     {
       "acceptance_test_ids": [],

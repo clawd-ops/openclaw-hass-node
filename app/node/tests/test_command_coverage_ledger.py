@@ -83,6 +83,7 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     }
     # New top-level release-tracking fields must be present.
     assert "latest_release" in ledger
+    assert ledger["release_version_format"].endswith("or final")
     assert isinstance(ledger["commands_new_in_latest_release"], list)
     assert isinstance(ledger["commands_unreleased"], list)
     # The genuinely unreleased commands as of origin/main. ha.supervisor_info
@@ -96,7 +97,7 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
         "system.run.prepare",
     ]
 
-    _version_re = re.compile(r"^\d{4}\.\d{1,2}\.\d{1,2}[ab]\d+$")
+    _version_re = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 
     assert len({row["id"] for row in rows}) == len(rows)
     for row in rows:
@@ -194,6 +195,29 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
         assert assist["injected_node_params"] == {}
         assert assist["known_unaccepted_node_params"] == {}
         assert any(item["outcome"] == "pass" for item in assist["evidence"])
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["2026.6.8a8", "2026.7.23b1", "2026.9.12rc1", "2026.9.12", "2026.9.12.dev1"],
+)
+def test_release_metadata_accepts_every_canonical_release_form(version: str) -> None:
+    generator = _load_generator()
+
+    generator._validate_first_shipped_in("example", version)
+
+
+def test_release_version_sorting_matches_pep440_stage_order() -> None:
+    generator = _load_generator()
+    versions = [
+        "2026.9.12",
+        "2026.9.12rc1",
+        "2026.9.12b1",
+        "2026.9.12a1",
+        "2026.9.12.dev1",
+    ]
+
+    assert sorted(versions, key=generator._version_sort_key) == list(reversed(versions))
 
 
 def test_missing_registered_command_coverage_fails(monkeypatch: pytest.MonkeyPatch) -> None:
