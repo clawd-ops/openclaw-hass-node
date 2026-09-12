@@ -185,7 +185,8 @@ automation because no narrowing exists (`commands/ha.py:542-566`).
 
 ### 2.4 `system.run` advertised but unreachable — [#258](https://github.com/clawd-ops/openclaw-hass-node/issues/258)
 
-`LIVE-FAIL`.
+`LIVE-FAIL` at the original 2026-09-11 audit; the surface change landed
+subsequently.
 
 ```
 nodes.invoke { command: system.run }
@@ -193,8 +194,21 @@ nodes.invoke { command: system.run }
   use exec with host=node instead
 ```
 
-Rejected by the gateway before the node's handler is consulted. Still advertised
-in the connect frame, so it is visible, documented, and impossible to call.
+Direct `nodes.invoke system.run` remains rejected by the Gateway by design.
+The advertised path is now correct: `system.run` and `system.run.prepare` are
+reached through the OpenClaw exec tool with `host=node`, which prepares a
+canonical `systemRunPlan`, prompts an operator, and forwards the approved
+plan to the node. The `_admin_token_ok` gate has been removed from
+`commands/system_run.py`; the node handler fails closed at the Gateway entry
+unless the forward carries `systemRunPlan`, a non-empty `runId`, and one of
+`approved=true` / `approvalDecision in {allow-once, allow-always}` /
+`approvalSource`; re-validates the forwarded argv, `rawCommand`, `cwd`
+(bound to the allowed roots), and env keys; cross-checks argv / cwd /
+commandText / agentId / sessionKey against the stored plan; reads the
+timeout from `timeoutMs` (native wire); and returns the exec-tool payload
+contract (`success`/`exitCode`/`timedOut`). A live operator allow/deny cycle
+observation against this node remains a UAT gate rather than a source
+change.
 
 ### 2.5 `ha.addon_update` / `ha.update_install` unreachable — [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260)
 
@@ -401,7 +415,7 @@ documented direct path.
 returns `TOO_LARGE` rather than truncating), `fs.list.hidden`/`max_entries`,
 `fs.glob.root`/`pattern`/`hidden`/`max_matches`, `fs.restore.version`/
 `proposal_id`/`at`, `fs.diff.from_version`/`to_version`, `system.run.cwd`/`env`/
-`timeout` (256 KiB per stream), `ha.list_states.domain`, `ha.core_logs.lines`
+`timeoutMs` (256 KiB per stream), `ha.list_states.domain`, `ha.core_logs.lines`
 and `ha.addon_logs.lines` (both clamped 1–5000), `ha.calendar_get_events.*`,
 `ha.update_install.backup`/`version`, and the node-shape names for
 `ha.logbook` / `ha.history`.

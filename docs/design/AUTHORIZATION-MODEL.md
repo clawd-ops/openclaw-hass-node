@@ -47,11 +47,17 @@ if not required:
 
 Three commands sat behind that gate and were therefore unreachable:
 
-| Command | Gate site |
+| Command | Gate site (pre-#258) |
 | --- | --- |
-| `system.run` | `commands/system_run.py:128-136` |
+| `system.run` | `commands/system_run.py` (removed in #258) |
 | `ha.reload_config` | `commands/ha.py:440` |
 | `ha.update_install` | `commands/ha.py:1103` |
+
+`system.run` has since been re-gated onto the native exec-approval contract and
+the token check deleted; see the closing note in
+[Class 3: Home Assistant shell](#class-3-home-assistant-shell). The two
+`ha.*` gates remain in place until the corresponding plugin-approval work
+lands.
 
 The generated coverage ledger reached the same conclusion independently,
 reporting `ha.reload_config` and `ha.update_install` with status `fail`.
@@ -139,9 +145,10 @@ It is exec, so it uses OpenClaw's node exec approvals with a canonical
 `systemRunPlan`. The gateway rejects the run if `command`, `rawCommand`, `cwd`,
 `agentId`, or `sessionKey` changed between prepare and the approved forward,
 which supplies approval-bound-to-canonical-parameters without building it here.
-A proposal ID travels with the request as audit metadata; it is never itself
-an authorization token, and mutating it does not permit an execution the
-canonical plan would not.
+A `proposalId` is never authorization. It is not part of the Gateway's native
+`system.run` forward whitelist, so the transported request does not carry it
+by default; a caller may set it as audit metadata, but mutating it cannot
+permit an execution the canonical plan would not.
 
 The node-side protocol methods that participate in this contract
 (`system.run.prepare`, `system.execApprovals.get`, and `system.execApprovals.set`)
@@ -152,9 +159,30 @@ able to rename files in that directory can already rewrite the policy
 document. The trust boundary is the private data directory, not the lock. The
 atomic `os.replace` is the commit point, and the two fallible post-commit
 steps (snapshot read, lock teardown) are swallowed rather than raised so a
-committed policy can never be reported as `IO_ERROR`. Re-gating `system.run`
-itself onto this contract, and removing the inert token gate, is tracked as
-#258 and is out of scope for this document.
+committed policy can never be reported as `IO_ERROR`.
+
+`system.run` itself was re-gated onto this contract in #258. The handler now
+accepts the Gateway-forwarded canonical plan (`command` argv, `systemRunPlan`,
+`runId`, an approval signal — `approved=true`, `approvalDecision` in
+`{allow-once, allow-always}`, or a non-empty `approvalSource` — plus optional
+`cwd`/`rawCommand`/`env`/`timeoutMs`/`agentId`/`sessionKey`/`proposalId`) and
+fails closed at the node entry unless every required envelope field is
+present. It reuses the same argv/rawCommand/env/cwd validators the prepare
+handler used, so a malformed forward is refused at the node for the same
+reasons it would have been refused at prepare time, and it cross-checks the
+forwarded argv / cwd / commandText / agentId / sessionKey against the stored
+`systemRunPlan`: any mismatch is refused rather than trusted. The `cwd` is
+re-resolved against the node's own allowed roots before the subprocess is
+spawned; the subprocess inherits only a sanitised base environment (`PATH`,
+`HOME`, `LANG`, `TZ`, `USER`, `TERM`, `LOGNAME`) plus caller-supplied entries
+whose keys do not match `TOKEN`, `SECRET`, `KEY`, `PASS`, `CREDENTIAL`,
+`AUTH`, or `PWD`. Timeout is read from `timeoutMs` (native wire, milliseconds),
+and the successful payload returns the native exec wire contract
+(`success`/`exitCode`/`timedOut`/`stdout`/`stderr`) so the exec tool parser
+sees a well-formed result. The `proposalId` is accepted as audit metadata
+only; it is not part of the Gateway's forward whitelist and travels only when
+a caller supplies it. The inert `OPENCLAW_ADMIN_TOKEN` gate and its
+`_admin_token_ok` helper have been removed from `commands/system_run.py`.
 
 `system.run` is retained and re-gated, not removed. Running scripts from the
 Home Assistant directory is a supported use case.
@@ -237,14 +265,16 @@ recorded so it is not mistaken for a delivered property.
 
 The gap is entirely within this repository.
 
-- `commands/dispatcher.py` now registers `system.run.prepare`,
+- `commands/dispatcher.py` registers `system.run.prepare`,
   `system.execApprovals.get`, and `system.execApprovals.set` (delivered by
-  #274), so the node can participate in exec approvals. What remains is that
-  `system.run` itself has not yet been re-gated onto that contract.
-- `commands/system_run.py` still ships a `system.run` that shadows OpenClaw's
-  native command (#258) and carries the inert token gate. Re-gating it onto
-  exec approvals and deleting `_admin_token_ok` is the follow-up tracked in
-  #258.
+  #274), so the node participates in exec approvals.
+- `commands/system_run.py` is bound to the Gateway-forwarded canonical plan
+  (#258). The `_admin_token_ok` helper and every trace of
+  `OPENCLAW_ADMIN_TOKEN` are gone from that module. Direct
+  `nodes.invoke system.run` remains refused by the Gateway; execution is
+  reachable through `exec host=node` after approval, and the node re-runs
+  argv/rawCommand/env/cwd validation on the forward before the subprocess is
+  spawned.
 - No dispatcher-level role gate exists. `forbidden_for_role` has exactly one
   consumer today, the disclaimer.
 
@@ -275,10 +305,9 @@ The gateway approval APIs are confirmed to exist and to be in live production
 use, including node-scoped exec approvals resolved by an operator device. The
 node-side protocol methods for the exec-approval path
 (`system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`)
-are now implemented (#274). What is **not** yet proven is that this node can
-drive them end to end, because `system.run` itself is not yet re-gated onto
-the approved plan (#258) and no live operator-surface allow/deny cycle has
-been observed against this node.
+are now implemented (#274) and `system.run` itself is bound to the approved
+plan (#258, this PR). What is **not** yet proven is a live operator-surface
+allow/deny cycle observed end to end against this node.
 
 ### Exec approval path (Class 3)
 

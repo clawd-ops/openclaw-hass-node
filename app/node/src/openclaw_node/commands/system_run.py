@@ -1,48 +1,68 @@
-"""Admin-gated shell command handler (P3.2.5 surface).
+"""Execute a shell command bound to an approved OpenClaw exec plan.
 
-Implements ``system.run`` — execute a command with controlled environment,
-timeout, and working directory.  This is the most powerful command in the
-node's surface and is protected by two gates:
+Authorization for ``system.run`` is the native OpenClaw exec-approval
+contract. The Gateway prepares a canonical ``systemRunPlan`` via
+``system.run.prepare``, prompts an operator, and only forwards a
+``system.run`` invoke after the plan is approved. The Gateway rejects
+generic ``nodes.invoke system.run`` calls before they reach the node
+and rejects a forward whose ``command``, ``rawCommand``, ``cwd``,
+``agentId``, or ``sessionKey`` disagrees with the stored plan.
 
-1. **Admin token gate**: callers must supply a token matching
-   ``OPENCLAW_ADMIN_TOKEN`` env var.  If the var is not set, the command
-   is always blocked (fail-closed).
-2. **No shell expansion**: ``cmd`` must be a list of strings.  Shell
-   strings are rejected to prevent injection attacks.
+This handler is the node-side fail-closed gate. It refuses to execute
+unless the forwarded request carries the authorization envelope the
+Gateway attaches to an approved ``system.run`` invoke:
 
-Environment sanitisation
-------------------------
-The subprocess inherits only a minimal base env (``PATH``, ``HOME``,
-``LANG``, ``TZ``, ``USER``).  Caller-supplied ``env`` entries are merged
-on top.  Env keys containing ``TOKEN``, ``SECRET``, ``KEY``, ``PASS``,
-``CREDENTIAL``, or ``AUTH`` (case-insensitive) are rejected to prevent
-accidental credential leakage back to the gateway.
+- ``systemRunPlan``: the authoritative stored plan. Missing plan is
+  treated as an unauthorized direct invoke and refused.
+- ``runId``: the approval/run correlation id.
+- one of ``approved: true``, ``approvalDecision in {allow-once,
+  allow-always}``, or a non-empty ``approvalSource`` string (the ask
+  fallback / allowlist source label the Gateway attaches).
 
-Timeout
--------
-``timeout`` defaults to 30 s and is hard-capped at ``OPENCLAW_RUN_TIMEOUT_MAX``
-(default 60 s).  The process is killed on timeout; ``TIMEOUT`` is returned.
+The forwarded ``command``, ``cwd``, ``rawCommand``, ``agentId``, and
+``sessionKey`` are then cross-checked against ``systemRunPlan``; any
+mismatch is refused rather than trusted because the wire arrived from
+the Gateway. The working directory is re-validated against the node's
+own allowed roots as defense in depth, and the subprocess inherits
+only a minimal environment.
 
-Working directory
------------------
-The legacy handler currently passes ``cwd`` directly to the subprocess. The
-native approval preparation path validates it, but execution-bound validation
-is intentionally deferred to the follow-up that removes the legacy token gate.
+A ``proposalId`` is accepted as audit metadata and never as
+authorization. There is no add-on admin token: ``OPENCLAW_ADMIN_TOKEN``
+was documented as inert (never surfaced by ``app/config.yaml``,
+never exported by ``app/run.sh``) and has been removed.
+
+The successful result payload uses the native exec wire contract:
+``success: bool``, ``exitCode: int | None``, ``timedOut: bool``,
+``stdout``, ``stderr``, ``elapsed_ms``. The request timeout is read
+from ``timeoutMs`` (milliseconds), matching the Gateway's forwarded
+field name.
+
+Reference:
+- ``docs/nodes/index.md`` (approval-bound-parameter contract, cwd re-validation)
+- ``docs/gateway/protocol/operator-methods.md`` (``systemRunPlan`` forwarding)
+- ``docs/gateway/protocol/rpc-methods.md`` (``success``/``exitCode``/``timedOut`` wire contract)
+- ``docs/design/AUTHORIZATION-MODEL.md`` (Class 3: shell)
 """
 
 from __future__ import annotations
 
-import hmac
 import logging
 import os
 import subprocess
 import time
 from typing import Any, Final
 
+from openclaw_node.commands.exec_approvals import (
+    resolve_command_text,
+    validate_argv,
+    validate_cwd,
+    validate_env_shape,
+)
+
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
-_DEFAULT_TIMEOUT_S: Final[int] = 30
-_DEFAULT_MAX_TIMEOUT_S: Final[int] = 60
+_DEFAULT_TIMEOUT_MS: Final[int] = 30_000
+_DEFAULT_MAX_TIMEOUT_MS: Final[int] = 60_000
 _MAX_OUTPUT_BYTES: Final[int] = 256 * 1024  # 256 KiB per stream
 
 _SAFE_ENV_KEYS: Final[frozenset[str]] = frozenset(
@@ -56,8 +76,10 @@ _BLOCKED_KEY_SUBSTRINGS: Final[tuple[str, ...]] = (
     "PASS",
     "CREDENTIAL",
     "AUTH",
-    "PWD",  # avoid leaking $PWD shadowing
+    "PWD",
 )
+
+_APPROVAL_DECISIONS: Final[frozenset[str]] = frozenset({"allow-once", "allow-always"})
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -65,7 +87,6 @@ def _error(code: str, message: str) -> dict[str, Any]:
 
 
 def _base_env() -> dict[str, str]:
-    """Return a minimal sanitised base environment."""
     env = os.environ
     return {k: env[k] for k in _SAFE_ENV_KEYS if k in env}
 
@@ -76,7 +97,6 @@ def _is_blocked_key(key: str) -> bool:
 
 
 def _merge_env(caller_env: dict[str, str]) -> dict[str, str] | None:
-    """Merge *caller_env* onto the safe base.  Returns None if any key is blocked."""
     for key in caller_env:
         if _is_blocked_key(key):
             return None
@@ -85,88 +105,232 @@ def _merge_env(caller_env: dict[str, str]) -> dict[str, str] | None:
     return base
 
 
-def _max_timeout() -> int:
+def _max_timeout_ms() -> int:
     try:
-        return int(os.environ.get("OPENCLAW_RUN_TIMEOUT_MAX", _DEFAULT_MAX_TIMEOUT_S))
+        return int(os.environ.get("OPENCLAW_RUN_TIMEOUT_MAX_MS", _DEFAULT_MAX_TIMEOUT_MS))
     except ValueError:
-        return _DEFAULT_MAX_TIMEOUT_S
+        return _DEFAULT_MAX_TIMEOUT_MS
 
 
-def default_timeout_s() -> int:
-    """Return the default command timeout in seconds.
+def default_timeout_ms() -> int:
+    """Return the default command timeout in milliseconds."""
+    return _DEFAULT_TIMEOUT_MS
 
-    Returns:
-        The timeout applied when a caller supplies none.
+
+def max_timeout_ms() -> int:
+    """Return the maximum permitted command timeout in milliseconds."""
+    return _max_timeout_ms()
+
+
+def _validate_optional_identifier(value: Any, field: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        return _error("INVALID_PARAM", f"{field} must be a non-empty string")
+    return None
+
+
+def _verify_authorization(params: dict[str, Any]) -> dict[str, Any] | None:
+    """Refuse the run unless the Gateway attached an approval envelope.
+
+    The Gateway always forwards ``system.run`` with a ``systemRunPlan``,
+    a ``runId``, and one of ``approved: true`` / ``approvalDecision`` /
+    ``approvalSource``. A payload missing every one of those signals is
+    a direct invoke that never reached the exec approval path, and this
+    handler refuses it as if the plan had mutated.
     """
-    return _DEFAULT_TIMEOUT_S
+    plan = params.get("systemRunPlan")
+    if plan is None:
+        return _error(
+            "UNAUTHORIZED",
+            "system.run requires the Gateway-forwarded systemRunPlan",
+        )
+    if not isinstance(plan, dict):
+        return _error("INVALID_PARAM", "systemRunPlan must be an object")
+
+    run_id = params.get("runId")
+    if not isinstance(run_id, str) or not run_id.strip():
+        return _error(
+            "UNAUTHORIZED",
+            "system.run requires a non-empty runId from the approved forward",
+        )
+
+    approved = params.get("approved") is True
+    decision = params.get("approvalDecision")
+    decision_ok = isinstance(decision, str) and decision in _APPROVAL_DECISIONS
+    source = params.get("approvalSource")
+    source_ok = isinstance(source, str) and bool(source.strip())
+    if not (approved or decision_ok or source_ok):
+        return _error(
+            "UNAUTHORIZED",
+            "system.run requires approved=true, approvalDecision, "
+            "or approvalSource from the Gateway approval envelope",
+        )
+    return None
 
 
-def max_timeout_s() -> int:
-    """Return the maximum permitted command timeout in seconds.
+_APPROVAL_BOUND_FIELDS: Final[tuple[str, ...]] = (
+    "commandText",
+    "cwd",
+    "agentId",
+    "sessionKey",
+)
 
-    Returns:
-        The ceiling, honouring ``OPENCLAW_RUN_TIMEOUT_MAX``.
+
+def _verify_plan_consistency(
+    plan: dict[str, Any],
+    argv: list[str],
+    resolved_cwd: str | None,
+    command_text: str,
+    params: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Verify the stored plan matches the forwarded canonical fields.
+
+    Every approval-bound field must be PRESENT in the stored plan and match
+    the forwarded value exactly. A missing key or null plan value means the
+    forwarded value must also be absent/null — otherwise a partial plan
+    would let the caller supply unconstrained values that were never
+    approved. Fail-closed at the node handler as defense in depth on top of
+    the Gateway's sanitizer.
     """
-    return _max_timeout()
+    plan_argv = plan.get("argv")
+    if not isinstance(plan_argv, list) or plan_argv != argv:
+        return _error(
+            "PLAN_MISMATCH",
+            "command does not match the approved systemRunPlan argv",
+        )
+
+    # commandText: required, must be a string, must match the resolved text.
+    if "commandText" not in plan:
+        return _error(
+            "PLAN_MISMATCH",
+            "systemRunPlan is missing the approval-bound commandText",
+        )
+    plan_text = plan["commandText"]
+    if not isinstance(plan_text, str) or plan_text != command_text:
+        return _error(
+            "PLAN_MISMATCH",
+            "commandText does not match the approved systemRunPlan",
+        )
+
+    # cwd/agentId/sessionKey: the plan key must exist, and forwarded values
+    # must match the stored value exactly. A null plan value means the
+    # forwarded field must also be absent/null.
+    forwarded: dict[str, Any] = {
+        "cwd": resolved_cwd,
+        "agentId": params.get("agentId"),
+        "sessionKey": params.get("sessionKey"),
+    }
+    for field in ("cwd", "agentId", "sessionKey"):
+        if field not in plan:
+            return _error(
+                "PLAN_MISMATCH",
+                f"systemRunPlan is missing the approval-bound {field}",
+            )
+        if plan[field] != forwarded[field]:
+            return _error(
+                "PLAN_MISMATCH",
+                f"{field} does not match the approved systemRunPlan",
+            )
+    return None
 
 
-def _admin_token() -> str:
-    """Return the configured admin token, or empty string if not set."""
-    return os.environ.get("OPENCLAW_ADMIN_TOKEN", "")
+def _resolve_timeout_ms(params: dict[str, Any]) -> tuple[int | None, dict[str, Any] | None]:
+    """Read the native ``timeoutMs`` field with the node's max as a ceiling."""
+    if "timeout" in params and "timeoutMs" not in params:
+        return None, _error(
+            "INVALID_PARAM",
+            "timeout is not accepted; use timeoutMs (native exec wire contract)",
+        )
+    raw = params.get("timeoutMs", _DEFAULT_TIMEOUT_MS)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None, _error(
+            "INVALID_PARAM",
+            f"timeoutMs must be an integer number of milliseconds, got {raw!r}",
+        )
+    if raw <= 0:
+        return None, _error("INVALID_PARAM", "timeoutMs must be positive")
+    return min(raw, _max_timeout_ms()), None
 
 
 def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
-    """Execute a command in a controlled environment.
+    """Execute the Gateway-forwarded approved plan.
 
-    Params:
-        cmd (list[str]): Command and arguments.  Must be a list; shell
-            strings are rejected.
-        admin_token (str): Must match ``OPENCLAW_ADMIN_TOKEN``.
-        cwd (str, optional): Working directory. Not yet bound to a native
-            approval plan; the legacy token gate remains fail-closed.
-        env (dict[str, str], optional): Extra environment variables merged
-            onto a sanitised base.  Keys matching credential patterns are
-            rejected.
-        timeout (int, optional): Seconds; defaults to 30, capped at
-            ``OPENCLAW_RUN_TIMEOUT_MAX``.
+    Params (canonical, sent by the Gateway after operator approval):
+        command (list[str]): Canonical argv the operator approved.
+        rawCommand (str): Human-readable command text; must match the
+            argv canonicalisation.
+        systemRunPlan (dict): Authoritative stored plan (argv, commandText,
+            cwd, agentId, sessionKey). Cross-checked against the forwarded
+            fields; a mismatch fails closed.
+        runId (str): Approval/run correlation id.
+        approved (bool), approvalDecision (str), approvalSource (str):
+            Approval envelope. At least one must be present.
+        cwd (str, optional): Working directory. Re-validated within the
+            node's allowed roots.
+        env (dict[str, str], optional): Extra environment. Rejected if
+            any key matches a credential pattern.
+        timeoutMs (int, optional): Milliseconds; defaults to
+            :data:`_DEFAULT_TIMEOUT_MS`, capped at
+            ``OPENCLAW_RUN_TIMEOUT_MAX_MS``.
+        agentId (str, optional), sessionKey (str, optional): Approval
+            identifiers. Cross-checked against the plan.
+        proposalId (str, optional): Audit metadata. Never authorization.
 
     Returns:
-        ``{ok: True, stdout, stderr, returncode, elapsed_ms}`` on success,
-        or an error dict.
+        On invocation failure (missing/invalid params, unauthorized,
+        plan mismatch, subprocess spawn error), an
+        ``{ok: False, error, message}`` dict that becomes a
+        ``node.invoke.result`` error frame.
+
+        On invocation success (the subprocess ran or hit its timeout),
+        ``{ok: True, success, exitCode, timedOut, stdout, stderr,
+        elapsed_ms}`` — the native ``system.run`` payload the exec tool
+        parses.
     """
-    cmd = params.get("cmd")
-    if not cmd:
-        return _error("MISSING_PARAM", "cmd is required")
-    if isinstance(cmd, str):
-        return _error(
-            "INVALID_PARAM",
-            "cmd must be a list of strings; shell strings are rejected to prevent injection",
-        )
-    if not isinstance(cmd, list) or not all(isinstance(a, str) for a in cmd):
-        return _error("INVALID_PARAM", "cmd must be a list of strings")
+    argv, error = validate_argv(params.get("command"))
+    if error is not None:
+        return error
+    assert argv is not None
 
-    caller_token = str(params.get("admin_token", ""))
-    required_token = _admin_token()
-    if not required_token:
-        return _error(
-            "ADMIN_REQUIRED",
-            "system.run is disabled: OPENCLAW_ADMIN_TOKEN is not configured",
-        )
-    if not hmac.compare_digest(caller_token, required_token):
-        return _error("ADMIN_REQUIRED", "Invalid or missing admin_token")
+    auth_error = _verify_authorization(params)
+    if auth_error is not None:
+        return auth_error
+    plan = params["systemRunPlan"]
+    assert isinstance(plan, dict)
 
-    cwd = params.get("cwd") or None
-    if cwd is not None:
-        cwd = str(cwd)
+    resolved_text, error = resolve_command_text(argv, params.get("rawCommand"))
+    if error is not None:
+        return error
+    assert resolved_text is not None
+    command_text = resolved_text[0]
+
+    env_error = validate_env_shape(params.get("env"))
+    if env_error is not None:
+        return env_error
+
+    resolved_cwd: str | None = None
+    raw_cwd = params.get("cwd")
+    if raw_cwd is not None:
+        if not isinstance(raw_cwd, str) or not raw_cwd.strip():
+            return _error("INVALID_PARAM", "cwd must be a non-empty string")
+        resolved_cwd, error = validate_cwd(raw_cwd)
+        if error is not None:
+            return error
+
+    for field in ("agentId", "sessionKey", "proposalId", "runId", "approvalSource"):
+        identifier_error = _validate_optional_identifier(params.get(field), field)
+        if identifier_error is not None:
+            return identifier_error
+
+    plan_error = _verify_plan_consistency(plan, argv, resolved_cwd, command_text, params)
+    if plan_error is not None:
+        return plan_error
 
     caller_env: dict[str, str] = {}
     raw_env = params.get("env")
     if raw_env is not None:
-        if not isinstance(raw_env, dict) or not all(
-            isinstance(k, str) and isinstance(v, str) for k, v in raw_env.items()
-        ):
-            return _error("INVALID_PARAM", "env must be a dict of string → string")
-        caller_env = raw_env
+        caller_env = dict(raw_env)
 
     merged_env = _merge_env(caller_env)
     if merged_env is None:
@@ -176,32 +340,44 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "(TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, PWD)",
         )
 
-    raw_timeout = params.get("timeout", _DEFAULT_TIMEOUT_S)
-    try:
-        timeout_s = int(raw_timeout)
-    except (TypeError, ValueError):
-        return _error("INVALID_PARAM", f"timeout must be an integer, got {raw_timeout!r}")
-    max_t = _max_timeout()
-    if timeout_s <= 0:
-        return _error("INVALID_PARAM", "timeout must be positive")
-    timeout_s = min(timeout_s, max_t)
+    timeout_ms, timeout_error = _resolve_timeout_ms(params)
+    if timeout_error is not None:
+        return timeout_error
+    assert timeout_ms is not None
+    timeout_s = timeout_ms / 1000.0
 
-    _LOG.info("system.run cmd=%r cwd=%r timeout=%ds", cmd, cwd, timeout_s)
+    _LOG.info(
+        "system.run argv=%r cwd=%r timeoutMs=%d runId=%r proposalId=%r",
+        argv,
+        resolved_cwd,
+        timeout_ms,
+        params.get("runId"),
+        params.get("proposalId"),
+    )
     t0 = time.monotonic()
     try:
         result = subprocess.run(
-            cmd,
+            argv,
             capture_output=True,
-            cwd=cwd,
+            cwd=resolved_cwd,
             env=merged_env,
             timeout=timeout_s,
         )
     except subprocess.TimeoutExpired:
         elapsed_ms = int((time.monotonic() - t0) * 1000)
-        _LOG.warning("system.run timed out after %dms cmd=%r", elapsed_ms, cmd)
-        return _error("TIMEOUT", f"Command timed out after {timeout_s}s")
+        _LOG.warning("system.run timed out after %dms argv=%r", elapsed_ms, argv)
+        return {
+            "ok": True,
+            "success": False,
+            "exitCode": None,
+            "timedOut": True,
+            "stdout": "",
+            "stderr": "",
+            "error": f"Command timed out after {timeout_ms}ms",
+            "elapsed_ms": elapsed_ms,
+        }
     except FileNotFoundError:
-        return _error("NOT_FOUND", f"Binary not found: {cmd[0]!r}")
+        return _error("NOT_FOUND", f"Binary not found: {argv[0]!r}")
     except OSError as exc:
         return _error("EXEC_ERROR", f"Execution failed: {exc}")
 
@@ -211,15 +387,17 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     stderr = result.stderr[:_MAX_OUTPUT_BYTES].decode(errors="replace")
 
     _LOG.info(
-        "system.run finished cmd=%r rc=%d elapsed_ms=%d",
-        cmd,
+        "system.run finished argv=%r exitCode=%d elapsed_ms=%d",
+        argv,
         result.returncode,
         elapsed_ms,
     )
     return {
         "ok": True,
+        "success": result.returncode == 0,
+        "exitCode": result.returncode,
+        "timedOut": False,
         "stdout": stdout,
         "stderr": stderr,
-        "returncode": result.returncode,
         "elapsed_ms": elapsed_ms,
     }

@@ -87,10 +87,19 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
 - `fs.delete` uses `send2trash` (FreeDesktop.org spec) with an
   OpenClaw-managed trash directory fallback, never `rm`. `fs.restore`
   recovers from trash. No sidecar `.bak` files anywhere.
-- `system.run` currently carries an `OPENCLAW_ADMIN_TOKEN` check, but that
-  gate is inert: the variable cannot be set from add-on configuration, so the
-  command is unreachable. The ratified target moves it onto OpenClaw's native
-  node exec approvals. See [Authorization model](AUTHORIZATION-MODEL.md).
+- `system.run` is bound to OpenClaw's native exec-approval contract. The
+  Gateway prepares a canonical `systemRunPlan` via `system.run.prepare`,
+  prompts an operator, and only forwards `system.run` after approval; direct
+  `nodes.invoke system.run` is refused. The node fails closed unless the
+  forward carries `systemRunPlan`, a non-empty `runId`, and an approval
+  signal (`approved=true`, `approvalDecision`, or `approvalSource`);
+  re-validates the forwarded argv/rawCommand/env; re-resolves `cwd` beneath
+  the allowed roots; cross-checks argv / cwd / commandText / agentId /
+  sessionKey against the stored plan; and rejects credential-shaped env keys
+  before execution. Timeout is read from `timeoutMs` (native wire); the
+  successful payload uses `success`/`exitCode`/`timedOut`. The inert
+  `OPENCLAW_ADMIN_TOKEN` gate has been removed. See
+  [Authorization model](AUTHORIZATION-MODEL.md).
 - Supervisor API access uses `SUPERVISOR_TOKEN` against
   `http://supervisor/...`. Today this is exposed through the
   `ha.addon_*` Tier A/B command surface (`ha.list_addons`,

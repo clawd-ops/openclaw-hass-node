@@ -4,9 +4,9 @@ The Gateway owns approval prompting and execution authorization. This module
 implements the node-side wire contracts used to prepare an approval-bound
 ``system.run`` request and to manage the node's exec approval policy.
 
-It deliberately does not execute commands. The existing ``system.run``
-handler remains fail-closed behind its legacy gate until a follow-up change
-binds execution to the prepared native approval context.
+It deliberately does not execute commands. The ``system.run`` handler in
+:mod:`openclaw_node.commands.system_run` reuses the validators exported below
+so a forwarded plan is refused for the same reasons a prepared plan would be.
 """
 
 from __future__ import annotations
@@ -568,6 +568,16 @@ def _resolve_policy(document: dict[str, Any], agent_id: str | None) -> dict[str,
         "autoAllowSkills": field("autoAllowSkills"),
         "allowlistRules": rules,
     }
+
+
+# Re-export the plan validators for handlers that must apply the same rules the
+# Gateway used at prepare time. ``system.run`` re-runs argv, rawCommand, cwd, and
+# env validation on the forwarded plan so a malformed forward is refused before
+# execution rather than trusted because the wire arrived from the Gateway.
+validate_argv = _validate_argv
+resolve_command_text = _resolve_command_text
+validate_env_shape = _validate_env
+validate_cwd = _validate_cwd
 
 
 def handle_system_run_prepare(params: dict[str, Any]) -> dict[str, Any]:

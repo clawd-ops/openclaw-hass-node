@@ -11189,20 +11189,46 @@
       ]
     },
     {
-      "acceptance_test_ids": [],
+      "acceptance_test_ids": [
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_native_payload",
+          "outcome": "pass"
+        },
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_gateway_forward_without_plan_is_refused",
+          "outcome": "pass"
+        },
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_argv_diverging_from_stored_plan_is_refused",
+          "outcome": "pass"
+        },
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_timeout_ms_is_forwarded_to_subprocess",
+          "outcome": "pass"
+        },
+        {
+          "caller": "handler_dispatch",
+          "id": "app/node/tests/test_system_run_gateway_contract.py::test_subprocess_timeout_returns_timed_out_payload",
+          "outcome": "pass"
+        }
+      ],
       "action": null,
-      "authorization_class": "unavailable_gateway_reserved",
+      "authorization_class": "operator_approval",
       "callers": {
         "assist_wrapper": {
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "Assist intentionally has no shell-execution wrapper; the Gateway also reserves this command.",
+              "observation": "Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.",
               "outcome": "refused-as-designed",
               "source": "contracts/command-coverage-manual.json"
             }
           ],
-          "reason": "Assist intentionally has no shell-execution wrapper; the Gateway also reserves this command.",
+          "reason": "Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.",
           "source": "contracts/command-coverage-manual.json",
           "status": "unavailable"
         },
@@ -11210,13 +11236,19 @@
           "evidence": [
             {
               "method": "PRODUCTION-LIVE",
-              "observation": "OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258).",
-              "outcome": "fail",
+              "observation": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+              "outcome": "refused-as-designed",
+              "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan.",
+              "outcome": "refused-as-designed",
               "source": "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable"
             }
           ],
-          "reason": "OpenClaw Gateway reserves system.run and rejects it before node dispatch (#258).",
-          "source": "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
+          "reason": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+          "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
           "status": "unavailable"
         },
         "handler_dispatch": {
@@ -11226,6 +11258,12 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
+            },
+            {
+              "method": "TEST-PROVEN",
+              "observation": "The GatewayClient._handle_invoke entry point rejects a forward that lacks the Gateway approval envelope (systemRunPlan + runId + approval signal), rejects a forward whose argv/cwd disagrees with the stored plan, honors timeoutMs on the subprocess, and returns success/exitCode/timedOut in the terminal payload for the exec tool parser.",
+              "outcome": "pass",
+              "source": "app/node/tests/test_system_run_gateway_contract.py"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -11251,9 +11289,9 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
+            "null"
           ],
-          "name": "admin_token",
+          "name": "agentId",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -11267,7 +11305,49 @@
           "defaults": [
             "null"
           ],
-          "name": "cmd",
+          "name": "approvalDecision",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "approvalSource",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "approved",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "command",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -11305,11 +11385,82 @@
         },
         {
           "aliases": [],
-          "bounds": "validated positive number capped by the source-defined maximum",
+          "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "_DEFAULT_TIMEOUT_S"
+            "null"
           ],
-          "name": "timeout",
+          "name": "proposalId",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "rawCommand",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "runId",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "sessionKey",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null",
+            "required-or-validated-before-access"
+          ],
+          "name": "systemRunPlan",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "validated positive integer milliseconds, capped by OPENCLAW_RUN_TIMEOUT_MAX_MS",
+          "defaults": [
+            "_DEFAULT_TIMEOUT_MS"
+          ],
+          "name": "timeoutMs",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual normalized note",
@@ -11318,10 +11469,10 @@
           }
         }
       ],
-      "capability_conditions": "Unreachable through nodes.invoke because the Gateway reserves system.run; the dormant node handler also requires an admin token.",
+      "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
       "command": "system.run",
-      "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Installed Gateway refused the advertised command before node dispatch; tracked by #258.",
+      "evidence_method": "TEST-PROVEN",
+      "evidence_note": "Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.",
       "handler": "openclaw_node.commands.system_run:handle_system_run",
       "id": "system.run",
       "metadata_provenance": {
@@ -11335,14 +11486,15 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_authz.py",
         "app/node/tests/test_gateway_ws.py",
-        "app/node/tests/test_http_api.py"
+        "app/node/tests/test_http_api.py",
+        "app/node/tests/test_system_run_gateway_contract.py"
       ]
     },
     {
@@ -11366,15 +11518,15 @@
         "direct_nodes_invoke": {
           "evidence": [
             {
-              "method": "CODE-PROVEN",
-              "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
-              "outcome": "unverified",
-              "source": "dispatcher + node connect frame"
+              "method": "PRODUCTION-LIVE",
+              "observation": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+              "outcome": "refused-as-designed",
+              "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell"
             }
           ],
-          "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
-          "source": "dispatcher + node connect frame",
-          "status": "advertised-unverified"
+          "reason": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+          "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
+          "status": "unavailable"
         },
         "handler_dispatch": {
           "evidence": [
@@ -11489,7 +11641,7 @@
           }
         }
       ],
-      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. plan.commandText is always the canonical rendering of the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. plan.commandPreview is emitted only for the literal /bin/sh -c and /bin/sh -lc argv that buildNodeShellCommand produces, so a previewed payload always belongs to /bin/sh. Executes nothing. Execution remains fail-closed behind the legacy system.run gate until the follow-up execution-binding change.",
+      "capability_conditions": "Validates the Gateway's command envelope and returns its native plan, policy snapshot, effective exec policy, and conservative allow-always coverage. plan.commandText is always the canonical rendering of the argv that would run; a rawCommand describing a different command is rejected with RAW_COMMAND_MISMATCH. plan.commandPreview is emitted only for the literal /bin/sh -c and /bin/sh -lc argv that buildNodeShellCommand produces, so a previewed payload always belongs to /bin/sh. Executes nothing; execution happens later under system.run only after the operator approves this canonical plan.",
       "command": "system.run.prepare",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
