@@ -65,8 +65,8 @@ starts from until a component is updated.
 | Date | 2026-09-12 | — |
 | App (add-on) | `2026.7.23b1` | observed-live |
 | Add-on state | `started`, no update available | observed-live |
-| HACS integration | `2026.7.23b1` | repo-declared (`custom_components/openclaw_hass_node_assist/manifest.json`) |
-| Plugin | `0.1.1` | repo-declared (`plugins/openclaw-hass-node-assist-tools/package.json`) |
+| HACS integration | not recorded | the tracked manifest declares `2026.7.23b1`, but the version HA actually loaded is not observable; see [gap 2](#known-recording-gaps) |
+| Plugin | not recorded | the tracked package declares `0.1.1`, but the version the Gateway actually loaded is not observable; see [gap 2](#known-recording-gaps) |
 | Gateway | `2026.9.3` | observed-live |
 | HA Core | `2026.9.1` (`2026.9.2` available, not installed) | observed-live |
 | Supervisor | `2026.09.0` | observed-live |
@@ -128,16 +128,22 @@ own.
 These block a complete Phase 0 recording and need closing before any release
 gate can claim a version-bound environment.
 
-1. **Architecture is not observable through the node's read-only surface.** The
-   add-on reports the architectures it supports (`amd64`, `aarch64`), and
-   Supervisor reports no machine value for it. Nothing in the current read-only
-   command set reports the architecture the artifact is actually executing on.
-   Recording it today requires either an operator-approved `system.run` or a new
-   read-only capability that reports host architecture.
-2. **Installed plugin and integration versions are not separately observable.**
-   Both values above are repository declarations. A verification needs the
-   versions the Gateway and HA actually loaded, which the current surface does
-   not report.
+1. **Architecture is not observable through the node's read-only surface.**
+   `ha.addon_info` does return an `arch` field, but it is the add-on's
+   *supported*-architecture list taken from its own manifest, not the
+   architecture the artifact is running on. Two checks establish that: the value
+   is identical to the `arch:` list declared in `app/config.yaml`, and a
+   different add-on queried the same way reports the same two values. Its
+   `machine` field is empty, so it does not narrow the answer either. Nothing
+   else in the read-only command set reports host architecture. Recording it
+   today requires either an operator-approved `system.run` or a new read-only
+   capability that reports it.
+2. **Loaded plugin and integration versions are not separately observable.** The
+   tracked manifest and package declare versions, but a verification needs the
+   versions the Gateway and HA actually loaded, and the current surface does not
+   report either. Both fields are therefore `not recorded` above rather than
+   filled from the repository, because this file's own rule says a repository
+   declaration cannot stand in for an installed version.
 3. **No field binds an environment to an artifact digest.** Phase 5 and Phase 6
    both require digests so the tested image is provably the released image. Once
    published artifacts exist, add image and plugin digest fields here rather
