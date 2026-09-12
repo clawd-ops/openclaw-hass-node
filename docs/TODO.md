@@ -108,7 +108,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Cross-link: item #32 (show/hide config) must wait until this works; hiding broken output is not useful.
 
 ### 36. Node command gaps discovered while migrating workspace HA scripts
-- Status: IMPLEMENTED-PENDING-LIVE-VALIDATION — keep OPEN until the live install/re-pair/allowCommands gate passes.
+- Status: IMPLEMENTED-PENDING-LIVE-VALIDATION — keep OPEN until the live install/re-pair/`commands.allow` gate passes.
 - Reported: 2026-06-28 during MCP sunset / workspace script migration.
 - Context: workspace scripts were moved off direct `HASS_URL` / `HASS_TOKEN` where the node command surface already supports the required read path. Calendar/event and deeper HomeOps details now report explicit gaps instead of using the old token path.
 - Implemented command coverage:
@@ -118,7 +118,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   4. `/api/config/config_entries/entry` equivalent, so HomeOps status can report unhealthy config entries through the node.
   5. Home Assistant core log read equivalent, so HomeOps status can restore `core_log_attention` without direct REST.
 - Local validation: handlers, dispatcher registration, docs, and unit coverage are in place; workspace scripts now run through the HA node helper instead of `HASS_TOKEN`.
-- Remaining live gate: publish/install the updated node, restart/re-pair after `gateway.nodes.allowCommands` includes the new commands, then run the affected workspace scripts through `openclaw nodes invoke` against the connected node. Do NOT close this item based on local validation alone — live install + re-pair + allowCommands inclusion must be confirmed.
+- Remaining live gate: publish/install the updated node, restart/re-pair after `gateway.nodes.commands.allow` includes the new commands, then run the affected workspace scripts through `openclaw nodes invoke` against the connected node. Do NOT close this item based on local validation alone — live install + re-pair + `commands.allow` inclusion must be confirmed.
 - Acceptance: the affected workspace scripts run through `openclaw nodes invoke` / the HA node command surface by default, with no `HASS_TOKEN` path required for normal operation and no allowlist rejection for the new commands.
 
 ### 37. Plugin packaging — `openclaw-hass-node-assist-tools` needs a build step + npm publish

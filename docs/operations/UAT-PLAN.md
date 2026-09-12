@@ -134,7 +134,7 @@ the legacy MCP server.
 
 `fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `fs.history`, `fs.diff`
 all hit the node. The gateway-side allowlist
-(`gateway.nodes.allowCommands` in `openclaw.json`) controls which
+(`gateway.nodes.commands.allow` in `openclaw.json`) controls which
 commands are surfaced — see `INSTALL.md` step 1.
 
 ## Phase D — Writes via proposals *(planned)*

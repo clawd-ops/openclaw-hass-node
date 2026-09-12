@@ -113,15 +113,15 @@ entities are HA-registry objects rather than Supervisor slugs.
 
 ## Gateway allowlist sync — required, easy to forget
 
-Every new node command must be added to `nodes.allowCommands` in the
-operator's private gateway config (NOT in this repo, NOT in any
+Every new node command must be added to `gateway.nodes.commands.allow`
+in the operator's private gateway config (NOT in this repo, NOT in any
 public repo). Without that entry, the command is registered on the
 node but the gateway refuses to dispatch it — the tool effectively
 doesn't exist for callers.
 
 Tier B will likely belong on a *separate* node-config admin allowlist
-if/when one is introduced, not on `nodes.allowCommands` alongside the
-read-only surface. Pin down before implementing.
+if/when one is introduced, not on `gateway.nodes.commands.allow`
+alongside the read-only surface. Pin down before implementing.
 
 Each new command also goes in `docs/reference/COMMAND-SURFACE.md` (the canonical
 command catalog) in this repo. Doc + allowlist + code go together; PRs

@@ -17,6 +17,8 @@ jobs:
           python-version: "3.13"
       - name: Verify generated command/action/caller coverage
         run: python scripts/generate-command-coverage.py --check
+      - name: Verify active docs use canonical Gateway schema
+        run: python scripts/check-active-docs-schema.py
 
   lint:
     name: Lint

@@ -54,7 +54,7 @@ plan.
       command surface — add a `docs/operations/LESSONS.md` entry so the agent (future maintainer)
       doesn't relitigate the gotcha.
 - [ ] If the change requires gateway-side config (e.g. a new entry in
-      `gateway.nodes.allowCommands`) — document it in `docs/INSTALL.md`
+      `gateway.nodes.commands.allow`) — document it in `docs/INSTALL.md`
       so operators see it.
 
 ## PR review

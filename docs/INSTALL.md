@@ -36,37 +36,39 @@ then the **HACS integration**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node ships 56 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node advertises 56 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
-`gateway.nodes.allowCommands`:
+`gateway.nodes.commands.allow`:
 
 ```json
 {
   "gateway": {
     "nodes": {
-      "allowCommands": [
-        "ping",
-        "fs.read", "fs.list", "fs.stat", "fs.glob",
-        "fs.write", "fs.restore", "fs.history", "fs.diff",
-        "fs.move", "fs.delete", "fs.patch",
-        "system.run", "system.run.prepare", "system.which",
-        "system.execApprovals.get", "system.execApprovals.set",
-        "ha.list_states", "ha.get_state", "ha.call_service",
-        "ha.list_areas", "ha.list_devices", "ha.list_services",
-        "ha.get_config", "ha.list_events", "ha.list_config_entries",
-        "ha.core_logs", "ha.calendar_get_events",
-        "ha.list_entity_registry", "ha.logbook", "ha.history",
-        "ha.reload_config", "ha.light_turn_on", "ha.light_turn_off",
-        "ha.list_automations", "ha.check_config",
-        "ha.addon_logs", "ha.list_addons", "ha.addon_info",
-        "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation",
-        "ha.addon_start", "ha.addon_stop", "ha.addon_restart",
-        "ha.addon_update", "ha.update_install",
-        "ha.config.lovelace", "ha.config.automation", "ha.config.script",
-        "ha.config.scene", "ha.config.helpers",
-        "ha.config.area_registry", "ha.config.device_registry",
-        "ha.config.entity_registry", "ha.config.config_entries"
-      ]
+      "commands": {
+        "allow": [
+          "ping",
+          "fs.read", "fs.list", "fs.stat", "fs.glob",
+          "fs.write", "fs.restore", "fs.history", "fs.diff",
+          "fs.move", "fs.delete", "fs.patch",
+          "system.run", "system.run.prepare", "system.which",
+          "system.execApprovals.get", "system.execApprovals.set",
+          "ha.list_states", "ha.get_state", "ha.call_service",
+          "ha.list_areas", "ha.list_devices", "ha.list_services",
+          "ha.get_config", "ha.list_events", "ha.list_config_entries",
+          "ha.core_logs", "ha.calendar_get_events",
+          "ha.list_entity_registry", "ha.logbook", "ha.history",
+          "ha.reload_config", "ha.light_turn_on", "ha.light_turn_off",
+          "ha.list_automations", "ha.check_config",
+          "ha.addon_logs", "ha.list_addons", "ha.addon_info",
+          "ha.addon_stats", "ha.addon_changelog", "ha.addon_documentation",
+          "ha.addon_start", "ha.addon_stop", "ha.addon_restart",
+          "ha.addon_update", "ha.update_install",
+          "ha.config.lovelace", "ha.config.automation",
+          "ha.config.script", "ha.config.scene", "ha.config.helpers",
+          "ha.config.area_registry", "ha.config.device_registry",
+          "ha.config.entity_registry", "ha.config.config_entries"
+        ]
+      }
     }
   }
 }
@@ -82,11 +84,15 @@ openclaw gateway restart    # or apply hot via the gateway tool
 Without this, the node will pair and connect, but `openclaw nodes describe`
 will show `Commands: (none reported)` and no command will actually run.
 
-**Do this step BEFORE the pairing-approval in step 3.** The gateway
-captures the allowed-commands set at pairing-approval time, not on
-every connect. If you approve first and patch second, the device's
-stored approved-commands stays empty and you'll have to
-`openclaw devices remove <id>` and re-pair to pick up the new list.
+Command-policy changes hot-apply to connected nodes under the default
+reload mode: you can edit `gateway.nodes.commands.allow` before or
+after pairing, and reachability updates without touching the pairing
+record. Re-pair is only required when the node itself widens its
+*declared* command list (a node upgrade that adds new command names to
+its connect-frame); at that point, reconnect and approve the new
+command request so the gateway stores the widened surface. See
+[Gateway pairing](https://docs.openclaw.ai/gateway/pairing) and
+[Gateway configuration](https://docs.openclaw.ai/gateway/config-gateway#node-command-gating).
 
 ## 2. HA add-on (app): install + configure
 
@@ -279,7 +285,7 @@ to work.
 | `AUTH_TOKEN_MISSING`                                             | Either no `pairing_token` set on first run, or the token expired before pairing was approved.    |
 | `NOT_PAIRED` after `openclaw devices approve`                    | Add-on (App) still using old pairing_token. Update to the latest add-on (app) (token now auto-persists).     |
 | `Gateway connection lost: <ws error>` (every 5s)                 | Network or `gateway_url` typo. The 5s reconnect cadence is normal.                               |
-| Connected but `openclaw nodes describe` shows `Commands: (none)` or is missing newly shipped commands | Missing the `gateway.nodes.allowCommands` patch above, stale runtime config, or a node approval from before the command surface changed. Apply the allowCommands patch, restart the gateway if needed, restart/reconnect the add-on, then approve the resulting `openclaw nodes pending` reapproval request. Remove/re-pair only if reapproval cannot be produced or approved. |
+| Connected but `openclaw nodes describe` shows `Commands: (none)` or is missing newly shipped commands | Missing the `gateway.nodes.commands.allow` patch above, stale runtime config, or a node approval from before the command surface changed. Apply the `commands.allow` patch, restart the gateway if needed, restart/reconnect the add-on, then approve the resulting `openclaw nodes pending` reapproval request. Remove/re-pair only if reapproval cannot be produced or approved. |
 
 ## Updating
 

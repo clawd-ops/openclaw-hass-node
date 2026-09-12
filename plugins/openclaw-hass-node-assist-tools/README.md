@@ -46,7 +46,8 @@ are proposal-gated mutations meant for chat/cron/sub-agent flows via
 
 The plugin is `enabledByDefault: false`. Operators must explicitly enable it.
 No per-node allowlists are required — entity/service/calendar access control
-lives at the hass node's tier/allowCommands + HA's own auth layer.
+lives at the hass node's tier policy plus the Gateway's
+`gateway.nodes.commands.allow` allowlist and HA's own auth layer.
 
 ## Unreleased service/result repair (#266)
 
@@ -99,9 +100,9 @@ with no matches returns `count: 0` and an empty `automations` list.
 Config lives at `plugins.entries.openclaw-hass-node-assist-tools.config.nodes.<nodeId>`.
 
 **Routing-only design**: the plugin does not enumerate entities, services, or
-calendars. Access control is delegated entirely to the hass node's
-`allowCommands` tier policy and HA's own auth. The only plugin-scoped config
-is the Tier B gate:
+calendars. Access control is delegated entirely to the hass node's tier policy
+plus the Gateway's `gateway.nodes.commands.allow` allowlist and HA's own auth.
+The only plugin-scoped config is the Tier B gate:
 
 ```json
 {
