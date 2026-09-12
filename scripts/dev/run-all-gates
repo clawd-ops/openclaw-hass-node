@@ -12,6 +12,13 @@ set -euo pipefail
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+# Some container images inject a shared Corepack cache that is not writable by
+# the current user. Keep package-manager state in the user's cache in that case.
+if [[ -n "${COREPACK_HOME:-}" && ! -w "$COREPACK_HOME" ]]; then
+    export COREPACK_HOME="${XDG_CACHE_HOME:-$HOME/.cache}/corepack"
+fi
+mkdir -p "${COREPACK_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/corepack}"
+
 fail() {
     echo ""
     echo "GATE FAILED: $1"
@@ -49,18 +56,52 @@ echo ">>> check-active-docs-schema"
 python scripts/check-active-docs-schema.py \
     || fail "check-active-docs-schema" "python scripts/check-active-docs-schema.py"
 
-# ── 7. TypeScript API docs ───────────────────────────────────────────────────
+# ── 7. synchronized release version ──────────────────────────────────────────
+echo ">>> bump-version --check"
+scripts/bump-version.py --check \
+    || fail "bump-version --check" "scripts/bump-version.py --check"
+
+# ── 8. Python security checks ────────────────────────────────────────────────
+echo ">>> bandit"
+uv run bandit -r app/node/src -ll \
+    || fail "bandit" "uv run bandit -r app/node/src -ll"
+
+echo ">>> pip-audit"
+uv run pip-audit \
+    || fail "pip-audit" "uv run pip-audit"
+
+# ── 9. strict documentation build ───────────────────────────────────────────
+echo ">>> mkdocs build --strict"
+NO_MKDOCS_2_WARNING=1 uv run \
+    --with-requirements docs-requirements.txt \
+    --with-editable app/node \
+    mkdocs build --strict \
+    || fail "mkdocs build --strict" \
+        "NO_MKDOCS_2_WARNING=1 uv run --with-requirements docs-requirements.txt --with-editable app/node mkdocs build --strict"
+
+# ── 10. TypeScript dependencies ──────────────────────────────────────────────
+echo ">>> pnpm install --no-frozen-lockfile"
+pnpm install --no-frozen-lockfile \
+    || fail "pnpm install --no-frozen-lockfile" "pnpm install --no-frozen-lockfile"
+
+# ── 11. TypeScript API docs ──────────────────────────────────────────────────
 echo ">>> docs:typescript:check"
 pnpm docs:typescript:check \
     || fail "docs:typescript:check" "pnpm docs:typescript:check"
 
-# ── 8. Plugin tsc --noEmit ──────────────────────────────────────────────────
+# ── 12. Plugin tsc --noEmit ─────────────────────────────────────────────────
 echo ">>> plugin typecheck"
 pnpm -r --filter './plugins/*' typecheck \
     || fail "plugin typecheck" "pnpm -r --filter './plugins/*' typecheck"
 
-# ── 9. Plugin vitest (only if TS files changed vs origin/main) ──────────────
-CHANGED_TS=$(git diff --name-only origin/main..HEAD -- '*.ts' '*.tsx' 2>/dev/null || true)
+# ── 13. Plugin vitest (only if TS files changed vs origin/main) ─────────────
+CHANGED_TS=$(
+    {
+        git diff --name-only origin/main...HEAD -- '*.ts' '*.tsx'
+        git diff --name-only -- '*.ts' '*.tsx'
+        git diff --cached --name-only -- '*.ts' '*.tsx'
+    } | sort -u
+)
 if [[ -n "$CHANGED_TS" ]]; then
     echo ">>> plugin vitest (TS files changed)"
     pnpm -r --filter './plugins/*' test \
@@ -69,10 +110,14 @@ else
     echo ">>> plugin vitest (skipped — no TS changes vs origin/main)"
 fi
 
-# ── 10. whitespace check ────────────────────────────────────────────────────
+# ── 14. whitespace check ────────────────────────────────────────────────────
 echo ">>> git diff --check"
+git diff --check origin/main...HEAD \
+    || fail "git diff --check (branch)" "git diff --check origin/main...HEAD"
 git diff --check \
-    || fail "git diff --check" "git diff --check"
+    || fail "git diff --check (worktree)" "git diff --check"
+git diff --cached --check \
+    || fail "git diff --check (index)" "git diff --cached --check"
 
 echo ""
 echo "All gates passed."

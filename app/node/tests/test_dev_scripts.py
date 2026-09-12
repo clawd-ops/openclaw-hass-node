@@ -10,6 +10,7 @@ in any real confidential context.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -18,6 +19,9 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _CHECK = _REPO_ROOT / "scripts" / "dev" / "confidentiality-check"
 _APPLY = _REPO_ROOT / "scripts" / "dev" / "apply-patch"
+_PR_STATE = _REPO_ROOT / "scripts" / "dev" / "pr-state"
+_PR_REBASE = _REPO_ROOT / "scripts" / "dev" / "pr-rebase"
+_SPAWN_REVIEW = _REPO_ROOT / "scripts" / "dev" / "spawn-codex-review"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -185,6 +189,18 @@ def test_empty_denylist_clean_exits_zero(tmp_path: Path) -> None:
     assert result.returncode == 0
 
 
+def test_missing_input_file_fails_closed_without_echoing_path(tmp_path: Path) -> None:
+    """An input read error cannot be mistaken for a clean scan."""
+    dl = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    missing = tmp_path / "private-name.txt"
+
+    result = _run_check(denylist=dl, file_arg=missing)
+
+    assert result.returncode == 1
+    assert "scan failed" in result.stderr
+    assert str(missing) not in result.stderr
+
+
 # ---------------------------------------------------------------------------
 # apply-patch — fallback ordering
 # ---------------------------------------------------------------------------
@@ -262,3 +278,161 @@ def test_apply_patch_usage_error() -> None:
     )
     assert result.returncode != 0
     assert "usage" in result.stderr.lower()
+
+
+def test_apply_patch_passes_named_file_on_stdin(tmp_path: Path) -> None:
+    """The preferred patch applier receives file content on standard input."""
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    capture = tmp_path / "captured.txt"
+    stub = stub_bin / "apply_patch"
+    stub.write_text('#!/bin/sh\ncat > "$PATCH_CAPTURE"\n', encoding="utf-8")
+    stub.chmod(0o755)
+    patch_file = tmp_path / "change.patch"
+    patch_file.write_text("safe patch body\n", encoding="utf-8")
+    env = {
+        "PATH": f"{stub_bin}:{os.environ['PATH']}",
+        "PATCH_CAPTURE": str(capture),
+    }
+
+    result = _run_apply(file_arg=patch_file, env_override=env)
+
+    assert result.returncode == 0, result.stderr
+    assert capture.read_text(encoding="utf-8") == "safe patch body\n"
+
+
+def test_pr_state_selects_latest_attributed_comment(tmp_path: Path) -> None:
+    """One JSON result uses the latest attributed comment and its pinned head."""
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    head = "a" * 40
+    old = "c" * 40
+    gh = stub_bin / "gh"
+    gh.write_text(
+        """#!/bin/sh
+case "$*" in
+  "repo view --json nameWithOwner") printf '%s\\n' "$GH_REPO" ;;
+  *"check-runs?"*) printf '%s\\n' "$GH_CHECKS" ;;
+  *"comments?"*) printf '%s\\n' "$GH_COMMENTS" ;;
+  *"reviews?"*) printf '[[]]\\n' ;;
+  *"pulls/7") printf '%s\\n' "$GH_CORE" ;;
+  *) exit 9 ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    denylist = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_bin}:{env['PATH']}"
+    env["OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE"] = str(denylist)
+    env["GH_REPO"] = json.dumps({"nameWithOwner": "example/project"})
+    env["GH_CHECKS"] = json.dumps(
+        [
+            {"check_runs": [{"name": "CI", "conclusion": "success"}]},
+            {"check_runs": [{"name": "Docs", "conclusion": "success"}]},
+        ]
+    )
+    env["GH_COMMENTS"] = json.dumps(
+        [
+            [
+                {
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "body": (
+                        f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
+                        "Reviewer model: openai/gpt-5.6-sol"
+                    ),
+                },
+            ],
+            [
+                {
+                    "created_at": "2026-01-02T00:00:00Z",
+                    "body": (
+                        f"APPROVE\nReviewed exact head `{head}`.\n\n"
+                        "Reviewer model: openai/gpt-5.6-sol"
+                    ),
+                }
+            ],
+        ]
+    )
+    env["GH_CORE"] = json.dumps(
+        {
+            "head": {"sha": head},
+            "base": {"sha": "b" * 40},
+            "mergeable_state": "clean",
+            "state": "open",
+        }
+    )
+
+    result = subprocess.run(
+        [str(_PR_STATE), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["latest_codex_verdict_body_head"] == "APPROVE"
+    assert payload["latest_codex_pinned_sha"] == head
+    assert payload["pinned_sha_matches_head"] is True
+    assert [check["name"] for check in payload["checks"]] == ["CI", "Docs"]
+
+
+def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> None:
+    """The review helper launches a turn whose sole task is one subagent spawn."""
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    captured_args = tmp_path / "args.txt"
+    captured_prompt = tmp_path / "prompt.txt"
+    gh = stub_bin / "gh"
+    gh.write_text(
+        (
+            "#!/bin/sh\n"
+            'case "$*" in\n'
+            "  *headRefOid*) printf '%040d\\n' 0;;\n"
+            "  *) printf '%040d\\n' 1;;\n"
+            "esac\n"
+        ),
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    launcher = stub_bin / "openclaw"
+    launcher.write_text(
+        (
+            "#!/bin/sh\n"
+            'printf \'%s\\n\' "$*" > "$CAPTURE_ARGS"\n'
+            'cat > "$CAPTURE_PROMPT"\n'
+            "echo '{\"ok\":true}'\n"
+        ),
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+    denylist = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{stub_bin}:{env['PATH']}",
+            "CAPTURE_ARGS": str(captured_args),
+            "CAPTURE_PROMPT": str(captured_prompt),
+            "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
+        }
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
+    prompt = captured_prompt.read_text(encoding="utf-8")
+    assert "Call sessions_spawn exactly once" in prompt
+    assert "Reviewer model: openai/gpt-5.6-sol" in prompt
+    assert "PR **7**" in prompt
+    assert "--model openai/gpt-5.6-sol" in captured_args.read_text(encoding="utf-8")
+
+
+def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
+    """Static invariants prevent the shared-checkout and silent-failure regressions."""
+    text = _PR_REBASE.read_text(encoding="utf-8")
+    assert "python scripts/generate-command-coverage.py" in text
+    assert "scripts/dev/run-all-gates" in text
+    assert '"--force-with-lease=refs/heads/$BRANCH:$EXPECTED_HEAD"' in text
+    assert 'generate-command-coverage.py" 2>/dev/null || true' not in text
+    assert 'check-active-docs-schema.py" 2>/dev/null || true' not in text

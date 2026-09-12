@@ -1,103 +1,129 @@
-#!/usr/bin/env bash
-# pr-state <num> — emit a single JSON object summarising PR state.
-#
-# Replaces six separate `gh api` calls.  Review bodies are piped through
-# confidentiality-check before surfacing; the script fails closed if a leak
-# is detected.
-#
-# Usage:
-#   scripts/dev/pr-state 123
-set -euo pipefail
+#!/usr/bin/env python3
+"""Emit one confidentiality-checked JSON snapshot for a pull request."""
 
-REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-CONFIDENTIALITY_CHECK="$REPO_ROOT/scripts/dev/confidentiality-check"
+from __future__ import annotations
 
-if [[ $# -ne 1 ]] || [[ -z "$1" ]]; then
-    echo "usage: pr-state <pr-number>" >&2
-    exit 1
-fi
+import json
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-PR="$1"
+ROOT = Path(__file__).resolve().parents[2]
+CHECKER = ROOT / "scripts" / "dev" / "confidentiality-check"
+CODEX_MARKERS = ("Reviewer model: openai/gpt-5.6-sol", "Reviewed by Codex at ")
+SHA_RE = re.compile(r"(?<![0-9a-f])[0-9a-f]{40}(?![0-9a-f])", re.IGNORECASE)
 
-# Fetch PR core fields.
-PR_JSON=$(gh api "repos/{owner}/{repo}/pulls/$PR" \
-    --jq '{
-        head_sha: .head.sha,
-        base_sha: .base.sha,
-        mergeable_state: .mergeable_state,
-        state: .state
-    }')
 
-HEAD_SHA=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['head_sha'])")
-BASE_SHA=$(echo "$PR_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['base_sha'])")
+def gh_json(*args: str) -> Any:
+    """Run one GitHub CLI query and decode its JSON response."""
+    result = subprocess.run(["gh", *args], cwd=ROOT, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "GitHub query failed")
+    return json.loads(result.stdout)
 
-# Fetch CI check runs for the head commit.
-CHECKS_JSON=$(gh api "repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs" \
-    --jq '[.check_runs[] | {name: .name, conclusion: .conclusion}]')
 
-# Fetch the latest Codex review (look for a review with a body starting "Codex").
-REVIEWS_JSON=$(gh api "repos/{owner}/{repo}/pulls/$PR/reviews" --paginate \
-    --jq '[.[] | select(.body != null and .body != "")] | last // {}')
+def gh_pages(endpoint: str) -> list[Any]:
+    """Fetch every page from one REST endpoint as decoded JSON."""
+    result = subprocess.run(
+        ["gh", "api", "--paginate", "--slurp", endpoint],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "GitHub query failed")
+    return json.loads(result.stdout)
 
-REVIEW_BODY=$(echo "$REVIEWS_JSON" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-if isinstance(d, dict):
-    print(d.get('body', ''))
-elif isinstance(d, list) and d:
-    print(d[-1].get('body', ''))
-else:
-    print('')
-" 2>/dev/null || echo "")
 
-REVIEW_SHA=$(echo "$REVIEWS_JSON" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-if isinstance(d, dict):
-    print(d.get('commit_id', ''))
-elif isinstance(d, list) and d:
-    print(d[-1].get('commit_id', ''))
-else:
-    print('')
-" 2>/dev/null || echo "")
+def paged_items(endpoint: str) -> list[dict[str, Any]]:
+    """Flatten list-valued REST pages into one item list."""
+    return [item for page in gh_pages(endpoint) for item in page]
 
-# Extract first line of review body as the verdict.
-REVIEW_VERDICT=$(echo "$REVIEW_BODY" | head -1)
 
-# Run the review verdict through confidentiality-check before surfacing it.
-if [[ -n "$REVIEW_VERDICT" ]]; then
-    if ! echo "$REVIEW_VERDICT" | "$CONFIDENTIALITY_CHECK"; then
-        echo "pr-state: confidentiality check failed on review body — output suppressed" >&2
-        exit 1
-    fi
-fi
+def extract_pinned_sha(body: str, fallback: str | None) -> str | None:
+    """Extract the review's explicitly named head SHA when present."""
+    patterns = (
+        r"(?i)reviewed(?:\s+at)?\s+exact\s+head\s+[`*]*([0-9a-f]{40})",
+        r"(?i)reviewed\s+head\s*:\s*[`*]*([0-9a-f]{40})",
+        r"(?i)exact\s+head\s*:\s*[`*]*([0-9a-f]{40})",
+        r"(?i)reviewed\s+by\s+codex\s+at\s+[`*]*([0-9a-f]{40})",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, body)
+        if match:
+            return match.group(1).lower()
+    match = SHA_RE.search(body)
+    return match.group(0).lower() if match else fallback
 
-# Determine whether pinned SHA equals current head.
-if [[ -n "$REVIEW_SHA" ]] && [[ "$REVIEW_SHA" == "$HEAD_SHA" ]]; then
-    PINNED_MATCHES_HEAD="true"
-else
-    PINNED_MATCHES_HEAD="false"
-fi
 
-# Assemble final JSON output via python3 to handle escaping correctly.
-python3 - "$PR_JSON" "$CHECKS_JSON" "$REVIEW_VERDICT" "$REVIEW_SHA" "$PINNED_MATCHES_HEAD" << 'PYEOF'
-import sys, json
+def timestamp(item: dict[str, Any]) -> datetime:
+    """Return the creation or submission time used to order reviews."""
+    raw = item.get("submitted_at") or item.get("created_at") or "1970-01-01T00:00:00Z"
+    return datetime.fromisoformat(raw.replace("Z", "+00:00"))
 
-pr = json.loads(sys.argv[1])
-checks = json.loads(sys.argv[2])
-review_verdict = sys.argv[3]
-review_sha = sys.argv[4]
-pinned_matches_head = sys.argv[5] == "true"
 
-output = {
-    "head_sha": pr["head_sha"],
-    "base_sha": pr["base_sha"],
-    "mergeable_state": pr["mergeable_state"],
-    "state": pr["state"],
-    "checks": checks,
-    "review_verdict": review_verdict,
-    "review_pinned_sha": review_sha,
-    "pinned_sha_matches_head": pinned_matches_head,
-}
-print(json.dumps(output, indent=2))
-PYEOF
+def main() -> int:
+    """Validate arguments and emit the requested pull-request snapshot."""
+    if len(sys.argv) != 2 or not re.fullmatch(r"[1-9][0-9]*", sys.argv[1]):
+        print("usage: pr-state <pr-number>", file=sys.stderr)
+        return 2
+    pr = sys.argv[1]
+    repository = gh_json("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
+    core = gh_json("api", f"repos/{repository}/pulls/{pr}")
+    head_sha = core["head"]["sha"]
+    check_pages = gh_pages(
+        f"repos/{repository}/commits/{head_sha}/check-runs?per_page=100"
+    )
+    checks = [
+        {"name": item["name"], "conclusion": item.get("conclusion")}
+        for page in check_pages
+        for item in page["check_runs"]
+    ]
+
+    candidates: list[dict[str, Any]] = []
+    for item in paged_items(f"repos/{repository}/issues/{pr}/comments?per_page=100"):
+        body = item.get("body") or ""
+        if any(marker in body for marker in CODEX_MARKERS):
+            candidates.append(item)
+    for item in paged_items(f"repos/{repository}/pulls/{pr}/reviews?per_page=100"):
+        body = item.get("body") or ""
+        if any(marker in body for marker in CODEX_MARKERS):
+            candidates.append(item)
+
+    latest = max(candidates, key=timestamp) if candidates else None
+    verdict_head: str | None = None
+    pinned_sha: str | None = None
+    if latest is not None:
+        body = latest.get("body") or ""
+        checked = subprocess.run([str(CHECKER)], cwd=ROOT, input=body, text=True, check=False)
+        if checked.returncode != 0:
+            print("pr-state: confidentiality check failed; output suppressed", file=sys.stderr)
+            return 1
+        verdict_head = next((line.strip() for line in body.splitlines() if line.strip()), None)
+        pinned_sha = extract_pinned_sha(body, latest.get("commit_id"))
+
+    output = {
+        "head_sha": head_sha,
+        "base_sha": core["base"]["sha"],
+        "mergeable_state": core["mergeable_state"],
+        "checks": checks,
+        "latest_codex_verdict_body_head": verdict_head,
+        "latest_codex_pinned_sha": pinned_sha,
+        "state": core["state"],
+        "pinned_sha_matches_head": pinned_sha == head_sha,
+    }
+    rendered = json.dumps(output, indent=2, sort_keys=True)
+    checked = subprocess.run([str(CHECKER)], cwd=ROOT, input=rendered, text=True, check=False)
+    if checked.returncode != 0:
+        print("pr-state: confidentiality check failed; output suppressed", file=sys.stderr)
+        return 1
+    print(rendered)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

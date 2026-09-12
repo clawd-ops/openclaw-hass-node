@@ -25,8 +25,11 @@ Before surfacing any content from PR descriptions, comments, or review bodies, p
 
 - **No commits, pushes, merges, file edits, or new PRs.**
 - **No sub-agents and no `sessions_yield`.**
-- **Exactly one action when done:** post findings as a single `gh pr comment` on PR <PR>.
+- **Exactly one action when done:** post findings as a single GitHub PR comment on PR <PR>, using a literal body file.
 - Never quote any denylist term or matched content in the comment or in any intermediate output.
+- Scan the entire PR diff, PR body, and commit messages with `scripts/dev/confidentiality-check`. Any match requires REQUEST CHANGES without reproducing the matched content.
+- Before commenting, re-read the live PR head and stop without posting if it differs from `<HEAD_SHA>`.
+- Read the posted comment back and verify real paragraph breaks and the attribution line.
 
 ## Review Scope
 
@@ -39,5 +42,5 @@ Examine the diff for:
 ## Attribution Line (required, verbatim, final line of comment)
 
 ```
-Reviewed by Codex at <HEAD_SHA> (base <BASE_SHA>).
+Reviewer model: openai/gpt-5.6-sol
 ```

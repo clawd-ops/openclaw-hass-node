@@ -48,10 +48,14 @@ Gates in order:
 4. `pytest` (95% coverage)
 5. `generate-command-coverage.py --check`
 6. `check-active-docs-schema.py`
-7. `pnpm docs:typescript:check`
-8. plugin `tsc --noEmit` (typecheck)
-9. plugin `vitest run` (only when TypeScript files changed vs `origin/main`)
-10. `git diff --check` (whitespace)
+7. synchronized release-version check
+8. Bandit and dependency audit
+9. strict MkDocs build
+10. TypeScript dependency install matching CI
+11. `pnpm docs:typescript:check`
+12. plugin `tsc --noEmit` (typecheck)
+13. plugin `vitest run` (only when TypeScript files changed vs `origin/main`)
+14. `git diff --check` for the branch, index, and worktree
 
 > **Note:** TypeScript contract tests require the Python venv to include the
 > node package. Run `uv sync --package openclaw-node --python 3.13` once
@@ -67,8 +71,8 @@ Emits one JSON object with:
 - `head_sha`, `base_sha`
 - `mergeable_state`, `state`
 - `checks` — every CI check name and its conclusion
-- `review_verdict` — first line of the latest review body
-- `review_pinned_sha` — the SHA that review pins itself to
+- `latest_codex_verdict_body_head` — first non-empty line of the latest attributed review body
+- `latest_codex_pinned_sha` — the SHA named by that review
 - `pinned_sha_matches_head` — boolean
 
 Review body text is piped through `confidentiality-check` before surfacing.
@@ -86,10 +90,10 @@ Automates the safe rebase workflow:
 1. Creates a dedicated worktree (never touching the shared clone checkout)
 2. Fetches `origin`
 3. Rebases the PR branch onto `origin/main`
-4. Regenerates the coverage ledger and docs-schema artifacts
+4. Regenerates the coverage ledger and TypeScript API docs, committing derived changes when needed
 5. Runs `run-all-gates`
 6. Runs `confidentiality-check` on the full diff
-7. Pushes with `--force-with-lease`
+7. Pushes with an explicit expected-head `--force-with-lease`
 8. Cleans up the worktree on exit (success or failure)
 
 ```
@@ -104,8 +108,9 @@ Stops loudly at the first failure. Never pushes through a gate or leak failure.
 
 Assembles a Codex review brief by substituting PR number, head SHA, base SHA,
 and an optional per-PR narrowing section into
-`scripts/dev/templates/codex-review-brief.md`. Prints the result to stdout;
-the caller passes it to `sessions_spawn`.
+`scripts/dev/templates/codex-review-brief.md`. It checks the assembled brief,
+then uses a dedicated launcher session to invoke `sessions_spawn` for one
+visible exact-head review run.
 
 The template encodes hard constraints (no commits, no pushes, no merges, no
 file edits, no sub-agents, exactly one `gh pr comment`), the correct

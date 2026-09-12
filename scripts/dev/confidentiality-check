@@ -14,13 +14,18 @@ set -euo pipefail
 
 DENYLIST_FILE="${OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE:-$HOME/.openclaw/state/confidentiality-denylist.txt}"
 
+if [[ $# -gt 1 ]]; then
+    echo "usage: confidentiality-check [file]" >&2
+    exit 1
+fi
+
 if [[ ! -f "$DENYLIST_FILE" ]]; then
-    echo "confidentiality-check: denylist not found: $DENYLIST_FILE" >&2
+    echo "confidentiality-check: denylist not found" >&2
     exit 1
 fi
 
 if [[ ! -r "$DENYLIST_FILE" ]]; then
-    echo "confidentiality-check: denylist not readable: $DENYLIST_FILE" >&2
+    echo "confidentiality-check: denylist not readable" >&2
     exit 1
 fi
 
@@ -30,11 +35,22 @@ if [[ ! -s "$DENYLIST_FILE" ]]; then
 fi
 
 # grep -F uses fixed-string matching (no regex interpretation).
-# grep exit codes: 0 = match found, 1 = no match, 2 = error.
-# We deliberately suppress the matched lines; only the presence/absence matters.
-if grep -qiF -f "$DENYLIST_FILE" "${1:-/dev/stdin}"; then
-    echo "CONFIDENTIAL LEAK — matches redacted from output" >&2
-    exit 1
-fi
-
-exit 0
+# grep exit codes: 0 = match found, 1 = no match, 2 = error. Capture the
+# status explicitly so input errors fail closed instead of looking clean.
+set +e
+grep -qiF -f "$DENYLIST_FILE" "${1:-/dev/stdin}" 2>/dev/null
+status=$?
+set -e
+case "$status" in
+    0)
+        echo "CONFIDENTIAL LEAK — matches redacted from output" >&2
+        exit 1
+        ;;
+    1)
+        exit 0
+        ;;
+    *)
+        echo "confidentiality-check: scan failed" >&2
+        exit 1
+        ;;
+esac

@@ -18,7 +18,7 @@ apply_with() {
     local tool="$1"
     shift
     if [[ -n "$PATCH_FILE" ]]; then
-        "$tool" "$@" "$PATCH_FILE"
+        "$tool" "$@" < "$PATCH_FILE"
     else
         "$tool" "$@"
     fi
