@@ -30,6 +30,7 @@ VERSION_SOURCE = "app/node/pyproject.toml"
 MANUAL_SOURCE = "contracts/command-coverage-manual.json"
 
 UNRELEASED = "unreleased"
+BASELINE_MISSING = "__baseline_missing__"
 
 # Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE. Historical
 # command releases include alpha and beta tags; current release tooling also
@@ -100,13 +101,22 @@ def _read_manual_at_ref(ref: str, generator: ModuleType) -> dict[str, dict[str, 
     if not isinstance(data, dict) or not isinstance(data.get("commands"), dict):
         raise ShipError("base manual ledger has no 'commands' object")
     commands: dict[str, dict[str, object]] = {}
+    fields_present = 0
+    fields_missing = 0
     for name, entry in data["commands"].items():
         if not isinstance(name, str):
             raise ShipError(f"base manual command name must be a string, got {name!r}")
         if not isinstance(entry, dict):
             raise ShipError(f"base manual command entry for {name} must be an object")
-        generator._validate_first_shipped_in(name, entry.get("first_shipped_in"))
+        if "first_shipped_in" in entry:
+            generator._validate_first_shipped_in(name, entry["first_shipped_in"])
+            fields_present += 1
+        else:
+            entry["first_shipped_in"] = BASELINE_MISSING
+            fields_missing += 1
         commands[name] = entry
+    if fields_present and fields_missing:
+        raise ShipError("base manual ledger has partial first_shipped_in coverage")
     return commands
 
 
@@ -207,9 +217,15 @@ def _transactional_replace(
     rollback_replace: Callable[[Path, Path], None] = os.replace,
 ) -> None:
     """Best-effort multi-file replacement with fail-closed preparation and rollback."""
-    originals = {
-        path: (path.read_bytes(), path.stat()) if path.exists() else None for path in replacements
-    }
+    originals: dict[Path, tuple[bytes, os.stat_result] | None] = {}
+    for path in replacements:
+        if not path.exists():
+            originals[path] = None
+            continue
+        # Snapshot metadata before reading because the read itself may update
+        # atime on filesystems whose mount policy considers it stale.
+        metadata = path.stat()
+        originals[path] = (path.read_bytes(), metadata)
     candidates: dict[Path, Path] = {}
     attempted: list[Path] = []
     try:
@@ -297,11 +313,31 @@ def _check_release_bump(base_ref: str) -> int:
     commands = _preflight_manual(data, generator)
     base_version = _version_at_ref(base_ref)
     current_version = _current_version()
-    if base_version == current_version:
-        print(f"ok: no release version bump ({current_version})")
-        return 0
     base_commands = _read_manual_at_ref(base_ref, generator)
+    release_bump = base_version != current_version
     errors: list[str] = []
+    baseline_initialization = bool(base_commands) and all(
+        entry["first_shipped_in"] == BASELINE_MISSING for entry in base_commands.values()
+    )
+    if baseline_initialization:
+        if release_bump:
+            errors.append("cannot initialize shipment history during a release version change")
+        missing_or_added = sorted(set(base_commands) ^ set(commands))
+        if missing_or_added:
+            errors.append(
+                "shipment-history initialization changed the command inventory: "
+                + ", ".join(missing_or_added)
+            )
+        if not errors:
+            print(
+                f"ok: initialized shipment history for {len(commands)} commands without a "
+                "release version change"
+            )
+            return 0
+    if release_bump and generator._version_sort_key(current_version) <= generator._version_sort_key(
+        base_version
+    ):
+        errors.append(f"version must advance: base {base_version!r}, head {current_version!r}")
     removed = sorted(set(base_commands) - set(commands))
     if removed:
         errors.append(
@@ -311,29 +347,42 @@ def _check_release_bump(base_ref: str) -> int:
     for name in sorted(set(base_commands) & set(commands)):
         base_value = base_commands[name]["first_shipped_in"]
         head_value = commands[name]["first_shipped_in"]
-        expected = current_version if base_value == UNRELEASED else base_value
+        expected = current_version if release_bump and base_value == UNRELEASED else base_value
         if head_value != expected:
             errors.append(
                 f"{name}: base {base_value!r}, head {head_value!r}, expected {expected!r}"
             )
     for name in sorted(set(commands) - set(base_commands)):
         head_value = commands[name]["first_shipped_in"]
-        if head_value != current_version:
-            errors.append(f"{name}: newly added with {head_value!r}, expected {current_version!r}")
+        expected = current_version if release_bump else UNRELEASED
+        if head_value != expected:
+            errors.append(f"{name}: newly added with {head_value!r}, expected {expected!r}")
     if errors:
+        transition = (
+            f"release version changed from {base_version} to {current_version}"
+            if release_bump
+            else f"release version remains {current_version}"
+        )
         print(
-            f"error: release version changed from {base_version} to {current_version}, "
+            f"error: {transition}, "
             "but command shipment history does not match the required transition:",
             file=sys.stderr,
         )
         for error in errors:
             print(f"  {error}", file=sys.stderr)
-        print(
-            f"run scripts/mark-commands-shipped.py {current_version} locally and commit "
-            "the source plus generated artifacts in this version-bump PR",
-            file=sys.stderr,
-        )
+        if release_bump:
+            print(
+                f"run scripts/mark-commands-shipped.py {current_version} locally and commit "
+                "the source plus generated artifacts in this version-bump PR",
+                file=sys.stderr,
+            )
         return 1
+    if not release_bump:
+        print(
+            f"ok: no release version bump ({current_version}); released history is unchanged "
+            "and pending/new commands remain unreleased"
+        )
+        return 0
     print(
         f"ok: release version changed from {base_version} to {current_version}; "
         "released history is unchanged and every pending/new command is stamped exactly"
@@ -352,7 +401,7 @@ def main() -> int:
     parser.add_argument(
         "--check-release-bump",
         metavar="BASE_REF",
-        help="validate the command-history transition when the version differs from BASE_REF",
+        help="validate command history against BASE_REF, including any release transition",
     )
     args = parser.parse_args()
     if args.check_release_bump:

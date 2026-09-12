@@ -16,6 +16,7 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _ROOT / "scripts/mark-commands-shipped.py"
 _BUMP_SCRIPT = _ROOT / "scripts/bump-version.py"
+_GENERATOR_SCRIPT = _ROOT / "scripts/generate-command-coverage.py"
 
 
 def _load_helper() -> ModuleType:
@@ -46,9 +47,16 @@ def _fake_generator(manual: Path, outputs: dict[Path, str]) -> SimpleNamespace:
         if not isinstance(value, str) or not value:
             raise RuntimeError(f"invalid first_shipped_in for {command}")
 
+    spec = importlib.util.spec_from_file_location("coverage_generator_for_tests", _GENERATOR_SCRIPT)
+    if spec is None or spec.loader is None:
+        raise AssertionError("unable to load command-coverage generator")
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+
     return SimpleNamespace(
         MANUAL=manual,
         _validate_first_shipped_in=validate,
+        _version_sort_key=generator._version_sort_key,
         build_ledger=lambda: {},
         _serialized_outputs=lambda: outputs,
     )
@@ -201,11 +209,12 @@ def test_keyboard_interrupt_rolls_back_bytes_modes_and_temps(tmp_path: Path) -> 
     helper = _load_helper()
     paths = [tmp_path / "manual.json", tmp_path / "generated.json"]
     modes = [0o640, 0o604]
+    atimes = [1_500_000_000_000_000_000, 1_500_000_001_000_000_000]
     mtimes = [1_600_000_000_000_000_000, 1_600_000_001_000_000_000]
-    for path, mode, mtime in zip(paths, modes, mtimes, strict=True):
+    for path, mode, atime, mtime in zip(paths, modes, atimes, mtimes, strict=True):
         path.write_bytes(b"original\n")
         path.chmod(mode)
-        os.utime(path, ns=(mtime, mtime))
+        os.utime(path, ns=(atime, mtime))
     calls = 0
 
     def interrupt_second(source: Path, target: Path) -> None:
@@ -221,9 +230,11 @@ def test_keyboard_interrupt_rolls_back_bytes_modes_and_temps(tmp_path: Path) -> 
             replace=interrupt_second,
         )
 
+    restored_stats = [path.stat() for path in paths]
+    assert [stat.S_IMODE(metadata.st_mode) for metadata in restored_stats] == modes
+    assert [metadata.st_atime_ns for metadata in restored_stats] == atimes
+    assert [metadata.st_mtime_ns for metadata in restored_stats] == mtimes
     assert all(path.read_bytes() == b"original\n" for path in paths)
-    assert [stat.S_IMODE(path.stat().st_mode) for path in paths] == modes
-    assert [path.stat().st_mtime_ns for path in paths] == mtimes
     assert list(tmp_path.glob(".*.json.*")) == []
 
 
@@ -330,8 +341,81 @@ def test_release_bump_gate_allows_unreleased_without_version_change(
     monkeypatch.setattr(helper, "_load_generator", lambda: generator)
     monkeypatch.setattr(helper, "_version_at_ref", lambda _ref: "2026.7.23b1")
     monkeypatch.setattr(helper, "_current_version", lambda: "2026.7.23b1")
+    monkeypatch.setattr(
+        helper,
+        "_read_manual_at_ref",
+        lambda _ref, _generator: {"ping": {"first_shipped_in": "unreleased"}},
+    )
 
     assert helper._check_release_bump("base") == 0
+
+
+@pytest.mark.parametrize(
+    ("base", "head"),
+    [
+        (
+            {"old": {"first_shipped_in": "2026.6.8a8"}},
+            {"old": {"first_shipped_in": "2026.7.23b1"}},
+        ),
+        (
+            {"pending": {"first_shipped_in": "unreleased"}},
+            {"pending": {"first_shipped_in": "2026.9.12b1"}},
+        ),
+        (
+            {"old": {"first_shipped_in": "2026.6.8a8"}},
+            {
+                "old": {"first_shipped_in": "2026.6.8a8"},
+                "new": {"first_shipped_in": "2026.9.12b1"},
+            },
+        ),
+        ({"old": {"first_shipped_in": "2026.6.8a8"}}, {}),
+    ],
+)
+def test_no_version_change_rejects_history_mutation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    base: dict[str, dict[str, object]],
+    head: dict[str, object],
+) -> None:
+    helper = _load_helper()
+    manual = tmp_path / "manual.json"
+    manual.write_bytes(_manual(head))
+    generator = _fake_generator(manual, {})
+    monkeypatch.setattr(helper, "MANUAL_PATH", manual)
+    monkeypatch.setattr(helper, "_load_generator", lambda: generator)
+    monkeypatch.setattr(helper, "_version_at_ref", lambda _ref: "2026.7.23b1")
+    monkeypatch.setattr(helper, "_current_version", lambda: "2026.7.23b1")
+    monkeypatch.setattr(helper, "_read_manual_at_ref", lambda _ref, _generator: base)
+
+    assert helper._check_release_bump("base") == 1
+
+
+@pytest.mark.parametrize(
+    ("base_version", "head_version"),
+    [
+        ("2026.9.12rc1", "2026.9.12b9"),
+        ("2026.9.12", "2026.9.12.dev1"),
+        ("2026.9.13", "2026.9.12"),
+    ],
+)
+def test_release_transition_rejects_version_downgrade(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    base_version: str,
+    head_version: str,
+) -> None:
+    helper = _load_helper()
+    manual = tmp_path / "manual.json"
+    commands: dict[str, object] = {"old": {"first_shipped_in": "2026.6.8a8"}}
+    manual.write_bytes(_manual(commands))
+    generator = _fake_generator(manual, {})
+    monkeypatch.setattr(helper, "MANUAL_PATH", manual)
+    monkeypatch.setattr(helper, "_load_generator", lambda: generator)
+    monkeypatch.setattr(helper, "_version_at_ref", lambda _ref: base_version)
+    monkeypatch.setattr(helper, "_current_version", lambda: head_version)
+    monkeypatch.setattr(helper, "_read_manual_at_ref", lambda _ref, _generator: commands)
+
+    assert helper._check_release_bump("base") == 1
 
 
 def _configure_transition(
@@ -457,6 +541,47 @@ def test_malformed_base_ref_fails_closed(monkeypatch: pytest.MonkeyPatch) -> Non
 
     with pytest.raises(helper.ShipError, match="cannot resolve base ref"):
         helper._read_ref_file("--definitely-not-a-ref", helper.VERSION_SOURCE)
+
+
+def test_initial_schema_backfill_allows_same_inventory_without_version_change(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    helper = _load_helper()
+    manual = tmp_path / "manual.json"
+    head: dict[str, object] = {"ping": {"first_shipped_in": "2026.6.8a8"}}
+    manual.write_bytes(_manual(head))
+    generator = _fake_generator(manual, {})
+    monkeypatch.setattr(helper, "MANUAL_PATH", manual)
+    monkeypatch.setattr(helper, "_load_generator", lambda: generator)
+    monkeypatch.setattr(helper, "_version_at_ref", lambda _ref: "2026.7.23b1")
+    monkeypatch.setattr(helper, "_current_version", lambda: "2026.7.23b1")
+    monkeypatch.setattr(
+        helper,
+        "_read_manual_at_ref",
+        lambda _ref, _generator: {"ping": {"first_shipped_in": helper.BASELINE_MISSING}},
+    )
+
+    assert helper._check_release_bump("base") == 0
+
+
+def test_initial_schema_backfill_rejects_inventory_change(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    helper = _load_helper()
+    manual = tmp_path / "manual.json"
+    manual.write_bytes(_manual({"new": {"first_shipped_in": "unreleased"}}))
+    generator = _fake_generator(manual, {})
+    monkeypatch.setattr(helper, "MANUAL_PATH", manual)
+    monkeypatch.setattr(helper, "_load_generator", lambda: generator)
+    monkeypatch.setattr(helper, "_version_at_ref", lambda _ref: "2026.7.23b1")
+    monkeypatch.setattr(helper, "_current_version", lambda: "2026.7.23b1")
+    monkeypatch.setattr(
+        helper,
+        "_read_manual_at_ref",
+        lambda _ref, _generator: {"old": {"first_shipped_in": helper.BASELINE_MISSING}},
+    )
+
+    assert helper._check_release_bump("base") == 1
 
 
 @pytest.mark.parametrize(

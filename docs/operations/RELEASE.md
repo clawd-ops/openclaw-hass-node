@@ -143,11 +143,13 @@ development releases (`.devN`), and final releases. If a release has no new
 commands, the helper still refreshes the generated `latest_release` from the
 synchronized version sources.
 
-The `Command Coverage Ledger` PR check compares the base and head ledgers when
-the synchronized version changes. Existing released history must remain exact;
-commands that were unreleased at the base or are new in the head must equal the
-head version. This is an executable PR check, not a claim about branch
-protection. The push-triggered release workflow reruns the same transition check
+The `Command Coverage Ledger` PR check always compares the base and head
+ledgers. Without a version change, existing shipment values must remain exact
+and new commands must stay `unreleased`. With a version change, existing
+released history must remain exact, every previously-unreleased or newly-added
+command must equal the head version, and the version must advance. This is an
+executable PR check, not a claim about branch protection. The push-triggered
+release workflow reruns the same transition check
 against the pre-push commit before any tag or GitHub release is created, which
 provides tag-time protection even if repository merge settings do not require
 the PR check. Commit the ledger changes with all five version sources and the
