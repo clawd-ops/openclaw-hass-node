@@ -74,15 +74,38 @@ describe("ha_reload_config", () => {
     const tool = await load("createHaReloadConfigTool");
     const r = await tool.execute(
       "c",
-      { node: "hass", domain: "automation" },
+      { node: "hass", domain: "core" },
       new AbortController().signal,
       () => undefined,
     );
     expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
       command: "ha.reload_config",
-      commandParams: { domain: "automation", admin_token: "T0P-S3CR3T" },
+      commandParams: { domain: "core", admin_token: "T0P-S3CR3T" },
     });
+    expect(r.isError).toBeUndefined();
+  });
+
+  it("omits domain entirely when the caller does not supply it", async () => {
+    resolveMock.mockResolvedValue({
+      nodeId: "hass-001",
+      nodeDisplayName: "Hass",
+      policy: OK_POLICY,
+    });
+    invokeMock.mockResolvedValue({ ok: true });
+    const tool = await load("createHaReloadConfigTool");
+    const r = await tool.execute(
+      "c",
+      { node: "hass" },
+      new AbortController().signal,
+      () => undefined,
+    );
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    const call = invokeMock.mock.calls[0]?.[0] as {
+      commandParams: Record<string, unknown>;
+    };
+    expect(call.commandParams).toEqual({ admin_token: "T0P-S3CR3T" });
+    expect("domain" in call.commandParams).toBe(false);
     expect(r.isError).toBeUndefined();
   });
 });

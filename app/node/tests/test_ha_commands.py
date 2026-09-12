@@ -1074,7 +1074,13 @@ async def test_reload_config_blank_domain_is_treated_as_omitted(
 async def test_reload_config_domain_rejected_after_auth_not_before(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An unauthorized caller must not learn which domains are supported."""
+    """On the direct node path, an unauthorized caller must not learn the domains.
+
+    Scoped deliberately to direct invocation. On the Assist path the TypeBox
+    `core` literal is an executable constraint that rejects other values before
+    the tool runs, so that boundary refuses earlier and for a different reason.
+    This test pins the handler's own ordering: admin gate first, domain second.
+    """
     monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post") as mock_post:
         result = await handle_ha_reload_config({"admin_token": "wrong", "domain": "automation"})

@@ -305,12 +305,10 @@ async function enforceAdminOp(
       `${ctx.command} denied: adminToken is not configured for this node`,
     );
   }
-  if (ctx.command === "ha.reload_config") {
-    const domain = readString(params, "domain");
-    if (!domain) {
-      return deny("INVALID_PARAMS", "ha.reload_config requires domain");
-    }
-  }
+  // ha.reload_config takes no required params. `domain` is optional, only
+  // "core" is supported, and omission is equivalent. The node owns that
+  // validation and the rejection message, so the policy must not require the
+  // parameter here — doing so made the advertised omission path unreachable.
   // Inject admin_token from per-node config, overriding any caller-supplied
   // value. Callers must not be able to bypass the policy by passing their own.
   const forwardedParams: Record<string, unknown> = {

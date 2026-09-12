@@ -474,7 +474,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     const result = await runPolicy({
       command: "ha.reload_config",
       nodeId: "node-1",
-      params: { domain: "automation", admin_token: "attacker-supplied" },
+      params: { domain: "core", admin_token: "attacker-supplied" },
       pluginConfig: {
         nodes: { "node-1": { allowAdminOps: true, adminToken: "REAL" } },
       },
@@ -484,8 +484,62 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(invokeNode).toHaveBeenCalledTimes(1);
     // Attacker-supplied admin_token must be overridden with the configured one.
     expect(invokeNode.mock.calls[0]?.[0]).toEqual({
+      params: { domain: "core", admin_token: "REAL" },
+    });
+  });
+
+  // `domain` is optional and omission means core. The policy used to require it,
+  // which made the advertised omission path unreachable even though the schema
+  // and the node both accept it. The node owns domain validation.
+  it("ha.reload_config forwards when domain is omitted entirely", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true as const }));
+    const result = await runPolicy({
+      command: "ha.reload_config",
+      nodeId: "node-1",
+      params: {},
+      pluginConfig: {
+        nodes: { "node-1": { allowAdminOps: true, adminToken: "REAL" } },
+      },
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+    expect(invokeNode.mock.calls[0]?.[0]).toEqual({
+      params: { admin_token: "REAL" },
+    });
+  });
+
+  it("ha.reload_config leaves an unsupported domain for the node to reject", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true as const }));
+    const result = await runPolicy({
+      command: "ha.reload_config",
+      nodeId: "node-1",
+      params: { domain: "automation" },
+      pluginConfig: {
+        nodes: { "node-1": { allowAdminOps: true, adminToken: "REAL" } },
+      },
+      invokeNode,
+    });
+    // The policy is not the validator here; it forwards and the node refuses
+    // with UNSUPPORTED so there is exactly one source of that decision.
+    expect(result.ok).toBe(true);
+    expect(invokeNode.mock.calls[0]?.[0]).toEqual({
       params: { domain: "automation", admin_token: "REAL" },
     });
+  });
+
+  it("ha.reload_config still denies without allowAdminOps when domain is omitted", async () => {
+    const invokeNode = vi.fn(async () => ({ ok: true as const }));
+    const result = await runPolicy({
+      command: "ha.reload_config",
+      nodeId: "node-1",
+      params: {},
+      pluginConfig: { nodes: { "node-1": { adminToken: "REAL" } } },
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("ADMIN_DENIED");
+    expect(invokeNode).not.toHaveBeenCalled();
   });
 
   it("ha.addon_start denied for slug 'homeassistant' even with admin config", async () => {

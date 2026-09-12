@@ -55,8 +55,12 @@ parameter drift, unacknowledged Assist mapping drift, and stale generated
 artifacts. The lifecycle `admin_token` mismatch is resolved in the current
 unreleased source: lifecycle wrappers require `allowAdminOps` and the node's
 slug policy without injecting another token. The separate
-`ha.reload_config` domain mismatch remains tracked; this inventory does not
-enable commands or resolve the other defects it records.
+`ha.reload_config` domain mismatch is also resolved in the current unreleased
+source: `domain` is optional, only `core` is supported, and any other value is
+refused with `UNSUPPORTED` before any HA request instead of silently reloading
+core config. Per-domain reload stays unimplemented pending the effect policy.
+This inventory does not enable commands or resolve the other defects it
+records.
 
 **Additional unreleased source repair (#266):** generic service calls normalize
 `service_data` to canonical `data` without dropping payloads and reject alias
