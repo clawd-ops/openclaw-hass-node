@@ -6,7 +6,9 @@
   "scripts": {
     "typecheck": "pnpm -r --filter './plugins/*' typecheck",
     "test": "pnpm -r --filter './plugins/*' test",
-    "lint": "pnpm -r --filter './plugins/*' lint"
+    "lint": "pnpm -r --filter './plugins/*' lint",
+    "docs:typescript": "pnpm --filter @openclaw-hass-node/assist-tools docs:api",
+    "docs:typescript:check": "bash scripts/check-typescript-api-docs.sh"
   },
   "engines": {
     "node": ">=22.0.0",

@@ -148,7 +148,10 @@ nav:
                   - ha_config_lovelace: reference/api/python/commands/ha_config_lovelace.md
                   - ha_config_scene: reference/api/python/commands/ha_config_scene.md
                   - ha_config_script: reference/api/python/commands/ha_config_script.md
-          - TypeScript: reference/api/typescript-deferred.md
+          - TypeScript:
+              - Overview: reference/api/typescript/index.md
+              - Generated API:
+                  - Modules: reference/api/typescript/generated/README.md
   - Research:
       - OpenClaw Integration: research/OPENCLAW-INTEGRATION.md
       - Agent Bridge Connectivity: research/AGENT-BRIDGE-CONNECTIVITY.md

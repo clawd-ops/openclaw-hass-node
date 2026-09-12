@@ -47,8 +47,20 @@ The OpenClaw portal tool can expose `localhost:8000` inside the Control UI for
 private access without a public tunnel. No external port or hostname is
 required. See the OpenClaw documentation for the portal tool configuration.
 
-## What is not included
+## Regenerate the TypeScript API reference
 
-TypeScript API reference for `plugins/openclaw-hass-node-assist-tools` is
-deferred — see [`reference/api/typescript-deferred.md`](../reference/api/typescript-deferred.md)
-for details and the follow-up plan.
+The TypeScript API reference is generated from the supported gateway-plugin
+entry points. Install the workspace dependencies, then generate it before
+building MkDocs when you change a documented TypeScript contract:
+
+```bash
+pnpm install
+pnpm docs:typescript
+```
+
+The generated Markdown under `docs/reference/api/typescript/generated/` is
+committed. Verify that it is current with:
+
+```bash
+pnpm docs:typescript:check
+```

@@ -18,11 +18,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "docs:api": "typedoc --options typedoc.json"
   },
   "devDependencies": {
     "@types/node": "^22",
     "typescript": "5.9.2",
+    "typedoc": "0.28.20",
+    "typedoc-plugin-markdown": "4.13.0",
     "vitest": "3.0.5"
   }
 }

@@ -14,7 +14,7 @@
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
 
-type AssistToolDescriptor = Pick<
+export type AssistToolDescriptor = Pick<
   AnyAgentTool,
   "label" | "name" | "description" | "parameters"
 >;
