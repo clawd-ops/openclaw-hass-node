@@ -132,6 +132,37 @@ older issue list.
 - Health can report `ok: true` without proving HA or both Gateway connections
   are ready; release tagging is not tied to a successfully tested artifact.
 
+### Stop-ship finding to tracker crosswalk
+
+Phase 0 requires every stop-ship finding above to be filed or linked to a
+tracker issue, so none of them can be closed by roadmap prose alone. Each
+finding below names the issue that owns its remaining work. A finding whose
+source repair is merged still lists an owning issue, because the release-tie
+evidence is not yet produced.
+
+| Stop-ship finding | Owning tracker | Remaining work |
+|---|---|---|
+| `ha.config.*` accepted unverified proposal IDs | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Source fails closed. Trusted verifier and human approval flow still open; containment is undeployed. |
+| Protected `fs.*` refuses, but no accepted-proposal path exists | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Wire accepted approvals to protected `fs.*` with pre-apply revalidation. |
+| Generic `ha.call_service` could reach privileged effects (#287 interim denylist) | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Replace the interim denylist with the approval-aware effect policy; converge dedicated and generic paths. |
+| Assist `service_data` was lost at the node's `data` input (#266) | [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293) | Source merged. Needs released-artifact evidence. |
+| Inner handler failures were wrapped as outer `ok: true` (#266) | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Source merged for the covered paths. Needs coverage across every command family, plus released-artifact evidence under [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293). |
+| Dispatcher parameters are not schema-validated | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Strict boundary validation that rejects unknown keys instead of falling back to an unbounded read or default action. |
+| Registered and advertised commands are separate manual lists | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Drift gate landed via #260/PR #284. Deriving both from one contract is still open. |
+| Proposal queue has no authenticated human endpoint and holds self-approved history | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Native approval path plus reconciliation of the 22 legacy pending proposals. Documentation reconciliation is [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294). |
+| Recovery data under the backup/trash roots is reachable through generic `/share` writes; retention and pinning unimplemented | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) | Reserve internal roots, fail closed on unusable recovery metadata, implement quota/GC/pinning. |
+| Several HA response and process-output paths can buffer unbounded data | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) | Bound frames, decoding, response bytes, and stream process output at the cap. |
+| Health can report `ok: true` without proving readiness | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) | Separate liveness and readiness signals per dependency. |
+| Release tagging is not tied to a successfully tested artifact | [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293) | Release creation must consume successful CI artifacts and refuse to tag without the evidence packet. |
+
+Principal-ceiling enforcement is tracked separately in
+[#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) and gates the
+authorization work in #289.
+[#263](https://github.com/clawd-ops/openclaw-hass-node/issues/263) is the
+progress roll-up across all of them.
+
+No stop-ship finding is currently untracked.
+
 ## Delivery phases
 
 ### Phase 0: Contain unsafe behavior and establish the ledger
@@ -182,7 +213,13 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
 - [ ] Mark all currently unsafe, unreachable, or unverified operations as such in
   user-facing descriptions. Do not advertise them as working during repair.
 - [ ] File or link tracker issues for every untracked stop-ship finding in this
-  roadmap and make one parent milestone the progress roll-up.
+  roadmap and make one parent milestone the progress roll-up. Filing half is
+  done: [Stop-ship finding to tracker crosswalk](#stop-ship-finding-to-tracker-crosswalk)
+  maps all twelve findings to #288, #289, #290, #291, #293, or #294, with #275
+  gating the authorization work, and no finding is untracked. The roll-up half
+  is not: #263 is a roll-up *issue*, and the repository has no GitHub milestone.
+  Whether #263 satisfies "one parent milestone" or an actual milestone is
+  required is an operator decision, so the item stays unchecked.
 
 **Exit:** no unverified string can authorize an HA config mutation, and every
 completion claim has a row in the coverage ledger.
