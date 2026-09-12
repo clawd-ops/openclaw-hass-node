@@ -37,6 +37,16 @@ describe("ha_call_service descriptor", () => {
     expect(HaCallServiceToolSchema).toBeDefined();
     expect(typeof HaCallServiceToolSchema).toBe("object");
   });
+  it("rejects unknown parameters in its schema", () => {
+    expect(HaCallServiceToolSchema.additionalProperties).toBe(false);
+    const properties = HaCallServiceToolSchema.properties as Record<string, Record<string, unknown>>;
+    expect(properties.target).toMatchObject({ additionalProperties: false });
+  });
+  it("bounds canonical domain and service names", () => {
+    const properties = HaCallServiceToolSchema.properties as Record<string, Record<string, unknown>>;
+    expect(properties.domain).toMatchObject({ minLength: 1, maxLength: 64, pattern: "^[a-z0-9_]+$" });
+    expect(properties.service).toMatchObject({ minLength: 1, maxLength: 64, pattern: "^[a-z0-9_]+$" });
+  });
 });
 
 describe("ha_call_service execute", () => {
@@ -80,5 +90,38 @@ describe("ha_call_service execute", () => {
         () => undefined,
       ),
     ).rejects.toThrow(/domain required/);
+  });
+
+  it("rejects unknown parameters before resolving or invoking the node", async () => {
+    const tool = await loadTool();
+    await expect(
+      tool.execute(
+        "call-unknown",
+        { node: "hass", domain: "light", service: "turn_on", admin_token: "bypass" },
+        new AbortController().signal,
+        () => undefined,
+      ),
+    ).rejects.toThrow(/INVALID_PARAM.*unknown parameter/i);
+    expect(resolveMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown target parameters before resolving or invoking the node", async () => {
+    const tool = await loadTool();
+    await expect(
+      tool.execute(
+        "call-unknown-target",
+        {
+          node: "hass",
+          domain: "light",
+          service: "turn_on",
+          target: { entity_id: "light.kitchen", unexpected: "bypass" },
+        },
+        new AbortController().signal,
+        () => undefined,
+      ),
+    ).rejects.toThrow(/INVALID_PARAM.*unknown target parameter/i);
+    expect(resolveMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 });

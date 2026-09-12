@@ -112,6 +112,20 @@ describe("wrapper/node command contract", () => {
     expect(gatewayMock).not.toHaveBeenCalled();
   });
 
+  it("denies representative privileged services through the real Assist and node path", async () => {
+    for (const [domain, service] of [
+      ["homeassistant", "restart"],
+      ["hassio", "host_reboot"],
+      ["update", "install"],
+      ["shell_command", "maintenance"],
+    ]) {
+      exchanges = [];
+      await expect(call({ domain, service })).rejects.toMatchObject({ code: "SERVICE_DENIED", source: "node" });
+      expect(exchanges[0].ha_calls).toEqual([]);
+      expect(exchanges[0].response.ok).toBe(false);
+    }
+  });
+
   it.each([null, [], "invalid"])("rejects invalid payload %j before any gateway call", async (data) => {
     await expect(call({ data })).rejects.toThrow("INVALID_PARAM");
     expect(gatewayMock).not.toHaveBeenCalled();

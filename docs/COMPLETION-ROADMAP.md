@@ -106,8 +106,10 @@ older issue list.
   mutations, with zero-HA-request regression coverage. It is not deployed, and
   the trusted verifier / human approval flow remains open.
 - Protected `fs.*` refuses correctly, but no accepted-proposal path exists.
-- `ha.call_service` has no node-enforced per-service policy and can reach effects
-  that dedicated admin commands try to gate.
+- Unreleased #287 adds an interim node-enforced denylist to stop
+  `ha.call_service` from reaching lifecycle, update, reload, host, shell, and
+  shutdown effects through the generic route. The final approval-aware effect
+  policy and deployment validation remain incomplete.
 - Baseline finding: Assist `service_data` was lost at the node's `data` input.
   Unreleased #266 normalizes to `data`, accepts the old alias explicitly, and
   rejects conflicts before HA I/O. Independent review/release remain pending.
@@ -143,10 +145,11 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   their isolated unit tests explicitly stub it and are not authorization proof.
 - [ ] Complete independent review, PR checks and operator-approved deployment
   of the config containment repair. The real approval bridge remains Phase 2.
-- [ ] Add an interim node-side effect denylist for generic services that can
+- [x] Add an interim node-side effect denylist for generic services that can
   bypass dedicated lifecycle, update, reload, host, shell, or shutdown gates.
   Preserve principal-authorized `light.turn_on`; do not leave the generic P0
-  bypass open while the complete policy engine is built.
+  bypass open while the complete policy engine is built. Source containment is
+  implemented under #287; deployment/release evidence remains a later gate.
 - [ ] Publish a command/action/caller-path coverage ledger generated from the
   current source. Record parameters, aliases, limits, response schema, policy,
   feature availability, and an acceptance-test ID for each row. Foundation work

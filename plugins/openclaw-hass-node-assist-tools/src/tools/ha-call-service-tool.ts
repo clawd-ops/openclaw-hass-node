@@ -23,6 +23,18 @@ type HaCallServiceArgs = {
   data?: Record<string, unknown>;
 };
 
+const ALLOWED_CALL_SERVICE_ARGS = new Set([
+  "node",
+  "domain",
+  "service",
+  "target",
+  "data",
+  "service_data",
+  "gatewayUrl",
+  "gatewayToken",
+]);
+const ALLOWED_CALL_SERVICE_TARGET_ARGS = new Set(["entity_id", "area_id", "device_id"]);
+
 // JSON numbers do not distinguish -0 from 0 (nor 1 from 1.0). Object key
 // ordering is immaterial, while booleans must stay distinct from numbers.
 function equalServiceData(left: unknown, right: unknown): boolean {
@@ -47,12 +59,27 @@ export function createHaCallServiceTool(): AnyAgentTool {
     execute: async (_toolCallId, args) => {
       const params = args as Record<string, unknown>;
       const callArgs = args as HaCallServiceArgs;
+      const unknown = Object.keys(params).filter((key) => !ALLOWED_CALL_SERVICE_ARGS.has(key));
+      if (unknown.length > 0) {
+        throw new Error(`INVALID_PARAM: unknown parameter(s): ${unknown.sort().join(", ")}`);
+      }
       const nodeIdentifier = readTrimmedString(params, "node");
       const domain = readTrimmedString(params, "domain");
       const service = readTrimmedString(params, "service");
       if (!nodeIdentifier) throw new Error("node required");
       if (!domain) throw new Error("domain required");
       if (!service) throw new Error("service required");
+
+      if ("target" in params) {
+        if (params.target === null || typeof params.target !== "object" || Array.isArray(params.target)) {
+          throw new Error("INVALID_PARAM: target must be an object");
+        }
+        const unknownTarget = Object.keys(params.target as Record<string, unknown>)
+          .filter((key) => !ALLOWED_CALL_SERVICE_TARGET_ARGS.has(key));
+        if (unknownTarget.length > 0) {
+          throw new Error(`INVALID_PARAM: unknown target parameter(s): ${unknownTarget.sort().join(", ")}`);
+        }
+      }
 
       for (const key of ["data", "service_data"] as const) {
         if (key in params && (params[key] === null || typeof params[key] !== "object" || Array.isArray(params[key]))) {

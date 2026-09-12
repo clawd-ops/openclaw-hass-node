@@ -62,6 +62,44 @@ from openclaw_node.ha_client import (
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
+_SERVICE_COMPONENT_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_]{1,64}$")
+_CALL_SERVICE_PARAMS: Final[frozenset[str]] = frozenset(
+    {"domain", "service", "target", "data", "service_data"}
+)
+_CALL_SERVICE_TARGET_PARAMS: Final[frozenset[str]] = frozenset(
+    {"entity_id", "area_id", "device_id"}
+)
+
+# Phase 0 containment for effects that already have a narrower lifecycle,
+# update, reload, or shell policy surface.  This is intentionally not an
+# approval lifecycle: denied calls remain denied until the effect-policy work
+# in docs/design/AUTHORIZATION-MODEL.md is complete.
+_INTERIM_DENIED_SERVICE_PATTERNS: Final[dict[str, str]] = {
+    "hassio.addon_start": "use ha.addon_start with node slug policy",
+    "hassio.addon_stop": "use ha.addon_stop with node slug policy",
+    "hassio.addon_restart": "use ha.addon_restart with node slug policy",
+    "hassio.addon_update": "use ha.addon_update with node slug policy",
+    "hassio.app_start": "use ha.addon_start with node slug policy",
+    "hassio.app_stop": "use ha.addon_stop with node slug policy",
+    "hassio.app_restart": "use ha.addon_restart with node slug policy",
+    "hassio.app_update": "use ha.addon_update with node slug policy",
+    "hassio.addon_stdin": "use the future service effect-policy path",
+    "hassio.app_stdin": "use the future service effect-policy path",
+    "hassio.host_reboot": "use the future host lifecycle approval path",
+    "hassio.host_shutdown": "use the future host lifecycle approval path",
+    "hassio.host_update": "use the future host update approval path",
+    "hassio.supervisor_update": "use the future Supervisor update approval path",
+    "hassio.mount_reload": "use the dedicated reload/configuration policy path",
+    "update.*": "use ha.update_install with operator approval",
+    "shell_command.*": "use system.run with native exec approval",
+    "python_script.*": "use the future service effect-policy path",
+    "command_line.*": "use the future service effect-policy path",
+    "homeassistant.restart": "use the future lifecycle approval path",
+    "homeassistant.stop": "use the future shutdown approval path",
+    "*.reload": "use the dedicated reload/configuration policy path",
+    "*.reload_*": "use the dedicated reload/configuration policy path",
+}
+
 
 def _error(code: str, message: str) -> dict[str, Any]:
     return {"ok": False, "error": code, "message": message}
@@ -84,6 +122,31 @@ def _service_data_equal(left: Any, right: Any) -> bool:
     if isinstance(left, bool) != isinstance(right, bool):
         return False
     return bool(left == right)
+
+
+def _canonical_service_component(params: dict[str, Any], key: str) -> str | None:
+    """Return a canonical HA service component or ``None`` when invalid."""
+    raw = params.get(key)
+    if not isinstance(raw, str):
+        return None
+    value = raw.strip()
+    if not _SERVICE_COMPONENT_PATTERN.fullmatch(value):
+        return None
+    return value
+
+
+def _interim_service_denial(domain: str, service: str) -> str | None:
+    """Return the Phase 0 denial reason for a canonical service, if any."""
+    canonical = f"{domain}.{service}"
+    candidates = [canonical, f"{domain}.*"]
+    if service == "reload":
+        candidates.append("*.reload")
+    elif service.startswith("reload_"):
+        candidates.append("*.reload_*")
+    for pattern in candidates:
+        if reason := _INTERIM_DENIED_SERVICE_PATTERNS.get(pattern):
+            return reason
+    return None
 
 
 async def handle_ha_list_states(params: dict[str, Any]) -> dict[str, Any]:
@@ -156,17 +219,34 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, changed_states}`` with the HA response (list of state
         objects that changed) or an error dict.
     """
-    domain = str(params.get("domain", ""))
-    service = str(params.get("service", ""))
-    if not domain:
+    unknown = sorted(set(params) - _CALL_SERVICE_PARAMS)
+    if unknown:
+        return _error("INVALID_PARAM", f"unknown parameter(s): {', '.join(unknown)}")
+
+    domain = _canonical_service_component(params, "domain")
+    service = _canonical_service_component(params, "service")
+    if "domain" not in params or params.get("domain") == "":
         return _error("MISSING_PARAM", "domain is required")
-    if not service:
+    if "service" not in params or params.get("service") == "":
         return _error("MISSING_PARAM", "service is required")
+    if domain is None or service is None:
+        return _error(
+            "INVALID_PARAM",
+            "domain and service must be lowercase [a-z0-9_]+ names",
+        )
 
     target = params.get("target")
     data = params.get("data", params.get("service_data"))
     if target is not None and not isinstance(target, dict):
         return _error("INVALID_PARAM", "target must be a dict")
+    if isinstance(target, dict):
+        unknown_target = sorted(
+            set(target) - _CALL_SERVICE_TARGET_PARAMS,
+            key=str,
+        )
+        if unknown_target:
+            rendered = ", ".join(str(key) for key in unknown_target)
+            return _error("INVALID_PARAM", f"unknown target parameter(s): {rendered}")
     for key in ("data", "service_data"):
         if key in params and not isinstance(params[key], dict):
             return _error("INVALID_PARAM", f"{key} must be a dict")
@@ -176,6 +256,12 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         and not _service_data_equal(params["data"], params["service_data"])
     ):
         return _error("INVALID_PARAM", "data and service_data must agree when both are supplied")
+
+    if denial := _interim_service_denial(domain, service):
+        return _error(
+            "SERVICE_DENIED",
+            f"ha.call_service denies {domain}.{service}: {denial}",
+        )
 
     body: dict[str, Any] = {}
     if data:

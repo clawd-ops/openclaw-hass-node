@@ -483,6 +483,25 @@ async def test_handle_invoke_unknown_command() -> None:
     assert sent["params"]["error"]["code"] == "UNKNOWN_COMMAND"
 
 
+async def test_handle_invoke_call_service_denies_privileged_effect_before_ha() -> None:
+    client = _make_client()
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+        await client._handle_invoke(
+            ws,
+            {
+                "id": "inv-service-denied",
+                "command": "ha.call_service",
+                "paramsJSON": json.dumps({"domain": "hassio", "service": "host_shutdown"}),
+            },
+        )
+    sent = json.loads(ws.send.call_args.args[0])["params"]
+    assert sent["ok"] is False
+    assert sent["error"]["code"] == "SERVICE_DENIED"
+    post.assert_not_awaited()
+
+
 @pytest.mark.parametrize(
     ("result", "code", "message"),
     [

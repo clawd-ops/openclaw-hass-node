@@ -92,7 +92,7 @@ follow the base surface below.
 | `ha.list_config_entries`  | Config entries (REST `/api/config/config_entries/entry`) |
 | `ha.core_logs`            | `lines?` (1–5000, default 200); HA core logs via Supervisor |
 | `ha.calendar_get_events`  | `entity_id`, `start_date_time`, `end_date_time`; wraps `calendar.get_events?return_response` |
-| `ha.call_service`         | `domain`, `service`, `target?`, `data?`; `service_data?` compatibility alias (unreleased repair, see below) |
+| `ha.call_service`         | `domain`, `service`, `target?`, `data?`; `service_data?` compatibility alias. Interim node policy denies lifecycle, update, reload, host, shell, and shutdown effects before HA I/O (see below) |
 | `ha.list_areas`           | Via WS API                             |
 | `ha.list_devices`         | Via WS API                             |
 | `ha.list_entity_registry` | Via WS API                             |
@@ -127,7 +127,36 @@ any HA request. Explicit null, arrays, and scalar payloads are invalid; omit
 the field or send `{}` for no service data. Nested values and brightness options
 are preserved. `target` is flattened into HA's REST body as before and takes
 precedence over same-named fields in `data`. This repair does not introduce
-per-service authorization policy or additional light-control approvals.
+the final approval-aware per-service policy or additional light-control
+approvals.
+
+### Interim privileged-service containment (#287)
+
+`ha.call_service` accepts only the documented parameters and canonical
+lowercase `domain` / `service` names of at most 64 characters. Unknown keys,
+malformed names, and
+conflicting `data` / `service_data` aliases return `INVALID_PARAM` before Home
+Assistant I/O. Leading and trailing whitespace is normalized consistently.
+
+Until the complete effect-policy and operator-approval work lands, the node
+returns `SERVICE_DENIED` for these generic paths:
+
+| Denied key or family | Dedicated or future path |
+| --- | --- |
+| `hassio.addon_start` / `stop` / `restart` / `update` and `hassio.app_start` / `stop` / `restart` / `update` | Dedicated `ha.addon_start` / `stop` / `restart` / `update` commands with node slug policy |
+| `hassio.host_reboot`, `host_shutdown`, `host_update`, `supervisor_update` | Future host/Supervisor lifecycle and update approval paths |
+| `hassio.addon_stdin`, `app_stdin` | Future approval-aware service effect policy |
+| `hassio.mount_reload` | Dedicated reload/configuration policy path |
+| `update.*` | `ha.update_install` with operator approval |
+| `shell_command.*` | `system.run` with native exec approval |
+| `python_script.*`, `command_line.*` | Future approval-aware service effect policy |
+| `homeassistant.restart`, `homeassistant.stop` | Future lifecycle/shutdown approval path |
+| Any `reload` or `reload_*` service | Dedicated reload/configuration policy path |
+
+Ordinary principal-authorized operations remain available. In particular,
+`light.turn_on` continues to call Home Assistant directly. This denylist is
+bounded Phase 0 containment and does not duplicate or replace OpenClaw's native
+approval lifecycle.
 
 A service response that is not a changed-state list fails with `HA_BAD_RESPONSE`
 instead of claiming an empty successful change. This does not roll back an HA

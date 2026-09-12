@@ -152,6 +152,19 @@ async def test_call_service_invalid_target_type() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+async def test_call_service_rejects_unknown_target_param_before_ha() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+        result = await handle_ha_call_service(
+            {
+                "domain": "light",
+                "service": "turn_on",
+                "target": {"entity_id": "light.kitchen", "unexpected": "bypass"},
+            }
+        )
+    assert result["error"] == "INVALID_PARAM"
+    post.assert_not_awaited()
+
+
 async def test_call_service_invalid_data_type() -> None:
     result = await handle_ha_call_service(
         {"domain": "light", "service": "turn_on", "data": ["nope"]}
@@ -199,7 +212,7 @@ async def test_call_service_with_no_body_passes_none() -> None:
         return []
 
     with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
-        await handle_ha_call_service({"domain": "homeassistant", "service": "restart"})
+        await handle_ha_call_service({"domain": "light", "service": "turn_on"})
     assert captured[0] is None
 
 
@@ -261,6 +274,77 @@ async def test_call_service_rejects_invalid_alias_before_ha(payload: dict[str, A
         result = await handle_ha_call_service({"domain": "light", "service": "turn_on", **payload})
     assert result["error"] == "INVALID_PARAM"
     post.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("domain", "service"),
+    [
+        ("homeassistant", "restart"),
+        ("homeassistant", "stop"),
+        ("homeassistant", "reload_core_config"),
+        ("automation", "reload"),
+        ("hassio", "addon_restart"),
+        ("hassio", "addon_start"),
+        ("hassio", "addon_stop"),
+        ("hassio", "addon_update"),
+        ("hassio", "app_restart"),
+        ("hassio", "app_start"),
+        ("hassio", "app_stop"),
+        ("hassio", "app_update"),
+        ("hassio", "addon_stdin"),
+        ("hassio", "app_stdin"),
+        ("hassio", "host_reboot"),
+        ("hassio", "host_shutdown"),
+        ("hassio", "host_update"),
+        ("hassio", "supervisor_update"),
+        ("hassio", "mount_reload"),
+        (" hassio ", " host_reboot "),
+        ("update", "install"),
+        ("shell_command", "run_backup"),
+        ("python_script", "maintenance"),
+        ("command_line", "restart_service"),
+    ],
+)
+async def test_call_service_denies_privileged_effects_before_ha(domain: str, service: str) -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+        result = await handle_ha_call_service({"domain": domain, "service": service})
+    assert result["error"] == "SERVICE_DENIED"
+    post.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"domain": "light", "service": "turn_on", "unexpected": True},
+        {"domain": "light/restart", "service": "turn_on"},
+        {"domain": "light", "service": "turn_on?domain=homeassistant"},
+        {"domain": True, "service": "turn_on"},
+        {"domain": "light", "service": 1},
+        {"domain": "light", "service": "x" * 65},
+    ],
+)
+async def test_call_service_rejects_noncanonical_or_unknown_params_before_ha(
+    payload: dict[str, Any],
+) -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+        result = await handle_ha_call_service(payload)
+    assert result["error"] == "INVALID_PARAM"
+    post.assert_not_awaited()
+
+
+async def test_call_service_preserves_ordinary_light_action() -> None:
+    with patch(
+        "openclaw_node.commands.ha.ha_post", new_callable=AsyncMock, return_value=[]
+    ) as post:
+        result = await handle_ha_call_service(
+            {
+                "domain": " light ",
+                "service": " turn_on ",
+                "target": {"entity_id": "light.kitchen"},
+            }
+        )
+    assert result == {"ok": True, "changed_states": []}
+    post.assert_awaited_once_with("/api/services/light/turn_on", {"entity_id": "light.kitchen"})
 
 
 # ---------------------------------------------------------------------------

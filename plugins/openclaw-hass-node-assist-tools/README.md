@@ -56,8 +56,12 @@ fail before dispatch. The wrapper sends `data` to the node. Shared invoke
 handling rejects node/HA errors, including failures inside older successful
 envelopes, so failed operations do not produce success text. Authoritative
 gateway refusals are distinguished from local/socket failures, retaining the
-gateway code, details, and supplied retryability metadata. This is not a
-per-service authorization policy; that work remains outstanding.
+gateway code, details, and supplied retryability metadata. The node now applies
+an interim denylist before HA I/O for lifecycle, update, reload, host, shell,
+and shutdown effects. The wrapper rejects unknown keys so they cannot be
+silently discarded before that decision. Ordinary actions such as
+`light.turn_on` remain available. This is containment, not the final
+approval-aware per-service policy; that work remains outstanding.
 
 The TypeScript suite includes a real wrapper-to-Python-dispatcher contract test.
 From the repository root run `uv sync --package openclaw-node` before
