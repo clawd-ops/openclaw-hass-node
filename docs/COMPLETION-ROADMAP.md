@@ -140,6 +140,13 @@ finding below names the issue that owns its remaining work. A finding whose
 source repair is merged still lists an owning issue, because the release-tie
 evidence is not yet produced.
 
+The list above is 11 bullets and this table has 13 rows. The final bullet is
+compound and covers two independent findings, health readiness and release
+tagging, which are owned by different issues and so get a row each. The proposal
+queue bullet likewise splits by owner: the native-approval gap and the legacy
+planning-text reconciliation are tracked separately. No finding is dropped or
+merged.
+
 | Stop-ship finding | Owning tracker | Remaining work |
 |---|---|---|
 | `ha.config.*` accepted unverified proposal IDs | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Source fails closed. Trusted verifier and human approval flow still open; containment is undeployed. |
@@ -149,7 +156,8 @@ evidence is not yet produced.
 | Inner handler failures were wrapped as outer `ok: true` (#266) | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Source merged for the covered paths. Needs coverage across every command family, plus released-artifact evidence under [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293). |
 | Dispatcher parameters are not schema-validated | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Strict boundary validation that rejects unknown keys instead of falling back to an unbounded read or default action. |
 | Registered and advertised commands are separate manual lists | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Drift gate landed via #260/PR #284. Deriving both from one contract is still open. |
-| Proposal queue has no authenticated human endpoint and holds self-approved history | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Native approval path plus reconciliation of the 22 legacy pending proposals. Documentation reconciliation is [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294). |
+| Proposal queue has no authenticated human endpoint and holds self-approved history | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Stated as the retained native-approval gap: no authenticated human can resolve an approval, and self-approved history must not be treated as authorization. #289 scopes the native approval path only; it explicitly excludes the historical custom proposal lifecycle and approval UI. |
+| Legacy pending-proposal reconciliation and the planning text that still describes a custom proposal authority | [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294) | Replace the historical lifecycle/UI requirements in canonical planning text with the ratified native model, and decide the disposition of the 22 legacy pending entries. This is not implementation work under #289. |
 | Recovery data under the backup/trash roots is reachable through generic `/share` writes; retention and pinning unimplemented | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) | Reserve internal roots, fail closed on unusable recovery metadata, implement quota/GC/pinning. |
 | Several HA response and process-output paths can buffer unbounded data | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) | Bound frames, decoding, response bytes, and stream process output at the cap. |
 | Health can report `ok: true` without proving readiness | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) | Separate liveness and readiness signals per dependency. |
@@ -215,11 +223,13 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
 - [ ] File or link tracker issues for every untracked stop-ship finding in this
   roadmap and make one parent milestone the progress roll-up. Filing half is
   done: [Stop-ship finding to tracker crosswalk](#stop-ship-finding-to-tracker-crosswalk)
-  maps all twelve findings to #288, #289, #290, #291, #293, or #294, with #275
-  gating the authorization work, and no finding is untracked. The roll-up half
-  is not: #263 is a roll-up *issue*, and the repository has no GitHub milestone.
-  Whether #263 satisfies "one parent milestone" or an actual milestone is
-  required is an operator decision, so the item stays unchecked.
+  maps every stop-ship finding to #288, #289, #290, #291, #293, or #294, with
+  #275 gating the authorization work, and no finding is untracked. The roll-up half
+  is not: #263 is a roll-up *issue*, and the repository milestone list is empty.
+  As this item is currently worded, #263 cannot satisfy the milestone half, so the
+  item stays unchecked. Closing it needs an operator decision: either create the
+  milestone and attach the owning issues, or revise this wording to accept a
+  roll-up issue.
 
 **Exit:** no unverified string can authorize an HA config mutation, and every
 completion claim has a row in the coverage ledger.
@@ -481,11 +491,11 @@ definition of complete.
 | TODO 12 | 5 | Generated documentation. |
 | TODO 13 | 5 | Proactive GitHub events; includes external Gateway dependency. |
 | TODO 17 | 0 | Replace stale issue list with the tracker crosswalk. |
-| TODO 20 | 2 | Real approval lifecycle and UI. |
+| TODO 20 | 2 | Real approval lifecycle and UI. **Superseded wording:** the ratified model uses native OpenClaw approvals, not a custom lifecycle with its own UI. Rewording is owned by [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294). |
 | TODO 21 | 5 | HACS branding. |
 | TODO 22 | 5 | GHCR publishing and HACS index. |
 | TODO 23 | 3 | Version-rooted docs and breaking-change checks. |
-| TODO 27 | 2, 4 | Shared ingress configuration and approval UI. |
+| TODO 27 | 2, 4 | Shared ingress configuration and approval UI. **Superseded wording:** ingress is presentation-only and cannot mint or resolve authorization; rewording is owned by [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294). |
 | TODO 32 | 4 | Tool-progress option. |
 | TODO 35 | 4, 6 | Real-client tool-progress verification. |
 | TODO 36 | 1, 3, 6 | Script migration command gaps and live install verification. |
