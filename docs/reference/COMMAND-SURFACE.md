@@ -78,10 +78,10 @@ in standalone mode). Path traversal and symlink escape are blocked by
 
 ## `ha.*` — Home Assistant control (40 commands)
 
-Includes the base observability/control surface (29), Tier B addon
-lifecycle including update (1 extra), and the nine `ha.config.*`
-domain-config editors (9). Sections for each `ha.config.*` command
-follow the base surface below.
+Counted as: the base observability/control surface (29), Tier B addon
+lifecycle including addon update (1), the Tier B admin `ha.update_install`
+(1), and the nine `ha.config.*` domain-config editors (9). 29 + 1 + 1 + 9 = 40.
+Sections for each `ha.config.*` command follow the base surface below.
 
 
 | Command                   | Args / Notes                           |

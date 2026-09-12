@@ -1221,51 +1221,67 @@ _SUPERVISOR_INFO_FIELDS: Final[tuple[str, ...]] = (
     "channel",
 )
 
-# Every allowlisted field above is a version string or an architecture name, so
-# a scalar is the only legitimate shape. Selecting by key alone is not enough:
-# if a future Supervisor release turns one of these into an object, that object
+# Selecting by key name alone is not enough at a confidentiality boundary. If a
+# future Supervisor release turns one of these fields into an object, that object
 # would ride through the name filter carrying whatever it contains, `hostname`
-# and network details included. Anything non-scalar is therefore dropped rather
-# than returned, which keeps "hostname is never exposed" true by construction
-# instead of by assumption about the upstream shape.
-_SUPERVISOR_INFO_SCALARS: Final[tuple[type, ...]] = (str, int, float, bool)
+# and network details included. Every one of the eight fields is a version
+# string, an architecture name, or null in the current Supervisor schema, so the
+# value is validated as well as the key.
+#
+# The check is deliberately `type(value) is str`, not `isinstance`. A `str`
+# subclass can override `__repr__`/`__str__` and carry arbitrary payload while
+# passing an isinstance test. Such a value is not constructible through the JSON
+# decoder today, but an exact type check costs nothing and removes the question.
+#
+# The length bound matters for a reachable case rather than a theoretical one:
+# `supervisor_get_json` accepts up to a 1 MiB response, so without a cap an
+# arbitrarily long attacker-influenced string in an allowlisted field would be
+# returned verbatim. Real values here are short — "amd64", "2024.01.0",
+# "Home Assistant OS 12.0" — so anything longer is not a legitimate value.
+_SUPERVISOR_INFO_MAX_VALUE_LEN: Final[int] = 128
 
 
-def _scalar_or_none(value: Any) -> Any:
-    """Return ``value`` when it is a safe scalar, else ``None``.
+def _supervisor_info_value(value: Any) -> str | None:
+    """Return ``value`` when it is a plain, bounded string, else ``None``.
 
-    ``bool`` is a subclass of ``int`` and both are acceptable here, so the
-    ``isinstance`` check needs no special case.
+    Anything that is not exactly a ``str`` — including ``str`` subclasses,
+    numbers, containers, and arbitrary objects — is dropped, as is a string
+    longer than ``_SUPERVISOR_INFO_MAX_VALUE_LEN``.
     """
-    return value if value is None or isinstance(value, _SUPERVISOR_INFO_SCALARS) else None
+    if type(value) is not str:
+        return None
+    return value if len(value) <= _SUPERVISOR_INFO_MAX_VALUE_LEN else None
 
 
 async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
     """Return allowlisted host-level runtime info from the Supervisor.
 
-    Hits ``GET http://supervisor/info``. Read-only by construction. Returns
-    only the ``_SUPERVISOR_INFO_FIELDS`` subset, and only where the value is a
-    scalar, so that sensitive fields such as ``hostname``, ``timezone``, and
-    network details are never exposed — neither at the top level, nor nested
-    inside an allowlisted field, nor through an upstream error body.
-    Accepts no parameters (``_params`` is required by the handler protocol
-    but is ignored).
+    Hits ``GET http://supervisor/info``. Read-only by construction. Both the key
+    and the value are filtered: only the ``_SUPERVISOR_INFO_FIELDS`` names are
+    selected, and each selected value must be a plain bounded string. Sensitive
+    fields such as ``hostname``, ``timezone``, and network details are therefore
+    not exposed at the top level, nested inside an allowlisted field, or through
+    an upstream error body. Accepts no parameters (``_params`` is required by
+    the handler protocol but is ignored).
 
     Returns:
         ``{ok: True, info}`` where ``info`` contains the allowlisted fields
-        (missing or non-scalar source fields surface as ``None``), or an error
-        dict whose message is fixed text rather than upstream content.
+        (missing, non-string, or oversized source values surface as ``None``),
+        or an error dict whose message is fixed text rather than upstream
+        content.
     """
     try:
         raw = await supervisor_get_json("/info")
     except HAClientError as exc:
         # `supervisor_get_json` embeds up to 512 bytes of the upstream error
         # body in `exc.message`, and a Supervisor error body may name the host.
-        # This command is a confidentiality boundary, so the code is preserved
-        # for callers to branch on while the upstream text is dropped. Operators
-        # can still see the full message in the node log.
-        _LOG.warning("ha.supervisor_info upstream error (%s): %s", exc.code, exc.message)
-        return _error(exc.code, "Supervisor /info request failed; see node logs for detail")
+        # Neither the response nor the log records it: node logs can be read by
+        # a broader audience than the caller and may be shipped off-box, so the
+        # log is not a safe place to park content the response is not allowed to
+        # return. Only the stable error code crosses, which is enough to tell
+        # auth from not-found from a generic upstream failure.
+        _LOG.warning("ha.supervisor_info upstream error (%s)", exc.code)
+        return _error(exc.code, "Supervisor /info request failed")
 
     if not isinstance(raw, dict):
         return _error("HA_BAD_RESPONSE", "Expected dict from Supervisor /info")
@@ -1273,7 +1289,7 @@ async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(data, dict):
         return _error("HA_BAD_RESPONSE", "Supervisor /info response missing 'data'")
 
-    info = {field: _scalar_or_none(data.get(field)) for field in _SUPERVISOR_INFO_FIELDS}
+    info = {field: _supervisor_info_value(data.get(field)) for field in _SUPERVISOR_INFO_FIELDS}
     return {"ok": True, "info": info}
 
 

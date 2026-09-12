@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -1905,7 +1906,61 @@ async def test_supervisor_info_does_not_echo_upstream_error_body() -> None:
     assert result["error"] == "HA_HTTP_ERROR"
     assert "internal-host-name" not in repr(result)
     assert "192.0.2.100" not in repr(result)
-    assert "see node logs" in result["message"]
+    assert result["message"] == "Supervisor /info request failed"
+
+
+async def test_supervisor_info_does_not_log_upstream_error_body(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The log is not a safe parking spot for what the response may not return.
+
+    Node logs can be read by a broader audience than the caller and may be
+    shipped off-box, so the upstream message must not land there either.
+    """
+    leaky = HAClientError(
+        "HA_HTTP_ERROR",
+        "Supervisor returned 500: {'hostname': 'internal-host-name', 'ip_address': '192.0.2.100'}",
+    )
+    with (
+        caplog.at_level(logging.WARNING, logger="openclaw_node.commands.ha"),
+        patch("openclaw_node.commands.ha.supervisor_get_json", side_effect=leaky),
+    ):
+        await handle_ha_supervisor_info({})
+
+    logged = caplog.text
+    assert "HA_HTTP_ERROR" in logged
+    assert "internal-host-name" not in logged
+    assert "192.0.2.100" not in logged
+
+
+async def test_supervisor_info_rejects_str_subclass_and_oversized_values() -> None:
+    """Key-plus-value filtering must not be defeated by a lookalike string.
+
+    A `str` subclass passes `isinstance` while overriding `__repr__`, and an
+    arbitrarily long string is network-reachable up to the 1 MiB response cap.
+    Both are dropped by exact-type and length checks.
+    """
+
+    class SneakyStr(str):
+        def __repr__(self) -> str:  # pragma: no cover - must never be called
+            return "hostname=internal-host-name"
+
+    payload = {
+        "data": {
+            "arch": SneakyStr("amd64"),
+            "machine": "x" * 5000 + "internal-host-name",
+            "supervisor": "2024.01.0",
+        }
+    }
+    with patch("openclaw_node.commands.ha.supervisor_get_json", return_value=payload):
+        result = await handle_ha_supervisor_info({})
+
+    assert result["ok"] is True
+    info = result["info"]
+    assert info["arch"] is None
+    assert info["machine"] is None
+    assert info["supervisor"] == "2024.01.0"
+    assert "internal-host-name" not in repr(result)
 
 
 async def test_supervisor_info_supervisor_unavailable() -> None:
