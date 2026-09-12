@@ -121,8 +121,8 @@ gateway side. Short version:
 
 ## Status
 
-- **Node command surface**: 53 commands (`ha.*` × 39, `fs.*` × 11,
-  `system.*` × 2, `ping`). `ha.*` includes the full read/observability
+- **Node command surface**: 56 commands (`ha.*` × 39, `fs.*` × 11,
+  `system.*` × 5, `ping`). `ha.*` includes the full read/observability
   surface, calendar + logbook + history, add-on lifecycle, and the nine
   `ha.config.*` domain-config editors (lovelace / automation / script /
   scene / helpers / area_registry / device_registry / entity_registry /
