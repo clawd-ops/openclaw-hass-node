@@ -561,30 +561,14 @@
     },
     "ha.addon_update": {
       "authorization_class": "addon_slug_policy_only",
-      "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260). The Assist plugin requires allowAdminOps; no admin token is required for lifecycle ops.",
-      "unadvertised_reason": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
-      "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "fail",
-      "evidence_note": "Installed-node direct invocation was rejected because the command is not advertised.",
-      "actions": {},
-      "caller_observations": {
-        "direct_nodes_invoke": [
-          {
-            "method": "PRODUCTION-LIVE",
-            "outcome": "fail",
-            "source": "docs/VERIFICATION-2026-09-11.md#25-haaddon_update--haupdateinstall-unreachable",
-            "observation": "Live probe of ha.addon_update returned \"node command not allowed\" because the command is not advertised."
-          }
-        ]
-      }
+      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "outcome": "partial",
+      "actions": {}
     },
     "ha.update_install": {
       "authorization_class": "admin_token",
-      "capability_conditions": "Registered handler exists, but the command is not advertised and is unreachable (#260). The Assist plugin requires both allowAdminOps and adminToken.",
-      "unadvertised_reason": "Registered/advertised parity defect tracked by #260; absence is recorded, not auto-corrected by this ledger.",
-      "evidence_method": "CODE-PROVEN",
-      "outcome": "fail",
-      "evidence_note": "Not advertised in the node connect frame; unreachable through nodes.invoke. No independent live probe was performed for this command; absence inferred from advertisement inventory (CODE-PROVEN).",
+      "capability_conditions": "HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.",
+      "outcome": "partial",
       "actions": {}
     },
     "ha.config.lovelace": {

@@ -45,12 +45,12 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     rows = ledger["rows"]
     assert ledger["summary"] == {
         "action_variants": 31,
-        "advertised_commands": 54,
+        "advertised_commands": 56,
         "advertised_not_registered": [],
         "assist_wrapped_commands": 30,
         "ledger_rows": 87,
         "registered_commands": 56,
-        "registered_not_advertised": ["ha.addon_update", "ha.update_install"],
+        "registered_not_advertised": [],
         "registered_without_assist_wrapper": [
             "fs.delete",
             "fs.diff",
@@ -136,15 +136,7 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     rows_by_id = {row["id"]: row for row in rows}
     assert rows_by_id["system.run"]["callers"]["direct_nodes_invoke"]["status"] == "unavailable"
     for command in ("ha.addon_update", "ha.update_install"):
-        assert rows_by_id[command]["callers"]["node_advertisement"]["status"] == "unavailable"
-    assert "PRODUCTION-LIVE" in {
-        item["method"]
-        for item in rows_by_id["ha.addon_update"]["callers"]["direct_nodes_invoke"]["evidence"]
-    }
-    assert "PRODUCTION-LIVE" not in {
-        item["method"]
-        for item in rows_by_id["ha.update_install"]["callers"]["direct_nodes_invoke"]["evidence"]
-    }
+        assert rows_by_id[command]["callers"]["node_advertisement"]["status"] == "advertised"
     assert rows_by_id["ha.reload_config"]["outcome"] == "fail"
     assert rows_by_id["ha.reload_config"]["callers"]["assist_wrapper"][
         "known_unaccepted_node_params"

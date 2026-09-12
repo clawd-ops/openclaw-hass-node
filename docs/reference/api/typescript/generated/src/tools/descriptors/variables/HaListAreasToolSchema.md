@@ -12,4 +12,4 @@ const HaListAreasToolSchema: TObject<{
 }>;
 ```
 
-Defined in: [src/tools/descriptors.ts:139](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L139)
+Defined in: [src/tools/descriptors.ts:148](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L148)

@@ -154,7 +154,7 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   current source. Record parameters, aliases, limits, response schema, policy,
   feature availability, and an acceptance-test ID for each row. Foundation work
   is delivered by merged PR #269 under #268: 56 registered commands,
-  54 advertised commands, 30 executable Assist registrations, and 31 action variants
+  56 advertised commands, 30 executable Assist registrations, and 31 action variants
   produce 87 deterministic rows in
   [`reference/COMMAND-COVERAGE.md`](reference/COMMAND-COVERAGE.md) and
   `reference/command-coverage.json`. The generated rows distinguish evidence

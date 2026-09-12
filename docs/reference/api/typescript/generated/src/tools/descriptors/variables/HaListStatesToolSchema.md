@@ -13,4 +13,4 @@ const HaListStatesToolSchema: TObject<{
 }>;
 ```
 
-Defined in: [src/tools/descriptors.ts:96](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L96)
+Defined in: [src/tools/descriptors.ts:105](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L105)

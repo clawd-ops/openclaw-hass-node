@@ -13,4 +13,4 @@ const HaGetStateToolSchema: TObject<{
 }>;
 ```
 
-Defined in: [src/tools/descriptors.ts:79](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L79)
+Defined in: [src/tools/descriptors.ts:88](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L88)

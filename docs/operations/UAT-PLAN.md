@@ -105,7 +105,7 @@ successful pairing.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 37 (ha.*, fs.*, system.*, ping)
+#         Commands: list of 56 (ha.*, fs.*, system.*, ping)
 ```
 
 ## Phase C — Tool invokes through the gateway *(working)*

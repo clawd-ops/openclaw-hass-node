@@ -5,15 +5,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from openclaw_node.commands.dispatcher import _REGISTRY
 from openclaw_node.config import NodeConfig
 from openclaw_node.gateway_ws import (
+    _INTENTIONALLY_UNADVERTISED,
     _NODE_COMMANDS,
     GatewayClient,
     _format_retry_at_utc,
@@ -89,6 +91,96 @@ def test_gateway_client_with_pairing_callback() -> None:
     assert client.pairing_state is PairingState.UNKNOWN
 
 
+def _assert_advertised_matches_registry(
+    registered: set[str],
+    advertised_commands: list[str],
+    exemptions: Mapping[str, str],
+) -> None:
+    """Assert registration/advertisement parity and valid exemptions."""
+    advertised = set(advertised_commands)
+    unexpected_unadvertised = (registered - advertised) - set(exemptions)
+    assert not unexpected_unadvertised, (
+        "dispatcher-registered commands missing from _NODE_COMMANDS "
+        f"(and not in _INTENTIONALLY_UNADVERTISED): {sorted(unexpected_unadvertised)}"
+    )
+    stale_exemptions = set(exemptions) - registered
+    assert not stale_exemptions, (
+        "_INTENTIONALLY_UNADVERTISED lists commands that are not registered: "
+        f"{sorted(stale_exemptions)}"
+    )
+    advertised_exemptions = set(exemptions) & advertised
+    assert not advertised_exemptions, (
+        "_INTENTIONALLY_UNADVERTISED lists commands that are already advertised in "
+        f"_NODE_COMMANDS; remove the obsolete exemption(s): {sorted(advertised_exemptions)}"
+    )
+    advertised_not_registered = advertised - registered
+    assert not advertised_not_registered, (
+        "_NODE_COMMANDS advertises commands the dispatcher does not register: "
+        f"{sorted(advertised_not_registered)}"
+    )
+    assert len(advertised_commands) == len(advertised), "_NODE_COMMANDS contains duplicate entries"
+    unjustified = [cmd for cmd, reason in exemptions.items() if not reason.strip()]
+    assert not unjustified, (
+        "_INTENTIONALLY_UNADVERTISED entries must carry a non-empty rationale: "
+        f"{sorted(unjustified)}"
+    )
+
+
+def test_advertised_matches_registry() -> None:
+    """Advertised connect-frame commands must equal the dispatcher registry.
+
+    This is the drift gate for #260. Registry isolation is provided by the
+    autouse fixture in ``conftest.py``, so it compares the full registry with
+    no namespace escape hatch. Exemptions must name live commands and carry
+    a non-empty rationale.
+    """
+    _assert_advertised_matches_registry(set(_REGISTRY), _NODE_COMMANDS, _INTENTIONALLY_UNADVERTISED)
+
+
+@pytest.mark.parametrize("command", ["ha.production_like_leak", "test.production_like"])
+def test_drift_gate_catches_every_unadvertised_command(command: str) -> None:
+    """Fail parity for any unadvertised registration, including ``test.*``."""
+    _REGISTRY[command] = lambda _params: {"ok": True}
+
+    with pytest.raises(AssertionError, match=command):
+        _assert_advertised_matches_registry(
+            set(_REGISTRY), _NODE_COMMANDS, _INTENTIONALLY_UNADVERTISED
+        )
+
+
+def test_intentionally_unadvertised_rejects_empty_rationale() -> None:
+    """The rationale invariant catches wordless exemptions.
+
+    Regression for the review finding on PR #284: prior to this change the
+    exemption structure was a ``frozenset[str]``, so any string added later
+    would silently bypass parity. It is now a ``Mapping[str, str]`` and the
+    gate rejects entries with an empty or whitespace-only rationale.
+    """
+    command = "ha.some_command"
+    with pytest.raises(AssertionError, match="non-empty rationale"):
+        _assert_advertised_matches_registry(
+            set(_REGISTRY) | {command}, _NODE_COMMANDS, {command: "   "}
+        )
+
+
+def test_intentionally_unadvertised_rejects_advertised_command() -> None:
+    """Exemptions for commands that are already advertised must fail closed.
+
+    Regression for the review finding on PR #284: previously the gate only
+    rejected exemptions whose command was unregistered. An exemption whose
+    command was still both registered and advertised was silently accepted,
+    which would mask a future drop from ``_NODE_COMMANDS`` for that command.
+    """
+    command = "ping"
+    assert command in _NODE_COMMANDS
+    with pytest.raises(AssertionError, match=command):
+        _assert_advertised_matches_registry(
+            set(_REGISTRY),
+            _NODE_COMMANDS,
+            {command: "obsolete rationale"},
+        )
+
+
 def test_connect_commands_advertise_full_surface() -> None:
     assert _NODE_COMMANDS == [
         "ping",
@@ -136,6 +228,8 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.addon_start",
         "ha.addon_stop",
         "ha.addon_restart",
+        "ha.addon_update",
+        "ha.update_install",
         "ha.config.lovelace",
         "ha.config.automation",
         "ha.config.script",
