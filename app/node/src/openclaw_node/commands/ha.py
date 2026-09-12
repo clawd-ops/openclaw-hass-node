@@ -1226,9 +1226,8 @@ async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
     Hits ``GET http://supervisor/info``. Read-only by construction. Returns
     only the ``_SUPERVISOR_INFO_FIELDS`` subset so that sensitive fields such
     as ``hostname``, ``timezone``, and network details are never exposed.
-
-    Params:
-        None (no parameters required).
+    Accepts no parameters (``_params`` is required by the handler protocol
+    but is ignored).
 
     Returns:
         ``{ok: True, info}`` where ``info`` contains the allowlisted fields
