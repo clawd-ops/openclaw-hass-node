@@ -809,6 +809,139 @@ async def test_history_invalid_entity_ids_contents() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+# ---------------------------------------------------------------------------
+# URL percent-encoding for ha.history / ha.logbook / ha.get_state
+#
+# Reproduced live against the installed node before this fix: an `end_time`
+# carrying a `+00:00` offset reached HA as a space and was rejected with HTTP
+# 400 "Invalid end_time", so callers had to use the `Z` form. `+` must be
+# encoded in a query value and stays literal in a path segment.
+# ---------------------------------------------------------------------------
+
+
+async def test_history_encodes_plus_offset_in_end_time_query() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"end_time": "2026-09-12T01:00:00+00:00"})
+    url = mock_get.call_args[0][0]
+    assert "end_time=2026-09-12T01:00:00%2B00:00" in url
+    assert "+00:00" not in url
+
+
+async def test_history_keeps_plus_offset_literal_in_start_time_path() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"start_time": "2026-09-12T00:00:00+00:00"})
+    assert mock_get.call_args[0][0] == "/api/history/period/2026-09-12T00:00:00+00:00"
+
+
+async def test_history_start_time_cannot_escape_its_path_segment() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"start_time": "../../states?x=1"})
+    assert mock_get.call_args[0][0] == "/api/history/period/..%2F..%2Fstates%3Fx%3D1"
+
+
+async def test_history_entity_ids_cannot_inject_query_parameters() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"entity_ids": ["light.x&minimal_response"]})
+    url = mock_get.call_args[0][0]
+    assert "filter_entity_id=light.x%26minimal_response" in url
+    assert "&minimal_response" not in url
+
+
+async def test_logbook_encodes_plus_offset_in_end_time_query() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_logbook({"end_time": "2026-09-12T01:00:00+00:00"})
+    url = mock_get.call_args[0][0]
+    assert "end_time=2026-09-12T01:00:00%2B00:00" in url
+    assert "+00:00" not in url
+
+
+async def test_logbook_entity_cannot_inject_query_parameters() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_logbook({"entity_id": "light.x&end_time=bogus"})
+    url = mock_get.call_args[0][0]
+    assert "entity=light.x%26end_time%3Dbogus" in url
+    assert "end_time=bogus" not in url
+
+
+async def test_get_state_encodes_path_traversal_in_entity_id() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"state": "on"}) as mock_get:
+        await handle_ha_get_state({"entity_id": "../config"})
+    assert mock_get.call_args[0][0] == "/api/states/..%2Fconfig"
+
+
+async def test_get_state_leaves_ordinary_entity_id_readable() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"state": "on"}) as mock_get:
+        await handle_ha_get_state({"entity_id": "sensor.kitchen_temperature"})
+    assert mock_get.call_args[0][0] == "/api/states/sensor.kitchen_temperature"
+
+
+# A path segment of exactly "." or ".." is a relative reference. yarl normalizes
+# dot segments before the request is sent, so "/api/states/.." would be sent as
+# "/api/" — a different endpoint. Percent-encoding does not save it: "%2E%2E" is
+# normalized too. Verified against the locked yarl: both the bare and the
+# percent-encoded forms collapse. So these values are rejected outright, and the
+# earlier traversal tests do not cover this because "../config" keeps the dots
+# inside a larger segment where no normalization applies.
+
+
+@pytest.mark.parametrize("value", [".", ".."])
+async def test_get_state_rejects_bare_dot_segment(value: str) -> None:
+    with patch("openclaw_node.commands.ha.ha_get") as mock_get:
+        result = await handle_ha_get_state({"entity_id": value})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    mock_get.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [".", ".."])
+async def test_history_rejects_bare_dot_segment_start_time(value: str) -> None:
+    with patch("openclaw_node.commands.ha.ha_get") as mock_get:
+        result = await handle_ha_history({"start_time": value})
+    assert result["error"] == "INVALID_PARAM"
+    mock_get.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [".", ".."])
+async def test_logbook_rejects_bare_dot_segment_start_time(value: str) -> None:
+    with patch("openclaw_node.commands.ha.ha_get") as mock_get:
+        result = await handle_ha_logbook({"start_time": value})
+    assert result["error"] == "INVALID_PARAM"
+    mock_get.assert_not_called()
+
+
+async def test_dotted_entity_id_that_is_not_a_dot_segment_is_still_allowed() -> None:
+    """Only a bare dot segment is unsafe; ordinary dots must keep working."""
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"state": "on"}) as mock_get:
+        await handle_ha_get_state({"entity_id": "sensor.a.b"})
+    assert mock_get.call_args[0][0] == "/api/states/sensor.a.b"
+
+
+async def test_triple_dot_entity_id_is_not_normalized_and_is_allowed() -> None:
+    """'...' is not a dot segment under RFC 3986, so it must not be rejected."""
+    with patch("openclaw_node.commands.ha.ha_get", return_value={"state": "on"}) as mock_get:
+        await handle_ha_get_state({"entity_id": "..."})
+    assert mock_get.call_args[0][0] == "/api/states/..."
+
+
+def test_url_stack_really_normalizes_dot_segments() -> None:
+    """Pin the client behavior the dot-segment rejection exists to defend against.
+
+    If a future URL library stops collapsing dot segments this test fails, which
+    is the signal to re-examine the rejection rather than discover the hazard
+    again from a live endpoint-confusion bug.
+    """
+    import yarl
+
+    assert yarl.URL("http://ha.invalid/api/states/..").path == "/api/"
+    assert yarl.URL("http://ha.invalid/api/states/.").path == "/api/states/"
+    # Percent-encoding is not an escape hatch here.
+    assert yarl.URL("http://ha.invalid/api/states/%2E%2E").path == "/api/"
+    # A dot inside a larger segment is untouched, which is why "../config"
+    # encoded as "..%2Fconfig" is safe and needs no rejection.
+    assert yarl.URL("http://ha.invalid/api/states/..%2Fconfig").path == "/api/states/../config"
+    assert yarl.URL("http://ha.invalid/api/states/...").path == "/api/states/..."
+
+
 async def test_history_with_flags() -> None:
     with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
         await handle_ha_history({"minimal_response": True, "no_attributes": True})
