@@ -61,12 +61,12 @@ _(no unreleased command additions)_
 | `fs.diff` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
 | `fs.glob` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
 | `fs.history` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
-| `fs.list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
+| `fs.list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | `fs.move` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
 | `fs.patch` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
 | `fs.read` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `TEST-PROVEN` | **`pass`** |
 | `fs.restore` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `fs.stat` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `CODE-PROVEN` | **`unverified`** |
+| `fs.stat` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | `fs.write` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
 | `ha.addon_changelog` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.addon_documentation` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
@@ -83,7 +83,7 @@ _(no unreleased command additions)_
 | `ha.config.area_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
 | `ha.config.area_registry#create` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** |
 | `ha.config.area_registry#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** |
-| `ha.config.area_registry#list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `CODE-PROVEN` | **`unverified`** |
+| `ha.config.area_registry#list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.config.area_registry#update` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** |
 | `ha.config.automation` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
 | `ha.config.automation#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** |
@@ -137,14 +137,14 @@ _(no unreleased command additions)_
 | `ha.list_states` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.logbook` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
 | `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** |
-| `ha.supervisor_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `CODE-PROVEN` | **`unverified`** |
+| `ha.supervisor_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.update_install` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** |
-| `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
-| `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
+| `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
+| `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `PRODUCTION-LIVE` | **`partial`** |
 | `system.execApprovals.set` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | `system.run` | advertised<br>CODE-PROVEN:pass | unavailable<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `TEST-PROVEN` | **`pass`** |
 | `system.run.prepare` | advertised<br>CODE-PROVEN:pass | unavailable<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
-| `system.which` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `CODE-PROVEN` | **`unverified`** |
+| `system.which` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
 
 ## Row details
 
@@ -320,9 +320,9 @@ _(no unreleased command additions)_
 - Capability conditions: Directory resolves under a configured allowed root.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `pass`**
+- Evidence note: Sept 13 second-pass live sweep confirmed fs.list through direct nodes.invoke. Gateway convenience-tool namespace mismatch remains tracked separately in #317.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -346,6 +346,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: fs.list on /config returned 60 entries with truncated=false. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no generic filesystem listing wrapper. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -576,9 +577,9 @@ _(no unreleased command additions)_
 - Capability conditions: Path resolves under a configured allowed root.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `pass`**
+- Evidence note: Sept 13 second-pass live sweep confirmed fs.stat through direct nodes.invoke.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -592,6 +593,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: fs.stat on /config/configuration.yaml returned complete metadata including mode, uid, gid, and symlink fields. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no generic filesystem metadata wrapper. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -1255,7 +1257,7 @@ _(no unreleased command additions)_
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
 - **Outcome: `refused-as-designed`**
-- Evidence note: AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0).
+- Evidence note: The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -1304,7 +1306,7 @@ _(no unreleased command additions)_
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
 - **Outcome: `refused-as-designed`**
-- Evidence note: AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0).
+- Evidence note: The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -1346,9 +1348,9 @@ _(no unreleased command additions)_
 - Capability conditions: HA WebSocket API supports config/area_registry/list; collection result has no caller limit.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0).
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `pass`**
+- Evidence note: Sept 13 second-pass live sweep returned 27 areas through direct nodes.invoke.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -1362,6 +1364,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ha.config.area_registry with action=list returned 27 areas. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist voice turns intentionally do not expose HA-native configuration commands. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -1380,7 +1383,7 @@ _(no unreleased command additions)_
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
 - **Outcome: `refused-as-designed`**
-- Evidence note: AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0).
+- Evidence note: The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3739,9 +3742,9 @@ _(no unreleased command additions)_
 - Capability conditions: Supervisor API is reachable.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `pass`**
+- Evidence note: Sept 13 second-pass live sweep confirmed Supervisor and platform metadata through direct nodes.invoke.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3759,6 +3762,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ha.supervisor_info returned Supervisor 2026.09.0, HA 2026.9.1, HAOS 17.1, Docker 29.1.3, and amd64/qemux86-64 platform data. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -3831,9 +3835,9 @@ _(no unreleased command additions)_
 - Capability conditions: Node is connected and the ping command is allowed by the Gateway.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `pass`**
+- Evidence note: Sept 13 second-pass live sweep (add-on 2026.9.13b1, node hass): direct nodes.invoke returned pong=true.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3847,6 +3851,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ping returned pong=true through the direct node invocation path. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose the node diagnostic ping command. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -3868,9 +3873,9 @@ _(no unreleased command additions)_
 - Capability conditions: Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `partial`**
+- Evidence note: Sept 13 second-pass live sweep reached the Gateway but direct nodes.invoke refused this advertised command and directed callers to exec.approvals.node.*. Whether advertisement on the node.invoke surface is intentional remains unresolved.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3880,6 +3885,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`refused-as-designed`**: The Gateway refused system.execApprovals.* through node.invoke with INVALID_REQUEST and directed callers to exec.approvals.node.*; the command is nevertheless advertised by the node. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose exec policy administration. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -4090,9 +4096,9 @@ _(no unreleased command additions)_
 - Capability conditions: Requested executable name is valid; documented binary/name drift remains unresolved.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
-- Evidence method: `CODE-PROVEN`
-- **Outcome: `unverified`**
-- Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
+- Evidence method: `PRODUCTION-LIVE`
+- **Outcome: `pass`**
+- Evidence note: Sept 13 second-pass live sweep confirmed the node command with name=bash. The Gateway nodes-tool bins-array contract remains distinct from this single-name command contract.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -4106,6 +4112,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: system.which with name=bash returned found=true and /bin/bash; passing the Gateway tool's bins array instead returns NAME_REQUIRED. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose host executable lookup. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:

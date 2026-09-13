@@ -43,6 +43,21 @@
     "ping": {
       "authorization_class": "diagnostic",
       "capability_conditions": "Node is connected and the ping command is allowed by the Gateway.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep (add-on 2026.9.13b1, node hass): direct nodes.invoke returned pong=true.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "ping returned pong=true through the direct node invocation path.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist does not expose the node diagnostic ping command.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -85,6 +100,21 @@
       "bounds": {
         "max_entries": "validated integer from 1 through the source-defined hard maximum"
       },
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed fs.list through direct nodes.invoke. Gateway convenience-tool namespace mismatch remains tracked separately in #317.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.list on /config returned 60 entries with truncated=false.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem listing wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -92,6 +122,21 @@
     "fs.stat": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Path resolves under a configured allowed root.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed fs.stat through direct nodes.invoke.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.stat on /config/configuration.yaml returned complete metadata including mode, uid, gid, and symlink fields.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem metadata wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -218,6 +263,21 @@
     "system.which": {
       "authorization_class": "diagnostic",
       "capability_conditions": "Requested executable name is valid; documented binary/name drift remains unresolved.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed the node command with name=bash. The Gateway nodes-tool bins-array contract remains distinct from this single-name command contract.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "system.which with name=bash returned found=true and /bin/bash; passing the Gateway tool's bins array instead returns NAME_REQUIRED.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist does not expose host executable lookup.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -1163,6 +1223,21 @@
         "list": {
           "authorization_class": "read_only",
           "capability_conditions": "HA WebSocket API supports config/area_registry/list; collection result has no caller limit.",
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 second-pass live sweep returned 27 areas through direct nodes.invoke.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.area_registry with action=list returned 27 areas.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          },
           "parameters": [
             "action"
           ]
@@ -1179,7 +1254,7 @@
           ]
         }
       },
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1294,6 +1369,21 @@
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
       "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 second-pass live sweep reached the Gateway but direct nodes.invoke refused this advertised command and directed callers to exec.approvals.node.*. Whether advertisement on the node.invoke surface is intentional remains unresolved.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "The Gateway refused system.execApprovals.* through node.invoke with INVALID_REQUEST and directed callers to exec.approvals.node.*; the command is nevertheless advertised by the node.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "first_shipped_in": "2026.9.13b1",
       "actions": {}
@@ -1308,6 +1398,21 @@
     "ha.supervisor_info": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed Supervisor and platform metadata through direct nodes.invoke.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "ha.supervisor_info returned Supervisor 2026.09.0, HA 2026.9.1, HAOS 17.1, Docker 29.1.3, and amd64/qemux86-64 platform data.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "first_shipped_in": "2026.9.13b1",
       "actions": {}
     }

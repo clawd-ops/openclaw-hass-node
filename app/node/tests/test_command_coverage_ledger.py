@@ -846,6 +846,44 @@ def test_sept13_sweep_commands_have_production_live_evidence() -> None:
     assert rows_by_id["ha.list_entity_registry"]["outcome"] == "fail"
 
 
+def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
+    """Gap-closing read-only probes must be represented on their exact command/action rows."""
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+
+    for row_id in (
+        "ping",
+        "ha.supervisor_info",
+        "system.which",
+        "fs.list",
+        "fs.stat",
+        "ha.config.area_registry#list",
+    ):
+        row = rows_by_id[row_id]
+        assert row["evidence_method"] == "PRODUCTION-LIVE"
+        assert row["outcome"] == "pass"
+        direct_evidence = row["callers"]["direct_nodes_invoke"]["evidence"]
+        current_live = [
+            item
+            for item in direct_evidence
+            if item.get("method") == "PRODUCTION-LIVE" and item.get("node_version") == "2026.9.13b1"
+        ]
+        assert current_live, f"{row_id} lacks current direct-node production evidence"
+        assert all(item.get("stale") is False for item in current_live)
+
+    approvals = rows_by_id["system.execApprovals.get"]
+    assert approvals["evidence_method"] == "PRODUCTION-LIVE"
+    assert approvals["outcome"] == "partial"
+    refused = [
+        item
+        for item in approvals["callers"]["direct_nodes_invoke"]["evidence"]
+        if item.get("method") == "PRODUCTION-LIVE"
+    ]
+    assert refused
+    assert all(item["outcome"] == "refused-as-designed" for item in refused)
+    assert all(item.get("stale") is False for item in refused)
+
+
 def test_sept11_observations_carry_stale_provenance() -> None:
     """Sept 11 observations (node 2026.7.23b1) must be marked stale in the output ledger."""
     ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
