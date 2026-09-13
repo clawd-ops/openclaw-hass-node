@@ -156,7 +156,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   2. Add read endpoints for recent conversations, individual transcript history, and the active/resumable session id.
   3. Add an ingress panel tab that renders the transcript with stable scrolling, tool-progress grouping, copy/download affordances, and a "resume last Assist chat" action.
   4. Keep Assist output concise for long/tool-heavy turns and link/point the operator to the durable panel for full details.
-- Cross-link: shares the ingress GUI shell with #27 (configuration UI) and #20 (proposal review pane); prefer one OpenClaw panel with tabs over multiple independent add-on web apps.
+- Cross-link: shares the ingress GUI shell with #27 (configuration UI) and #20
+  (presentation-only native approval status); prefer one OpenClaw panel with
+  tabs over multiple independent add-on web apps.
 - Acceptance: after a long HA Assist turn, closing/reopening HA Assist or the OpenClaw ingress panel does not lose the readable transcript, and a follow-up can resume the intended OpenClaw session instead of silently starting from scratch.
 
 ---

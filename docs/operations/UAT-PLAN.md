@@ -9,7 +9,8 @@
 > (dual websocket pair, streaming token deltas, tool-named progress)
 > all work end-to-end. Local HTTP API is fail-closed (a token is
 > required); HACS integration probes for the local API at config-flow time.
-> The proposal/write flow is still planned.
+> The native OpenClaw approval/write flow is still planned. The Gateway remains
+> the sole approval authority; any add-on view is presentation-only.
 
 ## Phase A — Install
 
@@ -203,8 +204,8 @@ profile via `openclaw qr`.
 ### E3. Tool calling via Assist.
 
 - "Turn on the kitchen light." Should call back into the same node's
-  `ha.call_service` via the proposal flow (since light writes are
-  protected).
+  `ha.call_service`. With an authorized principal and an `auto_allow` policy
+  decision, no approval prompt appears and the light turns on.
 
 ### E4. Tool-named progress lines.
 

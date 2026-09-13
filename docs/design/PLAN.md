@@ -35,15 +35,16 @@ Refactor tracked under **P5.13** / #84.
 
 - Multi-HA from one node. One node per HA instance.
 - Replacing the gateway/model. The node is a peripheral, not a brain.
-- Direct writes to `/config`. All mutations go through agent-bridge.
+- Unapproved writes to `/config`. Protected mutations use native OpenClaw
+  approval and remain subject to node-side policy and precondition checks.
 
 ## Architecture
 
 ```
 +------------------+   WS #1 role: node (invoke surface)  +-----------------+
 |  OpenClaw GW     | <----------------------------------> |  HASS Node      |
-|  (agent model)   |   WS #2 role: operator (ChatRelay)   |  (this repo)    |
-|                  | <----------------------------------> |                 |
+|  agent + native  |   WS #2 role: operator (ChatRelay)   |  (this repo)    |
+|approval authority| <----------------------------------> |                 |
 +------------------+                                      +--------+--------+
                                                                    |
                                                   +----------------+----------------+
@@ -53,12 +54,6 @@ Refactor tracked under **P5.13** / #84.
                                               | /cfg  |       |  + WS   |      | agent |
                                               | fs    |       |         |      | reg.  |
                                               +-------+       +---------+      +-------+
-                                                  ^
-                                                  | (writes only)
-                                          +-------+--------+
-                                          |  agent-bridge  |
-                                          |  proposals     |
-                                          +----------------+
 ```
 
 Inside the add-on (app) container we mount HA volumes per the HA add-on (app) spec.
@@ -107,14 +102,14 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   `ha.addon_changelog`, `ha.addon_documentation`,
   `ha.addon_start`/`stop`/`restart`). A generic `ha.supervisor.*`
   command family is not registered; broader Supervisor surfaces
-  (snapshots, host, network) remain out-of-scope until proposal-gated
+  (snapshots, host, network) remain out-of-scope until approval-gated
   write semantics land.
 
 ### 1b. Backup / undo model
 
 Per-file content-addressed versioning under `/share/openclaw-backups/`
 (outside `/config`, survives addon rebuilds, included in HA backups).
-Every applied proposal that mutates a file under a protected root
+Every applied mutation to a file under a protected root
 captures the prior bytes; `fs.restore`/`fs.history`/`fs.diff` surface
 the versions. No git in `/config`, no per-change Supervisor snapshots,
 no `.bak` sidecars.
@@ -154,11 +149,11 @@ Full design (storage layout, retention, edge cases):
   yaml the user has placed there.
 - **`.storage/` is read-only to the node.** Reads allowed for
   diagnostics. Writes are refused at the command layer with a clear
-  error, even if a proposal tries to target it. No caller parameter or
-  accepted proposal overrides this rule. This is a HARD rule baked into
+  error, even if an approved operation tries to target it. No caller parameter
+  or native approval overrides this rule. This is a HARD rule baked into
   the command layer, not a guideline.
 - Blueprints always live in `/config/blueprints/`; blueprint edits go
-  through proposal-gated `fs.patch` since there's no REST API for
+  through approval-gated `fs.patch` since there's no REST API for
   them.
 
 See `docs/reference/HA-CONFIG-EDITING.md` for the per-domain API map.
@@ -168,8 +163,8 @@ See `docs/reference/HA-CONFIG-EDITING.md` for per-domain detail.
 ### 2c. Always rooted in installed HA version + breaking-change verification
 
 > **Status: deferred.** None of the pieces below are implemented. The
-> mechanism is gated on the proposal-gated write path actually
-> round-tripping through agent-bridge (TODO #20) — until writes land
+> mechanism is gated on the native OpenClaw approval path for protected writes
+> actually being wired end to end (TODO #20) — until writes land
 > there's no place for pre-change verification to fire. Tracked as
 > TODO #23. Kept here as the design contract for when #20 unblocks
 > it.
@@ -186,15 +181,15 @@ See `docs/reference/HA-CONFIG-EDITING.md` for per-domain detail.
 
 **Mandatory pre-change verification (HARD rule, deferred with §2c):**
 
-Before any proposal that touches HA config (yaml or API-driven), the
-generator must:
+Before any protected mutation that touches HA config (yaml or API-driven), the
+operation generator must:
 
 1. Call `docs.lookup` for the target domain at the running version.
 2. Call `docs.breaking_changes` covering the running version (and any
    versions since the last time the touched domain was edited, if
    trackable).
-3. If a breaking change affects the edit, the proposal must include
-   the functional fix, not just the original edit. The proposal body
+3. If a breaking change affects the edit, the operation must include the
+   functional fix, not just the original edit. Its native approval evidence
    must cite the specific breaking-change entry.
 4. `ha.check_config` (for yaml) or domain reload-dry-run (for API
    edits where supported) before commit.

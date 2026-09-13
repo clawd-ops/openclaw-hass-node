@@ -176,7 +176,9 @@ release/UAT gates remain open.
 ## Decision log
 
 - 2026-06-05 — Single node per HA. (Rob)
-- 2026-06-05 — All `/config` mutations go through agent-bridge. (Rob)
+- **Historical, superseded 2026-09-11:** 2026-06-05 — all `/config` mutations
+  were designed to go through agent-bridge. Native OpenClaw approval is now the
+  sole authority; see the current decision below. (Rob)
 - 2026-06-05 — Add-on (App) first. HACS only as last resort. (Rob)
 - 2026-06-05 — Code lives under `~/.openclaw/projects/openclaw-hass-node/`. (Rob)
 - 2026-06-05 — Docs in `docs/` are source of truth across compactions. (Rob)
