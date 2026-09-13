@@ -719,6 +719,56 @@ def test_production_live_observation_rejects_an_impossible_calendar_date(
         generator.build_ledger()
 
 
+@pytest.mark.parametrize(
+    ("observed_at", "node_version"),
+    [
+        ("2026-02-31", "2026.9.13b1"),
+        ("not-a-date", "2026.9.13b1"),
+        (None, "2026.9.13b1"),
+        ("2026-09-13", None),
+        ("2026-09-13", "not-a-version"),
+    ],
+)
+def test_evidence_constructor_rejects_unprovenanced_live_records(
+    observed_at: str | None, node_version: str | None
+) -> None:
+    """The live-evidence invariant belongs to the record type, not one caller.
+
+    Validating only where manual `caller_observations` are ingested constrained a
+    single path: the design-derived `system.run*` rows reached the ledger by
+    skipping that path entirely. `_evidence` is the one constructor every live
+    record passes through, so the check lives there.
+    """
+    generator = _load_generator()
+
+    with pytest.raises(generator.LedgerError, match=r"PRODUCTION-LIVE evidence observation"):
+        generator._evidence(
+            "PRODUCTION-LIVE",
+            "pass",
+            "docs/evidence/sweep-2026-09-13.md",
+            "Probe returned a result.",
+            observed_at=observed_at,
+            node_version=node_version,
+        )
+
+
+def test_evidence_constructor_accepts_a_provenanced_live_record() -> None:
+    """The guard must not reject legitimate live evidence."""
+    generator = _load_generator()
+
+    item = generator._evidence(
+        "PRODUCTION-LIVE",
+        "pass",
+        "docs/evidence/sweep-2026-09-13.md",
+        "Probe returned a result.",
+        observed_at="2026-09-13",
+        node_version="2026.9.13b1",
+    )
+
+    assert item["observed_at"] == "2026-09-13"
+    assert item["node_version"] == "2026.9.13b1"
+
+
 def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None:
     """A design document is not an observation.
 

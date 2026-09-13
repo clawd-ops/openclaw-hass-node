@@ -703,6 +703,25 @@ def _evidence(
         raise LedgerError(f"invalid evidence method: {method}")
     if outcome not in OUTCOMES:
         raise LedgerError(f"invalid evidence outcome: {outcome}")
+    # Live evidence must say when it was observed and against which build, and
+    # the invariant is enforced here rather than only where manual observations
+    # are ingested. The design-derived `system.run*` rows reached the ledger by
+    # skipping that ingestion path entirely, so a check that lives only there
+    # constrains one caller instead of the record type. Every live record is
+    # built through this constructor.
+    if method == "PRODUCTION-LIVE":
+        if not _is_observed_at(observed_at):
+            raise LedgerError(
+                "PRODUCTION-LIVE evidence observation needs a real calendar "
+                f"observed_at date (got {observed_at!r})"
+            )
+        if not isinstance(node_version, str) or not _FIRST_SHIPPED_VERSION_RE.fullmatch(
+            node_version
+        ):
+            raise LedgerError(
+                "PRODUCTION-LIVE evidence observation needs a valid "
+                f"node_version (got {node_version!r})"
+            )
     item: dict[str, Any] = {
         "method": method,
         "outcome": outcome,
