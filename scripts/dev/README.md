@@ -177,6 +177,47 @@ scripts/dev/apply-patch my.patch
 
 ---
 
+## `gh` in this environment
+
+Two things cost an hour each if you meet them cold.
+
+### `gh pr edit` fails; use the REST API
+
+The token here is not granted `read:org`, and `gh pr edit` issues a GraphQL
+query whose `login` field requires it:
+
+```
+GraphQL: Your token has not been granted the required scopes to execute this
+query. The 'login' field requires one of the following scopes: ['read:org']
+```
+
+The failure is about the query `gh` builds, not about your permission to edit,
+so the REST endpoint works unchanged. Edit a PR or issue body with:
+
+```
+python3 -c "import json; print(json.dumps({'body': open('body.md').read()}))" > payload.json
+gh api -X PATCH repos/clawd-ops/openclaw-hass-node/pulls/<num> --input payload.json
+gh api -X PATCH repos/clawd-ops/openclaw-hass-node/issues/<num> --input payload.json
+```
+
+Going through a JSON file rather than a shell argument is also what keeps
+backticks, `$(...)` and newlines intact, per the GitHub comment formatting rule.
+Read the body back afterwards and confirm real paragraph breaks survived.
+
+### Review verdicts are reviews, not issue comments
+
+A cross-provider verdict posted with `gh pr review` lands in
+
+```
+gh api repos/clawd-ops/openclaw-hass-node/pulls/<num>/reviews
+```
+
+and **not** in `.../issues/<num>/comments`. Polling only the comments endpoint
+returns `0` while a `REQUEST CHANGES` is sitting on the PR. Check both, or a
+verdict gets reported as "no verdict yet".
+
+---
+
 ## Denylist location and format
 
 The operator-local denylist lives at:
