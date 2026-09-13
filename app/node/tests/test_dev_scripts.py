@@ -540,6 +540,25 @@ elif args[:2] == ["sessions", "export-trajectory"]:
     output = args[args.index("--output") + 1]
     export_dir = workspace / ".openclaw" / "trajectory-exports" / output
     export_dir.mkdir(parents=True)
+    # The wrapper verifies the child's initial task against the assembled brief
+    # and the pinned head, so the fixture must carry one.
+    task_event = {
+        "type": "user.message",
+        "data": {
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": os.environ.get("FORCE_CHILD_TASK")
+                        or pathlib.Path(os.environ["CAPTURE_PROMPT"]).read_text(
+                            encoding="utf-8"
+                        ),
+                    }
+                ],
+            }
+        },
+    }
     event = {
         "type": "assistant.message",
         "data": {
@@ -550,7 +569,9 @@ elif args[:2] == ["sessions", "export-trajectory"]:
             }
         },
     }
-    (export_dir / "events.jsonl").write_text(json.dumps(event) + "\\n", encoding="utf-8")
+    (export_dir / "events.jsonl").write_text(
+        json.dumps(task_event) + "\\n" + json.dumps(event) + "\\n", encoding="utf-8"
+    )
     print(json.dumps({"outputDir": str(export_dir)}))
 elif args and args[0] == "sessions":
     print(os.environ["SESSIONS_RESULT"])
@@ -1018,3 +1039,21 @@ def test_spawn_review_does_not_publish_twice_for_the_same_head(tmp_path: Path) -
     assert "https://example.invalid/comment/existing" in result.stdout
     # Nothing new may be created when the guard fires.
     assert not Path(env["CAPTURE_COMMENT"]).exists() or "POST" not in result.stdout
+
+
+def test_spawn_review_rejects_a_child_spawned_with_the_wrong_brief(tmp_path: Path) -> None:
+    """A clean exit is not evidence the child did the requested work.
+
+    A launcher could dispatch a truncated brief, a stale head, or a different
+    task entirely and still return a well-formed verdict. Publishing that would
+    attribute a review to a head the child never examined.
+    """
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env["FORCE_CHILD_TASK"] = "review something else entirely"
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert "not spawned with the assembled brief" in result.stderr

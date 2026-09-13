@@ -194,10 +194,44 @@ if ! openclaw sessions export-trajectory \
 fi
 "$CHECKER" "$ERROR_FILE"
 EVENTS_FILE="$TEMP_DIR/.openclaw/trajectory-exports/$EXPORT_NAME/events.jsonl"
-python3 - "$EVENTS_FILE" "$REVIEW_FILE" << 'PYEOF'
+python3 - "$EVENTS_FILE" "$REVIEW_FILE" "$BRIEF" "$HEAD_SHA" << 'PYEOF'
 import json
 import sys
 from pathlib import Path
+
+# Verify what the child was actually asked to do, not merely that a child
+# exited cleanly. A launcher could spawn with a truncated brief, a stale head,
+# or a different task entirely and still return a well-formed verdict; that
+# verdict would then be published against a head it never examined. The
+# assembled brief and the pinned head are both checked against the child's
+# initial task before its output is trusted.
+expected_brief = sys.argv[3]
+expected_head = sys.argv[4]
+
+tasks = []
+try:
+    for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event.get("type") != "user.message":
+            continue
+        message = event["data"]["message"]
+        text = "".join(
+            item["text"]
+            for item in message.get("content", [])
+            if item.get("type") == "text" and isinstance(item.get("text"), str)
+        )
+        if text:
+            tasks.append(text)
+except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+    pass
+
+if not tasks:
+    sys.exit("spawn-codex-review: child trajectory has no initial task to verify")
+initial_task = tasks[0]
+if expected_brief not in initial_task:
+    sys.exit("spawn-codex-review: child was not spawned with the assembled brief")
+if expected_head not in initial_task:
+    sys.exit("spawn-codex-review: child was not spawned against the pinned head")
 
 messages = []
 try:

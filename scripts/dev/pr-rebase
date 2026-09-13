@@ -110,6 +110,23 @@ done < "$DELETED_LIST"
 git log --format='%H%n%B' "origin/main..HEAD" | scripts/dev/confidentiality-check \
     || { echo "CONFIDENTIAL LEAK in commit messages — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
 
+# Re-read PR state immediately before pushing. Everything above was decided
+# from a snapshot taken before the worktree, the rebase and the gates ran, which
+# is minutes of wall clock. In that window the PR can close, be retargeted, have
+# its head branch renamed, or be repointed at a different head repository. The
+# lease below only protects the head SHA, so it would happily force-push a
+# rebase onto a PR that is no longer the one that was validated.
+CURRENT_PR_DATA=$(gh pr view "$PR" \
+    --json state,baseRefName,headRefName,headRefOid,headRepository \
+    --jq '[.state, .baseRefName, .headRefName, .headRefOid, .headRepository.nameWithOwner] | @tsv')
+IFS=$'\t' read -r NOW_STATE NOW_BASE NOW_BRANCH NOW_HEAD NOW_HEAD_REPOSITORY <<< "$CURRENT_PR_DATA"
+if [[ "$NOW_STATE" != "$PR_STATE" || "$NOW_BASE" != "$BASE_BRANCH" \
+    || "$NOW_BRANCH" != "$BRANCH" || "$NOW_HEAD" != "$EXPECTED_HEAD" \
+    || "$NOW_HEAD_REPOSITORY" != "$HEAD_REPOSITORY" ]]; then
+    echo "pr-rebase: pull request changed during the rebase; refusing to push" >&2
+    exit 1
+fi
+
 # Push with lease to avoid overwriting concurrent updates.
 echo ">>> git push --force-with-lease"
 git push origin "HEAD:refs/heads/$BRANCH" \
