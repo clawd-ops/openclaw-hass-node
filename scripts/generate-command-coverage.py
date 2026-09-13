@@ -15,6 +15,7 @@ import ast
 import copy
 import difflib
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -50,6 +51,95 @@ ROW_CALLERS = frozenset(
 )
 # Acceptance test callers must name a ROW_CALLER.
 VALID_TEST_CALLERS = ROW_CALLERS
+
+# Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE.
+_FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
+
+# The current release is read from all five tracked version sources. Generated
+# artifacts must not depend on command history or ambient git tags, and version
+# drift must fail generation instead of choosing one source arbitrarily.
+_VERSION_SOURCES: tuple[tuple[Path, re.Pattern[str]], ...] = (
+    (ROOT / "app/config.yaml", re.compile(r'^version: "([^"]+)"$', re.MULTILINE)),
+    (
+        ROOT / "app/build.yaml",
+        re.compile(r'^  io\.hass\.version: "([^"]+)"$', re.MULTILINE),
+    ),
+    (
+        ROOT / "app/node/pyproject.toml",
+        re.compile(r'^version = "([^"]+)"$', re.MULTILINE),
+    ),
+    (
+        ROOT / "app/node/src/openclaw_node/__init__.py",
+        re.compile(r'^    __version__ = "([^"]+)"$', re.MULTILINE),
+    ),
+    (
+        ROOT / "custom_components/openclaw_hass_node_assist/manifest.json",
+        re.compile(r'^  "version": "([^"]+)"$', re.MULTILINE),
+    ),
+)
+
+
+def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
+    """Order supported release versions numerically, not lexicographically.
+
+    Lexicographic ordering is wrong here: `2026.6.20b3` sorts before `2026.6.8a8`
+    as text, because `2` precedes `8`. PEP 440 stage order is development,
+    alpha, beta, release candidate, then final.
+    """
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+)|\.dev(\d+))?", version)
+    if not match:  # pragma: no cover - guarded by _validate_first_shipped_in
+        raise ValueError(f"unsortable version: {version!r}")
+    major, minor, patch, stage, serial, dev_serial = match.groups()
+    stage_order = {"a": 1, "b": 2, "rc": 3, None: 4}
+    if dev_serial is not None:
+        stage_rank, stage_serial = 0, int(dev_serial)
+    else:
+        stage_rank = stage_order[stage]
+        stage_serial = 0 if serial is None else int(serial)
+    return (int(major), int(minor), int(patch), stage_rank, stage_serial)
+
+
+def _tracked_release_version() -> str:
+    """Return the synchronized release version from tracked project sources."""
+    versions: dict[str, str] = {}
+    for path, pattern in _VERSION_SOURCES:
+        text = path.read_text(encoding="utf-8")
+        match = pattern.search(text)
+        if match is None:
+            raise LedgerError(f"version pattern did not match in {path}")
+        try:
+            label = path.relative_to(ROOT).as_posix()
+        except ValueError:
+            label = str(path)
+        versions[label] = match.group(1)
+
+    distinct = set(versions.values())
+    if len(distinct) != 1:
+        raise LedgerError(f"version drift across tracked sources: {versions}")
+    version = next(iter(distinct))
+    if not _FIRST_SHIPPED_VERSION_RE.fullmatch(version):
+        raise LedgerError(f"tracked release version {version!r} is not a supported release version")
+    return version
+
+
+def _commands_new_in_release(first_shipped_by_command: dict[str, str], release: str) -> list[str]:
+    """Return commands introduced in *release*, including an empty release."""
+    return sorted(cmd for cmd, version in first_shipped_by_command.items() if version == release)
+
+
+def _validate_first_shipped_in(command: str, value: object) -> None:
+    """Raise LedgerError when first_shipped_in is absent, empty, non-string, or malformed."""
+    if not isinstance(value, str) or not value:
+        raise LedgerError(
+            f"command {command} first_shipped_in must be a non-empty string, got {value!r}"
+        )
+    if value != "unreleased" and not _FIRST_SHIPPED_VERSION_RE.fullmatch(value):
+        raise LedgerError(
+            f"command {command} first_shipped_in {value!r} is neither 'unreleased' nor a "
+            "valid version string supported for releases (for example '2026.6.8a8', "
+            "'2026.9.12rc1', "
+            "or '2026.9.12')"
+        )
 
 
 class LedgerError(RuntimeError):
@@ -709,6 +799,9 @@ def build_ledger() -> dict[str, Any]:
             raise LedgerError(f"manual actions for {command} must be an object")
         _validate_exact(f"action variants for {command}", set(actions), set(declared_actions))
 
+        first_shipped_in = entry.get("first_shipped_in")
+        _validate_first_shipped_in(command, first_shipped_in)
+
         aliases = entry.get("aliases", {})
         if not isinstance(aliases, dict):
             raise LedgerError(f"aliases for {command} must be an object")
@@ -1047,6 +1140,7 @@ def build_ledger() -> dict[str, Any]:
                     "id": row_id,
                     "command": command,
                     "action": action,
+                    "first_shipped_in": first_shipped_in,
                     "handler": f"openclaw_node.commands.{module}:{handler}",
                     "registered": True,
                     "callers": row_callers,
@@ -1083,6 +1177,17 @@ def build_ledger() -> dict[str, Any]:
                 }
             )
 
+    first_shipped_by_command = {
+        cmd: manual["commands"][cmd]["first_shipped_in"] for cmd in sorted(registry)
+    }
+    latest_release = _tracked_release_version()
+    commands_new_in_latest_release = _commands_new_in_release(
+        first_shipped_by_command, latest_release
+    )
+    commands_unreleased = sorted(
+        cmd for cmd, v in first_shipped_by_command.items() if v == "unreleased"
+    )
+
     return {
         "schema_version": 1,
         "title": "OpenClaw Home Assistant node command/action/caller coverage ledger",
@@ -1090,6 +1195,10 @@ def build_ledger() -> dict[str, Any]:
         "generation_note": (
             "Deterministic source inventory plus explicitly labelled manual reality metadata; "
             "no runtime command is enabled by this ledger."
+        ),
+        "release_version_format": (
+            "PEP 440 three-part release: alpha (aN), beta (bN), release candidate (rcN), "
+            "development (.devN), or final"
         ),
         "evidence_methods": {
             "UNVERIFIED": "Present in the ledger but not behaviorally proven.",
@@ -1117,6 +1226,9 @@ def build_ledger() -> dict[str, Any]:
             "advertised_not_registered": sorted(advertised - set(registry)),
             "registered_without_assist_wrapper": sorted(set(registry) - set(assist)),
         },
+        "latest_release": latest_release,
+        "commands_new_in_latest_release": commands_new_in_latest_release,
+        "commands_unreleased": commands_unreleased,
         "rows": rows,
     }
 
@@ -1151,6 +1263,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         "combined with explicitly manual policy/semantic notes. `UNVERIFIED` and failure",
         "rows are intentionally retained. Regenerate after editing source or",
         "`contracts/command-coverage-manual.json`.",
+        "Shipment versions use the same canonical forms as `scripts/bump-version.py`:",
+        "`aN`, `bN`, `rcN`, `.devN`, or a final three-part release.",
         "",
         "## Summary",
         "",
@@ -1164,9 +1278,59 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         "- Advertised but unregistered: "
         f"`{', '.join(summary['advertised_not_registered']) or 'none'}`",
         "",
-        "## Evidence methods",
-        "",
     ]
+    # New in this release
+    latest_release = ledger.get("latest_release")
+    new_commands = ledger.get("commands_new_in_latest_release", [])
+    if latest_release:
+        lines.extend(
+            [
+                f"## New in this release ({latest_release})",
+                "",
+                "Commands whose `first_shipped_in` matches the synchronized version in "
+                "the five tracked project sources. These are new since the previous release.",
+                "",
+            ]
+        )
+        if new_commands:
+            for cmd in new_commands:
+                lines.append(f"- `{cmd}`")
+        else:
+            lines.append("_(no commands are new in this release)_")
+        lines.append("")
+    else:
+        lines.extend(
+            [
+                "## New in this release",
+                "",
+                "_(no released version is recorded in the ledger yet; "
+                "every command is still unreleased)_",
+                "",
+            ]
+        )
+    # Unreleased command additions
+    unreleased_commands = ledger.get("commands_unreleased", [])
+    lines.extend(
+        [
+            "## Unreleased command additions",
+            "",
+            "Commands with `first_shipped_in: unreleased`. "
+            "These will ship if a release is cut now.",
+            "",
+        ]
+    )
+    if unreleased_commands:
+        for cmd in unreleased_commands:
+            lines.append(f"- `{cmd}`")
+    else:
+        lines.append("_(no unreleased command additions)_")
+    lines.extend(
+        [
+            "",
+            "## Evidence methods",
+            "",
+        ]
+    )
     for level, meaning in ledger["evidence_methods"].items():
         lines.append(f"- **{level}:** {meaning}")
     lines.extend(["", "## Outcomes", ""])

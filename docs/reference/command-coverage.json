@@ -1,4 +1,23 @@
 {
+  "commands_new_in_latest_release": [
+    "ha.config.area_registry",
+    "ha.config.automation",
+    "ha.config.config_entries",
+    "ha.config.device_registry",
+    "ha.config.entity_registry",
+    "ha.config.helpers",
+    "ha.config.lovelace",
+    "ha.config.scene",
+    "ha.config.script"
+  ],
+  "commands_unreleased": [
+    "ha.addon_update",
+    "ha.supervisor_info",
+    "ha.update_install",
+    "system.execApprovals.get",
+    "system.execApprovals.set",
+    "system.run.prepare"
+  ],
   "evidence_methods": {
     "CODE-PROVEN": "Established from source review; not a live result.",
     "DISPOSABLE-LIVE": "Probed against a disposable non-production environment.",
@@ -8,6 +27,7 @@
   },
   "generated": true,
   "generation_note": "Deterministic source inventory plus explicitly labelled manual reality metadata; no runtime command is enabled by this ledger.",
+  "latest_release": "2026.7.23b1",
   "outcomes": {
     "fail": "Observed behavior contradicted the scoped claim.",
     "partial": "Some caller or contract behavior passed while material gaps remain.",
@@ -15,6 +35,7 @@
     "refused-as-designed": "The operation was intentionally unavailable and refused.",
     "unverified": "No behavioral outcome is claimed."
   },
+  "release_version_format": "PEP 440 three-part release: alpha (aN), beta (bN), release candidate (rcN), development (.devN), or final",
   "rows": [
     {
       "acceptance_test_ids": [],
@@ -136,6 +157,7 @@
       "command": "fs.delete",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_move_delete:handle_fs_delete",
       "id": "fs.delete",
       "metadata_provenance": {
@@ -263,6 +285,7 @@
       "command": "fs.diff",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_diff",
       "id": "fs.diff",
       "metadata_provenance": {
@@ -404,6 +427,7 @@
       "command": "fs.glob",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_glob",
       "id": "fs.glob",
       "metadata_provenance": {
@@ -503,6 +527,7 @@
       "command": "fs.history",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_history",
       "id": "fs.history",
       "metadata_provenance": {
@@ -630,6 +655,7 @@
       "command": "fs.list",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_list",
       "id": "fs.list",
       "metadata_provenance": {
@@ -785,6 +811,7 @@
       "command": "fs.move",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_move_delete:handle_fs_move",
       "id": "fs.move",
       "metadata_provenance": {
@@ -954,6 +981,7 @@
       "command": "fs.patch",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_patch:handle_fs_patch",
       "id": "fs.patch",
       "metadata_provenance": {
@@ -1121,6 +1149,7 @@
       "command": "fs.read",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_read",
       "id": "fs.read",
       "metadata_provenance": {
@@ -1290,6 +1319,7 @@
       "command": "fs.restore",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_restore",
       "id": "fs.restore",
       "metadata_provenance": {
@@ -1389,6 +1419,7 @@
       "command": "fs.stat",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_stat",
       "id": "fs.stat",
       "metadata_provenance": {
@@ -1558,6 +1589,7 @@
       "command": "fs.write",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_write",
       "id": "fs.write",
       "metadata_provenance": {
@@ -1673,6 +1705,7 @@
       "command": "ha.addon_changelog",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_changelog",
       "id": "ha.addon_changelog",
       "metadata_provenance": {
@@ -1788,6 +1821,7 @@
       "command": "ha.addon_documentation",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_documentation",
       "id": "ha.addon_documentation",
       "metadata_provenance": {
@@ -1903,6 +1937,7 @@
       "command": "ha.addon_info",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_info",
       "id": "ha.addon_info",
       "metadata_provenance": {
@@ -2034,6 +2069,7 @@
       "command": "ha.addon_logs",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b3",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_logs",
       "id": "ha.addon_logs",
       "metadata_provenance": {
@@ -2149,6 +2185,7 @@
       "command": "ha.addon_restart",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_restart",
       "id": "ha.addon_restart",
       "metadata_provenance": {
@@ -2265,6 +2302,7 @@
       "command": "ha.addon_start",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_start",
       "id": "ha.addon_start",
       "metadata_provenance": {
@@ -2381,6 +2419,7 @@
       "command": "ha.addon_stats",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_stats",
       "id": "ha.addon_stats",
       "metadata_provenance": {
@@ -2496,6 +2535,7 @@
       "command": "ha.addon_stop",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_stop",
       "id": "ha.addon_stop",
       "metadata_provenance": {
@@ -2612,6 +2652,7 @@
       "command": "ha.addon_update",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_update",
       "id": "ha.addon_update",
       "metadata_provenance": {
@@ -2760,6 +2801,7 @@
       "command": "ha.calendar_get_events",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_calendar_get_events",
       "id": "ha.calendar_get_events",
       "metadata_provenance": {
@@ -3040,6 +3082,7 @@
       "command": "ha.call_service",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_call_service",
       "id": "ha.call_service",
       "metadata_provenance": {
@@ -3139,6 +3182,7 @@
       "command": "ha.check_config",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_check_config",
       "id": "ha.check_config",
       "metadata_provenance": {
@@ -3297,6 +3341,7 @@
       "command": "ha.config.area_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry",
       "metadata_provenance": {
@@ -3457,6 +3502,7 @@
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#create",
       "metadata_provenance": {
@@ -3602,6 +3648,7 @@
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#delete",
       "metadata_provenance": {
@@ -3702,6 +3749,7 @@
       "command": "ha.config.area_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#list",
       "metadata_provenance": {
@@ -3861,6 +3909,7 @@
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#update",
       "metadata_provenance": {
@@ -4003,6 +4052,7 @@
       "command": "ha.config.automation",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation",
       "metadata_provenance": {
@@ -4149,6 +4199,7 @@
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#delete",
       "metadata_provenance": {
@@ -4264,6 +4315,7 @@
       "command": "ha.config.automation",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#get",
       "metadata_provenance": {
@@ -4424,6 +4476,7 @@
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#save",
       "metadata_provenance": {
@@ -4553,6 +4606,7 @@
       "command": "ha.config.config_entries",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries",
       "metadata_provenance": {
@@ -4698,6 +4752,7 @@
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#disable",
       "metadata_provenance": {
@@ -4843,6 +4898,7 @@
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#enable",
       "metadata_provenance": {
@@ -4957,6 +5013,7 @@
       "command": "ha.config.config_entries",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#get",
       "metadata_provenance": {
@@ -5099,6 +5156,7 @@
       "command": "ha.config.device_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry",
       "metadata_provenance": {
@@ -5199,6 +5257,7 @@
       "command": "ha.config.device_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#list",
       "metadata_provenance": {
@@ -5358,6 +5417,7 @@
       "command": "ha.config.device_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#update",
       "metadata_provenance": {
@@ -5500,6 +5560,7 @@
       "command": "ha.config.entity_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry",
       "metadata_provenance": {
@@ -5614,6 +5675,7 @@
       "command": "ha.config.entity_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#get",
       "metadata_provenance": {
@@ -5714,6 +5776,7 @@
       "command": "ha.config.entity_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#list",
       "metadata_provenance": {
@@ -5859,6 +5922,7 @@
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#remove",
       "metadata_provenance": {
@@ -6018,6 +6082,7 @@
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#update",
       "metadata_provenance": {
@@ -6160,6 +6225,7 @@
       "command": "ha.config.helpers",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers",
       "metadata_provenance": {
@@ -6320,6 +6386,7 @@
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#create",
       "metadata_provenance": {
@@ -6480,6 +6547,7 @@
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#delete",
       "metadata_provenance": {
@@ -6595,6 +6663,7 @@
       "command": "ha.config.helpers",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#list",
       "metadata_provenance": {
@@ -6769,6 +6838,7 @@
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#update",
       "metadata_provenance": {
@@ -6940,6 +7010,7 @@
       "command": "ha.config.lovelace",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace",
       "metadata_provenance": {
@@ -7040,6 +7111,7 @@
       "command": "ha.config.lovelace",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#dashboards_list",
       "metadata_provenance": {
@@ -7154,6 +7226,7 @@
       "command": "ha.config.lovelace",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#get",
       "metadata_provenance": {
@@ -7313,6 +7386,7 @@
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_create",
       "metadata_provenance": {
@@ -7413,6 +7487,7 @@
       "command": "ha.config.lovelace",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_list",
       "metadata_provenance": {
@@ -7572,6 +7647,7 @@
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#save",
       "metadata_provenance": {
@@ -7714,6 +7790,7 @@
       "command": "ha.config.scene",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene",
       "metadata_provenance": {
@@ -7859,6 +7936,7 @@
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#delete",
       "metadata_provenance": {
@@ -7973,6 +8051,7 @@
       "command": "ha.config.scene",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#get",
       "metadata_provenance": {
@@ -8132,6 +8211,7 @@
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#save",
       "metadata_provenance": {
@@ -8274,6 +8354,7 @@
       "command": "ha.config.script",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Base command inventory row; use the action rows for behavior claims.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script",
       "metadata_provenance": {
@@ -8419,6 +8500,7 @@
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#delete",
       "metadata_provenance": {
@@ -8533,6 +8615,7 @@
       "command": "ha.config.script",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#get",
       "metadata_provenance": {
@@ -8692,6 +8775,7 @@
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#save",
       "metadata_provenance": {
@@ -8807,6 +8891,7 @@
       "command": "ha.core_logs",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_core_logs",
       "id": "ha.core_logs",
       "metadata_provenance": {
@@ -8905,6 +8990,7 @@
       "command": "ha.get_config",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_get_config",
       "id": "ha.get_config",
       "metadata_provenance": {
@@ -9020,6 +9106,7 @@
       "command": "ha.get_state",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_get_state",
       "id": "ha.get_state",
       "metadata_provenance": {
@@ -9224,6 +9311,7 @@
       "command": "ha.history",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Installed-node probes reproduced the +00:00 encoding failure and silent empty unknown-entity result.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_history",
       "id": "ha.history",
       "metadata_provenance": {
@@ -9385,6 +9473,7 @@
       "command": "ha.light_turn_off",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_light_turn_off",
       "id": "ha.light_turn_off",
       "metadata_provenance": {
@@ -9602,6 +9691,7 @@
       "command": "ha.light_turn_on",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_light_turn_on",
       "id": "ha.light_turn_on",
       "metadata_provenance": {
@@ -9700,6 +9790,7 @@
       "command": "ha.list_addons",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.20b3",
       "handler": "openclaw_node.commands.ha:handle_ha_list_addons",
       "id": "ha.list_addons",
       "metadata_provenance": {
@@ -9798,6 +9889,7 @@
       "command": "ha.list_areas",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_areas",
       "id": "ha.list_areas",
       "metadata_provenance": {
@@ -9980,6 +10072,7 @@
       "command": "ha.list_automations",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_automations",
       "id": "ha.list_automations",
       "metadata_provenance": {
@@ -10078,6 +10171,7 @@
       "command": "ha.list_config_entries",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_list_config_entries",
       "id": "ha.list_config_entries",
       "metadata_provenance": {
@@ -10176,6 +10270,7 @@
       "command": "ha.list_devices",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_devices",
       "id": "ha.list_devices",
       "metadata_provenance": {
@@ -10274,6 +10369,7 @@
       "command": "ha.list_entity_registry",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_entity_registry",
       "id": "ha.list_entity_registry",
       "metadata_provenance": {
@@ -10372,6 +10468,7 @@
       "command": "ha.list_events",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_list_events",
       "id": "ha.list_events",
       "metadata_provenance": {
@@ -10470,6 +10567,7 @@
       "command": "ha.list_services",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_services",
       "id": "ha.list_services",
       "metadata_provenance": {
@@ -10590,6 +10688,7 @@
       "command": "ha.list_states",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_states",
       "id": "ha.list_states",
       "metadata_provenance": {
@@ -10750,6 +10849,7 @@
       "command": "ha.logbook",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Installed-node probes covered plugin-path bounding; direct source contract drift remains unresolved.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_logbook",
       "id": "ha.logbook",
       "metadata_provenance": {
@@ -10881,6 +10981,7 @@
       "command": "ha.reload_config",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_reload_config",
       "id": "ha.reload_config",
       "metadata_provenance": {
@@ -10980,6 +11081,7 @@
       "command": "ha.supervisor_info",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.ha:handle_ha_supervisor_info",
       "id": "ha.supervisor_info",
       "metadata_provenance": {
@@ -11143,6 +11245,7 @@
       "command": "ha.update_install",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.ha:handle_ha_update_install",
       "id": "ha.update_install",
       "metadata_provenance": {
@@ -11244,6 +11347,7 @@
       "command": "ping",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ping:handle_ping",
       "id": "ping",
       "metadata_provenance": {
@@ -11334,6 +11438,7 @@
       "command": "system.execApprovals.get",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get",
       "id": "system.execApprovals.get",
       "metadata_provenance": {
@@ -11448,6 +11553,7 @@
       "command": "system.execApprovals.set",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set",
       "id": "system.execApprovals.set",
       "metadata_provenance": {
@@ -11755,6 +11861,7 @@
       "command": "system.run",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.system_run:handle_system_run",
       "id": "system.run",
       "metadata_provenance": {
@@ -11927,6 +12034,7 @@
       "command": "system.run.prepare",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "unreleased",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_run_prepare",
       "id": "system.run.prepare",
       "metadata_provenance": {
@@ -12027,6 +12135,7 @@
       "command": "system.which",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.system:handle_system_which",
       "id": "system.which",
       "metadata_provenance": {

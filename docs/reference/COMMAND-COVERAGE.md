@@ -7,6 +7,8 @@ Source-derived registry, advertisement, caller, action, and accepted-key facts a
 combined with explicitly manual policy/semantic notes. `UNVERIFIED` and failure
 rows are intentionally retained. Regenerate after editing source or
 `contracts/command-coverage-manual.json`.
+Shipment versions use the same canonical forms as `scripts/bump-version.py`:
+`aN`, `bN`, `rcN`, `.devN`, or a final three-part release.
 
 ## Summary
 
@@ -17,6 +19,31 @@ rows are intentionally retained. Regenerate after editing source or
 - Ledger rows: **88**
 - Registered but unadvertised: `none`
 - Advertised but unregistered: `none`
+
+## New in this release (2026.7.23b1)
+
+Commands whose `first_shipped_in` matches the synchronized version in the five tracked project sources. These are new since the previous release.
+
+- `ha.config.area_registry`
+- `ha.config.automation`
+- `ha.config.config_entries`
+- `ha.config.device_registry`
+- `ha.config.entity_registry`
+- `ha.config.helpers`
+- `ha.config.lovelace`
+- `ha.config.scene`
+- `ha.config.script`
+
+## Unreleased command additions
+
+Commands with `first_shipped_in: unreleased`. These will ship if a release is cut now.
+
+- `ha.addon_update`
+- `ha.supervisor_info`
+- `ha.update_install`
+- `system.execApprovals.get`
+- `system.execApprovals.set`
+- `system.run.prepare`
 
 ## Evidence methods
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -80,9 +81,33 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
             "system.which",
         ],
     }
+    # New top-level release-tracking fields must be present.
+    assert "latest_release" in ledger
+    assert ledger["release_version_format"].endswith("or final")
+    assert isinstance(ledger["commands_new_in_latest_release"], list)
+    assert isinstance(ledger["commands_unreleased"], list)
+    # The genuinely unreleased commands as of origin/main. ha.supervisor_info
+    # joined this list when #304 merged; it stamps on the next release cut.
+    assert sorted(ledger["commands_unreleased"]) == [
+        "ha.addon_update",
+        "ha.supervisor_info",
+        "ha.update_install",
+        "system.execApprovals.get",
+        "system.execApprovals.set",
+        "system.run.prepare",
+    ]
+
+    _version_re = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
+
     assert len({row["id"] for row in rows}) == len(rows)
     for row in rows:
         assert row["registered"] is True
+        # Every row must carry a valid first_shipped_in.
+        fsi = row.get("first_shipped_in")
+        assert isinstance(fsi, str), f"row {row['id']} first_shipped_in must be a string"
+        assert fsi, f"row {row['id']} first_shipped_in must not be empty"
+        fsi_valid = fsi == "unreleased" or bool(_version_re.fullmatch(fsi))
+        assert fsi_valid, f"row {row['id']} first_shipped_in {fsi!r} is not valid"
         assert set(row["callers"]) == {
             "assist_wrapper",
             "direct_nodes_invoke",
@@ -170,6 +195,29 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
         assert assist["injected_node_params"] == {}
         assert assist["known_unaccepted_node_params"] == {}
         assert any(item["outcome"] == "pass" for item in assist["evidence"])
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["2026.6.8a8", "2026.7.23b1", "2026.9.12rc1", "2026.9.12", "2026.9.12.dev1"],
+)
+def test_release_metadata_accepts_every_canonical_release_form(version: str) -> None:
+    generator = _load_generator()
+
+    generator._validate_first_shipped_in("example", version)
+
+
+def test_release_version_sorting_matches_pep440_stage_order() -> None:
+    generator = _load_generator()
+    versions = [
+        "2026.9.12",
+        "2026.9.12rc1",
+        "2026.9.12b1",
+        "2026.9.12a1",
+        "2026.9.12.dev1",
+    ]
+
+    assert sorted(versions, key=generator._version_sort_key) == list(reversed(versions))
 
 
 def test_missing_registered_command_coverage_fails(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -356,3 +404,176 @@ def test_assist_contract_requires_client_side_semantics_for_null_mapping(
     monkeypatch.setattr(generator, "ASSIST_CONTRACT", mutated)
     with pytest.raises(generator.LedgerError, match="null-mapped params need"):
         generator._assist_callers()
+
+
+# --- first_shipped_in gate tests ---
+
+
+def test_first_shipped_in_missing_fails() -> None:
+    """A command without first_shipped_in is rejected at ledger build time."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in must be a non-empty string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", None)
+
+
+def test_first_shipped_in_empty_string_fails() -> None:
+    """An empty first_shipped_in value is rejected."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in must be a non-empty string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", "")
+
+
+def test_first_shipped_in_non_string_fails() -> None:
+    """A numeric first_shipped_in value is rejected."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in must be a non-empty string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", 123)
+
+
+def test_first_shipped_in_invalid_version_fails() -> None:
+    """A value that is neither 'unreleased' nor a valid version string is rejected."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in.*neither 'unreleased' nor a valid version string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", "not-a-version")
+
+
+@pytest.mark.parametrize("value", ["2026.9.12\n", "2026.9.12suffix"])
+def test_first_shipped_in_rejects_trailing_content(value: str) -> None:
+    """A canonical prefix does not make a longer value valid."""
+    generator = _load_generator()
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"first_shipped_in.*neither 'unreleased' nor a valid version string",
+    ):
+        generator._validate_first_shipped_in("test.cmd", value)
+
+
+def test_first_shipped_in_valid_alpha_version_passes() -> None:
+    """An alpha prerelease version like 2026.6.8a8 is accepted."""
+    generator = _load_generator()
+    generator._validate_first_shipped_in("test.cmd", "2026.6.8a8")
+
+
+def test_first_shipped_in_valid_beta_version_passes() -> None:
+    """A beta prerelease version like 2026.9.12b1 is accepted."""
+    generator = _load_generator()
+    generator._validate_first_shipped_in("test.cmd", "2026.9.12b1")
+
+
+def test_first_shipped_in_unreleased_passes() -> None:
+    """The sentinel value 'unreleased' is accepted."""
+    generator = _load_generator()
+    generator._validate_first_shipped_in("test.cmd", "unreleased")
+
+
+def test_missing_first_shipped_in_in_manual_fails_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """build_ledger() must fail when first_shipped_in is absent from any command entry."""
+    generator = _load_generator()
+    original_load = generator._load_manual
+
+    def without_first_shipped() -> Any:
+        data = original_load()
+        data["commands"]["ping"] = {
+            k: v for k, v in data["commands"]["ping"].items() if k != "first_shipped_in"
+        }
+        return data
+
+    monkeypatch.setattr(generator, "_load_manual", without_first_shipped)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"ping first_shipped_in must be a non-empty string",
+    ):
+        generator.build_ledger()
+
+
+def test_version_sort_key_orders_numerically_not_lexicographically() -> None:
+    """`2026.6.8a8` precedes `2026.6.20b3` even though it sorts later as text."""
+    generator = _load_generator()
+    versions = ["2026.6.20b3", "2026.6.8a8", "2026.7.23b1", "2026.6.20b4"]
+    assert sorted(versions, key=generator._version_sort_key) == [
+        "2026.6.8a8",
+        "2026.6.20b3",
+        "2026.6.20b4",
+        "2026.7.23b1",
+    ]
+
+
+def test_version_sort_key_orders_alpha_before_beta_same_date() -> None:
+    generator = _load_generator()
+    assert generator._version_sort_key("2026.6.8a8") < generator._version_sort_key("2026.6.8b1")
+
+
+def test_tracked_release_version_uses_all_synchronized_sources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    generator = _load_generator()
+
+    sources = []
+    for index, (_, pattern) in enumerate(generator._VERSION_SOURCES):
+        path = tmp_path / f"version-{index}"
+        template = next(
+            text
+            for text in (
+                'version: "2026.8.1b1"\n',
+                '  io.hass.version: "2026.8.1b1"\n',
+                'version = "2026.8.1b1"\n',
+                '    __version__ = "2026.8.1b1"\n',
+                '  "version": "2026.8.1b1"\n',
+            )
+            if pattern.search(text)
+        )
+        path.write_text(template, encoding="utf-8")
+        sources.append((path, pattern))
+    monkeypatch.setattr(generator, "_VERSION_SOURCES", tuple(sources))
+
+    def explode(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("generator must not shell out to git")
+
+    monkeypatch.setattr(subprocess, "run", explode)
+    assert generator._tracked_release_version() == "2026.8.1b1"
+
+
+def test_tracked_release_version_rejects_source_drift(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    generator = _load_generator()
+    sources = []
+    for index, (_, pattern) in enumerate(generator._VERSION_SOURCES):
+        version = "2026.8.1b2" if index == 4 else "2026.8.1b1"
+        text_options = (
+            f'version: "{version}"\n',
+            f'  io.hass.version: "{version}"\n',
+            f'version = "{version}"\n',
+            f'    __version__ = "{version}"\n',
+            f'  "version": "{version}"\n',
+        )
+        path = tmp_path / f"version-{index}"
+        path.write_text(
+            next(text for text in text_options if pattern.search(text)), encoding="utf-8"
+        )
+        sources.append((path, pattern))
+    monkeypatch.setattr(generator, "_VERSION_SOURCES", tuple(sources))
+
+    with pytest.raises(generator.LedgerError, match="version drift across tracked sources"):
+        generator._tracked_release_version()
+
+
+def test_release_with_zero_new_commands_has_current_release_heading() -> None:
+    generator = _load_generator()
+    first_shipped = {"ping": "2026.7.23b1", "ha.get_state": "2026.6.8a8"}
+
+    assert generator._commands_new_in_release(first_shipped, "2026.8.1b1") == []

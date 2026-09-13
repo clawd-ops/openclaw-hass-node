@@ -19,6 +19,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _REPO_ROOT / "scripts" / "bump-version.py"
 
@@ -106,3 +108,11 @@ def test_final_version_unaffected(tmp_path: Path) -> None:
     result = _run_bump_in_tmp(tmp_path, "2026.7.0")
     assert result.returncode == 0, result.stderr
     assert "exceeds" not in (result.stdout + result.stderr)
+
+
+@pytest.mark.parametrize("version", ["2026.9.12\n", "2026.9.12suffix"])
+def test_version_with_trailing_content_is_rejected(tmp_path: Path, version: str) -> None:
+    """The bump command requires the entire argument to be canonical."""
+    result = _run_bump_in_tmp(tmp_path, version)
+    assert result.returncode != 0
+    assert "does not look like a PEP 440 version" in (result.stdout + result.stderr)

@@ -25,6 +25,13 @@ The project carries the version string in five places (`pyproject.toml`,
 `__init__.py` fallback, `app/config.yaml`, `app/build.yaml`,
 `custom_components/openclaw_hass_node_assist/manifest.json`). Use
 `scripts/bump-version.py <new-version>` — it updates all five together.
+Then run `scripts/mark-commands-shipped.py <new-version>` locally. Commit its
+manual-ledger and generated-artifact changes in the same PR as all five
+version sources and the matching `app/CHANGELOG.md` entry. This release-prep
+stamp is not tag automation. The Command Coverage Ledger PR check validates the
+base-to-head shipment transition, and the push-triggered release workflow runs
+the same check before creating a tag or release. These are executable checks;
+whether the PR check is required for merge depends on repository settings.
 `test_version_sync.py` keeps them honest in CI; a drift in any of the
 five fails the Version Sync gate on the PR. The version stays on a
 pre-release marker (`a`/`b`/`rc`/`.dev`) until the project ships a 1.0
@@ -50,6 +57,9 @@ plan.
 - [ ] Bump every version source if and only if you need a Supervisor
       Update prompt. `test_version_sync.py` will refuse to let you
       bump some-but-not-all.
+- [ ] For a release bump, run `scripts/mark-commands-shipped.py <new-version>`
+      locally and include the manual ledger, generated artifacts, all five
+      version sources, and changelog in the same PR.
 - [ ] If the change touches the connect frame, the auth payload, or the
       command surface — add a `docs/operations/LESSONS.md` entry so the agent (future maintainer)
       doesn't relitigate the gotcha.
