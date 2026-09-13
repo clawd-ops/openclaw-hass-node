@@ -94,7 +94,7 @@ echo ">>> confidentiality-check on changed content"
 git diff --binary --no-ext-diff "origin/main...HEAD" | scripts/dev/confidentiality-check \
     || { echo "CONFIDENTIALITY AUDIT FAILED — binary diff did not scan cleanly" >&2; exit 1; }
 CHANGED_LIST="$TEMP_ROOT/changed-files"
-git diff --name-only -z --diff-filter=ACMR "origin/main...HEAD" > "$CHANGED_LIST" \
+git diff --name-only -z --diff-filter=ACMRT "origin/main...HEAD" > "$CHANGED_LIST" \
     || { echo "CONFIDENTIALITY AUDIT FAILED — could not enumerate changes" >&2; exit 1; }
 while IFS= read -r -d '' changed_path; do
     git cat-file blob "HEAD:$changed_path" | scripts/dev/confidentiality-check \

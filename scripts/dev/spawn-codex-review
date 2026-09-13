@@ -252,9 +252,11 @@ Path(sys.argv[2]).write_text(f"{review}\n\n{attribution}", encoding="utf-8")
 PYEOF
 "$CHECKER" "$COMMENT_FILE"
 
-LIVE_HEAD=$(gh pr view "$PR" --repo "$REPOSITORY" --json headRefOid --jq '.headRefOid')
-if [[ "$LIVE_HEAD" != "$HEAD_SHA" ]]; then
-    echo "spawn-codex-review: PR head moved; review not posted" >&2
+LIVE_REFS=$(gh pr view "$PR" --repo "$REPOSITORY" --json headRefOid,baseRefOid \
+    --jq '[.headRefOid, .baseRefOid] | @tsv')
+IFS=$'\t' read -r LIVE_HEAD LIVE_BASE <<< "$LIVE_REFS"
+if [[ "$LIVE_HEAD" != "$HEAD_SHA" || "$LIVE_BASE" != "$BASE_SHA" ]]; then
+    echo "spawn-codex-review: PR head or base moved; review not posted" >&2
     exit 1
 fi
 

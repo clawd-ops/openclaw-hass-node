@@ -495,6 +495,10 @@ import sys
 args = sys.argv[1:]
 if args[:2] == ["repo", "view"]:
     print("example/project")
+elif args[:2] == ["pr", "view"] and "headRefOid,baseRefOid" in args:
+    head = os.environ.get("LIVE_HEAD_SHA", "0" * 40)
+    base = os.environ.get("LIVE_BASE_SHA", "0" * 39 + "1")
+    print(f"{head}\t{base}")
 elif args[:2] == ["pr", "view"] and "headRefOid" in args:
     print("0" * 40)
 elif args[:2] == ["pr", "view"] and "baseRefOid" in args:
@@ -682,6 +686,20 @@ def test_spawn_review_rejects_pin_after_second_line(tmp_path: Path) -> None:
     assert not Path(env["CAPTURE_COMMENT"]).exists()
 
 
+def test_spawn_review_rejects_base_drift_before_posting(tmp_path: Path) -> None:
+    """A changed base invalidates the reviewed diff even when the head stays fixed."""
+    env, _, _ = _spawn_review_env(tmp_path)
+    env["LIVE_BASE_SHA"] = "b" * 40
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert "PR head or base moved" in result.stderr
+    assert not Path(env["CAPTURE_COMMENT"]).exists()
+
+
 def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> None:
     """A successful launcher process without one spawn tool call fails closed."""
     stub_bin = tmp_path / "bin"
@@ -746,7 +764,7 @@ def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
     assert 'generate-command-coverage.py" 2>/dev/null || true' not in text
     assert 'check-active-docs-schema.py" 2>/dev/null || true' not in text
     assert text.index("pnpm install --no-frozen-lockfile") < text.index("pnpm docs:typescript")
-    assert 'git diff --name-only -z --diff-filter=ACMR "origin/main...HEAD"' in text
+    assert 'git diff --name-only -z --diff-filter=ACMRT "origin/main...HEAD"' in text
     assert 'git cat-file blob "HEAD:$changed_path"' in text
     assert 'git diff --binary --no-ext-diff "origin/main...HEAD"' in text
     assert 'git diff --name-only -z --diff-filter=D "origin/main...HEAD"' in text
@@ -756,6 +774,57 @@ def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
     assert '[[ "$BASE_BRANCH" != "main" ]]' in text
     assert '[[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]' in text
     assert "uv sync --quiet --python 3.13" in text
+
+
+def test_pr_rebase_head_blob_filter_covers_type_changes(tmp_path: Path) -> None:
+    """The rebase scanner's filter includes a symlink-to-file type change."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "Test"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "test@example.invalid"],
+        check=True,
+    )
+    changed = repo / "changed"
+    changed.symlink_to("target")
+    subprocess.run(["git", "-C", str(repo), "add", "changed"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "base"], check=True)
+
+    changed.unlink()
+    changed.write_bytes(b"literal payload\x00after type change")
+    subprocess.run(["git", "-C", str(repo), "add", "changed"], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "head"], check=True)
+
+    status = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--name-status", "HEAD^...HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    scanned = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "diff",
+            "--name-only",
+            "--diff-filter=ACMRT",
+            "HEAD^...HEAD",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    blob = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "blob", "HEAD:changed"],
+        check=True,
+        capture_output=True,
+    )
+
+    assert status.stdout == "T\tchanged\n"
+    assert scanned.stdout == "changed\n"
+    assert blob.stdout == b"literal payload\x00after type change"
 
 
 @pytest.mark.parametrize(
