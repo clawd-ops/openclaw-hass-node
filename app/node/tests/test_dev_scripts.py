@@ -413,9 +413,9 @@ esac
                     "created_at": "2026-01-01T00:00:00Z",
                     "user": {"login": "example"},
                     "body": (
-                        f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
-                        f"Reviewer model: openai/gpt-5.6-sol — reviewed at {old} "
-                        f"(base {'b' * 40})."
+                        f"REQUEST CHANGES\n"
+                        f"Reviewed head: `{old}` (base `{'b' * 40}`)\n\n"
+                        f"Reviewer model: openai/gpt-5.6-sol"
                     ),
                 },
             ],
@@ -424,9 +424,9 @@ esac
                     "created_at": "2026-01-02T00:00:00Z",
                     "user": {"login": "example"},
                     "body": (
-                        f"APPROVE\nReviewed exact head `{head}`.\n\n"
-                        f"Reviewer model: openai/gpt-5.6-luna — reviewed at {head} "
-                        f"(base {'b' * 40})."
+                        f"APPROVE\n"
+                        f"Reviewed head: `{head}` (base `{'b' * 40}`)\n\n"
+                        f"Reviewer model: openai/gpt-5.6-luna"
                     ),
                 }
             ],
@@ -435,9 +435,9 @@ esac
                     "created_at": "2026-01-03T00:00:00Z",
                     "user": {"login": "untrusted"},
                     "body": (
-                        f"REQUEST CHANGES\nReviewed exact head `{old}`.\n\n"
-                        f"Reviewer model: openai/gpt-5.6-sol — reviewed at {old} "
-                        f"(base {'b' * 40})."
+                        f"REQUEST CHANGES\n"
+                        f"Reviewed head: `{old}` (base `{'b' * 40}`)\n\n"
+                        f"Reviewer model: openai/gpt-5.6-sol"
                     ),
                 }
             ],
@@ -596,7 +596,10 @@ else:
                     ]
                 }
             ),
-            "REVIEW_BODY": "APPROVE\n\nNo blocking findings.",
+            "REVIEW_BODY": (
+                f"APPROVE\nReviewed head: `{'0' * 40}` "
+                f"(base `{'0' * 39 + '1'}`)\n\nNo blocking findings."
+            ),
         }
     )
 
@@ -629,10 +632,12 @@ def test_spawn_review_runs_child_and_posts_parent_attributed_comment(tmp_path: P
     assert output["commentUrl"] == "https://example.invalid/comment/17"
     comment = Path(env["CAPTURE_COMMENT"]).read_text(encoding="utf-8")
     assert comment == (
-        "APPROVE\n\nNo blocking findings.\n\n"
-        f"Reviewer model: openai/gpt-5.6-sol — reviewed at {'0' * 40} "
-        f"(base {'0' * 39 + '1'})."
+        f"APPROVE\nReviewed head: `{'0' * 40}` (base `{'0' * 39 + '1'}`)\n\n"
+        "No blocking findings.\n\n"
+        "Reviewer model: openai/gpt-5.6-sol"
     )
+    # Readability requirement: the head SHA appears exactly once in a comment.
+    assert comment.count("0" * 40) == 1
 
 
 def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> None:

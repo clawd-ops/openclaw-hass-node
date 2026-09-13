@@ -145,7 +145,7 @@ records.
 A valid sign-off looks like:
 
 ```
-Reviewer model: openai/gpt-5.6-sol — reviewed at abc12345 (base def67890).
+Reviewer model: openai/gpt-5.6-sol
 ```
 
 Bare `Codex` is **not** valid attribution. It is indistinguishable across every

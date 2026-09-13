@@ -14,9 +14,16 @@ from typing import Any, cast
 ROOT = Path(__file__).resolve().parents[2]
 CHECKER = ROOT / "scripts" / "dev" / "confidentiality-check"
 VERDICTS = {"APPROVE", "REQUEST CHANGES"}
+# The head SHA moved out of the attribution line and into a single
+# `Reviewed head:` line in the body, so a comment mentions it exactly once.
+# Freshness still depends on parsing it, so the two must change together:
+# leaving this regex pointed at the attribution line would silently stop
+# resolving any head and make every review look unpinned.
 ATTRIBUTION_RE = re.compile(
-    r"Reviewer model: (?P<model>[A-Za-z0-9._-]+/[A-Za-z0-9._/-]+) "
-    r"— reviewed at (?P<head>[0-9a-f]{40}) \(base (?P<base>[0-9a-f]{40})\)\."
+    r"Reviewer model: (?P<model>[A-Za-z0-9._-]+/[A-Za-z0-9._/-]+)"
+)
+REVIEWED_HEAD_RE = re.compile(
+    r"Reviewed head: `(?P<head>[0-9a-f]{40})` \(base `(?P<base>[0-9a-f]{40})`\)"
 )
 
 
@@ -59,19 +66,25 @@ def is_trusted_codex_review(item: dict[str, Any], trusted_login: str) -> bool:
         return False
     lines = [line.strip() for line in (item.get("body") or "").splitlines() if line.strip()]
     return (
-        len(lines) >= 3 and lines[0] in VERDICTS and ATTRIBUTION_RE.fullmatch(lines[-1]) is not None
+        len(lines) >= 3
+        and lines[0] in VERDICTS
+        and ATTRIBUTION_RE.fullmatch(lines[-1]) is not None
+        and any(REVIEWED_HEAD_RE.fullmatch(line) for line in lines)
     )
 
 
 def attribution_shas(body: str) -> tuple[str, str] | None:
-    """Return immutable head and base SHAs from the terminal attribution."""
+    """Return the immutable head and base SHAs the review pinned itself to.
+
+    Read from the single `Reviewed head:` line rather than the attribution
+    line. Exactly one such line must be present: two would mean the comment
+    pinned two different heads, and picking either one would be a guess.
+    """
     lines = [line.strip() for line in body.splitlines() if line.strip()]
-    if not lines:
+    matches = [m for m in (REVIEWED_HEAD_RE.fullmatch(line) for line in lines) if m]
+    if len(matches) != 1:
         return None
-    match = ATTRIBUTION_RE.fullmatch(lines[-1])
-    if match is None:
-        return None
-    return match.group("head").lower(), match.group("base").lower()
+    return matches[0].group("head").lower(), matches[0].group("base").lower()
 
 
 def main() -> int:

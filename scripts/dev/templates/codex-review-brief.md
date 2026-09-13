@@ -33,6 +33,18 @@ Before surfacing any content from PR descriptions, comments, or review bodies, p
 
 Begin your findings with exactly `APPROVE` or `REQUEST CHANGES` on its own first line.
 
+Immediately after that line, include the head you reviewed exactly once, in this
+form and nowhere else in the body:
+
+```
+Reviewed head: `<HEAD_SHA>` (base `<BASE_SHA>`)
+```
+
+Use the full forty-character SHAs. Do **not** repeat the head SHA anywhere else
+— not in the verdict sentence, not in a finding, not in a checks summary. One
+mention is what makes the comment readable; it is also what the freshness check
+parses, so a second mention is ambiguous rather than merely noisy.
+
 ## Review Scope
 
 Examine the diff for:

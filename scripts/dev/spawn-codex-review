@@ -226,11 +226,27 @@ Path(sys.argv[2]).write_text(review, encoding="utf-8")
 PYEOF
 
 python3 - "$REVIEW_FILE" "$COMMENT_FILE" "$MODEL_SLUG" "$HEAD_SHA" "$BASE_SHA" << 'PYEOF'
+import re
 import sys
 from pathlib import Path
 
+# The head SHA belongs in the body's single `Reviewed head:` line, so the
+# attribution carries the model only. Repeating the SHA here would put it in a
+# comment twice and make the freshness parse ambiguous.
 review = Path(sys.argv[1]).read_text(encoding="utf-8")
-attribution = f"Reviewer model: {sys.argv[3]} — reviewed at {sys.argv[4]} (base {sys.argv[5]})."
+head, base = sys.argv[4], sys.argv[5]
+
+reviewed_head = re.compile(rf"Reviewed head: `{head}` \(base `{base}`\)")
+matches = [line for line in review.splitlines() if reviewed_head.fullmatch(line.strip())]
+if len(matches) != 1:
+    sys.exit(
+        "spawn-codex-review: child review must state the reviewed head exactly once as "
+        "Reviewed head: `<head>` (base `<base>`)"
+    )
+if review.count(head) != 1:
+    sys.exit("spawn-codex-review: child review mentions the head SHA more than once")
+
+attribution = f"Reviewer model: {sys.argv[3]}"
 Path(sys.argv[2]).write_text(f"{review}\n\n{attribution}", encoding="utf-8")
 PYEOF
 "$CHECKER" "$COMMENT_FILE"
