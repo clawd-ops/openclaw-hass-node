@@ -62,6 +62,93 @@ def test_issue_citations_reject_malformed_values(
         generator.build_ledger()
 
 
+@pytest.mark.parametrize("container", ["", 0, False, {}, "#316"])
+def test_issue_citations_reject_malformed_containers(
+    monkeypatch: pytest.MonkeyPatch, container: object
+) -> None:
+    """A malformed container must not be coerced into "no citations".
+
+    `... or []` ran before the type check, so an explicit "", 0, false or {} was
+    silently accepted as an empty citation list rather than rejected. Only a
+    genuinely absent value should default.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = container
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"issues for .* must be a list"):
+        generator.build_ledger()
+
+
+def test_absent_issues_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A genuinely absent value is still the documented way to say "none"."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"].pop("issues", None)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    assert next(r for r in ledger["rows"] if r["id"] == "ha.get_config")["issues"] == []
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["capability_conditions", "evidence_note"],
+)
+@pytest.mark.parametrize(
+    "payload",
+    ["[x](x)", "see [docs](https://evil.invalid)", "<https://evil.invalid>", "![i](x)"],
+)
+def test_prose_fields_reject_markdown_links(
+    monkeypatch: pytest.MonkeyPatch, field: str, payload: str
+) -> None:
+    """Prose fields are interpolated into the published ledger without escaping.
+
+    A link therefore renders as live content in COMMAND-COVERAGE.md. Escaping
+    wholesale is not viable — legitimate values use inline code and bold — so
+    link and image syntax specifically is refused.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"][field] = payload
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=rf"{field} for .* must not contain"):
+        generator.build_ledger()
+
+
+def test_prose_fields_still_allow_inline_code_and_bold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard must not break the formatting real values already use."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["capability_conditions"] = (
+        "Requires `allowAdminOps` and **a paired session**."
+    )
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    row = next(r for r in ledger["rows"] if r["id"] == "ha.get_config")
+    assert "`allowAdminOps`" in row["capability_conditions"]
+
+
+def test_observation_text_rejects_markdown_links() -> None:
+    """Observation text reaches the ledger through the shared constructor."""
+    generator = _load_generator()
+
+    with pytest.raises(generator.LedgerError, match=r"observation for .* must not contain"):
+        generator._evidence(
+            "CODE-PROVEN",
+            "pass",
+            "app/node/tests/test_x.py",
+            "Probe returned [a link](https://evil.invalid).",
+        )
+
+
 def test_issue_citations_reject_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
     """The same issue cited twice on one row is a typo, not a stronger claim."""
     generator = _load_generator()

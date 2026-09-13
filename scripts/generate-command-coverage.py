@@ -80,6 +80,29 @@ _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\
 # to be a real `#<number>` reference and nothing else. Leading zeros are
 # rejected because `#007` and `#7` would cite the same issue two ways.
 _ISSUE_CITATION_RE = re.compile(r"^#[1-9][0-9]*$")
+# Prose fields are interpolated into the published Markdown without escaping, so
+# a link or image in one renders as live content in COMMAND-COVERAGE.md. Escaping
+# them wholesale is not an option: 11 of 98 current prose values legitimately use
+# inline code and bold, which escaping would break. Rejecting only link and image
+# syntax closes the demonstrated vector and matches the data — no value anywhere
+# in the manual ledger uses it today.
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]*\)|<https?://|!\[")
+
+
+def _checked_prose(field: str, owner: str, value: Any) -> Any:
+    """Return *value* unchanged after refusing Markdown link/image syntax."""
+    _reject_markdown_links(field, owner, value)
+    return value
+
+
+def _reject_markdown_links(field: str, owner: str, value: object) -> None:
+    """Refuse link or image syntax in a field rendered verbatim into Markdown."""
+    if isinstance(value, str) and _MARKDOWN_LINK_RE.search(value):
+        raise LedgerError(
+            f"{field} for {owner} must not contain Markdown link or image syntax; "
+            "it is rendered verbatim into the published ledger"
+        )
+
 
 # The current release is read from all five tracked version sources. Generated
 # artifacts must not depend on command history or ambient git tags, and version
@@ -703,6 +726,7 @@ def _evidence(
     node_version: str | None = None,
     stale: bool | None = None,
 ) -> dict[str, Any]:
+    _reject_markdown_links("observation", source, observation)
     if method not in EVIDENCE_METHODS:
         raise LedgerError(f"invalid evidence method: {method}")
     if outcome not in OUTCOMES:
@@ -1228,14 +1252,16 @@ def build_ledger() -> dict[str, Any]:
                             stale=obs_stale,
                         )
                     )
-            issues = (
-                _resolved_evidence_field(
-                    "issues", variant, entry, authorization_defaults, manual_defaults
-                )
-                or []
+            issues = _resolved_evidence_field(
+                "issues", variant, entry, authorization_defaults, manual_defaults
             )
+            # Default only a genuinely absent value. `or []` ran before the type
+            # check, so an explicit "", 0, false or {} was silently accepted as
+            # "no citations" instead of being rejected as malformed.
+            if issues is None:
+                issues = []
             if not isinstance(issues, list):
-                raise LedgerError(f"issues for {row_id} must be a list")
+                raise LedgerError(f"issues for {row_id} must be a list (got {issues!r})")
             for citation in issues:
                 if not isinstance(citation, str) or not _ISSUE_CITATION_RE.fullmatch(citation):
                     raise LedgerError(
@@ -1256,8 +1282,10 @@ def build_ledger() -> dict[str, Any]:
                     "canonical_parameters": parameters,
                     "authorization_class": authorization_class,
                     "issues": issues,
-                    "capability_conditions": _resolved_manual(
-                        "capability_conditions", variant, entry, manual_defaults
+                    "capability_conditions": _checked_prose(
+                        "capability_conditions",
+                        row_id,
+                        _resolved_manual("capability_conditions", variant, entry, manual_defaults),
                     ),
                     "semantic_result": _resolved_manual(
                         "semantic_result", variant, entry, manual_defaults
@@ -1269,8 +1297,10 @@ def build_ledger() -> dict[str, Any]:
                     "source_mentions": _test_references(command),
                     "evidence_method": evidence,
                     "outcome": outcome,
-                    "evidence_note": _resolved_manual(
-                        "evidence_note", variant, entry, manual_defaults
+                    "evidence_note": _checked_prose(
+                        "evidence_note",
+                        row_id,
+                        _resolved_manual("evidence_note", variant, entry, manual_defaults),
                     )
                     or "Manual reality pass; behavior is not contract-enforced.",
                     "metadata_provenance": {
