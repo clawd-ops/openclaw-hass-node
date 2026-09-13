@@ -101,10 +101,13 @@ def _write_new(source: VersionFile, new_version: str) -> bool:
     return True
 
 
-def _check(version: str | None) -> int:
-    """Verify all five sources carry the same version (and optionally match *version*).
+def _synchronized_version() -> str | None:
+    """Return the version every source agrees on, or None after reporting drift.
 
-    Returns 0 on success, non-zero on drift.
+    `--check` and `--get` both need this, and both used to compute and report it
+    themselves. Two copies of the same reconciliation in release tooling can
+    drift apart — a new entry in SOURCES reaching only one of them would make
+    the two subcommands disagree about what the tracked version is.
     """
     versions = {s.path.relative_to(REPO_ROOT): _read_current(s) for s in SOURCES}
     distinct = set(versions.values())
@@ -112,8 +115,18 @@ def _check(version: str | None) -> int:
         print("error: version drift across sources:", file=sys.stderr)
         for path, ver in versions.items():
             print(f"  {path}: {ver}", file=sys.stderr)
+        return None
+    return next(iter(distinct))
+
+
+def _check(version: str | None) -> int:
+    """Verify all five sources carry the same version (and optionally match *version*).
+
+    Returns 0 on success, non-zero on drift.
+    """
+    current = _synchronized_version()
+    if current is None:
         return 1
-    current = next(iter(distinct))
     if version is not None and current != version:
         print(f"error: sources agree on {current!r} but expected {version!r}", file=sys.stderr)
         return 1
@@ -174,14 +187,10 @@ def main() -> int:
         # Print the bare version to stdout for shell capture
         # (`VERSION=$(scripts/bump-version.py --get)`). Drift exits non-zero
         # with the diff on stderr — no stdout output in that case.
-        versions = {s.path.relative_to(REPO_ROOT): _read_current(s) for s in SOURCES}
-        distinct = set(versions.values())
-        if len(distinct) != 1:
-            print("error: version drift across sources:", file=sys.stderr)
-            for path, ver in versions.items():
-                print(f"  {path}: {ver}", file=sys.stderr)
+        current = _synchronized_version()
+        if current is None:
             return 1
-        print(next(iter(distinct)))
+        print(current)
         return 0
     if args.check:
         return _check(args.version)
