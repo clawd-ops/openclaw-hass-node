@@ -27,8 +27,9 @@ known-stale claims.
 - New functionality is not advertised until its end-to-end path is usable.
 - Documentation is updated from verified behavior after each phase. It is not
   used to manufacture evidence that the phase is complete.
-- No agent may approve its own proposal. A proposal identifier is audit metadata,
-  not authorization.
+- Approval comes only from Gateway-authenticated native OpenClaw approval. An
+  agent cannot approve its own request, and a proposal identifier is audit
+  metadata, not authorization.
 
 ## Definition of complete
 
@@ -67,8 +68,8 @@ The project is complete only when all of the following are true:
 1. Authorization is based on the effect, not whether the entry point is named
    `ha.call_service` or a convenience wrapper.
 2. Normal permitted light control, specifically `light.turn_on`, is
-   `auto_allow` **after principal authorization**. It must not need an additional
-   proposal merely because it changes state.
+   `auto_allow` **after principal authorization**. It must not need an approval
+   prompt merely because it changes state.
 3. Other service calls are classified individually as `auto_allow`,
    `require_approval`, or `deny`; whole-domain assumptions are insufficient for
    domains such as `script`, `scene`, `switch`, `cover`, and `lock`.
@@ -77,7 +78,9 @@ The project is complete only when all of the following are true:
 5. Read-only/background principals cannot perform any mutation, including an
    otherwise auto-allowed light action, unless trusted context carries a narrow
    delegation for that exact class of effect.
-6. An agent cannot approve its own proposal.
+6. Native approval is Gateway-authenticated, bound to the exact operation,
+   consumed once, and resolved from an operator device. The node consumes that
+   decision; it does not create a second approval authority.
 
 ## Proposed design choices to confirm in implementation review
 
@@ -92,82 +95,30 @@ implementation:
    line with the project hard rule and the current safer implementation. If an
    exceptional repair path is ever required, it must be a separately designed
    offline recovery operation, not a generic command flag.
-4. The node remains a peripheral. The Gateway presents approvals; the node
-   accepts only trusted Gateway-owned context or a verifiable, operation-bound
-   capability. The exact current Gateway API must be validated before choosing
-   the wire format.
+4. The node remains a peripheral. The Gateway owns approval state and presents
+   decisions to operator devices; the node accepts only trusted Gateway-owned,
+   operation-bound context.
 
-## Stop-ship findings
+## Retained node-side gaps and trackers
 
-These are the current highest-priority facts. They must not be hidden among the
-older issue list.
+This is the single current list of retained node-side gaps. Merged source work
+remains listed when release-tied evidence is still outstanding.
 
-- Baseline finding: `ha.config.*` accepted nonempty caller-supplied proposal IDs
-  without verification. The Phase 0 source repair now fails closed for all 19
-  mutations, with zero-HA-request regression coverage. It is not deployed, and
-  the trusted verifier / human approval flow remains open.
-- Protected `fs.*` refuses correctly, but no accepted-proposal path exists.
-- Merged #287 adds an interim node-enforced denylist at source to stop
-  `ha.call_service` from reaching lifecycle, update, reload, host, shell, and
-  shutdown effects through the generic route. Source is on `main` but is not
-  yet in a released artifact (per the "How progress is counted" rule); the
-  final approval-aware effect policy also remains incomplete.
-- Baseline finding: Assist `service_data` was lost at the node's `data` input.
-  Merged #266 normalizes to `data`, accepts the old alias explicitly, and
-  rejects conflicts before HA I/O. Source is on `main` but is not yet in a
-  released artifact.
-- Baseline finding: inner handler failures were wrapped as outer `ok: true`.
-  Merged #266 projects failure at the node boundary and rejects legacy
-  inner failures in the plugin, including SDK `details.nodeError` rejections.
-  Source is on `main` but is not yet in a released artifact.
-- Dispatcher parameters are not schema-validated. Misspellings and stale names
-  silently fall back to unbounded reads or default actions.
-- Registered commands and advertised commands are separate manual lists.
-- The existing proposal queue has no authenticated human endpoint and includes
-  self-approved history.
-- Recovery data under `/share/openclaw-backups` and `/share/openclaw-trash` is
-  reachable through the generic writable `/share` surface, and documented
-  retention/pinning is not implemented.
-- Several HA response and process-output paths can buffer unbounded data.
-- Health can report `ok: true` without proving HA or both Gateway connections
-  are ready; release tagging is not tied to a successfully tested artifact.
+| Retained gap | Tracker |
+|---|---|
+| Trusted caller propagation and dispatcher-level principal enforcement. The cross-surface ceiling still has two documented alternatives; neither is selected here. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
+| Replace the merged interim generic-service denylist with the final per-effect policy while preserving ordinary principal-authorized operations. | [#287](https://github.com/clawd-ops/openclaw-hass-node/issues/287), [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Complete the executable cross-layer command contract and strict dispatcher validation. | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
+| Consume native approvals for structured HA and filesystem mutations, enforce the policy at the node, and wire accepted decisions to protected writes. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Enforce protected recovery storage, precondition/version checks, retention, and recovery behavior. | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) |
+| Bound requests, responses, queues, concurrency, and process output; distinguish readiness from liveness. | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) |
+| Produce reproducible plugin, HACS, and multi-architecture artifacts. | [#292](https://github.com/clawd-ops/openclaw-hass-node/issues/292) |
+| Run exact-artifact, exact-node live validation and bind release evidence to the tested artifacts. | [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293) |
 
-### Stop-ship finding to tracker crosswalk
-
-Phase 0 requires every stop-ship finding above to be filed or linked to a
-tracker issue, so none of them can be closed by roadmap prose alone. Each
-finding below names the issue that owns its remaining work. A finding whose
-source repair is merged still lists an owning issue, because the release-tie
-evidence is not yet produced.
-
-The list above is 11 bullets and this table has 13 rows. The final bullet is
-compound and covers two independent findings, health readiness and release
-tagging, which are owned by different issues and so get a row each. The proposal
-queue bullet likewise splits by owner: the native-approval gap and the legacy
-planning-text reconciliation are tracked separately. No finding is dropped or
-merged.
-
-| Stop-ship finding | Owning tracker | Remaining work |
-|---|---|---|
-| `ha.config.*` accepted unverified proposal IDs | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Source fails closed. Trusted verifier and human approval flow still open; containment is undeployed. |
-| Protected `fs.*` refuses, but no accepted-proposal path exists | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Wire accepted approvals to protected `fs.*` with pre-apply revalidation. |
-| Generic `ha.call_service` could reach privileged effects (#287 interim denylist) | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Replace the interim denylist with the approval-aware effect policy; converge dedicated and generic paths. |
-| Assist `service_data` was lost at the node's `data` input (#266) | [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293) | Source merged. Needs released-artifact evidence. |
-| Inner handler failures were wrapped as outer `ok: true` (#266) | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Source merged for the covered paths. Needs coverage across every command family, plus released-artifact evidence under [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293). |
-| Dispatcher parameters are not schema-validated | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Strict boundary validation that rejects unknown keys instead of falling back to an unbounded read or default action. |
-| Registered and advertised commands are separate manual lists | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) | Drift gate landed via #260/PR #284. Deriving both from one contract is still open. |
-| Proposal queue has no authenticated human endpoint and holds self-approved history | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) | Stated as the retained native-approval gap: no authenticated human can resolve an approval, and self-approved history must not be treated as authorization. #289 scopes the native approval path only; it explicitly excludes the historical custom proposal lifecycle and approval UI. |
-| Legacy pending-proposal reconciliation and the planning text that still describes a custom proposal authority | [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294) | Replace the historical lifecycle/UI requirements in canonical planning text with the ratified native model, and decide the disposition of the 22 legacy pending entries. This is not implementation work under #289. |
-| Recovery data under the backup/trash roots is reachable through generic `/share` writes; retention and pinning unimplemented | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) | Reserve internal roots, fail closed on unusable recovery metadata, implement quota/GC/pinning. |
-| Several HA response and process-output paths can buffer unbounded data | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) | Bound frames, decoding, response bytes, and stream process output at the cap. |
-| Health can report `ok: true` without proving readiness | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) | Separate liveness and readiness signals per dependency. |
-| Release tagging is not tied to a successfully tested artifact | [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293) | Release creation must consume successful CI artifacts and refuse to tag without the evidence packet. |
-
-Principal-ceiling enforcement is tracked separately in
-[#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) and gates the
-authorization work in #289.
-[#263](https://github.com/clawd-ops/openclaw-hass-node/issues/263) is the
-progress roll-up across all of them.
+[#263](https://github.com/clawd-ops/openclaw-hass-node/issues/263) remains the
+open progress roll-up. All seven phase checkboxes on that issue remain open;
+merged bounded repairs do not complete a phase without the required released-
+artifact evidence.
 
 No stop-ship finding is currently untracked.
 
@@ -222,10 +173,10 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   user-facing descriptions. Do not advertise them as working during repair.
 - [ ] File or link tracker issues for every untracked stop-ship finding in this
   roadmap and make one parent milestone the progress roll-up. Filing half is
-  done: [Stop-ship finding to tracker crosswalk](#stop-ship-finding-to-tracker-crosswalk)
-  maps every stop-ship finding to #288, #289, #290, #291, #293, or #294, with
-  #275 gating the authorization work, and no finding is untracked. The roll-up half
-  is not: #263 is a roll-up *issue*, and the repository milestone list is empty.
+  done: [retained node-side gaps and trackers](#retained-node-side-gaps-and-trackers)
+  maps every stop-ship finding to #275 and #287 through #293, and no finding is
+  untracked. The roll-up half is not: #263 is a roll-up *issue*, and the
+  repository milestone list is empty.
   As this item is currently worded, #263 cannot satisfy the milestone half, so the
   item stays unchecked. Closing it needs an operator decision: either create the
   milestone and attach the owning issues, or revise this wording to accept a
@@ -283,36 +234,37 @@ semantics on both direct and Assist paths; unknown input cannot broaden scope.
 
 ### Phase 2: Build real authorization and approval
 
-- [ ] Validate the current deployed Gateway approval APIs before adopting or
-  replacing the historical `propose_edit` / `resolve_proposal` design.
+The ratified model is defined in
+[`design/AUTHORIZATION-MODEL.md`](design/AUTHORIZATION-MODEL.md). Native
+OpenClaw owns Gateway authentication, operation binding, single-use approval
+consumption, durable approval state, and resolution from operator devices. This
+repository consumes that authority; it does not build a parallel lifecycle,
+store, or approval application.
+
 - [ ] Carry trusted caller/delegation context in a Gateway-owned envelope. Never
   trust `actor`, `role`, or `proposal_id` supplied in ordinary command params.
+- [ ] Enforce the computed principal ceiling at the dispatcher before any
+  handler runs. Keep the two unresolved cross-surface alternatives in
+  [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) without
+  selecting one in implementation or documentation.
 - [ ] Implement a versioned node-side service policy keyed by `domain.service`,
   with optional target/data constraints and outcomes `auto_allow`,
   `require_approval`, and `deny`.
 - [ ] Route `ha.call_service`, light wrappers, reload/update helpers, lifecycle
   commands, and HA-native config actions through the same applicable policy.
-- [ ] Implement durable proposal states: `pending`, `approved`, `rejected`,
-  `expired`, `applying`, `applied`, and `failed`.
-- [ ] Bind approval to node, trusted principal, command/action, canonical params
-  digest, concrete target where feasible, policy revision, prior-state/version
-  precondition, expiry, and one-time nonce.
-- [ ] Require independent authenticated human approval and block self-approval,
-  replay, changed-operation reuse, expired approvals, and concurrent double use.
-- [ ] Present pending proposals in the add-on ingress UI. Support review,
-  approve/reject, expiry, failure detail, and applied result.
-- [ ] Keep ingress presentation-only for approval authority. The add-on UI may
-  display and relay a decision, but cannot mint or resolve authorization without
-  a Gateway-authenticated human action protected against CSRF, wrong-user use,
-  self-approval, forgery, and replay.
-- [ ] Reconcile the 22 legacy pending proposals. Re-propose still-valid work
-  against current state; expire the rest. Do not grandfather old approvals.
-- [ ] Wire accepted approvals to protected `fs.*` and every mutating
+- [ ] Integrate the plugin permission request path for structured HA and
+  filesystem mutations. Require a Gateway-authenticated decision bound to the
+  node, trusted principal, exact command/action and canonical parameters,
+  policy revision, expiry, and prior-state/version preconditions. Denial,
+  timeout, mutation, replay, and concurrent reuse must fail closed.
+- [ ] Consume each `allow-once` decision exactly once and refuse self-approval.
+  Approval prompts and decisions remain on native operator surfaces.
+- [ ] Wire accepted native approvals to protected `fs.*` and every mutating
   `ha.config.*` action, with precondition revalidation immediately before apply.
 - [ ] Record domain-appropriate preimages and expose explicit recovery actions.
   Do not promise rollback for irreversible real-world service effects.
 - [ ] Detect and bind the installed HA Core version before accepting or applying
-  an HA config proposal; invalidate approval if the version changes.
+  an HA config mutation; invalidate approval if the version changes.
 - [ ] Require version-matched docs, relevant breaking-change evidence, config or
   domain validation, and expected prior-state checks before enabling writes.
 - [ ] Make approval consumption and mutation replay safe across timeout,
@@ -332,7 +284,8 @@ semantics on both direct and Assist paths; unknown input cannot broaden scope.
   still converge on the same decision (Phase 2 remainder).
 
 **Exit:** direct, Assist, alias, replay, spoofing, and generic-service paths
-cannot bypass policy; Rob can see and resolve a pending approval end to end.
+cannot bypass policy; an operator can resolve a native approval end to end from
+an operator device, and the node consumes it exactly once.
 
 ### Phase 3: Finish command behavior and resilience
 
@@ -377,7 +330,7 @@ cannot bypass policy; Rob can see and resolve a pending approval end to end.
 - [ ] Implement `docs.lookup(topic, version=current)` with bounded, integrity-
   checked cache behavior.
 - [ ] Implement `docs.breaking_changes(version=current, since=?, domain=?)`.
-- [ ] Keep version-matched proposal evidence and pre-apply validation enforced
+- [ ] Keep version-matched approval evidence and pre-apply validation enforced
   from Phase 2; add post-apply verification to each mutation transaction where
   HA exposes the required operation.
 - [ ] Reserve backup/trash internal roots from generic filesystem mutation and
@@ -393,15 +346,17 @@ cannot bypass policy; Rob can see and resolve a pending approval end to end.
 - [ ] Add separate liveness and readiness signals for HA REST/WS, Supervisor,
   node connection, chat connection, pairing, version, and command parity.
 - [ ] Add structured, secret-safe audit events and counters for command errors,
-  reconnects, redeliveries, truncations, proposal age, and approval outcomes.
+  reconnects, redeliveries, truncations, approval age, and approval outcomes.
 
 **Exit:** every supported functional path has success, refusal, failure,
 reconnect, and recovery evidence.
 
 ### Phase 4: Complete Assist and human-facing UX
 
-- [ ] Finish the add-on ingress configuration and proposal UI without creating a
-  separate approval application.
+- [ ] Finish add-on ingress configuration. Any approval view is
+  presentation-only: it may display native Gateway state or relay the
+  operator's decision to the native approval API, but it cannot mint, store, or
+  resolve authority independently.
 - [ ] Add the option to show or hide tool progress in HA Assist.
 - [ ] Verify tool-progress and final-answer rendering on real HA clients.
 - [ ] Implement durable Assist transcript/resume state across disconnects and
@@ -491,11 +446,13 @@ definition of complete.
 | TODO 12 | 5 | Generated documentation. |
 | TODO 13 | 5 | Proactive GitHub events; includes external Gateway dependency. |
 | TODO 17 | 0 | Replace stale issue list with the tracker crosswalk. |
-| TODO 20 | 2 | Real approval lifecycle and UI. **Superseded wording:** the ratified model uses native OpenClaw approvals, not a custom lifecycle with its own UI. Rewording is owned by [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294). |
+| [#279](https://github.com/clawd-ops/openclaw-hass-node/issues/279) | 5 | TypeScript API documentation tracker; complete and not an authorization deliverable. |
+| [#285](https://github.com/clawd-ops/openclaw-hass-node/issues/285) | Post-release | Filesystem namespace convergence remains explicit post-release design work. |
+| TODO 20 | 2 | Wire native OpenClaw approvals and node-enforced effect policy; implementation is tracked by #275 and #289. |
 | TODO 21 | 5 | HACS branding. |
 | TODO 22 | 5 | GHCR publishing and HACS index. |
 | TODO 23 | 3 | Version-rooted docs and breaking-change checks. |
-| TODO 27 | 2, 4 | Shared ingress configuration and approval UI. **Superseded wording:** ingress is presentation-only and cannot mint or resolve authorization; rewording is owned by [#294](https://github.com/clawd-ops/openclaw-hass-node/issues/294). |
+| TODO 27 | 4 | Ingress configuration UI. Any approval view is presentation-only and uses the native Gateway authority. |
 | TODO 32 | 4 | Tool-progress option. |
 | TODO 35 | 4, 6 | Real-client tool-progress verification. |
 | TODO 36 | 1, 3, 6 | Script migration command gaps and live install verification. |
@@ -516,8 +473,9 @@ definition of complete.
   `not recorded` markers.
 - UAT result packet per release candidate: exact artifact digests, environment,
   tests, expected refusals, observed postconditions, and unresolved rows.
-- Proposal threat model and protocol: trusted fields, signature/capability format,
-  state machine, expiry, replay prevention, crash recovery, and audit retention.
+- Native approval threat model and node-consumption protocol: trusted fields,
+  operation binding, expiry, replay prevention, crash recovery, and audit
+  retention.
 
 ## Cross-model review rule
 

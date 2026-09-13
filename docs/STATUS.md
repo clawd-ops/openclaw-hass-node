@@ -145,8 +145,9 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
 Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
 
 - **Protected filesystem and all native config mutations are unavailable** with
-  `PROPOSAL_REQUIRED` in this source revision; the trusted approval verifier and
-  agent-bridge UI round-trip are not wired. See TODO item #20.
+  `PROPOSAL_REQUIRED` in this source revision; native plugin approvals are not
+  yet wired to those protected mutations. See TODO item #20 and
+  [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289).
 - **HACS brand icon** is the default; upstream PR pending. TODO #21.
 - **GHCR per-arch image / HACS index entry** not published yet; Supervisor builds locally on-device. TODO #22.
 - **Legacy Home Assistant MCP cutover is complete and permanently closed.** It
@@ -192,7 +193,7 @@ release/UAT gates remain open.
   command layer refuses writes unconditionally; no caller parameter or
   proposal overrides it. HARD rule. (Rob, issue #1 round 2; reconciled to
   implementation 2026-09-11)
-- 2026-06-05 — Every HA config proposal must verify against the
+- 2026-06-05 — Every approved HA config mutation must verify against the
   running version's breaking changes and include a functional fix
   when impacted. Cross-validated by Codex reviewer. (Rob, issue #1
   round 2)
@@ -200,9 +201,13 @@ release/UAT gates remain open.
   thin `custom_components/openclaw_hass_node_assist/` HACS integration. Plan A
   (add-on (app) alone) confirmed not viable; see
   `docs/research/CONVERSATION-AGENT.md`. (agent)
-- 2026-06-05 — Proposals are gateway-brokered. Node speaks only the
-  gateway WS protocol; does not connect to agent-bridge directly. See
-  `docs/research/AGENT-BRIDGE-CONNECTIVITY.md`. (agent)
+- **Historical, superseded 2026-09-11:** 2026-06-05 — proposals were designed
+  as gateway-brokered through agent-bridge. The ratified model instead uses
+  native OpenClaw approvals; the node does not build a custom proposal
+  lifecycle or connect to agent-bridge. See
+  `docs/research/AGENT-BRIDGE-CONNECTIVITY.md` for the historical snapshot and
+  [`design/AUTHORIZATION-MODEL.md`](design/AUTHORIZATION-MODEL.md) for the
+  current decision.
 - 2026-06-05 — Language: Python 3.13+ for node and integration. Quality
   gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
   (`ruff` D-rules + `pydoclint`), branch coverage gated at 95% via

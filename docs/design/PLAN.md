@@ -78,12 +78,12 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   configuration; the read-only command layer does not try to distinguish or
   defeat them.
 - Commands: `fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `system.run`,
-  `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`,
-  `fs.patch`) are **proposal-gated**: today the handlers return
-  `PROPOSAL_REQUIRED` for protected roots / when `agent_bridge=true`.
-  Wiring the actual `propose_edit` → `resolve_proposal` round-trip
-  through the agent-bridge UI is the next major milestone (see
-  `docs/STATUS.md` "Next concrete steps").
+  `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`, `fs.restore`,
+  `fs.patch`) fail closed with `PROPOSAL_REQUIRED` for protected roots today.
+  The target is the native OpenClaw plugin-approval path, with the node
+  enforcing trusted principal context, per-effect policy, and preconditions
+  before applying an accepted operation. See
+  [Authorization model](AUTHORIZATION-MODEL.md).
 - `fs.delete` uses `send2trash` (FreeDesktop.org spec) with an
   OpenClaw-managed trash directory fallback, never `rm`. `fs.restore`
   recovers from trash. No sidecar `.bak` files anywhere.
@@ -274,33 +274,37 @@ on a premium tier (Opus 4.7 or GPT-5.5). Subagents the agent spawns
 for work are unpinned — picked per task by whichever cheaper model
 fits. The node carries no model knowledge.
 
-## Mutation control (agent-bridge gated)
+## Mutation control (native OpenClaw approval)
 
 **HA-native config containment (unreleased):** all mutating `ha.config.*`
 actions now return `PROPOSAL_REQUIRED` before any HA request, including when a
 caller supplies a nonempty proposal identifier or claims approval. The shared
 boundary has no caller-controlled bypass. Existing native API adapters are
 retained but dormant until a trusted, operation-bound verifier and human
-approval round-trip are implemented. Config reads and light control are
+approval round-trip is implemented. Config reads and light control are
 unchanged. This is not completion of the target mutation flow below.
 
 > **Status: partially shipped.** Today the write handlers
 > (`fs_write.py`, `fs_patch.py`, `fs_move_delete.py`) return
 > `PROPOSAL_REQUIRED` for protected roots or when `agent_bridge=true`.
-> They do **not** yet emit `propose_edit` or wait for
-> `resolve_proposal` — that round-trip is blocked pending the
-> gateway/agent-bridge proposal bridge, which is the next major
-> milestone (see `docs/STATUS.md` "Next concrete steps"). The model
-> below is the target end-state, not the shipped behaviour.
+> They do **not** yet consume a native plugin approval. The historical
+> `propose_edit` / `resolve_proposal` design is superseded and is not the target
+> end state.
 
-- Every write-shaped command on the node has two outcomes (target):
-  - If `dry_run=true` or `agent_bridge=true` (default for `/config`):
-    emit `propose_edit` to agent-bridge with the patch/content, return
-    proposal ID. Apply only after `resolve_proposal(accepted)`.
-  - If `agent_bridge=false` and path is outside protected roots
-    (`/tmp`, `/share/agent-scratch`): apply directly.
-- Protected roots (always proposal-gated, no override):
-  `/config`, `/addons`, `/ssl`.
+- The Gateway authenticates the approver, binds the exact operation and trusted
+  principal, persists native approval state, presents it to operator devices,
+  and enforces one-time consumption.
+- The node receives trusted caller and approval context, enforces the principal
+  ceiling at dispatch, applies the per-effect outcome (`auto_allow`,
+  `require_approval`, or `deny`), and revalidates canonical parameters,
+  prior-state/version preconditions, and recovery readiness immediately before
+  a protected mutation.
+- Protected roots remain fail closed until that native path is proven end to
+  end. A caller-supplied `agent_bridge`, proposal identifier, role, or approval
+  flag is never authority.
+- Any add-on approval view is presentation-only. It may display native Gateway
+  state or relay an operator decision to the native API, but it cannot mint,
+  store, or resolve authority independently.
 
 ## Pairing + identity
 
