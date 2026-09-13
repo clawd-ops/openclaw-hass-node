@@ -124,8 +124,10 @@ instead of relying on the reviewer's starting directory.
 
 The template encodes hard constraints (no commits, no pushes, no merges, no
 file edits, no sub-agents, and no GitHub posts), plus the correct `uv run`
-tooling rule. The child returns only an `APPROVE` or `REQUEST CHANGES`
-review body. The wrapper owns attribution and publication.
+tooling rule. The child returns an `APPROVE` or `REQUEST CHANGES` review body
+whose exact second line is the single `Reviewed head:` pin. The wrapper
+validates that child-produced pin, owns attribution and publication, and
+`pr-state` parses the pin when deciding whether a review is fresh.
 
 ```
 scripts/dev/spawn-codex-review 123
@@ -152,8 +154,9 @@ Bare `Codex` is **not** valid attribution. It is indistinguishable across every
 variant, which defeats the purpose of pinning a verdict to a reviewer.
 
 There is no fallback sign-off. Resolver failure suppresses the entire review.
-On success, the wrapper appends the resolved slug and exact head/base SHAs to
-the child's body, scans the complete comment with `confidentiality-check`,
+On success, the wrapper requires the child-produced `Reviewed head:` pin on
+the exact second line, rejects duplicate head mentions, appends only the
+resolved model slug, scans the complete comment with `confidentiality-check`,
 rechecks that the PR head has not moved, posts through the GitHub API, and reads
 the stored comment back exactly. Any failure before posting exits loudly and
 leaves the PR without an unattributable or stale review.

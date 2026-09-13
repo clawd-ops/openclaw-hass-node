@@ -64,9 +64,11 @@ PYEOF
 
 printf '%s' "$BRIEF" | "$CHECKER"
 
-LAUNCHER_AGENT="${OPENCLAW_REVIEW_LAUNCHER_AGENT:-clawd}"
-SESSION_KEY="agent:${LAUNCHER_AGENT}:review-launch-${PR}-${HEAD_SHA:0:12}-$$"
 TEMP_DIR=$(mktemp -d "/tmp/spawn-codex-review-${PR}.XXXXXX")
+RUN_NONCE="${TEMP_DIR##*.}"
+LAUNCHER_AGENT="${OPENCLAW_REVIEW_LAUNCHER_AGENT:-clawd}"
+SESSION_KEY="agent:${LAUNCHER_AGENT}:review-launch-${PR}-${HEAD_SHA:0:12}-${RUN_NONCE}"
+REVIEW_LABEL="review-pr-${PR}-${HEAD_SHA:0:12}-${RUN_NONCE}"
 PROMPT_FILE="$TEMP_DIR/launcher-prompt.txt"
 RESULT_FILE="$TEMP_DIR/launcher-result.json"
 SESSIONS_FILE="$TEMP_DIR/sessions.json"
@@ -82,7 +84,7 @@ cleanup() {
 trap cleanup EXIT
 
 {
-    printf '%s\n' "Call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", visible=true, and expectsCompletionMessage=true."
+    printf '%s\n' "Call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", label=\"${REVIEW_LABEL}\", visible=true, and expectsCompletionMessage=true."
     printf '%s\n' 'Use the complete review brief below as the task. Do not perform the review yourself. Return only the accepted spawn receipt as compact JSON with no fence or commentary.'
     printf '\n%s\n' "$BRIEF"
 } > "$PROMPT_FILE"
@@ -226,7 +228,6 @@ Path(sys.argv[2]).write_text(review, encoding="utf-8")
 PYEOF
 
 python3 - "$REVIEW_FILE" "$COMMENT_FILE" "$MODEL_SLUG" "$HEAD_SHA" "$BASE_SHA" << 'PYEOF'
-import re
 import sys
 from pathlib import Path
 
@@ -236,12 +237,12 @@ from pathlib import Path
 review = Path(sys.argv[1]).read_text(encoding="utf-8")
 head, base = sys.argv[4], sys.argv[5]
 
-reviewed_head = re.compile(rf"Reviewed head: `{head}` \(base `{base}`\)")
-matches = [line for line in review.splitlines() if reviewed_head.fullmatch(line.strip())]
-if len(matches) != 1:
+reviewed_head = f"Reviewed head: `{head}` (base `{base}`)"
+lines = review.splitlines()
+if len(lines) < 2 or lines[1] != reviewed_head:
     sys.exit(
-        "spawn-codex-review: child review must state the reviewed head exactly once as "
-        "Reviewed head: `<head>` (base `<base>`)"
+        "spawn-codex-review: child review must state the reviewed head on its exact "
+        "second line as Reviewed head: `<head>` (base `<base>`)"
     )
 if review.count(head) != 1:
     sys.exit("spawn-codex-review: child review mentions the head SHA more than once")

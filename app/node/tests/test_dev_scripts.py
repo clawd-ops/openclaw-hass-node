@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -618,6 +619,7 @@ def test_spawn_review_runs_child_and_posts_parent_attributed_comment(tmp_path: P
     prompt = captured_prompt.read_text(encoding="utf-8")
     assert "session_status" not in prompt
     assert "Call sessions_spawn exactly once" in prompt
+    assert re.search(r'label="review-pr-7-000000000000-[A-Za-z0-9]+"', prompt)
     # Attribution moved to the parent: the child has no session_status and
     # cannot prove which model ran, so the brief forbids it signing rather
     # than telling it which slug to claim.
@@ -638,6 +640,46 @@ def test_spawn_review_runs_child_and_posts_parent_attributed_comment(tmp_path: P
     )
     # Readability requirement: the head SHA appears exactly once in a comment.
     assert comment.count("0" * 40) == 1
+
+
+def test_spawn_review_uses_collision_free_label_across_runs(tmp_path: Path) -> None:
+    """Repeated reviews of one pinned head receive distinct child labels."""
+    env, captured_prompt, _ = _spawn_review_env(tmp_path)
+
+    first = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+    assert first.returncode == 0, first.stderr
+    first_prompt = captured_prompt.read_text(encoding="utf-8")
+
+    second = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+    assert second.returncode == 0, second.stderr
+    second_prompt = captured_prompt.read_text(encoding="utf-8")
+
+    label_pattern = re.compile(r'label="(review-pr-7-000000000000-[A-Za-z0-9]+)"')
+    first_label = label_pattern.search(first_prompt)
+    second_label = label_pattern.search(second_prompt)
+    assert first_label is not None
+    assert second_label is not None
+    assert first_label.group(1) != second_label.group(1)
+
+
+def test_spawn_review_rejects_pin_after_second_line(tmp_path: Path) -> None:
+    """The publication boundary rejects a correctly formed pin in the wrong position."""
+    env, _, _ = _spawn_review_env(tmp_path)
+    env["REVIEW_BODY"] = (
+        f"APPROVE\nNo blocking findings.\nReviewed head: `{'0' * 40}` (base `{'0' * 39 + '1'}`)"
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert "exact second line" in result.stderr
+    assert not Path(env["CAPTURE_COMMENT"]).exists()
 
 
 def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> None:

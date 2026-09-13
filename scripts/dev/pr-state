@@ -19,9 +19,7 @@ VERDICTS = {"APPROVE", "REQUEST CHANGES"}
 # Freshness still depends on parsing it, so the two must change together:
 # leaving this regex pointed at the attribution line would silently stop
 # resolving any head and make every review look unpinned.
-ATTRIBUTION_RE = re.compile(
-    r"Reviewer model: (?P<model>[A-Za-z0-9._-]+/[A-Za-z0-9._/-]+)"
-)
+ATTRIBUTION_RE = re.compile(r"Reviewer model: (?P<model>[A-Za-z0-9._-]+/[A-Za-z0-9._/-]+)")
 REVIEWED_HEAD_RE = re.compile(
     r"Reviewed head: `(?P<head>[0-9a-f]{40})` \(base `(?P<base>[0-9a-f]{40})`\)"
 )
