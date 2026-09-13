@@ -162,28 +162,6 @@ def _trash_file(path: Path) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Move helper (isolated so tests can patch without hitting the backup store)
-# ---------------------------------------------------------------------------
-
-
-def _move_file(src: Path, dst: Path) -> None:
-    """Rename *src* to *dst* using ``os.replace`` (atomic within one filesystem).
-
-    Raises ``OSError`` (including ``errno.EXDEV``) on failure; never falls back
-    to copy-then-unlink so callers can distinguish "no mutation" from
-    "partial mutation".
-
-    Args:
-        src: Existing source path.
-        dst: Destination path (parent must already exist).
-
-    Raises:
-        OSError: On any rename failure, including cross-device (EXDEV).
-    """
-    os.replace(str(src), str(dst))
-
-
-# ---------------------------------------------------------------------------
 # Shared pre-flight for write operations
 # ---------------------------------------------------------------------------
 

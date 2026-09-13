@@ -70,7 +70,6 @@ class PairingMachine:
     def __init__(self) -> None:
         """Initialise the machine in the UNKNOWN state."""
         self._state: PairingState = PairingState.UNKNOWN
-        self._pending_request_id: str | None = None
 
     @property
     def state(self) -> PairingState:

@@ -30,7 +30,7 @@ from typing import Any, Final
 
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_fd import open_safe_fd
-from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError, resolve_safe
+from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError
 
 _DEFAULT_READ_MAX_BYTES: Final[int] = 1 * 1024 * 1024
 _HARD_READ_MAX_BYTES: Final[int] = 16 * 1024 * 1024
@@ -90,23 +90,6 @@ def _kind(st: os.stat_result, *, is_symlink: bool) -> str:
     if stat_mod.S_ISREG(st.st_mode):
         return "file"
     return "other"  # pragma: no cover - FIFOs/sockets are not feasible to create in CI sandbox
-
-
-def _resolve(path: str) -> Path:
-    """Resolve *path* against the current process's allowed roots.
-
-    Args:
-        path: Caller-supplied absolute path.
-
-    Returns:
-        The resolved :class:`pathlib.Path`.
-
-    Raises:
-        OutOfBoundsError: If *path* escapes the allowed roots.
-        NoAllowedRootsError: If no roots are configured.
-    """
-    roots = allowed_roots_for_env()
-    return resolve_safe(path, roots)
 
 
 def _open(path: str, *, dir_fd_only: bool = False) -> int:
