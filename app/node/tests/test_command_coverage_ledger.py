@@ -28,6 +28,66 @@ def _load_generator() -> ModuleType:
     return module
 
 
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "banana",
+        "",
+        "#",
+        "#0",
+        "#007",
+        "316",
+        "#316 ",
+        "GH-316",
+        "[#316](https://evil.invalid)",
+        123,
+        None,
+    ],
+)
+def test_issue_citations_reject_malformed_values(
+    monkeypatch: pytest.MonkeyPatch, bad: object
+) -> None:
+    """A citation is rendered verbatim into the Markdown ledger.
+
+    The check was `isinstance(i, str)`, so anything stringlike passed: prose, an
+    empty string, a bare number, or a Markdown link that would be interpolated
+    straight into the published table.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = [bad]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"issues for .* must"):
+        generator.build_ledger()
+
+
+def test_issue_citations_reject_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same issue cited twice on one row is a typo, not a stronger claim."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = ["#316", "#316"]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"duplicate citation"):
+        generator.build_ledger()
+
+
+def test_issue_citations_accept_well_formed_references(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard must not reject legitimate citations."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = ["#316", "#1", "#3300"]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    row = next(r for r in ledger["rows"] if r["id"] == "ha.get_config")
+    assert row["issues"] == ["#316", "#1", "#3300"]
+
+
 def test_generated_ledger_is_current() -> None:
     """Committed machine and human artifacts must match current source."""
     result = subprocess.run(

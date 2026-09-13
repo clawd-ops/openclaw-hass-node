@@ -76,6 +76,10 @@ VALID_TEST_CALLERS = ROW_CALLERS
 
 # Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE.
 _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
+# An issue citation is rendered verbatim into the Markdown ledger, so it has
+# to be a real `#<number>` reference and nothing else. Leading zeros are
+# rejected because `#007` and `#7` would cite the same issue two ways.
+_ISSUE_CITATION_RE = re.compile(r"^#[1-9][0-9]*$")
 
 # The current release is read from all five tracked version sources. Generated
 # artifacts must not depend on command history or ambient git tags, and version
@@ -1230,8 +1234,16 @@ def build_ledger() -> dict[str, Any]:
                 )
                 or []
             )
-            if not isinstance(issues, list) or not all(isinstance(i, str) for i in issues):
-                raise LedgerError(f"issues for {row_id} must be a list of strings")
+            if not isinstance(issues, list):
+                raise LedgerError(f"issues for {row_id} must be a list")
+            for citation in issues:
+                if not isinstance(citation, str) or not _ISSUE_CITATION_RE.fullmatch(citation):
+                    raise LedgerError(
+                        f"issues for {row_id} must each be a '#<number>' issue "
+                        f"citation (got {citation!r})"
+                    )
+            if len(set(issues)) != len(issues):
+                raise LedgerError(f"issues for {row_id} contains a duplicate citation: {issues}")
             rows.append(
                 {
                     "id": row_id,
