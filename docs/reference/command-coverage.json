@@ -1,16 +1,5 @@
 {
   "commands_new_in_latest_release": [
-    "ha.config.area_registry",
-    "ha.config.automation",
-    "ha.config.config_entries",
-    "ha.config.device_registry",
-    "ha.config.entity_registry",
-    "ha.config.helpers",
-    "ha.config.lovelace",
-    "ha.config.scene",
-    "ha.config.script"
-  ],
-  "commands_unreleased": [
     "ha.addon_update",
     "ha.supervisor_info",
     "ha.update_install",
@@ -18,6 +7,7 @@
     "system.execApprovals.set",
     "system.run.prepare"
   ],
+  "commands_unreleased": [],
   "evidence_methods": {
     "CODE-PROVEN": "Established from source review; not a live result.",
     "DISPOSABLE-LIVE": "Probed against a disposable non-production environment.",
@@ -27,7 +17,7 @@
   },
   "generated": true,
   "generation_note": "Deterministic source inventory plus explicitly labelled manual reality metadata; no runtime command is enabled by this ledger.",
-  "latest_release": "2026.7.23b1",
+  "latest_release": "2026.9.13b1",
   "outcomes": {
     "fail": "Observed behavior contradicted the scoped claim.",
     "partial": "Some caller or contract behavior passed while material gaps remain.",
@@ -2652,7 +2642,7 @@
       "command": "ha.addon_update",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
-      "first_shipped_in": "unreleased",
+      "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_update",
       "id": "ha.addon_update",
       "metadata_provenance": {
@@ -11081,7 +11071,7 @@
       "command": "ha.supervisor_info",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
-      "first_shipped_in": "unreleased",
+      "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_supervisor_info",
       "id": "ha.supervisor_info",
       "metadata_provenance": {
@@ -11245,7 +11235,7 @@
       "command": "ha.update_install",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
-      "first_shipped_in": "unreleased",
+      "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_update_install",
       "id": "ha.update_install",
       "metadata_provenance": {
@@ -11438,7 +11428,7 @@
       "command": "system.execApprovals.get",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
-      "first_shipped_in": "unreleased",
+      "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get",
       "id": "system.execApprovals.get",
       "metadata_provenance": {
@@ -11553,7 +11543,7 @@
       "command": "system.execApprovals.set",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
-      "first_shipped_in": "unreleased",
+      "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set",
       "id": "system.execApprovals.set",
       "metadata_provenance": {
@@ -12034,7 +12024,7 @@
       "command": "system.run.prepare",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
-      "first_shipped_in": "unreleased",
+      "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_run_prepare",
       "id": "system.run.prepare",
       "metadata_provenance": {

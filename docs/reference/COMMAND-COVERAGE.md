@@ -20,23 +20,9 @@ Shipment versions use the same canonical forms as `scripts/bump-version.py`:
 - Registered but unadvertised: `none`
 - Advertised but unregistered: `none`
 
-## New in this release (2026.7.23b1)
+## New in this release (2026.9.13b1)
 
 Commands whose `first_shipped_in` matches the synchronized version in the five tracked project sources. These are new since the previous release.
-
-- `ha.config.area_registry`
-- `ha.config.automation`
-- `ha.config.config_entries`
-- `ha.config.device_registry`
-- `ha.config.entity_registry`
-- `ha.config.helpers`
-- `ha.config.lovelace`
-- `ha.config.scene`
-- `ha.config.script`
-
-## Unreleased command additions
-
-Commands with `first_shipped_in: unreleased`. These will ship if a release is cut now.
 
 - `ha.addon_update`
 - `ha.supervisor_info`
@@ -44,6 +30,12 @@ Commands with `first_shipped_in: unreleased`. These will ship if a release is cu
 - `system.execApprovals.get`
 - `system.execApprovals.set`
 - `system.run.prepare`
+
+## Unreleased command additions
+
+Commands with `first_shipped_in: unreleased`. These will ship if a release is cut now.
+
+_(no unreleased command additions)_
 
 ## Evidence methods
 
