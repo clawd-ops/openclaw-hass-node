@@ -687,6 +687,87 @@ def test_production_live_observation_requires_valid_iso_date(
         generator.build_ledger()
 
 
+@pytest.mark.parametrize("impossible", ["2026-02-31", "2026-13-01", "2026-00-10"])
+def test_production_live_observation_rejects_an_impossible_calendar_date(
+    monkeypatch: pytest.MonkeyPatch, impossible: str
+) -> None:
+    """A well-shaped date that never happened must not become evidence.
+
+    The check was a bare `\\d{4}-\\d{2}-\\d{2}` shape match, so `2026-02-31`
+    passed and generated a ledger. An evidence row could then claim it was
+    observed on a day that does not exist.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                "observed_at": impossible,
+                "node_version": "2026.9.13b1",
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"PRODUCTION-LIVE observation.*observed_at",
+    ):
+        generator.build_ledger()
+
+
+def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None:
+    """A design document is not an observation.
+
+    The generator's `system.run*` direct-path branch emitted PRODUCTION-LIVE with
+    `docs/design/AUTHORIZATION-MODEL.md` as its source. Because that branch builds
+    the caller directly, it also bypassed the provenance validation applied to
+    manual observations, producing live-evidence rows with no `observed_at`, no
+    `node_version` and no staleness.
+
+    `system.run` separately carries a genuine Sept 11 observation from the
+    verification record, which is legitimate and must survive; `system.run.prepare`
+    was never probed, so it must carry no live evidence at all.
+    """
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+
+    for command in ("system.run", "system.run.prepare"):
+        evidence = rows_by_id[command]["callers"]["direct_nodes_invoke"]["evidence"]
+        assert evidence, f"{command} direct path must carry evidence"
+        design_sourced = [
+            observation
+            for observation in evidence
+            if "AUTHORIZATION-MODEL.md" in observation["source"]
+        ]
+        assert design_sourced, f"{command} should retain its design-derived row"
+        for observation in design_sourced:
+            assert observation["method"] == "CODE-PROVEN", (
+                f"{command}: a design document cannot be production evidence"
+            )
+
+    prepare_evidence = rows_by_id["system.run.prepare"]["callers"]["direct_nodes_invoke"][
+        "evidence"
+    ]
+    assert not [o for o in prepare_evidence if o["method"] == "PRODUCTION-LIVE"], (
+        "system.run.prepare was never probed, so it must claim no live evidence"
+    )
+
+    # No generated row anywhere may claim live evidence without provenance.
+    unprovenanced = [
+        f"{row['id']}/{caller_name}"
+        for row in ledger["rows"]
+        for caller_name, caller in row["callers"].items()
+        for observation in caller.get("evidence", [])
+        if observation["method"] == "PRODUCTION-LIVE"
+        and not (observation.get("observed_at") and observation.get("node_version"))
+    ]
+    assert not unprovenanced, f"live evidence lacking provenance: {unprovenanced}"
+
+
 def test_production_live_observation_requires_valid_version_string(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

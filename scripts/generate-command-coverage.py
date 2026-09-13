@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import ast
 import copy
+import datetime
 import difflib
 import json
 import re
@@ -42,6 +43,24 @@ EVIDENCE_METHODS = [
 
 # ISO date pattern for observed_at provenance field.
 _OBSERVED_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _is_observed_at(value: object) -> bool:
+    """True when *value* is a real calendar date in YYYY-MM-DD form.
+
+    The shape check alone accepted impossible dates: `2026-02-31` matched the
+    pattern and generated a ledger, so an evidence row could claim a day that
+    never happened. Parsing rejects it.
+    """
+    if not isinstance(value, str) or not _OBSERVED_AT_RE.fullmatch(value):
+        return False
+    try:
+        datetime.date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
 OUTCOMES = ["pass", "fail", "refused-as-designed", "partial", "unverified"]
 # Row callers that appear as columns in the generated ledger.
 ROW_CALLERS = frozenset(
@@ -878,6 +897,12 @@ def build_ledger() -> dict[str, Any]:
             )
 
         if command in {"system.run", "system.run.prepare"}:
+            # CODE-PROVEN, not PRODUCTION-LIVE. The source here is a design
+            # document, and neither command appears in the September 13 sweep,
+            # so there is no observation behind this row. Labelling it
+            # PRODUCTION-LIVE also bypassed provenance validation, which is only
+            # applied to manual observations, and emitted a live-evidence row
+            # carrying no observed_at, node_version, or staleness.
             direct_path = _caller(
                 "unavailable",
                 "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
@@ -887,7 +912,7 @@ def build_ledger() -> dict[str, Any]:
                     "which prepares the canonical systemRunPlan and forwards it after "
                     "operator approval."
                 ),
-                method="PRODUCTION-LIVE",
+                method="CODE-PROVEN",
                 outcome="refused-as-designed",
             )
         elif command not in advertised:
@@ -1153,9 +1178,7 @@ def build_ledger() -> dict[str, Any]:
                     if observation["method"] == "PRODUCTION-LIVE":
                         obs_observed_at = observation.get("observed_at")
                         obs_node_version = observation.get("node_version")
-                        if not isinstance(obs_observed_at, str) or not _OBSERVED_AT_RE.fullmatch(
-                            obs_observed_at
-                        ):
+                        if not _is_observed_at(obs_observed_at):
                             raise LedgerError(
                                 f"PRODUCTION-LIVE observation for {row_id}/{caller_name} "
                                 f"missing required ISO date field: observed_at "

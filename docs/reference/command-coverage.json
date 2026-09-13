@@ -12006,7 +12006,7 @@
         "direct_nodes_invoke": {
           "evidence": [
             {
-              "method": "PRODUCTION-LIVE",
+              "method": "CODE-PROVEN",
               "observation": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
               "outcome": "refused-as-designed",
               "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell"
@@ -12293,7 +12293,7 @@
         "direct_nodes_invoke": {
           "evidence": [
             {
-              "method": "PRODUCTION-LIVE",
+              "method": "CODE-PROVEN",
               "observation": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
               "outcome": "refused-as-designed",
               "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell"
