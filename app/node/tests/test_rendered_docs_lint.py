@@ -59,7 +59,7 @@ def test_clean_page_passes(tmp_path: Path) -> None:
         ("<li>[x] checked item</li>", "pymdownx.tasklist"),
         ("<li>[X] capitalised item</li>", "pymdownx.tasklist"),
         ("<p>~~superseded claim~~</p>", "pymdownx.tilde"),
-        ("<p>==highlighted==</p>", "pymdownx.caret"),
+        ("<p>==highlighted==</p>", "pymdownx.mark"),
     ],
 )
 def test_literal_syntax_fails_and_names_the_extension(
@@ -122,6 +122,54 @@ def test_delimiters_do_not_pair_across_elements(tmp_path: Path) -> None:
     body = "<p>~~left</p><p>right~~</p>"
     result = _run(_site(tmp_path, {"page.html": body}))
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # `~~a *b* c~~` with the extension disabled: three text nodes, and no
+        # single one holds a delimiter pair. Scanning nodes in isolation missed
+        # this entirely.
+        "<p>~~left <em>emphasis</em> right~~</p>",
+        "<p>~~left <!-- comment --> right~~</p>",
+        "<li>[ ] task with <strong>bold</strong> text</li>",
+        "<p>==high <em>light</em> ed==</p>",
+    ],
+)
+def test_markup_split_by_inline_elements_is_still_found(tmp_path: Path, body: str) -> None:
+    """Inline markup must not hide unrendered syntax.
+
+    This is legitimate extension syntax, not an invented cross-element pair:
+    enabling the extension consumes exactly this source.
+    """
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 1, result.stdout
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_each_suppressed_container_is_suppressed(tmp_path: Path, tag: str) -> None:
+    """Every entry in the suppressed set must actually be doing work.
+
+    A reviewer found that removing `script` or `style` individually left the
+    whole suite green, so the set was asserted only in aggregate.
+    """
+    body = f"<{tag}>var s = '~~not strikethrough~~';</{tag}>"
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 0, result.stderr
+
+
+def test_failure_message_names_both_ways_out(tmp_path: Path) -> None:
+    """A diagnostic that cannot be acted on is the defect in #348.
+
+    Naming only the problem leaves the author where the operator was: told
+    something is wrong, given no path to the fix. Assert against real output,
+    not the format string.
+    """
+    result = _run(_site(tmp_path, {"page.html": "<p>~~struck~~</p>"}))
+    assert result.returncode == 1
+    assert "pymdownx.tilde" in result.stderr
+    assert "<del>" in result.stderr
+    assert "mkdocs.yml" in result.stderr
 
 
 def test_build_assets_are_skipped(tmp_path: Path) -> None:

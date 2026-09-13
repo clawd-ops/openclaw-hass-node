@@ -94,13 +94,16 @@ Two specific decisions:
 
 - **Task lists are supported.** `pymdownx.tasklist` is enabled, so `- [ ]` and
   `- [x]` render as checkboxes.
-- **Strikethrough and highlight are not.** `pymdownx.tilde` and
-  `pymdownx.caret` are deliberately left off, because no page uses `~~text~~`
-  or `==text==`; the docs that need struck-through text use a literal `<del>`
-  element instead, which Markdown passes through unchanged. Enabling an
-  extension nothing uses is config carried for a hypothetical. If you do want
-  strikethrough, the lint will stop you at the point of use — enable
-  `pymdownx.tilde` in the same PR rather than working around the failure.
+- **Strikethrough and highlight are not.** `pymdownx.tilde` (`~~text~~`) and
+  `pymdownx.mark` (`==text==`) are deliberately left off, because no page uses
+  either. Write a literal `<del>text</del>` or `<mark>text</mark>` instead:
+  Markdown passes raw HTML through unchanged, which is what
+  `docs/VERIFICATION-2026-09-11.md` already does. Enabling an extension nothing
+  uses is config carried for a hypothetical.
+
+  If you do want the extension syntax, the lint stops you at the point of use
+  and names both options, so enable it in the same PR rather than working
+  around the failure.
 
 ## Cross-provider code review
 
