@@ -32,7 +32,7 @@ Shipped:
 - `ha.addon_changelog` — `GET /addons/<slug>/changelog`
 - `ha.addon_documentation` — `GET /addons/<slug>/documentation`
 
-Merged but not yet in a released artifact:
+Released in `2026.9.13b1`, but not yet observed in the installed environment:
 
 - `ha.supervisor_info` — `GET /info` (allowlisted host/Supervisor versions and
   architecture; `hostname`, `timezone`, and network fields excluded, and

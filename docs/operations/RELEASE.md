@@ -33,7 +33,7 @@ ledger sweep.
    `main` is what triggers the tag + GitHub release. No human runs
    `git tag` in the normal flow.
 4. **Pre-release markers are first-class.** The project is currently
-   on the beta track (`2026.6.20b7` at time of writing); pre-1.0 it
+   on the beta track (`2026.9.13b1` at time of writing); pre-1.0 it
    lives on `aN`/`bN`/`rcN` markers. Versions carrying any of those
    suffixes are cut as **prereleases**; final tags (`1.0.0`,
    `2026.7.0`) are full releases.

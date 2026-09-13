@@ -271,13 +271,14 @@ fits. The node carries no model knowledge.
 
 ## Mutation control (native OpenClaw approval)
 
-**HA-native config containment (unreleased):** all mutating `ha.config.*`
-actions now return `PROPOSAL_REQUIRED` before any HA request, including when a
-caller supplies a nonempty proposal identifier or claims approval. The shared
-boundary has no caller-controlled bypass. Existing native API adapters are
-retained but dormant until a trusted, operation-bound verifier and human
-approval round-trip is implemented. Config reads and light control are
-unchanged. This is not completion of the target mutation flow below.
+**HA-native config containment (released in `2026.9.13b1`, not yet
+live-verified):** all mutating `ha.config.*` actions now return
+`PROPOSAL_REQUIRED` before any HA request, including when a caller supplies a
+nonempty proposal identifier or claims approval. The shared boundary has no
+caller-controlled bypass. Existing native API adapters are retained but dormant
+until a trusted, operation-bound verifier and human approval round-trip is
+implemented. Config reads and light control are unchanged. This is not
+completion of the target mutation flow below.
 
 > **Status: partially shipped.** Today the write handlers
 > (`fs_write.py`, `fs_patch.py`, `fs_move_delete.py`) return
@@ -407,11 +408,12 @@ openclaw-hass-node/
 
 ### Add-on `config.yaml`
 
-Canonical source: `app/config.yaml`. Current shipped shape:
+Canonical source: `app/config.yaml`. Current released shape (the last observed
+live installation remains `2026.7.23b1` until an operator installs the beta):
 
 ```yaml
 name: OpenClaw Node
-version: "2026.6.20b7"
+version: "2026.9.13b1"
 slug: openclaw_hass_node
 arch: [amd64, aarch64, armv7]
 init: false
