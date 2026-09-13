@@ -205,6 +205,26 @@ from pathlib import Path
 # verdict would then be published against a head it never examined. The
 # assembled brief and the pinned head are both checked against the child's
 # initial task before its output is trusted.
+def _message_text(message):
+    """Flatten a message's content to text.
+
+    `content` is a list of typed parts on some messages and a plain string on
+    others, so indexing straight into parts crashes on the string form.
+    """
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    return "".join(
+        part["text"]
+        for part in content
+        if isinstance(part, dict)
+        and part.get("type") == "text"
+        and isinstance(part.get("text"), str)
+    )
+
+
 expected_brief = sys.argv[3]
 expected_head = sys.argv[4]
 
@@ -215,11 +235,7 @@ try:
         if event.get("type") != "user.message":
             continue
         message = event["data"]["message"]
-        text = "".join(
-            item["text"]
-            for item in message.get("content", [])
-            if item.get("type") == "text" and isinstance(item.get("text"), str)
-        )
+        text = _message_text(message)
         if text:
             tasks.append(text)
 except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
@@ -244,11 +260,7 @@ try:
             "runTerminal"
         ):
             continue
-        text = "".join(
-            item["text"]
-            for item in message.get("content", [])
-            if item.get("type") == "text" and isinstance(item.get("text"), str)
-        )
+        text = _message_text(message)
         if text:
             messages.append(text)
 except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):

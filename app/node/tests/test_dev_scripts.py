@@ -542,6 +542,9 @@ elif args[:2] == ["sessions", "export-trajectory"]:
     export_dir.mkdir(parents=True)
     # The wrapper verifies the child's initial task against the assembled brief
     # and the pinned head, so the fixture must carry one.
+    _task_text = os.environ.get("FORCE_CHILD_TASK") or pathlib.Path(
+        os.environ["CAPTURE_PROMPT"]
+    ).read_text(encoding="utf-8")
     task_event = {
         "type": "user.message",
         "data": {
@@ -1057,3 +1060,20 @@ def test_spawn_review_rejects_a_child_spawned_with_the_wrong_brief(tmp_path: Pat
 
     assert result.returncode != 0
     assert "not spawned with the assembled brief" in result.stderr
+
+
+def test_spawn_review_handles_string_message_content(tmp_path: Path) -> None:
+    """Trajectory `content` is a plain string on some messages.
+
+    Indexing straight into typed parts crashed the wrapper after a real review
+    had already run, losing the work.
+    """
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env["STRING_CONTENT"] = "1"
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert "has no attribute" not in result.stderr
+    assert "AttributeError" not in result.stderr
