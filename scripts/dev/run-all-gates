@@ -101,33 +101,10 @@ echo ">>> plugin typecheck"
 pnpm -r --filter './plugins/*' typecheck \
     || fail "plugin typecheck" "pnpm -r --filter './plugins/*' typecheck"
 
-# ── 13. Plugin vitest when the CI TypeScript workflow is in scope ──────────
-BRANCH_CHANGED=$(git diff --name-only origin/main...HEAD) \
-    || fail "changed-path enumeration (branch)" "git diff --name-only origin/main...HEAD"
-WORKTREE_CHANGED=$(git diff --name-only) \
-    || fail "changed-path enumeration (worktree)" "git diff --name-only"
-INDEX_CHANGED=$(git diff --cached --name-only) \
-    || fail "changed-path enumeration (index)" "git diff --cached --name-only"
-CHANGED_PATHS=$(printf '%s\n%s\n%s\n' "$BRANCH_CHANGED" "$WORKTREE_CHANGED" "$INDEX_CHANGED" | sort -u) \
-    || fail "changed-path collation" \
-        "printf changed paths from branch, worktree, and index | sort -u"
-RUN_TS_TESTS=false
-while IFS= read -r changed_path; do
-    case "$changed_path" in
-        plugins/*|app/node/*|pyproject.toml|uv.lock|package.json|pnpm-workspace.yaml|tsconfig.json|docs/reference/api/typescript/*|scripts/check-typescript-api-docs.sh|.github/workflows/ts.yml)
-            RUN_TS_TESTS=true
-            break
-            ;;
-    esac
-done <<< "$CHANGED_PATHS"
-if [[ "$RUN_TS_TESTS" == true ]]; then
-    echo ">>> prepare Python for cross-language contract tests"
-    echo ">>> plugin vitest (TypeScript workflow paths changed)"
-    pnpm -r --filter './plugins/*' test \
-        || fail "plugin vitest" "pnpm -r --filter './plugins/*' test"
-else
-    echo ">>> plugin vitest (skipped — TypeScript workflow paths unchanged)"
-fi
+# ── 13. Plugin vitest ───────────────────────────────────────────────────────
+echo ">>> plugin vitest"
+pnpm -r --filter './plugins/*' test \
+    || fail "plugin vitest" "pnpm -r --filter './plugins/*' test"
 
 # ── 14. container smoke ─────────────────────────────────────────────────────
 echo ">>> Docker build smoke (amd64)"

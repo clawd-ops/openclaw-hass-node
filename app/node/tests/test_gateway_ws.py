@@ -129,18 +129,20 @@ def _assert_advertised_matches_registry(
 def test_advertised_matches_registry() -> None:
     """Advertised connect-frame commands must equal the dispatcher registry.
 
-    This is the drift gate for #260. Registry isolation is provided by the
-    autouse fixture in ``conftest.py``, so it compares the full registry with
-    no namespace escape hatch. Exemptions must name live commands and carry
-    a non-empty rationale.
+    This is the drift gate for #260. The mutation regression below uses
+    ``monkeypatch.setitem`` for local restoration, so this compares the full
+    registry with no namespace escape hatch. Exemptions must name live commands
+    and carry a non-empty rationale.
     """
     _assert_advertised_matches_registry(set(_REGISTRY), _NODE_COMMANDS, _INTENTIONALLY_UNADVERTISED)
 
 
 @pytest.mark.parametrize("command", ["ha.production_like_leak", "test.production_like"])
-def test_drift_gate_catches_every_unadvertised_command(command: str) -> None:
+def test_drift_gate_catches_every_unadvertised_command(
+    command: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Fail parity for any unadvertised registration, including ``test.*``."""
-    _REGISTRY[command] = lambda _params: {"ok": True}
+    monkeypatch.setitem(_REGISTRY, command, lambda _params: {"ok": True})
 
     with pytest.raises(AssertionError, match=command):
         _assert_advertised_matches_registry(
@@ -632,14 +634,13 @@ async def test_handle_invoke_semantic_failure(
     assert sent["payload"] == result
 
 
-async def test_handle_invoke_command_exception() -> None:
+async def test_handle_invoke_command_exception(monkeypatch: pytest.MonkeyPatch) -> None:
     """Commands that raise unexpected errors return a COMMAND_ERROR response."""
-    from openclaw_node.commands.dispatcher import register_handler
 
     def bad_handler(params: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("something went wrong")
 
-    register_handler("test.bad", bad_handler)
+    monkeypatch.setitem(_REGISTRY, "test.bad", bad_handler)
     client = _make_client()
     ws = AsyncMock()
     ws.send = AsyncMock()

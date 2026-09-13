@@ -6,11 +6,7 @@ import time
 
 import pytest
 
-from openclaw_node.commands.dispatcher import (
-    UnknownCommandError,
-    dispatch,
-    register_handler,
-)
+from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch
 from openclaw_node.commands.ping import handle_ping
 
 
@@ -50,15 +46,6 @@ def test_dispatch_unknown_command_raises() -> None:
         dispatch("does.not.exist", {})
     assert exc_info.value.command == "does.not.exist"
     assert "does.not.exist" in str(exc_info.value)
-
-
-def test_register_handler_overrides_and_invokes() -> None:
-    def custom_handler(params: dict[str, object]) -> dict[str, object]:
-        return {"custom": True, "params": params}
-
-    register_handler("test.custom", custom_handler)
-    result = dispatch("test.custom", {"x": 1})
-    assert result["custom"] is True
 
 
 def test_unknown_command_error_attributes() -> None:

@@ -600,10 +600,9 @@ esac
     assert not marker.exists()
 
 
-def test_gate_runner_matches_typescript_workflow_scope() -> None:
-    """Node changes run cross-language tests and diff failures have guidance."""
+def test_gate_runner_runs_complete_local_suite() -> None:
+    """The local runner executes every gate without path-dependent skips."""
     text = (_REPO_ROOT / "scripts" / "dev" / "run-all-gates").read_text(encoding="utf-8")
-    assert "app/node/*" in text
     assert "uv sync --all-extras --python 3.13" in text
     # `scripts/dev` holds no Python module now that the review wrapper and its
     # model resolver are gone, and an unmatched glob is passed through literally
@@ -613,8 +612,10 @@ def test_gate_runner_matches_typescript_workflow_scope() -> None:
     assert text.index("uv sync --all-extras --python 3.13") < text.index("uv run ruff")
     assert "uv run python scripts/generate-command-coverage.py --check" in text
     assert "uv run python scripts/check-active-docs-schema.py" in text
+    assert text.count("pnpm -r --filter './plugins/*' test") == 2
+    assert "TypeScript workflow paths unchanged" not in text
+    assert "changed-path enumeration" not in text
     assert "docker build app" in text
-    assert 'fail "changed-path enumeration (branch)"' in text
 
 
 def test_review_template_binds_repository_and_complete_confidentiality_scope() -> None:
