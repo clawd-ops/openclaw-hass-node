@@ -31,21 +31,44 @@ each line can be trusted or discarded on its own evidence.
 
 ---
 
-## 0. ✓ RESOLVED 2026-09-13 — HA-native config write approval gate is working
+## 0. ✓ RESOLVED 2026-09-13 — HA-native config writes are approval-gated in source; gate observed live on three actions
 
-**Tested live 2026-09-13, gateway plugin `2026.9.13b1`.** `PROPOSAL_REQUIRED` was
-returned for a missing proposal id, for `"direct"`, and for an arbitrary bogus id,
-uniformly across `ha.config.area_registry action=create`, `ha.config.helpers
-action=create`, and `ha.config.scene action=save`. Area count confirmed unchanged
-at 27 with no side effects.
+The original finding was that config writes were not approval-gated at all. That is
+fixed in source, and the gate was observed refusing live. The scope of what was
+*observed* is stated precisely below, because the remaining direct mutation paths
+are still unverified and both coverage ledgers correctly say so.
 
-This also means the 19 untested `ha.config.*` mutations are covered by one uniform,
-fail-closed gate rather than 19 separate unknowns. The gate is implemented by the
-shared `require_config_mutation_approval` helper
+**Observed live 2026-09-13, gateway plugin `2026.9.13b1`** (authorized probe,
+target chosen for minimum blast radius):
+
+| Action | Probe | Result |
+|---|---|---|
+| `ha.config.area_registry action=create` | no `proposal_id` | `PROPOSAL_REQUIRED` |
+| `ha.config.area_registry action=create` | `proposal_id: "direct"` | `PROPOSAL_REQUIRED` |
+| `ha.config.area_registry action=create` | arbitrary bogus id | `PROPOSAL_REQUIRED` |
+| `ha.config.helpers action=create` | arbitrary bogus id | `PROPOSAL_REQUIRED` |
+| `ha.config.scene action=save` | arbitrary bogus id | `PROPOSAL_REQUIRED` |
+
+Five observations, not the full matrix. Only `area_registry create` was probed with
+all three proposal-id variants; `helpers create` and `scene save` were probed with a
+bogus id only. Area count confirmed unchanged at 27 with no side effects.
+
+**Source evidence for the remaining actions, which is not the same as live
+evidence.** The gate is implemented once, by the shared
+`require_config_mutation_approval` helper
 (`app/node/src/openclaw_node/commands/config_mutation.py:14`), which all nine
-`ha_config_*` handlers call. The `_require_proposal` helper named in the original
-finding below no longer exists in the source; it was replaced by this shared helper,
-which is what closes the gap.
+`ha_config_*` handlers call, and 424 boundary tests cover its behavior. That is a
+strong argument that the other 16 direct mutation paths are gated the same way, and
+it is the reason this finding is closed rather than left open.
+
+It is **not** an observation of those paths. They remain `advertised-unverified` in
+`docs/reference/COMMAND-COVERAGE.md` and `docs/reference/command-coverage.json`, and
+`docs/evidence/sweep-2026-09-13.md` correctly records that mutating `ha.config.*`
+actions were excluded from the sweep. Those documents are not stale; do not "reconcile"
+them to this section by marking them verified.
+
+The `_require_proposal` helper named in the original finding below no longer exists in
+the source; it was replaced by this shared helper, which is what closes the gap.
 
 **Original CODE-FAIL finding (2026-09-11) preserved below verbatim for provenance,
 including its original heading.**
