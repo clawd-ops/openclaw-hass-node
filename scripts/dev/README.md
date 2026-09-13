@@ -55,7 +55,7 @@ Gates in order:
 11. TypeScript dependency install matching CI
 12. `pnpm docs:typescript:check`
 13. plugin `tsc --noEmit` (typecheck)
-14. plugin `vitest run` when paths covered by the CI TypeScript workflow changed
+14. plugin `vitest run`
 15. Docker application build smoke
 16. `git diff --check` for the branch, index, and worktree
 
