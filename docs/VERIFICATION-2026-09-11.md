@@ -40,12 +40,19 @@ action=create`, and `ha.config.scene action=save`. Area count confirmed unchange
 at 27 with no side effects.
 
 This also means the 19 untested `ha.config.*` mutations are covered by one uniform,
-fail-closed gate rather than 19 separate unknowns. The gate applies uniformly via
-`_require_proposal` across all mutating `ha.config.*` handlers.
+fail-closed gate rather than 19 separate unknowns. The gate is implemented by the
+shared `require_config_mutation_approval` helper
+(`app/node/src/openclaw_node/commands/config_mutation.py:14`), which all nine
+`ha_config_*` handlers call. The `_require_proposal` helper named in the original
+finding below no longer exists in the source; it was replaced by this shared helper,
+which is what closes the gap.
 
-**Original CODE-FAIL finding (2026-09-11) preserved below for provenance.**
+**Original CODE-FAIL finding (2026-09-11) preserved below verbatim for provenance,
+including its original heading.**
 
 ### Original finding (2026-09-11, now superseded)
+
+**0. Safety correction: HA-native config writes are not approval-gated**
 
 `CODE-FAIL`, critical. The earlier live probe established that protected
 `fs.*` writes refuse execution without the missing proposal bridge. That
