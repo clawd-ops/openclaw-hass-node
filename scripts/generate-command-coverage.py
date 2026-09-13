@@ -77,6 +77,80 @@ VALID_TEST_CALLERS = ROW_CALLERS
 # Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE.
 _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 
+# An issue citation is an integer, not a string. The field cannot express
+# `banana`, `GH-316`, a trailing space, a Markdown link or a raw anchor, because
+# none of them are representable — the anchor below is constructed from the
+# number rather than interpolated from authored text. That closes the class by
+# construction instead of by enumeration, and it removes the `#0` / `#007` /
+# bare-`316` normalisation question, since the `#` is rendered here.
+#
+# This replaces a blocklist that validated citation strings, and a second one
+# that scanned every manual string for live-rendering syntax. The second was
+# defeated four times running — raw anchors, then Material attr-list, then
+# escaped and nested link labels, then unenumerated HTML elements — and by the
+# last round it had also started rejecting inert text inside backticks. A
+# blocklist over a renderer's surface does not converge, so it is gone rather
+# than extended again.
+#
+# The remaining prose fields are authored Markdown and are treated as such. That
+# is the same trust level as README.md, INSTALL.md and every other document in
+# this repository, none of which are escaped or scanned: they all change only
+# through a reviewed pull request. Singling these four fields out bought nothing
+# an author could not get by editing any other file, and cost the inline code and
+# bold that 11 of them use deliberately.
+#
+# DO NOT REINTRODUCE A GUARD HERE without reading the next paragraph. Seeing
+# authored strings interpolated unescaped into published Markdown looks like an
+# injection hole, and the reflex is to add validation or escaping. Escaping was
+# measured and rejected: it renders the inline code and bold those values use as
+# literal backticks and asterisks. Validation was tried and deleted after leaking
+# four times. The framing that resolves it is that this is not untrusted input
+# crossing a boundary — there is no boundary here to defend.
+#
+# THE CONDITION THAT REVERSES THIS: the argument holds only while the manual
+# ledger is written exclusively through reviewed pull requests. If evidence
+# ingestion ever becomes automatic from a source no human reads — a live probe
+# dump, an external artifact, any machine-written content landing in these fields
+# without appearing in a reviewed diff — the trust level changes and so does the
+# conclusion, and escaping or validation becomes correct at that point.
+#
+# This is not hypothetical. Systematic ingestion is being planned. It stays fine
+# for as long as the intermediate lands in-repo and passes through review; it
+# stops being fine the moment it does not. Whoever automates that ingestion owns
+# revisiting this comment.
+
+
+_MKDOCS_REPO_URL_RE = re.compile(r"^repo_url:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def _repo_url() -> str:
+    """Return the canonical repository URL, from the one place it is declared.
+
+    Derived from `mkdocs.yml` rather than written here so a fork or a rename
+    updates one file instead of silently producing citation links that all point
+    at the upstream repository.
+    """
+    text = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    match = _MKDOCS_REPO_URL_RE.search(text)
+    if match is None:
+        raise LedgerError("mkdocs.yml has no repo_url; cannot build issue citation links")
+    return match.group(1).rstrip("/")
+
+
+def _citation_link(citation: int) -> str:
+    """Render `#123` as an anchor that opens outside the docs view.
+
+    The docs are served through a token-gated portal proxy, so a same-tab
+    navigation to GitHub either takes the operator out of the portal or is
+    bounced by the relay auth boundary (#335 records the portal stripping launch
+    tokens on sub-pages). `target="_blank"` keeps the ledger view intact, and
+    `rel="noopener noreferrer"` is required with it to avoid handing the opened
+    page a reference back to this one.
+    """
+    url = f"{_repo_url()}/issues/{citation}"
+    return f'<a href="{url}" target="_blank" rel="noopener noreferrer">#{citation}</a>'
+
+
 # The current release is read from all five tracked version sources. Generated
 # artifacts must not depend on command history or ambient git tags, and version
 # drift must fail generation instead of choosing one source arbitrarily.
@@ -753,6 +827,19 @@ def _caller(
     }
 
 
+def _resolve_manual_presence(
+    key: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    defaults: dict[str, Any],
+) -> tuple[bool, Any]:
+    """Resolve *key* through manual precedence, reporting whether it was declared."""
+    for scope in (variant, entry, defaults):
+        if key in scope:
+            return True, scope[key]
+    return False, None
+
+
 def _resolved_manual(
     key: str,
     variant: dict[str, Any],
@@ -760,7 +847,55 @@ def _resolved_manual(
     defaults: dict[str, Any],
 ) -> Any:
     """Resolve action, command, then global manual metadata precedence."""
-    return variant.get(key, entry.get(key, defaults.get(key)))
+    _, value = _resolve_manual_presence(key, variant, entry, defaults)
+    return value
+
+
+_DEFAULT_EVIDENCE_NOTE = "Manual reality pass; behavior is not contract-enforced."
+
+
+def _evidence_note(
+    row_id: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    defaults: dict[str, Any],
+) -> str:
+    """Return the authored evidence note, defaulting only when none was written.
+
+    `or <default>` replaced an authored empty string with the fallback, so a row
+    could silently claim a manual reality pass its author never wrote. An empty
+    note is not a way to say "use the default" — omitting the key is.
+    """
+    declared, note = _resolve_manual_presence("evidence_note", variant, entry, defaults)
+    if not declared:
+        return _DEFAULT_EVIDENCE_NOTE
+    if not isinstance(note, str) or not note.strip():
+        raise LedgerError(
+            f"evidence_note for {row_id} must be a non-empty string; omit the key "
+            "entirely to accept the default"
+        )
+    return str(note)
+
+
+def _resolve_evidence_presence(
+    key: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    authorization_defaults: dict[str, Any],
+    defaults: dict[str, Any],
+) -> tuple[bool, Any]:
+    """Resolve *key*, reporting whether any scope declared it.
+
+    Presence and value are resolved together, in one place, because they must
+    agree on precedence. An earlier fix walked these scopes a second time at the
+    call site to tell an absent key from an explicit null; that duplicated the
+    order here and would have drifted the moment either changed. Returning both
+    facts removes the duplicate.
+    """
+    for scope in (variant, entry, authorization_defaults, defaults):
+        if key in scope:
+            return True, scope[key]
+    return False, None
 
 
 def _resolved_evidence_field(
@@ -771,13 +906,8 @@ def _resolved_evidence_field(
     defaults: dict[str, Any],
 ) -> Any:
     """Resolve explicit row metadata before authorization-class and global defaults."""
-    if key in variant:
-        return variant[key]
-    if key in entry:
-        return entry[key]
-    if key in authorization_defaults:
-        return authorization_defaults[key]
-    return defaults.get(key)
+    _, value = _resolve_evidence_presence(key, variant, entry, authorization_defaults, defaults)
+    return value
 
 
 def _validate_acceptance_test_id(test_id: str) -> None:
@@ -1167,16 +1297,19 @@ def build_ledger() -> dict[str, Any]:
                     "handler_dispatch": handler_dispatch_path,
                 }
             )
-            caller_observations = (
-                _resolved_evidence_field(
-                    "caller_observations",
-                    variant,
-                    entry,
-                    authorization_defaults,
-                    manual_defaults,
-                )
-                or {}
+            # Same absent-versus-null distinction as `issues`. `or {}` accepted an
+            # explicit null as "no observations", so a higher-precedence null
+            # could suppress inherited observations instead of failing.
+            observations_declared, caller_observations = _resolve_evidence_presence(
+                "caller_observations", variant, entry, authorization_defaults, manual_defaults
             )
+            if not observations_declared:
+                caller_observations = {}
+            elif caller_observations is None:
+                raise LedgerError(
+                    f"caller_observations for {row_id} is explicitly null; omit the "
+                    "key entirely to mean 'no observations'"
+                )
             if not isinstance(caller_observations, dict):
                 raise LedgerError(f"caller_observations for {row_id} must be an object")
             for caller_name, observations in caller_observations.items():
@@ -1224,6 +1357,32 @@ def build_ledger() -> dict[str, Any]:
                             stale=obs_stale,
                         )
                     )
+            # Only a genuinely absent key defaults. `or []` used to run before the
+            # type check, so an explicit "", 0, false or {} was silently accepted
+            # as "no citations" instead of being rejected as malformed, and an
+            # explicit null was indistinguishable from absence.
+            issues_declared, issues = _resolve_evidence_presence(
+                "issues", variant, entry, authorization_defaults, manual_defaults
+            )
+            if not issues_declared:
+                issues = []
+            elif issues is None:
+                raise LedgerError(
+                    f"issues for {row_id} is explicitly null; omit the key "
+                    "entirely to mean 'no citations'"
+                )
+            if not isinstance(issues, list):
+                raise LedgerError(f"issues for {row_id} must be a list (got {issues!r})")
+            for citation in issues:
+                # bool is an int subclass, so it must be excluded explicitly or
+                # `true` would be accepted and render as issue #1.
+                if type(citation) is not int or citation < 1:
+                    raise LedgerError(
+                        f"issues for {row_id} must each be a positive issue number "
+                        f"(got {citation!r})"
+                    )
+            if len(set(issues)) != len(issues):
+                raise LedgerError(f"issues for {row_id} contains a duplicate citation: {issues}")
             rows.append(
                 {
                     "id": row_id,
@@ -1235,6 +1394,7 @@ def build_ledger() -> dict[str, Any]:
                     "callers": row_callers,
                     "canonical_parameters": parameters,
                     "authorization_class": authorization_class,
+                    "issues": issues,
                     "capability_conditions": _resolved_manual(
                         "capability_conditions", variant, entry, manual_defaults
                     ),
@@ -1248,10 +1408,7 @@ def build_ledger() -> dict[str, Any]:
                     "source_mentions": _test_references(command),
                     "evidence_method": evidence,
                     "outcome": outcome,
-                    "evidence_note": _resolved_manual(
-                        "evidence_note", variant, entry, manual_defaults
-                    )
-                    or "Manual reality pass; behavior is not contract-enforced.",
+                    "evidence_note": _evidence_note(row_id, variant, entry, manual_defaults),
                     "metadata_provenance": {
                         "inventory": "source-derived",
                         "authorization_class": "manual reality pass",
@@ -1437,13 +1594,16 @@ def render_markdown(ledger: dict[str, Any]) -> str:
     )
     for row in ledger["rows"]:
         callers = row["callers"]
+        outcome_cell = f"**`{row['outcome']}`**"
+        if row.get("issues"):
+            outcome_cell += " (" + ", ".join(_citation_link(c) for c in row["issues"]) + ")"
         lines.append(
             f"| `{row['id']}` | {_compact_caller(callers['node_advertisement'])} | "
             f"{_compact_caller(callers['direct_nodes_invoke'])} | "
             f"{_compact_caller(callers['handler_dispatch'])} | "
             f"{_compact_caller(callers['assist_wrapper'])} | "
             f"`{row['authorization_class']}` | `{row['evidence_method']}` | "
-            f"**`{row['outcome']}`** |"
+            f"{outcome_cell} |"
         )
     lines.extend(["", "## Row details", ""])
     for row in ledger["rows"]:
@@ -1459,6 +1619,11 @@ def render_markdown(ledger: dict[str, Any]) -> str:
                 f"- Semantic errors: {row['semantic_errors']}",
                 f"- Evidence method: `{row['evidence_method']}`",
                 f"- **Outcome: `{row['outcome']}`**",
+                *(
+                    [f"- Issues: {', '.join(_citation_link(c) for c in row['issues'])}"]
+                    if row.get("issues")
+                    else []
+                ),
                 f"- Evidence note: {row['evidence_note']}",
                 f"- Advertisement: {row['callers']['node_advertisement']['reason']}",
                 f"- Direct caller: {row['callers']['direct_nodes_invoke']['reason']}",

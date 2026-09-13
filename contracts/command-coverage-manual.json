@@ -15,6 +15,9 @@
     "deny_pending_trusted_approval": {
       "evidence_method": "TEST-PROVEN",
       "outcome": "refused-as-designed",
+      "issues": [
+        339
+      ],
       "acceptance_test_ids": [
         {
           "id": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
@@ -188,6 +191,9 @@
       "capability_conditions": "Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem restore wrapper.",
       "first_shipped_in": "2026.6.8a8",
+      "issues": [
+        324
+      ],
       "actions": {}
     },
     "fs.history": {
@@ -342,6 +348,9 @@
       "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
+      "issues": [
+        319
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
       "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
@@ -544,6 +553,9 @@
       "capability_conditions": "HA WebSocket API supports the device registry list command.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
+      "issues": [
+        330
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
@@ -567,6 +579,9 @@
       "actions": {},
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
+      "issues": [
+        330
+      ],
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
       "caller_observations": {
         "assist_wrapper": [
@@ -628,6 +643,9 @@
       "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
       "first_shipped_in": "2026.6.29b1",
       "actions": {},
+      "issues": [
+        330
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
@@ -694,6 +712,9 @@
       "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
+      "issues": [
+        316
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "fail",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): response 7.6 MB exceeds aiohttp 4 MiB WebSocket ceiling. Error: COMMAND_ERROR: Message size 7579915 exceeds limit 4194304, WSCloseCode.MESSAGE_TOO_BIG. Fix location: openclaw_node/ha_client.py:255 (pagination, chunked response, or raised max_msg_size). Tracked in GitHub issue.",
@@ -784,6 +805,9 @@
       "outcome": "partial",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
+      "issues": [
+        338
+      ],
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.light_turn_on": {
@@ -825,6 +849,9 @@
           "caller": "handler_dispatch",
           "outcome": "pass"
         }
+      ],
+      "issues": [
+        330
       ],
       "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter. Sept 13 live sweep (add-on 2026.9.13b1): ha.list_automations returned 115KB response; correctness pass but oversized with no server-side filter on this call path.",
       "caller_observations": {
@@ -1034,6 +1061,9 @@
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
+      "issues": [
+        323
+      ],
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_update": {
@@ -1050,6 +1080,9 @@
       "outcome": "partial",
       "first_shipped_in": "2026.9.13b1",
       "actions": {},
+      "issues": [
+        338
+      ],
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.config.lovelace": {
@@ -1146,7 +1179,7 @@
           ]
         }
       },
-      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.automation": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1197,7 +1230,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.script": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1248,7 +1281,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.scene": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1299,7 +1332,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.helpers": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1363,7 +1396,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.area_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1424,7 +1457,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1435,6 +1468,9 @@
           "capability_conditions": "HA WebSocket API supports config/device_registry/list; collection result has no caller limit.",
           "parameters": [
             "action"
+          ],
+          "issues": [
+            330
           ],
           "evidence_method": "PRODUCTION-LIVE",
           "outcome": "partial",
@@ -1464,7 +1500,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.entity_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1498,6 +1534,9 @@
           "capability_conditions": "HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.",
           "parameters": [
             "action"
+          ],
+          "issues": [
+            316
           ],
           "evidence_method": "PRODUCTION-LIVE",
           "outcome": "fail",
@@ -1537,7 +1576,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.config_entries": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1587,7 +1626,7 @@
           }
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",
@@ -1599,6 +1638,9 @@
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
       "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
+      "issues": [
+        333
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
       "evidence_note": "Sept 13 second-pass live sweep reached the Gateway but direct nodes.invoke refused this advertised command and directed callers to exec.approvals.node.*. Whether advertisement on the node.invoke surface is intentional remains unresolved.",

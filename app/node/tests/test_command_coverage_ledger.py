@@ -28,6 +28,258 @@ def _load_generator() -> ModuleType:
     return module
 
 
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "#316",  # the old string form
+        "banana",
+        "",
+        "316",
+        "GH-316",
+        "[x](x)",
+        '<a href="https://evil.invalid">x</a>',
+        316.0,
+        True,  # bool is an int subclass; would render as issue #1
+        0,
+        -3,
+        None,
+    ],
+)
+def test_issue_citations_must_be_positive_integers(
+    monkeypatch: pytest.MonkeyPatch, bad: object
+) -> None:
+    """A citation is a number, so nothing stringlike is representable.
+
+    This replaces a regex over citation strings. The anchor is constructed from
+    the integer rather than interpolated from authored text, so link syntax, raw
+    HTML and whitespace are not rejected — they cannot be expressed at all.
+    `True` is excluded explicitly because `bool` subclasses `int` and would
+    otherwise render as issue #1.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = [bad]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"issues for .* must"):
+        generator.build_ledger()
+
+
+def test_issue_citation_anchor_is_constructed_not_interpolated() -> None:
+    """The rendered anchor derives entirely from the integer and the repo URL."""
+    generator = _load_generator()
+
+    rendered = generator._citation_link(316)
+
+    assert rendered.endswith(">#316</a>")
+    assert "/issues/316" in rendered
+    assert 'target="_blank"' in rendered
+    assert 'rel="noopener noreferrer"' in rendered
+
+
+@pytest.mark.parametrize("falsey", [None, 0, "", False, []])
+def test_explicitly_null_caller_observations_is_rejected_not_defaulted(
+    monkeypatch: pytest.MonkeyPatch, falsey: object
+) -> None:
+    """`or {}` accepted any falsey value as "no observations".
+
+    That let a higher-precedence null suppress inherited observations instead of
+    failing validation — the same absent-versus-null defect as `issues`, which is
+    why presence is now resolved centrally rather than re-walked per field.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = falsey
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"caller_observations for"):
+        generator.build_ledger()
+
+
+def test_absent_caller_observations_defaults_to_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Omitting the key is still the documented way to mean "none"."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"].pop("caller_observations", None)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    generator.build_ledger()
+
+
+@pytest.mark.parametrize("winning_scope", [0, 1, 2, 3])
+def test_presence_resolution_honours_scope_precedence(winning_scope: int) -> None:
+    """The highest-priority *declaring* scope wins over every lower one.
+
+    An earlier version of this test declared the key in only one scope at a
+    time, so reversing the precedence order left all four cases passing — it
+    asserted that resolution finds a value, not that it finds the right one.
+    Every scope below the winner now carries a conflicting value, so a reorder
+    changes the result and the test fails.
+    """
+    generator = _load_generator()
+    scopes: list[dict[str, object]] = [{}, {}, {}, {}]
+    for index in range(winning_scope, 4):
+        scopes[index]["issues"] = [index]
+
+    declared, value = generator._resolve_evidence_presence("issues", *scopes)
+
+    assert declared is True
+    assert value == [winning_scope], (
+        "resolution must return the highest-priority declaring scope, "
+        f"expected scope {winning_scope}"
+    )
+
+
+@pytest.mark.parametrize("winning_scope", [0, 1, 2])
+def test_manual_presence_resolution_honours_scope_precedence(winning_scope: int) -> None:
+    """Same competing-declaration coverage for the three-scope manual resolver."""
+    generator = _load_generator()
+    scopes: list[dict[str, object]] = [{}, {}, {}]
+    for index in range(winning_scope, 3):
+        scopes[index]["evidence_note"] = f"scope-{index}"
+
+    declared, value = generator._resolve_manual_presence("evidence_note", *scopes)
+
+    assert declared is True
+    assert value == f"scope-{winning_scope}"
+
+
+def test_presence_resolution_reports_absence() -> None:
+    """An undeclared key reports absence rather than a None value."""
+    generator = _load_generator()
+
+    declared, value = generator._resolve_evidence_presence("issues", {}, {}, {}, {})
+
+    assert declared is False
+    assert value is None
+
+
+@pytest.mark.parametrize("empty", ["", "   ", None, 0, []])
+def test_authored_empty_evidence_note_is_rejected_not_defaulted(
+    monkeypatch: pytest.MonkeyPatch, empty: object
+) -> None:
+    """`or <default>` replaced an authored empty note with the fallback.
+
+    A row could then claim "Manual reality pass; behavior is not
+    contract-enforced" that nobody wrote. Omitting the key is how you accept the
+    default; an empty value is not.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["evidence_note"] = empty
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"evidence_note for .* must be"):
+        generator.build_ledger()
+
+
+def test_omitting_evidence_note_falls_through_to_the_global_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Omitting it on a command defers to the global scope, not the hardcoded one.
+
+    The first version of this test asserted the hardcoded fallback and failed,
+    correctly: the manual ledger declares `evidence_note` in its global defaults,
+    so removing it from one command leaves a lower scope still declaring it. That
+    is precedence working, and the hardcoded fallback applies only when no scope
+    declares the key at all.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"].pop("evidence_note", None)
+    global_default = manual["defaults"]["evidence_note"]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    row = next(r for r in ledger["rows"] if r["id"] == "ha.get_config")
+    assert row["evidence_note"] == global_default
+
+
+def test_hardcoded_evidence_note_applies_only_when_no_scope_declares_it() -> None:
+    """The in-code fallback is the last resort, below the global defaults."""
+    generator = _load_generator()
+
+    assert generator._evidence_note("x", {}, {}, {}) == generator._DEFAULT_EVIDENCE_NOTE
+
+
+def test_explicitly_null_issues_is_rejected_not_defaulted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`"issues": null` is authored intent, not absence, and must not default.
+
+    `_resolved_evidence_field` returns None for both cases, so an explicit null
+    was silently normalised to `[]` while the surrounding comment claimed only a
+    genuinely absent key defaulted.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = None
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"explicitly null"):
+        generator.build_ledger()
+
+
+@pytest.mark.parametrize("container", ["", 0, False, {}, 316])
+def test_issue_citations_reject_malformed_containers(
+    monkeypatch: pytest.MonkeyPatch, container: object
+) -> None:
+    """A malformed container must not be coerced into "no citations".
+
+    `... or []` ran before the type check, so an explicit "", 0, false or {} was
+    silently accepted as an empty citation list rather than rejected. Only a
+    genuinely absent value should default.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = container
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"issues for .* must be a list"):
+        generator.build_ledger()
+
+
+def test_absent_issues_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A genuinely absent value is still the documented way to say "none"."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"].pop("issues", None)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    assert next(r for r in ledger["rows"] if r["id"] == "ha.get_config")["issues"] == []
+
+
+def test_issue_citations_reject_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The same issue cited twice on one row is a typo, not a stronger claim."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = [316, 316]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"duplicate citation"):
+        generator.build_ledger()
+
+
+def test_issue_citations_accept_well_formed_references(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard must not reject legitimate citations."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = [316, 1, 3300]
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    row = next(r for r in ledger["rows"] if r["id"] == "ha.get_config")
+    assert row["issues"] == [316, 1, 3300]
+
+
 def test_generated_ledger_is_current() -> None:
     """Committed machine and human artifacts must match current source."""
     result = subprocess.run(
