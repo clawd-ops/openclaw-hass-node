@@ -507,6 +507,9 @@ elif args[:3] == ["api", "--method", "POST"]:
     body = json.load(sys.stdin)["body"]
     pathlib.Path(os.environ["CAPTURE_COMMENT"]).write_text(body, encoding="utf-8")
     print(json.dumps({"id": 17, "html_url": "https://example.invalid/comment/17", "body": body}))
+elif args and args[0] == "api" and any("/comments" in a for a in args) and "--paginate" in args:
+    # Idempotency guard reads existing comments before publishing.
+    print(os.environ.get("EXISTING_COMMENTS", "[]"))
 elif args and args[0] == "api":
     body = pathlib.Path(os.environ["CAPTURE_COMMENT"]).read_text(encoding="utf-8")
     print(json.dumps({"id": 17, "html_url": "https://example.invalid/comment/17", "body": body}))
@@ -983,3 +986,35 @@ def test_review_template_binds_repository_and_complete_confidentiality_scope() -
     # The child no longer posts to GitHub, so it needs no repo flag;
     # it must instead be told explicitly not to post.
     assert "Do not post anything to GitHub" in text
+
+
+def test_spawn_review_does_not_publish_twice_for_the_same_head(tmp_path: Path) -> None:
+    """A second run for an already-published head must not post again.
+
+    Publishing is outward-facing with no undo short of deleting a comment, so
+    the wrapper has to be safe to re-run. Two invocations posted the same
+    verdict 81 seconds apart on a real PR; there is no retry loop in the publish
+    path, so the duplicate came from a second run. The guard keys on the author
+    plus the pinned head, which is the pair that makes a review unique.
+    """
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    head = "0" * 40
+    env["EXISTING_COMMENTS"] = json.dumps(
+        [
+            {
+                "user": {"login": "clawd-ops"},
+                "body": f"APPROVE\nReviewed head: `{head}` (base `{'0' * 39 + '1'}`)",
+                "html_url": "https://example.invalid/comment/existing",
+            }
+        ]
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "already published" in result.stderr
+    assert "https://example.invalid/comment/existing" in result.stdout
+    # Nothing new may be created when the guard fires.
+    assert not Path(env["CAPTURE_COMMENT"]).exists() or "POST" not in result.stdout

@@ -6,6 +6,8 @@ REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 TEMPLATE="$REPO_ROOT/scripts/dev/templates/codex-review-brief.md"
 CHECKER="$REPO_ROOT/scripts/dev/confidentiality-check"
 DEFAULT_MODEL_SLUG="openai/gpt-5.6-sol"
+# Author the idempotency guard matches on; the account the wrapper posts as.
+COMMENT_AUTHOR="${REVIEW_COMMENT_AUTHOR:-clawd-ops}"
 
 if [[ $# -lt 1 || $# -gt 2 ]] || [[ ! "$1" =~ ^[1-9][0-9]*$ ]]; then
     echo "usage: spawn-codex-review <pr-number> [narrowing-file]" >&2
@@ -258,6 +260,23 @@ IFS=$'\t' read -r LIVE_HEAD LIVE_BASE <<< "$LIVE_REFS"
 if [[ "$LIVE_HEAD" != "$HEAD_SHA" || "$LIVE_BASE" != "$BASE_SHA" ]]; then
     echo "spawn-codex-review: PR head or base moved; review not posted" >&2
     exit 1
+fi
+
+# Idempotency guard. Publishing is an outward-facing side effect with no undo
+# short of deleting a comment, so it must be safe to run this wrapper twice for
+# the same pinned head. Two invocations posted the same verdict 81 seconds apart
+# on PR 306; there is no retry loop in this path, so the duplicate came from a
+# second run rather than a retried request, and a guard keyed on the pinned head
+# covers both causes. The check is by author plus the exact `Reviewed head:`
+# line, because that pair is what makes a review unique.
+PIN_MARKER="Reviewed head: \`$HEAD_SHA\`"
+EXISTING_URL=$(gh api "repos/$REPOSITORY/issues/$PR/comments" --paginate \
+    | jq -r --arg author "$COMMENT_AUTHOR" --arg pin "$PIN_MARKER" \
+        '[.[] | select(.user.login == $author) | select(.body | contains($pin)) | .html_url] | first // empty')
+if [[ -n "$EXISTING_URL" ]]; then
+    echo "spawn-codex-review: review already published for this head; not posting again" >&2
+    printf '%s\n' "$EXISTING_URL"
+    exit 0
 fi
 
 jq -n --rawfile body "$COMMENT_FILE" '{body:$body}' | \
