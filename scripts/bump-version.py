@@ -69,6 +69,16 @@ SOURCES: list[VersionFile] = [
         pattern=re.compile(r'^  "version": "([^"]+)"$', re.MULTILINE),
         template='  "version": "{version}"',
     ),
+    VersionFile(
+        path=REPO_ROOT / "plugins" / "openclaw-hass-node-assist-tools" / "package.json",
+        pattern=re.compile(r'^  "version": "([^"]+)",$', re.MULTILINE),
+        template='  "version": "{version}",',
+    ),
+    VersionFile(
+        path=REPO_ROOT / "skills" / "openclaw-hass-node-skill" / "SKILL.md",
+        pattern=re.compile(r"^version: (.+)$", re.MULTILINE),
+        template="version: {version}",
+    ),
 ]
 
 

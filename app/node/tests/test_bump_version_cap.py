@@ -60,7 +60,7 @@ def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedPr
     """Copy the script + a minimal set of version-bearing sources into a
     throwaway tree and run the real ``_bump`` path against it.
 
-    We can't run the in-repo bump for real (it would rewrite five tracked
+    We can't run the in-repo bump for real (it would rewrite seven tracked
     files), so we mirror the file layout the script expects under *tmp_path*
     and invoke the script there. This actually exercises ``_bump`` —
     ``--check`` does not — which is the path the cap lives on.
@@ -77,6 +77,9 @@ def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedPr
         "app/node/pyproject.toml": 'version = "2026.6.20b9"\n',
         "app/node/src/openclaw_node/__init__.py": '    __version__ = "2026.6.20b9"\n',
         "custom_components/openclaw_hass_node_assist/manifest.json": '  "version": "2026.6.20b9"\n',
+        # Trailing comma: this key is mid-object, unlike the HACS manifest.
+        "plugins/openclaw-hass-node-assist-tools/package.json": ('  "version": "2026.6.20b9",\n'),
+        "skills/openclaw-hass-node-skill/SKILL.md": "version: 2026.6.20b9\n",
     }
     for rel, content in layout.items():
         target = tmp_path / rel

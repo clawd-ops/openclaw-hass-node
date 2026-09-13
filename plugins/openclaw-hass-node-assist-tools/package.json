@@ -1,6 +1,6 @@
 {
   "name": "@openclaw-hass-node/assist-tools",
-  "version": "0.1.1",
+  "version": "2026.9.13b1",
   "private": true,
   "type": "module",
   "description": "OpenClaw gateway plugin that bridges HA Assist sessions to the paired Home Assistant node command surface (ha_call_service, ha_get_state, ...).",
