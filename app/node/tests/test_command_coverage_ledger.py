@@ -604,3 +604,239 @@ def test_release_with_zero_new_commands_has_current_release_heading() -> None:
     first_shipped = {"ping": "2026.7.23b1", "ha.get_state": "2026.6.8a8"}
 
     assert generator._commands_new_in_release(first_shipped, "2026.8.1b1") == []
+
+
+# ── Provenance field validation for PRODUCTION-LIVE observations ──
+
+
+def test_production_live_observation_requires_observed_at(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PRODUCTION-LIVE observations missing observed_at must fail ledger generation."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                # observed_at deliberately absent
+                "node_version": "2026.9.13b1",
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"PRODUCTION-LIVE observation.*observed_at",
+    ):
+        generator.build_ledger()
+
+
+def test_production_live_observation_requires_node_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PRODUCTION-LIVE observations missing node_version must fail ledger generation."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                "observed_at": "2026-09-13",
+                # node_version deliberately absent
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"PRODUCTION-LIVE observation.*node_version",
+    ):
+        generator.build_ledger()
+
+
+def test_production_live_observation_requires_valid_iso_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """observed_at must be an ISO date string (YYYY-MM-DD)."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                "observed_at": "September 13 2026",  # not ISO format
+                "node_version": "2026.9.13b1",
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"PRODUCTION-LIVE observation.*observed_at",
+    ):
+        generator.build_ledger()
+
+
+def test_production_live_observation_requires_valid_version_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """node_version must be a valid canonical release version string."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                "observed_at": "2026-09-13",
+                "node_version": "not-a-version",
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"PRODUCTION-LIVE observation.*node_version",
+    ):
+        generator.build_ledger()
+
+
+def test_stale_observation_flagged_when_version_mismatches_current(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """An observation probed against an older node_version must carry stale=True."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    # Inject an observation with an older node_version.
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                "observed_at": "2026-07-23",
+                "node_version": "2026.7.23b1",  # older than current
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+    assist_evidence = rows_by_id["ha.get_config"]["callers"]["assist_wrapper"]["evidence"]
+    live_items = [e for e in assist_evidence if e["method"] == "PRODUCTION-LIVE"]
+    assert live_items, "expected at least one PRODUCTION-LIVE evidence item"
+    assert any(item.get("stale") is True for item in live_items), (
+        "older node_version should produce stale=True on the evidence item"
+    )
+
+
+def test_current_observation_not_stale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An observation probed against the current release must carry stale=False."""
+    generator = _load_generator()
+    current_version = generator._tracked_release_version()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = {
+        "assist_wrapper": [
+            {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md",
+                "observation": "Returned config dict.",
+                "observed_at": "2026-09-13",
+                "node_version": current_version,
+            }
+        ]
+    }
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+    assist_evidence = rows_by_id["ha.get_config"]["callers"]["assist_wrapper"]["evidence"]
+    live_items = [e for e in assist_evidence if e["method"] == "PRODUCTION-LIVE"]
+    assert live_items, "expected at least one PRODUCTION-LIVE evidence item"
+    assert all(item.get("stale") is False for item in live_items), (
+        "current node_version should produce stale=False on the evidence item"
+    )
+
+
+def test_sept13_sweep_commands_have_production_live_evidence() -> None:
+    """Commands probed in the Sept 13 sweep must carry PRODUCTION-LIVE evidence in the ledger."""
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+
+    # These commands were clean passes in the Sept 13 sweep.
+    expected_live_pass = [
+        "ha.get_config",
+        "ha.list_areas",
+        "ha.list_events",
+        "ha.list_states",
+        "ha.get_state",
+        "ha.check_config",
+        "ha.core_logs",
+        "ha.history",
+        "ha.calendar_get_events",
+        "ha.addon_info",
+        "ha.addon_logs",
+        "ha.addon_stats",
+        "ha.addon_changelog",
+        "ha.addon_documentation",
+        "ha.list_addons",
+    ]
+    for command in expected_live_pass:
+        row = rows_by_id[command]
+        assert row["evidence_method"] == "PRODUCTION-LIVE", (
+            f"{command} expected PRODUCTION-LIVE evidence_method"
+        )
+        assert row["outcome"] == "pass", f"{command} expected pass outcome"
+        # At least one caller must have a PRODUCTION-LIVE evidence item.
+        all_evidence = [
+            ev for caller in row["callers"].values() for ev in caller["evidence"]
+        ]
+        assert any(e["method"] == "PRODUCTION-LIVE" for e in all_evidence), (
+            f"{command} has no PRODUCTION-LIVE evidence item in any caller"
+        )
+
+    # ha.logbook: assist_wrapper PASS confirmed, but direct-path key mismatch keeps it partial.
+    logbook_row = rows_by_id["ha.logbook"]
+    assert logbook_row["evidence_method"] == "PRODUCTION-LIVE"
+    assert logbook_row["outcome"] == "partial"
+
+    assert rows_by_id["ha.list_entity_registry"]["evidence_method"] == "PRODUCTION-LIVE"
+    assert rows_by_id["ha.list_entity_registry"]["outcome"] == "fail"
+
+
+def test_sept11_observations_carry_stale_provenance() -> None:
+    """Sept 11 observations (node 2026.7.23b1) must be marked stale in the output ledger."""
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+
+    # system.run direct_nodes_invoke observation was probed against 2026.7.23b1.
+    system_run_evidence = rows_by_id["system.run"]["callers"]["direct_nodes_invoke"]["evidence"]
+    json_live = [
+        e
+        for e in system_run_evidence
+        if e.get("method") == "PRODUCTION-LIVE" and e.get("node_version") is not None
+    ]
+    assert json_live, "system.run direct_nodes_invoke must have a provenanced PRODUCTION-LIVE item"
+    assert all(e.get("stale") is True for e in json_live), (
+        "system.run Sept 11 observations must be stale (node_version 2026.7.23b1 != current)"
+    )

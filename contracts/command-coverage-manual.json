@@ -193,7 +193,9 @@
             "method": "PRODUCTION-LIVE",
             "outcome": "refused-as-designed",
             "source": "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
-            "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan."
+            "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan.",
+            "observed_at": "2026-09-11",
+            "node_version": "2026.7.23b1"
           }
         ],
         "handler_dispatch": [
@@ -224,13 +226,43 @@
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_states with entity_filter returned 1 of 7,217 entities. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.get_state": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable and the entity exists.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.get_state returned entity state dict. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.call_service": {
       "authorization_class": "interim_node_effect_denylist",
@@ -356,7 +388,7 @@
           }
         ]
       },
-      "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete.",
+      "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete. AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "semantic_result": "Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O."
@@ -365,37 +397,127 @@
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports the area registry list command.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_areas returned 27 areas. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_devices": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports the device registry list command.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_devices returned 819KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_services": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_services returned 425KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.get_config": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.get_config returned configuration dict including location, unit system, and HA version. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_events": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_events returned 47 event listeners. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_config_entries": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_config_entries returned 667KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.core_logs": {
       "authorization_class": "read_only",
@@ -404,19 +526,64 @@
         "lines": "validated integer from 1 through the source-defined maximum"
       },
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.core_logs returned log lines in ~100ms; pre-existing Alexa relink and DNS warnings present. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.calendar_get_events": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable and the calendar entity/time range is valid.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.calendar_get_events returned empty result for today (no events). No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_entity_registry": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): response 7.6 MB exceeds aiohttp 4 MiB WebSocket ceiling. Error: COMMAND_ERROR: Message size 7579915 exceeds limit 4194304, WSCloseCode.MESSAGE_TOO_BIG. Fix location: openclaw_node/ha_client.py:255 (pagination, chunked response, or raised max_msg_size). Tracked in GitHub issue.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.logbook": {
       "authorization_class": "read_only",
@@ -430,7 +597,17 @@
             "method": "PRODUCTION-LIVE",
             "outcome": "pass",
             "source": "docs/VERIFICATION-2026-09-11.md#4-live-evidence",
-            "observation": "The installed Assist wrapper honored time and entity scoping in the probed path."
+            "observation": "The installed Assist wrapper honored time and entity scoping in the probed path.",
+            "observed_at": "2026-09-11",
+            "node_version": "2026.7.23b1"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.logbook returned logbook entries correctly via Assist wrapper. Confirms Sept 11 pass observation against 2026.9.13b1. Direct-path key mismatch (start_time/end_time vs start/end) still CODE-PROVEN.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
           }
         ],
         "direct_nodes_invoke": [
@@ -449,15 +626,27 @@
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; direct caller aliases, URL encoding, and unknown-entity semantics remain unresolved.",
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "fail",
-      "evidence_note": "Installed-node probes reproduced the +00:00 encoding failure and silent empty unknown-entity result.",
+      "outcome": "pass",
+      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1) reproduced +00:00 percent-encoding failure. Sept 13 probe (add-on 2026.9.13b1) passed via Assist wrapper. The Sept 11 observation is stale (version mismatch); Sept 13 is current evidence. Unknown-entity silent-empty behavior (§2.7) remains unverified.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
             "method": "PRODUCTION-LIVE",
             "outcome": "fail",
             "source": "docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding",
-            "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result."
+            "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
+            "observed_at": "2026-09-11",
+            "node_version": "2026.7.23b1"
+          }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (§2.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
           }
         ]
       },
@@ -469,19 +658,22 @@
       "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.light_turn_on": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_on; trusted principal context is not node-enforced yet.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.light_turn_off": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_off; trusted principal context is not node-enforced yet.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.list_automations": {
       "authorization_class": "read_only",
@@ -490,7 +682,7 @@
         "entity_filter": "non-empty string, must start with 'automation.', capped at 256 chars; fnmatch-style glob",
         "state_filter": "non-empty string, capped at 256 chars; exact match against the state field"
       },
-      "evidence_method": "TEST-PROVEN",
+      "evidence_method": "PRODUCTION-LIVE",
       "outcome": "pass",
       "acceptance_test_ids": [
         {
@@ -509,7 +701,7 @@
           "outcome": "pass"
         }
       ],
-      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.",
+      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter. Sept 13 live sweep (add-on 2026.9.13b1): ha.list_automations returned 115KB response; correctness pass but oversized with no server-side filter on this call path.",
       "caller_observations": {
         "handler_dispatch": [
           {
@@ -530,6 +722,16 @@
             "source": "app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter",
             "observation": "The handler rejects a state_filter longer than 256 characters with INVALID_PARAM and reports the configured boundary."
           }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_automations returned 115KB response. Command returned data correctly. No server-side filter was used on this probe; full automation set returned.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
         ]
       },
       "first_shipped_in": "2026.6.8a8",
@@ -539,7 +741,22 @@
       "authorization_class": "diagnostic",
       "capability_conditions": "Supervisor API is reachable and permits core config validation.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.check_config returned valid config status. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_logs": {
       "authorization_class": "read_only",
@@ -548,72 +765,167 @@
         "lines": "validated integer from 1 through the source-defined maximum"
       },
       "first_shipped_in": "2026.6.20b3",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_logs returned add-on log lines. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_addons": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable; collection result has no caller limit.",
       "first_shipped_in": "2026.6.20b3",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_addons returned installed add-on list. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_info": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_info returned add-on metadata dict in 12-100ms. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_stats": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_stats returned utilization metrics. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_changelog": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_changelog returned changelog text. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_documentation": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_documentation returned documentation text. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_start": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_stop": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_restart": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_update": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.9.13b1",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.update_install": {
       "authorization_class": "admin_token",
       "capability_conditions": "HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.",
       "outcome": "partial",
       "first_shipped_in": "2026.9.13b1",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.config.lovelace": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -663,7 +975,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.automation": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -698,7 +1011,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.script": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -733,7 +1047,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.scene": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -768,7 +1083,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.helpers": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -816,7 +1132,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.area_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -861,7 +1178,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -885,7 +1203,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.entity_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -927,7 +1246,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "ha.config.config_entries": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -961,7 +1281,8 @@
             "entry_id"
           ]
         }
-      }
+      },
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md §0)."
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",

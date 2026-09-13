@@ -39,6 +39,9 @@ EVIDENCE_METHODS = [
     "DISPOSABLE-LIVE",
     "PRODUCTION-LIVE",
 ]
+
+# ISO date pattern for observed_at provenance field.
+_OBSERVED_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 OUTCOMES = ["pass", "fail", "refused-as-designed", "partial", "unverified"]
 # Row callers that appear as columns in the generated ledger.
 ROW_CALLERS = frozenset(
@@ -667,17 +670,33 @@ def _validate_exact(label: str, actual: set[str], declared: set[str]) -> None:
         raise LedgerError("; ".join(parts))
 
 
-def _evidence(method: str, outcome: str, source: str, observation: str) -> dict[str, str]:
+def _evidence(
+    method: str,
+    outcome: str,
+    source: str,
+    observation: str,
+    *,
+    observed_at: str | None = None,
+    node_version: str | None = None,
+    stale: bool | None = None,
+) -> dict[str, Any]:
     if method not in EVIDENCE_METHODS:
         raise LedgerError(f"invalid evidence method: {method}")
     if outcome not in OUTCOMES:
         raise LedgerError(f"invalid evidence outcome: {outcome}")
-    return {
+    item: dict[str, Any] = {
         "method": method,
         "outcome": outcome,
         "source": source,
         "observation": observation,
     }
+    if observed_at is not None:
+        item["observed_at"] = observed_at
+    if node_version is not None:
+        item["node_version"] = node_version
+    if stale is not None:
+        item["stale"] = stale
+    return item
 
 
 def _caller(
@@ -787,6 +806,7 @@ def build_ledger() -> dict[str, Any]:
             parts.append(f"contract-only={contract_only}")
         raise LedgerError("; ".join(parts))
 
+    current_release = _tracked_release_version()
     rows: list[dict[str, Any]] = []
     for command in sorted(registry):
         module, handler = registry[command]
@@ -1127,12 +1147,39 @@ def build_ledger() -> dict[str, Any]:
                                 f"caller observation for {row_id}/{caller_name} "
                                 f"missing required string field: {required_field}"
                             )
+                    obs_observed_at: str | None = None
+                    obs_node_version: str | None = None
+                    obs_stale: bool | None = None
+                    if observation["method"] == "PRODUCTION-LIVE":
+                        obs_observed_at = observation.get("observed_at")
+                        obs_node_version = observation.get("node_version")
+                        if not isinstance(obs_observed_at, str) or not _OBSERVED_AT_RE.fullmatch(
+                            obs_observed_at
+                        ):
+                            raise LedgerError(
+                                f"PRODUCTION-LIVE observation for {row_id}/{caller_name} "
+                                f"missing required ISO date field: observed_at "
+                                f"(got {obs_observed_at!r})"
+                            )
+                        ver_re = _FIRST_SHIPPED_VERSION_RE
+                        if not isinstance(obs_node_version, str) or not ver_re.fullmatch(
+                            obs_node_version
+                        ):
+                            raise LedgerError(
+                                f"PRODUCTION-LIVE observation for {row_id}/{caller_name} "
+                                f"missing required version field: node_version "
+                                f"(got {obs_node_version!r})"
+                            )
+                        obs_stale = obs_node_version != current_release
                     row_callers[caller_name]["evidence"].append(
                         _evidence(
                             observation["method"],
                             observation["outcome"],
                             observation["source"],
                             observation["observation"],
+                            observed_at=obs_observed_at,
+                            node_version=obs_node_version,
+                            stale=obs_stale,
                         )
                     )
             rows.append(
@@ -1180,7 +1227,7 @@ def build_ledger() -> dict[str, Any]:
     first_shipped_by_command = {
         cmd: manual["commands"][cmd]["first_shipped_in"] for cmd in sorted(registry)
     }
-    latest_release = _tracked_release_version()
+    latest_release = current_release
     commands_new_in_latest_release = _commands_new_in_release(
         first_shipped_by_command, latest_release
     )
@@ -1419,10 +1466,20 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         lines.append("- Caller evidence:")
         for caller_name, caller in row["callers"].items():
             for observation in caller["evidence"]:
+                provenance = ""
+                if observation.get("node_version") or observation.get("observed_at"):
+                    prov_parts = []
+                    if observation.get("node_version"):
+                        prov_parts.append(f"node_version={observation['node_version']}")
+                    if observation.get("observed_at"):
+                        prov_parts.append(f"observed_at={observation['observed_at']}")
+                    if observation.get("stale"):
+                        prov_parts.append("**STALE**")
+                    provenance = " [" + "; ".join(prov_parts) + "]"
                 lines.append(
                     f"  - `{caller_name}` / `{observation['method']}` / "
                     f"**`{observation['outcome']}`**: {observation['observation']} "
-                    f"(source: `{observation['source']}`)"
+                    f"(source: `{observation['source']}`){provenance}"
                 )
         lines.append("- Curated acceptance-test IDs:")
         if row["acceptance_test_ids"]:
