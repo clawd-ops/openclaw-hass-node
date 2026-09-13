@@ -320,7 +320,15 @@ def main() -> int:
         if args.version:
             print("error: --check-release-bump takes no version argument", file=sys.stderr)
             return 2
-        return _check_release_bump(args.check_release_bump)
+        # Check mode needs the same ShipError contract as stamping. Without it a
+        # malformed or unreadable base ref exits on a raw traceback instead of
+        # the documented `error:` line, and this runs as a CI gate where the
+        # diagnostic is the whole output.
+        try:
+            return _check_release_bump(args.check_release_bump)
+        except ShipError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
 
     if not args.version:
         parser.error("a version is required unless --check-release-bump is used")

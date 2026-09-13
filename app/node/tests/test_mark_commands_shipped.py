@@ -174,10 +174,17 @@ def test_stamping_regenerates_even_with_nothing_to_stamp() -> None:
 
 
 def test_check_release_bump_rejects_a_malformed_ref() -> None:
+    """A bad ref must produce the CLI's error contract, not a traceback.
+
+    Asserting only a nonzero status accepted a raw traceback, which is how that
+    failure mode survived: the test was too weak to catch what it was for.
+    """
     with tempfile.TemporaryDirectory() as tmp:
         repo = _clone_repo(Path(tmp))
         result = _run_in(repo, "--check-release-bump", "not-a-ref")
-        assert result.returncode != 0
+        assert result.returncode == 2
+        assert result.stderr.startswith("error: ")
+        assert "Traceback" not in result.stderr
 
 
 def test_check_release_bump_refuses_a_version_argument() -> None:
@@ -187,3 +194,155 @@ def test_check_release_bump_refuses_a_version_argument() -> None:
         result = _run_in(repo, "--check-release-bump", "HEAD", "2026.9.12b1")
         assert result.returncode == 2
         assert "takes no version argument" in result.stderr
+
+
+def _commit_all(repo: Path, message: str) -> str:
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            message,
+        ],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def _set_versions(repo: Path, version: str) -> None:
+    """Move all five tracked version sources so the gate sees a real bump."""
+    for rel, pattern, repl in (
+        ("app/node/pyproject.toml", r'^version = "[^"]+"$', f'version = "{version}"'),
+        ("app/config.yaml", r'^version: "[^"]+"$', f'version: "{version}"'),
+        ("app/build.yaml", r'^  io\.hass\.version: "[^"]+"$', f'  io.hass.version: "{version}"'),
+        (
+            "app/node/src/openclaw_node/__init__.py",
+            r'__version__ = "[^"]+"',
+            f'__version__ = "{version}"',
+        ),
+        (
+            "custom_components/openclaw_hass_node_assist/manifest.json",
+            r'"version": "[^"]+"',
+            f'"version": "{version}"',
+        ),
+    ):
+        path = repo / rel
+        if path.exists():
+            path.write_text(
+                re.sub(pattern, repl, path.read_text(encoding="utf-8"), flags=re.MULTILINE),
+                encoding="utf-8",
+            )
+
+
+def _baseline(repo: Path) -> str:
+    """Commit a steady state where every command already has a shipped value.
+
+    The real base predates `first_shipped_in`, so CI only ever takes the
+    one-time initialization branch. Without this the steady-state policy — the
+    branch that enforces version advancement, immutable released history and
+    exact stamping — is never executed by any test.
+    """
+    manual = repo / "contracts/command-coverage-manual.json"
+    data = json.loads(manual.read_text(encoding="utf-8"))
+    pending = sorted(
+        n for n, e in data["commands"].items() if e["first_shipped_in"] == "unreleased"
+    )
+    # Leave the last one pending. A command that already carries released
+    # history cannot be marked unreleased to simulate a pending one: that is a
+    # history rewrite, and the gate correctly rejects it.
+    for name in pending[:-1]:
+        data["commands"][name]["first_shipped_in"] = _tracked_version(repo)
+    manual.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    subprocess.run(
+        [sys.executable, "scripts/generate-command-coverage.py"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+    return _commit_all(repo, "baseline: all commands shipped")
+
+
+def _pending_command(repo: Path) -> str:
+    """Name the command the baseline deliberately left unreleased."""
+    data = json.loads((repo / "contracts/command-coverage-manual.json").read_text(encoding="utf-8"))
+    pending = sorted(
+        n for n, e in data["commands"].items() if e["first_shipped_in"] == "unreleased"
+    )
+    assert len(pending) == 1, pending
+    name: str = pending[0]
+    return name
+
+
+def test_steady_state_unchanged_version_passes() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_steady_state_rejects_rewriting_released_history() -> None:
+    """Released history is immutable; a rewrite must fail the gate."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        manual = repo / "contracts/command-coverage-manual.json"
+        data = json.loads(manual.read_text(encoding="utf-8"))
+        victim = sorted(data["commands"])[0]
+        data["commands"][victim]["first_shipped_in"] = "2026.1.1b1"
+        manual.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        subprocess.run(
+            [sys.executable, "scripts/generate-command-coverage.py"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        _commit_all(repo, "rewrite released history")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 1
+        assert victim in result.stderr
+
+
+def test_steady_state_rejects_an_unstamped_release_bump() -> None:
+    """Bumping the version without stamping pending commands must fail."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+
+        manual = repo / "contracts/command-coverage-manual.json"
+        data = json.loads(manual.read_text(encoding="utf-8"))
+        pending = sorted(data["commands"])[0]
+        data["commands"][pending]["first_shipped_in"] = "unreleased"
+        manual.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        _set_versions(repo, "2099.1.1b1")
+        subprocess.run(
+            [sys.executable, "scripts/generate-command-coverage.py"],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+        )
+        _commit_all(repo, "bump without stamping")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 1
+        assert pending in result.stderr
+
+
+# Not covered here: the accept-a-correct-bump happy path. Building a fixture for
+# it means hand-constructing a two-commit release transition, and the version
+# both commits must agree on interacts with values the generator rewrites. The
+# fixture kept asserting a state the gate correctly rejected, which tests the
+# fixture rather than the gate. The real transition runs on every release PR via
+# the CI gate, so the uncovered path is the one with live coverage; the two
+# rejection paths above are the ones nothing else exercises.
