@@ -77,6 +77,24 @@ def test_issue_citation_anchor_is_constructed_not_interpolated() -> None:
     assert 'rel="noopener noreferrer"' in rendered
 
 
+def test_explicitly_null_issues_is_rejected_not_defaulted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`"issues": null` is authored intent, not absence, and must not default.
+
+    `_resolved_evidence_field` returns None for both cases, so an explicit null
+    was silently normalised to `[]` while the surrounding comment claimed only a
+    genuinely absent key defaulted.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["issues"] = None
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"explicitly null"):
+        generator.build_ledger()
+
+
 @pytest.mark.parametrize("container", ["", 0, False, {}, 316])
 def test_issue_citations_reject_malformed_containers(
     monkeypatch: pytest.MonkeyPatch, container: object

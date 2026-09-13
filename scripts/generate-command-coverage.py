@@ -76,9 +76,7 @@ VALID_TEST_CALLERS = ROW_CALLERS
 
 # Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE.
 _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
-# An issue citation is rendered verbatim into the Markdown ledger, so it has
-# to be a real `#<number>` reference and nothing else. Leading zeros are
-# rejected because `#007` and `#7` would cite the same issue two ways.
+
 # An issue citation is an integer, not a string. The field cannot express
 # `banana`, `GH-316`, a trailing space, a Markdown link or a raw anchor, because
 # none of them are representable — the anchor below is constructed from the
@@ -1280,12 +1278,25 @@ def build_ledger() -> dict[str, Any]:
                             stale=obs_stale,
                         )
                     )
+            # `_resolved_evidence_field` returns None both for an absent key and
+            # for one authored as explicit null, so "absent" has to be decided
+            # before resolution. Walking the same scopes in the same precedence
+            # order keeps the two in step. Without this, `"issues": null` was
+            # normalised to [] while the comment claimed only absence defaulted.
+            for _scope in (variant, entry, authorization_defaults, manual_defaults):
+                if "issues" in _scope:
+                    if _scope["issues"] is None:
+                        raise LedgerError(
+                            f"issues for {row_id} is explicitly null; omit the key "
+                            "entirely to mean 'no citations'"
+                        )
+                    break
             issues = _resolved_evidence_field(
                 "issues", variant, entry, authorization_defaults, manual_defaults
             )
-            # Default only a genuinely absent value. `or []` ran before the type
-            # check, so an explicit "", 0, false or {} was silently accepted as
-            # "no citations" instead of being rejected as malformed.
+            # Only a genuinely absent key defaults. `or []` used to run before the
+            # type check, so an explicit "", 0, false or {} was silently accepted
+            # as "no citations" instead of being rejected as malformed.
             if issues is None:
                 issues = []
             if not isinstance(issues, list):
