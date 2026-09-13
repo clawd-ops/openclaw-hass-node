@@ -460,8 +460,20 @@ esac
     payload = json.loads(result.stdout)
     assert payload["latest_codex_verdict_body_head"] == "APPROVE"
     assert payload["latest_codex_pinned_sha"] == head
+    assert payload["latest_codex_pinned_base_sha"] == "b" * 40
     assert payload["pinned_sha_matches_head"] is True
+    assert payload["pinned_shas_match_pr"] is True
     assert [check["name"] for check in payload["checks"]] == ["CI", "Docs"]
+
+    moved_base = json.loads(env["GH_CORE"])
+    moved_base["base"]["sha"] = "d" * 40
+    env["GH_CORE"] = json.dumps(moved_base)
+    stale_result = subprocess.run(
+        [str(_PR_STATE), "7"], capture_output=True, text=True, check=False, env=env
+    )
+    stale_payload = json.loads(stale_result.stdout)
+    assert stale_payload["pinned_sha_matches_head"] is True
+    assert stale_payload["pinned_shas_match_pr"] is False
 
 
 def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
@@ -692,6 +704,65 @@ def test_pr_rebase_uses_worktree_local_gates_and_explicit_lease() -> None:
     assert 'git diff --binary --no-ext-diff "origin/main...HEAD"' in text
     assert 'git diff --name-only -z --diff-filter=D "origin/main...HEAD"' in text
     assert 'git cat-file blob "origin/main:$changed_path"' in text
+    assert "--json state,baseRefName,headRefName,headRefOid,headRepository" in text
+    assert '[[ "$PR_STATE" != "OPEN" ]]' in text
+    assert '[[ "$BASE_BRANCH" != "main" ]]' in text
+    assert '[[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]' in text
+    assert "uv sync --quiet --python 3.13" in text
+
+
+@pytest.mark.parametrize(
+    "pr_data",
+    [
+        "CLOSED\tmain\tfeature\t" + "a" * 40 + "\texample/project",
+        "OPEN\trelease\tfeature\t" + "a" * 40 + "\texample/project",
+        "OPEN\tmain\tfeature\t" + "a" * 40 + "\tother/project",
+    ],
+)
+def test_pr_rebase_refuses_unsupported_pr_before_git_mutation(tmp_path: Path, pr_data: str) -> None:
+    """Closed, non-main, and foreign-repository PRs fail before fetch/worktree."""
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    marker = tmp_path / "mutated"
+    git = stub_bin / "git"
+    git.write_text(
+        """#!/bin/sh
+case "$*" in
+  *"rev-parse --show-toplevel") printf '%s\n' "$REPO_ROOT" ;;
+  *) touch "$MUTATION_MARKER"; exit 9 ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    git.chmod(0o755)
+    gh = stub_bin / "gh"
+    gh.write_text(
+        """#!/bin/sh
+case "$*" in
+  "pr view "*) printf '%s\n' "$PR_DATA" ;;
+  "repo view "*) printf '%s\n' "example/project" ;;
+  *) exit 9 ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{stub_bin}:{env['PATH']}",
+            "MUTATION_MARKER": str(marker),
+            "PR_DATA": pr_data,
+            "REPO_ROOT": str(_REPO_ROOT),
+        }
+    )
+
+    result = subprocess.run(
+        [str(_PR_REBASE), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert not marker.exists()
 
 
 def test_gate_runner_matches_typescript_workflow_scope() -> None:
@@ -699,7 +770,10 @@ def test_gate_runner_matches_typescript_workflow_scope() -> None:
     text = (_REPO_ROOT / "scripts" / "dev" / "run-all-gates").read_text(encoding="utf-8")
     assert "app/node/*" in text
     assert "uv sync --all-extras --python 3.13" in text
+    assert "scripts/dev/pr-state scripts/dev/*.py" in text
     assert text.index("uv sync --all-extras --python 3.13") < text.index("uv run ruff")
+    assert "uv run python scripts/generate-command-coverage.py --check" in text
+    assert "uv run python scripts/check-active-docs-schema.py" in text
     assert "docker build app" in text
     assert 'fail "changed-path enumeration (branch)"' in text
 

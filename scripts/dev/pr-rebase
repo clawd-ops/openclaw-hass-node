@@ -27,13 +27,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Resolve the PR head branch name.
-PR_DATA=$(gh pr view "$PR" --json headRefName,headRefOid,headRepositoryOwner --jq \
-    '[.headRefName, .headRefOid, .headRepositoryOwner.login] | @tsv')
-IFS=$'\t' read -r BRANCH EXPECTED_HEAD HEAD_OWNER <<< "$PR_DATA"
-REPO_OWNER=$(gh repo view --json owner --jq '.owner.login')
-if [[ "$HEAD_OWNER" != "$REPO_OWNER" ]]; then
-    echo "pr-rebase: fork pull requests are not supported" >&2
+# Refuse unsupported targets before creating a worktree or changing a branch.
+PR_DATA=$(gh pr view "$PR" \
+    --json state,baseRefName,headRefName,headRefOid,headRepository \
+    --jq '[.state, .baseRefName, .headRefName, .headRefOid, .headRepository.nameWithOwner] | @tsv')
+IFS=$'\t' read -r PR_STATE BASE_BRANCH BRANCH EXPECTED_HEAD HEAD_REPOSITORY <<< "$PR_DATA"
+REPOSITORY=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+if [[ "$PR_STATE" != "OPEN" ]]; then
+    echo "pr-rebase: pull request must be open" >&2
+    exit 1
+fi
+if [[ "$BASE_BRANCH" != "main" ]]; then
+    echo "pr-rebase: only pull requests targeting main are supported" >&2
+    exit 1
+fi
+if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
+    echo "pr-rebase: head repository must match the current repository" >&2
     exit 1
 fi
 echo "PR $PR → branch: $BRANCH"
@@ -52,8 +61,8 @@ git rebase origin/main \
 
 # Regenerate coverage ledger and TS API docs.
 echo ">>> regenerate coverage ledger"
-uv sync --quiet
-python scripts/generate-command-coverage.py
+uv sync --quiet --python 3.13
+uv run python scripts/generate-command-coverage.py
 pnpm install --no-frozen-lockfile
 pnpm docs:typescript
 

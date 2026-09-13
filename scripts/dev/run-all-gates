@@ -31,21 +31,22 @@ fail() {
 echo ">>> prepare Python 3.13 environment"
 uv sync --all-extras --python 3.13 \
     || fail "Python 3.13 environment setup" "uv sync --all-extras --python 3.13"
+PYTHON_PATHS=(app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py)
 
 # ── 1. ruff format ──────────────────────────────────────────────────────────
 echo ">>> ruff format --check"
-uv run ruff format --check app/node/src app/node/tests \
-    || fail "ruff format --check" "uv run ruff format --check app/node/src app/node/tests"
+uv run ruff format --check "${PYTHON_PATHS[@]}" \
+    || fail "ruff format --check" "uv run ruff format --check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py"
 
 # ── 2. ruff lint ────────────────────────────────────────────────────────────
 echo ">>> ruff check"
-uv run ruff check app/node/src app/node/tests \
-    || fail "ruff check" "uv run ruff check app/node/src app/node/tests"
+uv run ruff check "${PYTHON_PATHS[@]}" \
+    || fail "ruff check" "uv run ruff check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py"
 
 # ── 3. mypy ─────────────────────────────────────────────────────────────────
 echo ">>> mypy --strict"
-uv run mypy --strict app/node/src app/node/tests \
-    || fail "mypy --strict" "uv run mypy --strict app/node/src app/node/tests"
+uv run mypy --strict "${PYTHON_PATHS[@]}" \
+    || fail "mypy --strict" "uv run mypy --strict app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py"
 
 # ── 4. pytest (95% coverage gate) ───────────────────────────────────────────
 echo ">>> pytest"
@@ -54,18 +55,18 @@ uv run pytest app/node/tests/ -q \
 
 # ── 5. command coverage ledger ──────────────────────────────────────────────
 echo ">>> generate-command-coverage --check"
-python scripts/generate-command-coverage.py --check \
-    || fail "generate-command-coverage --check" "python scripts/generate-command-coverage.py --check"
+uv run python scripts/generate-command-coverage.py --check \
+    || fail "generate-command-coverage --check" "uv run python scripts/generate-command-coverage.py --check"
 
 # ── 6. active docs schema ───────────────────────────────────────────────────
 echo ">>> check-active-docs-schema"
-python scripts/check-active-docs-schema.py \
-    || fail "check-active-docs-schema" "python scripts/check-active-docs-schema.py"
+uv run python scripts/check-active-docs-schema.py \
+    || fail "check-active-docs-schema" "uv run python scripts/check-active-docs-schema.py"
 
 # ── 7. synchronized release version ──────────────────────────────────────────
 echo ">>> bump-version --check"
-scripts/bump-version.py --check \
-    || fail "bump-version --check" "scripts/bump-version.py --check"
+uv run python scripts/bump-version.py --check \
+    || fail "bump-version --check" "uv run python scripts/bump-version.py --check"
 
 # ── 8. Python security checks ────────────────────────────────────────────────
 echo ">>> bandit"

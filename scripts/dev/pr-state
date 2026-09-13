@@ -9,7 +9,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 ROOT = Path(__file__).resolve().parents[2]
 CHECKER = ROOT / "scripts" / "dev" / "confidentiality-check"
@@ -39,7 +39,7 @@ def gh_pages(endpoint: str) -> list[Any]:
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "GitHub query failed")
-    return json.loads(result.stdout)
+    return cast(list[Any], json.loads(result.stdout))
 
 
 def paged_items(endpoint: str) -> list[dict[str, Any]]:
@@ -58,18 +58,20 @@ def is_trusted_codex_review(item: dict[str, Any], trusted_login: str) -> bool:
     if (item.get("user") or {}).get("login") != trusted_login:
         return False
     lines = [line.strip() for line in (item.get("body") or "").splitlines() if line.strip()]
-    if len(lines) < 3 or lines[0] not in VERDICTS or ATTRIBUTION_RE.fullmatch(lines[-1]) is None:
-        return False
-    return True
+    return (
+        len(lines) >= 3 and lines[0] in VERDICTS and ATTRIBUTION_RE.fullmatch(lines[-1]) is not None
+    )
 
 
-def attribution_head(body: str) -> str | None:
-    """Return the immutable head from the exact terminal attribution line."""
+def attribution_shas(body: str) -> tuple[str, str] | None:
+    """Return immutable head and base SHAs from the terminal attribution."""
     lines = [line.strip() for line in body.splitlines() if line.strip()]
     if not lines:
         return None
     match = ATTRIBUTION_RE.fullmatch(lines[-1])
-    return match.group("head").lower() if match else None
+    if match is None:
+        return None
+    return match.group("head").lower(), match.group("base").lower()
 
 
 def main() -> int:
@@ -100,6 +102,7 @@ def main() -> int:
     latest = max(candidates, key=timestamp) if candidates else None
     verdict_head: str | None = None
     pinned_sha: str | None = None
+    pinned_base_sha: str | None = None
     if latest is not None:
         body = latest.get("body") or ""
         checked = subprocess.run([str(CHECKER)], cwd=ROOT, input=body, text=True, check=False)
@@ -107,17 +110,23 @@ def main() -> int:
             print("pr-state: confidentiality check failed; output suppressed", file=sys.stderr)
             return 1
         verdict_head = next((line.strip() for line in body.splitlines() if line.strip()), None)
-        pinned_sha = attribution_head(body)
+        attribution = attribution_shas(body)
+        if attribution is not None:
+            pinned_sha, pinned_base_sha = attribution
+
+    base_sha = core["base"]["sha"]
 
     output = {
         "head_sha": head_sha,
-        "base_sha": core["base"]["sha"],
+        "base_sha": base_sha,
         "mergeable_state": core["mergeable_state"],
         "checks": checks,
         "latest_codex_verdict_body_head": verdict_head,
         "latest_codex_pinned_sha": pinned_sha,
+        "latest_codex_pinned_base_sha": pinned_base_sha,
         "state": core["state"],
         "pinned_sha_matches_head": pinned_sha == head_sha,
+        "pinned_shas_match_pr": pinned_sha == head_sha and pinned_base_sha == base_sha,
     }
     rendered = json.dumps(output, indent=2, sort_keys=True)
     checked = subprocess.run([str(CHECKER)], cwd=ROOT, input=rendered, text=True, check=False)

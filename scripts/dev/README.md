@@ -74,7 +74,10 @@ Emits one JSON object with:
 - `checks` — every paginated CI check name and its conclusion
 - `latest_codex_verdict_body_head` — first non-empty line of the latest trusted review body
 - `latest_codex_pinned_sha` — the SHA named by that review
-- `pinned_sha_matches_head` — boolean
+- `latest_codex_pinned_base_sha` — the base SHA named by that review
+- `pinned_sha_matches_head` — whether the attributed head matches
+- `pinned_shas_match_pr` — authoritative freshness check requiring both the
+  attributed head and base to match the live PR
 
 Only repository-owner comments with the exact verdict envelope and terminal
 attribution line are eligible. Review body text is piped through
