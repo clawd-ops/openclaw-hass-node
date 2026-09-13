@@ -29,12 +29,6 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _manual() -> dict[str, dict[str, str]]:
-    path = _ROOT / "contracts/command-coverage-manual.json"
-    commands: dict[str, dict[str, str]] = json.loads(path.read_text(encoding="utf-8"))["commands"]
-    return commands
-
-
 def test_rejects_a_missing_version() -> None:
     result = _run()
     assert result.returncode == 2
@@ -83,12 +77,6 @@ def test_version_pattern_uses_fullmatch() -> None:
     assert "not a valid version string" in result.stderr
 
 
-def test_unreleased_entries_exist_to_be_stamped() -> None:
-    """Guards the fixture: the stamping path is meaningless with nothing pending."""
-    values = {entry["first_shipped_in"] for entry in _manual().values()}
-    assert "unreleased" in values
-
-
 def _run_in(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(repo / "scripts/mark-commands-shipped.py"), *args],
@@ -131,11 +119,20 @@ def test_stamping_rewrites_every_unreleased_entry() -> None:
         assert version is not None
 
         manual = repo / "contracts/command-coverage-manual.json"
-        before = json.loads(manual.read_text(encoding="utf-8"))["commands"]
-        pending = sorted(
-            name for name, e in before.items() if e["first_shipped_in"] == "unreleased"
+        # Create the pending state this test is about rather than depending on
+        # the repository happening to have some. A release sweep stamps every
+        # pending command, so immediately after one there are none, and reading
+        # them from the tree made this test fail on the release commit itself.
+        raw = manual.read_bytes()
+        data = json.loads(raw.decode("utf-8"))
+        pending = sorted(list(data["commands"])[:2])
+        assert pending, "the ledger must define commands for this to mean anything"
+        for name in pending:
+            data["commands"][name]["first_shipped_in"] = "unreleased"
+        indent = 2 if raw.startswith(b"{\n  ") else 4
+        manual.write_text(
+            json.dumps(data, indent=indent, ensure_ascii=False) + "\n", encoding="utf-8"
         )
-        assert pending, "fixture must have unreleased commands for this to mean anything"
 
         stamp = _tracked_version(repo)
 
@@ -292,14 +289,21 @@ def _baseline(repo: Path) -> str:
     """
     manual = repo / "contracts/command-coverage-manual.json"
     data = json.loads(manual.read_text(encoding="utf-8"))
-    pending = sorted(
-        n for n, e in data["commands"].items() if e["first_shipped_in"] == "unreleased"
-    )
-    # Leave the last one pending. A command that already carries released
-    # history cannot be marked unreleased to simulate a pending one: that is a
-    # history rewrite, and the gate correctly rejects it.
-    for name in pending[:-1]:
-        data["commands"][name]["first_shipped_in"] = _tracked_version(repo)
+    version = _tracked_version(repo)
+    names = sorted(data["commands"])
+    # Construct the steady state deliberately rather than inheriting whichever
+    # commands the tree happens to carry as pending. This used to stamp all but
+    # the last already-pending command, which silently produced no pending
+    # command at all once a release sweep had stamped every one of them.
+    #
+    # Writing "unreleased" here is establishing the baseline commit, not
+    # rewriting history: the gate compares this base against the head, and both
+    # agree until a test deliberately diverges them.
+    pending_name = names[-1]
+    for name in names:
+        data["commands"][name]["first_shipped_in"] = (
+            "unreleased" if name == pending_name else version
+        )
     manual.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     subprocess.run(
         [sys.executable, "scripts/generate-command-coverage.py"],

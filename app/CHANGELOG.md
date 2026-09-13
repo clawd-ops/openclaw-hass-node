@@ -1,5 +1,85 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.9.13b1 (2026-09-13) — Native exec approvals, fail-closed mutations, command ledger
+
+76 commits across 39 pull requests since `2026.7.23b1`. This beta is mostly
+containment and contract work: the mutation surface is fail-closed, `system.run`
+is bound to OpenClaw's native approval protocol, and every advertised command
+now carries machine-checked coverage and release history.
+
+### Security
+- **HA config mutations fail closed** rather than proceeding when their
+  preconditions are not met.
+- **Privileged generic service effects are denied**, so `ha.call_service` can no
+  longer reach effects the dedicated commands gate.
+- **Interim service denylist** for known-dangerous services (#287, #295).
+- **Caller-supplied URL path segments and query values are percent-encoded**,
+  closing a path-injection route into the HA REST API.
+- **Vulnerable locked dependencies bumped.**
+
+### Native exec approvals (#274, #277)
+- The node participates in OpenClaw exec approvals instead of carrying its own
+  approval authority.
+- `system.run` is bound to the Gateway approval envelope and the native wire
+  result; every approval-bound plan field must be present.
+- Approval text is bound to `argv`, so an approval cannot be replayed against a
+  different command, and the policy schema is closed against unknown keys.
+
+### Commands
+- **New `ha.supervisor_info`** (Tier A, read-only) (#304).
+- **`ha.addon_update` and `ha.update_install` are advertised**, with a drift gate
+  that fails CI when the advertised set and the dispatcher disagree (#260).
+- **`fs.read` honours `offset`/`length`** with validated byte-range semantics
+  (#257).
+- **`ha.list_automations` narrows server-side** with fail-closed parameters;
+  Assist filters forward verbatim, unknown filters are rejected, and state
+  filters are bounded (#281).
+- **`ha.reload_config` takes an explicit domain** instead of silently ignoring
+  one.
+
+Six commands record this release as their first shipped version:
+`ha.supervisor_info`, `ha.addon_update`, `ha.update_install`,
+`system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`.
+
+### Contract and coverage
+- **The command and caller coverage ledger is generated, not hand-maintained**
+  (#269), with a CI gate against drift.
+- **Per-command `first_shipped_in` release history** (#305). The ledger records
+  which release each command first shipped in, generates "New in this release"
+  and "Unreleased command additions" sections, and gates the base-to-head
+  transition so released history cannot be rewritten.
+
+### Developer tooling (#306)
+- New `scripts/dev` suite: `confidentiality-check`, `run-all-gates`, `pr-state`,
+  `pr-rebase`, and `apply-patch`, plus the canonical exact-head review brief.
+- **`docs/design/CODING-PRINCIPLES.md`** states the house preference for simple,
+  current, accurate code over defensive complexity, organized by domain class so
+  a rule written for in-repo scripts is not applied to live Home Assistant state.
+
+### Documentation
+- Searchable **MkDocs site** with a Python API reference (#273).
+- **Navigable TypeScript API reference** (#279). Generated pages no longer pin
+  symbols to source lines, so an unrelated edit that shifts a symbol stops
+  turning the drift check red across every open PR (#296, #307).
+- **Authorization model ratified** without an admin token and reconciled against
+  merged reality (#271).
+- Roadmap reconciled with merged evidence; every stop-ship finding crosswalked to
+  its owning tracker issue.
+- Compatibility matrix for live-verification environments; known-defective and
+  unverified operations marked as such in user-facing text.
+
+### CI
+- Node 20 actions moved onto Node 24 majors (#272).
+
+### Known limitations
+Deferred to named trackers rather than silently omitted: reproducible
+plugin/HACS/multi-architecture artifacts (#292), the exact-artifact UAT release
+gate (#293), the executable cross-layer command contract (#288), native
+approvals and node-enforced effect policy (#289), recovery preconditions (#290),
+resilience bounds (#291), and dispatcher-level principal-ceiling enforcement
+(#275, which additionally awaits an operator decision). `docs/COMPLETION-ROADMAP.md`
+remains the source of truth and is **not** complete at this tag.
+
 ## 2026.7.23b1 (2026-07-23) — HA-native domain-config editing (`ha.config.*`)
 
 ### Features

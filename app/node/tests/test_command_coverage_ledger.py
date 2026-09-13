@@ -86,16 +86,20 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     assert ledger["release_version_format"].endswith("or final")
     assert isinstance(ledger["commands_new_in_latest_release"], list)
     assert isinstance(ledger["commands_unreleased"], list)
-    # The genuinely unreleased commands as of origin/main. ha.supervisor_info
-    # joined this list when #304 merged; it stamps on the next release cut.
-    assert sorted(ledger["commands_unreleased"]) == [
-        "ha.addon_update",
-        "ha.supervisor_info",
-        "ha.update_install",
-        "system.execApprovals.get",
-        "system.execApprovals.set",
-        "system.run.prepare",
-    ]
+    # Assert the invariant, not a snapshot of whoever happens to be pending.
+    # This previously pinned a literal list, which is only correct *between*
+    # releases: a release sweep stamps every pending command, so the list is
+    # empty at that moment and the assertion failed on the release commit
+    # itself. What must always hold is that the generated list agrees exactly
+    # with the manual ledger it is derived from.
+    manual = json.loads(
+        (_ROOT / "contracts/command-coverage-manual.json").read_text(encoding="utf-8")
+    )
+    assert sorted(ledger["commands_unreleased"]) == sorted(
+        name
+        for name, entry in manual["commands"].items()
+        if entry.get("first_shipped_in") == "unreleased"
+    )
 
     _version_re = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 
