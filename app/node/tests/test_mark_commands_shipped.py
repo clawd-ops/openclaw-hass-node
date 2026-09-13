@@ -255,7 +255,7 @@ def _commit_all(repo: Path, message: str) -> str:
 
 
 def _set_versions(repo: Path, version: str) -> None:
-    """Move all five tracked version sources so the gate sees a real bump."""
+    """Move all seven tracked version sources so the gate sees a real bump."""
     for rel, pattern, repl in (
         ("app/node/pyproject.toml", r'^version = "[^"]+"$', f'version = "{version}"'),
         ("app/config.yaml", r'^version: "[^"]+"$', f'version: "{version}"'),
@@ -269,6 +269,16 @@ def _set_versions(repo: Path, version: str) -> None:
             "custom_components/openclaw_hass_node_assist/manifest.json",
             r'"version": "[^"]+"',
             f'"version": "{version}"',
+        ),
+        (
+            "plugins/openclaw-hass-node-assist-tools/package.json",
+            r'^  "version": "[^"]+",$',
+            f'  "version": "{version}",',
+        ),
+        (
+            "skills/openclaw-hass-node-skill/SKILL.md",
+            r"^version: .+$",
+            f"version: {version}",
         ),
     ):
         path = repo / rel
