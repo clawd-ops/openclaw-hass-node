@@ -20,6 +20,7 @@ from openclaw_node.chat_relay import (
     ToolProgressFrame,
     _build_ha_assist_message,
     _extract_agent_ids,
+    _session_key,
 )
 from openclaw_node.config import IdentityConfig
 
@@ -120,7 +121,10 @@ async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
     authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
 
     conv_id = "test-conv-authz"
-    session_key = f"{_SESSION_KEY_PREFIX}{conv_id}"
+    # `rob` maps to `my-agent`, so the session is owned from creation onward.
+    # Previously this was the bare prefix, which is the shape that failed in
+    # production: sessions.create resolves the owner before chat.send is sent.
+    session_key = _session_key(conv_id, "my-agent")
 
     async def _simulate_gateway() -> None:
         await asyncio.sleep(0.01)
@@ -140,6 +144,9 @@ async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
     params = sender.frames[2]["params"]
     assert reply == "ok"
     assert params["agentId"] == "my-agent"
+    # The owner reaches session creation, not only chat.send.
+    assert sender.frames[0]["params"]["key"] == "agent:my-agent:ha-assist:test-conv-authz"
+    assert sender.frames[1]["params"]["key"] == "agent:my-agent:ha-assist:test-conv-authz"
     assert "OpenClaw authorization context" in params["message"]
     assert "restart the addon" in params["message"]
     assert "do NOT echo" in params["message"]
@@ -3292,3 +3299,132 @@ async def test_stream_turn_text_tool_error_emits_cross(
     assert " ✗ permission denied\ndone" in joined, (
         f"error/status block must be separated from final text: {joined!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# #347: an unowned session key on a multi-agent gateway.
+#
+# The production failure was that every Assist turn died with an opaque
+# INVALID_REQUEST. Two halves have to hold, and the round-1 tests pinned
+# neither: the inventory must be *retained* at startup rather than only logged,
+# and the turn must be *refused* rather than sent and rejected by the gateway.
+# ---------------------------------------------------------------------------
+
+
+async def _serve_agents_list(sender: FakeSender, relay: ChatRelay, agents: list[Any]) -> None:
+    """Answer the startup agents.list RPC with the given inventory."""
+    await asyncio.sleep(0.01)
+    req = sender.frames[0]
+    assert req["method"] == "agents.list"
+    relay.handle_response(_ok_response(req["id"], {"agents": agents}))
+
+
+@pytest.mark.asyncio
+async def test_startup_retains_the_inventory_even_with_no_default_configured(
+    caplog: LogCaptureFixture,
+) -> None:
+    """The no-default path is exactly the one that must still record topology.
+
+    A reviewer found that gating the startup inventory call on a configured
+    `default_agent_id` left every topology assertion green, because they called
+    `log_agent_inventory` directly. This drives the real startup path with the
+    empty default that triggers the bug.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id=""))
+
+    with caplog.at_level(logging.INFO):
+        await asyncio.gather(
+            relay.log_gateway_agents(),
+            _serve_agents_list(sender, relay, ["a", "b"]),
+        )
+
+    assert relay._gateway_agents == ("a", "b")
+    assert "identity.default_agent_id" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_turn_is_refused_before_any_session_rpc(caplog: LogCaptureFixture) -> None:
+    """The refusal must precede sessions.create, not follow the gateway's.
+
+    `sessions.create` resolves the session owner, so a turn that waits for the
+    gateway to object has already sent an unowned key. Asserting that no frame
+    beyond `agents.list` was sent is what distinguishes refusing from failing.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id=""))
+    await asyncio.gather(
+        relay.log_gateway_agents(),
+        _serve_agents_list(sender, relay, ["a", "b"]),
+    )
+    sent_before = len(sender.frames)
+
+    with pytest.raises(ChatRelayError) as excinfo:
+        async for _ in relay.stream_turn("conv-347", "turn off the kitchen light"):
+            pass
+
+    assert excinfo.value.code == "INVALID_REQUEST"
+    assert "identity.default_agent_id" in excinfo.value.message
+    assert "a, b" in excinfo.value.message
+    assert len(sender.frames) == sent_before, "a session RPC was sent despite refusing"
+
+
+@pytest.mark.asyncio
+async def test_no_agent_is_chosen_when_several_are_available() -> None:
+    """Refusing must not quietly become picking one.
+
+    Routing a household voice command to an arbitrary agent succeeds while doing
+    the wrong thing, which is worse than refusing. If any future change resolves
+    an owner here, the turn stops raising and this fails.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id=""))
+    await asyncio.gather(
+        relay.log_gateway_agents(),
+        _serve_agents_list(sender, relay, ["a", "b"]),
+    )
+
+    with pytest.raises(ChatRelayError):
+        async for _ in relay.stream_turn("conv-347", "hi"):
+            pass
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("agents", [["only-agent"], []])
+async def test_single_agent_and_empty_inventory_still_turn(agents: list[Any]) -> None:
+    """The documented single-agent fallback must keep working.
+
+    With at most one agent the gateway resolves the owner itself. An empty
+    inventory means the add-on learned nothing and must not conclude a
+    misconfiguration it has not observed.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id=""))
+    await asyncio.gather(
+        relay.log_gateway_agents(),
+        _serve_agents_list(sender, relay, agents),
+    )
+
+    relay._require_resolvable_owner(None)  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_unknown_topology_does_not_refuse() -> None:
+    """Before agents.list answers, the add-on knows nothing and must not refuse."""
+    relay = ChatRelay(FakeSender().send, IdentityConfig(default_agent_id=""))
+    assert relay._gateway_agents is None
+    relay._require_resolvable_owner(None)  # must not raise
+
+
+def test_session_key_is_qualified_only_when_an_agent_resolves() -> None:
+    """The owner has to reach sessions.create, which runs before chat.send.
+
+    An `agentId` carried only on `chat.send` arrives after the session has
+    already been created under an unowned key, which is why setting
+    `default_agent_id` alone did not rescue the production turn.
+    """
+    from openclaw_node.chat_relay import _session_key
+
+    assert _session_key("01ABC", "my-agent") == "agent:my-agent:ha-assist:01ABC"
+    assert _session_key("01ABC", None) == "ha-assist:01ABC"
+    assert _session_key("01ABC", "") == "ha-assist:01ABC"

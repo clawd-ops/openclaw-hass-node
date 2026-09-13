@@ -39,6 +39,25 @@ _STREAM_TURN_TIMEOUT_S: Final[float] = 180.0
 _RPC_TIMEOUT_S: Final[float] = 10.0
 _SESSION_KEY_PREFIX: Final[str] = "ha-assist:"
 
+
+def _session_key(conversation_id: str, agent_id: str | None) -> str:
+    """Build the session key, naming the owning agent when one resolves.
+
+    A bare ``ha-assist:<id>`` key has no owner. On a gateway with several agents
+    that is unresolvable, and it fails at ``sessions.create`` -- before
+    ``chat.send`` ever carries its ``agentId``, so setting ``default_agent_id``
+    alone did not rescue the turn. Qualifying the key makes the owner known to
+    every RPC in the turn rather than only the last one.
+
+    The prefixed form is the gateway's own vocabulary, not an invention here. It
+    is the canonical shape the gateway emits back (see ``_ensure_session``), and
+    the gateway's rejection names "an agent-prefixed session key" as one of the
+    two accepted remedies.
+    """
+    base = f"{_SESSION_KEY_PREFIX}{conversation_id}"
+    return f"agent:{agent_id}:{base}" if agent_id else base
+
+
 # Sentinel used in ``_active_run_id`` between turn-state install and
 # chat.send ack. Any event whose runId equals this sentinel cannot occur
 # (gateway never emits it), so the receive-side filter drops every event
@@ -223,6 +242,10 @@ class ChatRelay:
         # canonicalKey; we capture it and use it for ALL internal state so
         # the in-event lookup matches.
         self._canonical_by_raw: dict[str, str] = {}
+        # Gateway agent inventory, or None when it has not been observed.
+        # None and () mean different things: None is 'topology unknown, do
+        # not conclude anything', () is 'the gateway reported no agents'.
+        self._gateway_agents: tuple[str, ...] | None = None
         self._subscribed: set[str] = set()  # canonical keys
         # Running buffer — overwritten by every assistant event (deltas
         # included). Used as the BEST-EFFORT fallback when the turn times
@@ -352,7 +375,9 @@ class ChatRelay:
                 streaming close the iterator after yielding any text already
                 received.
         """
-        session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
+        agent_id = authz.agent_id if authz is not None and authz.agent_id else None
+        self._require_resolvable_owner(agent_id)
+        session_key = _session_key(conversation_id, agent_id)
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
         use_tool_frames = _CAP_TOOL_PROGRESS_FRAMES in (client_caps or [])
         async with lock:
@@ -691,7 +716,9 @@ class ChatRelay:
         Raises:
             ChatRelayError: On timeout, gateway rejection, or missing reply.
         """
-        session_key = f"{_SESSION_KEY_PREFIX}{conversation_id}"
+        agent_id = authz.agent_id if authz is not None and authz.agent_id else None
+        self._require_resolvable_owner(agent_id)
+        session_key = _session_key(conversation_id, agent_id)
 
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
         async with lock:
@@ -812,6 +839,32 @@ class ChatRelay:
             )
         return reply
 
+    def _require_resolvable_owner(self, agent_id: str | None) -> None:
+        """Refuse a turn whose session would have no owner.
+
+        The gateway rejects an unowned session key when several agents exist, so
+        this turn is going to fail either way. Failing here converts an opaque
+        INVALID_REQUEST arriving mid-turn into a refusal naming the setting that
+        fixes it.
+
+        Silent when the topology is unknown (``None``) or benign: with at most
+        one agent the gateway resolves the owner itself, which is the documented
+        single-agent fallback and still correct.
+
+        Raises:
+            ChatRelayError: When several agents are known and none resolves.
+        """
+        agents = self._gateway_agents
+        if agent_id or agents is None or len(agents) <= 1:
+            return
+        raise ChatRelayError(
+            "INVALID_REQUEST",
+            "No agent owns this Assist turn: the gateway has "
+            f"{len(agents)} agents and identity.default_agent_id is unset. "
+            "Set identity.default_agent_id in the add-on configuration to one "
+            f"of: {', '.join(agents)}",
+        )
+
     async def _ensure_session(self, session_key: str, conversation_id: str) -> str:
         """Create the session and subscribe for messages if not already done.
 
@@ -891,6 +944,10 @@ class ChatRelay:
             _LOG.warning("[identity] agents.list failed: %s %s", exc.code, exc.message)
             return
         agents = _extract_agent_ids(response)
+        # Retained, not just logged. The turn boundary needs this to refuse
+        # an unresolvable turn; a startup-only log reaches whoever happens
+        # to read startup logs, which in production was nobody.
+        self._gateway_agents = agents
         log_agent_inventory(self._identity, agents)
 
     async def _rpc(

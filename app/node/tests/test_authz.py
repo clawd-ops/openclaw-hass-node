@@ -241,18 +241,9 @@ def test_unset_default_error_names_the_setting_and_the_candidates(
     assert "2 agents" in message
 
 
-def test_no_agent_is_chosen_on_the_operator_s_behalf(caplog: LogCaptureFixture) -> None:
-    """Detecting the misconfiguration must not silently repair it.
-
-    Guessing would route household voice commands to an agent nobody selected,
-    and would do so successfully, which is worse than refusing. `IdentityConfig`
-    must come back unmodified.
-    """
-    from openclaw_node.authz import log_agent_inventory
-
-    identity = IdentityConfig(user_agent_map={}, default_agent_id="")
-
-    with caplog.at_level(logging.INFO):
-        log_agent_inventory(identity, ("my-agent", "my-agent-household"))
-
-    assert identity.default_agent_id == ""
+# Deliberately no test here asserting that `IdentityConfig` is unmodified.
+# An earlier version did, and it could not fail: `IdentityConfig` is frozen and
+# `log_agent_inventory` has no routing output, so the assertion held with the
+# new branch deleted. The real guarantee -- that no agent is chosen on the
+# operator's behalf -- is that the turn is refused rather than routed, and it is
+# pinned in `test_chat_relay.py` where routing actually happens.
