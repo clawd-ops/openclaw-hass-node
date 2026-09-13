@@ -9399,10 +9399,10 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable; direct caller aliases, URL encoding, and unknown-entity semantics remain unresolved.",
+      "capability_conditions": "HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.",
       "command": "ha.history",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1) reproduced +00:00 percent-encoding failure. Sept 13 probe (add-on 2026.9.13b1) passed via Assist wrapper. The Sept 11 observation is stale (version mismatch); Sept 13 is current evidence. Unknown-entity silent-empty behavior (\u00a72.7) remains unverified.",
+      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_history",
       "id": "ha.history",
@@ -9417,7 +9417,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "pass",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",

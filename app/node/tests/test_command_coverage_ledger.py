@@ -715,7 +715,6 @@ def test_production_live_observation_requires_valid_version_string(
 
 def test_stale_observation_flagged_when_version_mismatches_current(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
 ) -> None:
     """An observation probed against an older node_version must carry stale=True."""
     generator = _load_generator()
@@ -792,7 +791,6 @@ def test_sept13_sweep_commands_have_production_live_evidence() -> None:
         "ha.get_state",
         "ha.check_config",
         "ha.core_logs",
-        "ha.history",
         "ha.calendar_get_events",
         "ha.addon_info",
         "ha.addon_logs",
@@ -808,17 +806,41 @@ def test_sept13_sweep_commands_have_production_live_evidence() -> None:
         )
         assert row["outcome"] == "pass", f"{command} expected pass outcome"
         # At least one caller must have a PRODUCTION-LIVE evidence item.
-        all_evidence = [
-            ev for caller in row["callers"].values() for ev in caller["evidence"]
-        ]
+        all_evidence = [ev for caller in row["callers"].values() for ev in caller["evidence"]]
         assert any(e["method"] == "PRODUCTION-LIVE" for e in all_evidence), (
             f"{command} has no PRODUCTION-LIVE evidence item in any caller"
         )
+
+    # ha.history: assist_wrapper passed Sept 13; direct-path encoding bug unverified on
+    # current version — outcome is partial, not pass.
+    history_row = rows_by_id["ha.history"]
+    assert history_row["evidence_method"] == "PRODUCTION-LIVE"
+    assert history_row["outcome"] == "partial"
 
     # ha.logbook: assist_wrapper PASS confirmed, but direct-path key mismatch keeps it partial.
     logbook_row = rows_by_id["ha.logbook"]
     assert logbook_row["evidence_method"] == "PRODUCTION-LIVE"
     assert logbook_row["outcome"] == "partial"
+
+    # Oversized-pass commands: correctness confirmed but response sizes expose ergonomics gap.
+    for oversized_cmd in (
+        "ha.list_config_entries",
+        "ha.list_devices",
+        "ha.list_services",
+        "ha.list_automations",
+    ):
+        row = rows_by_id[oversized_cmd]
+        assert row["evidence_method"] == "PRODUCTION-LIVE", (
+            f"{oversized_cmd} expected PRODUCTION-LIVE evidence_method"
+        )
+        # ha.list_automations is pass (correctness confirmed); others are partial.
+        assert row["outcome"] in ("pass", "partial"), (
+            f"{oversized_cmd} expected pass or partial outcome, got {row['outcome']!r}"
+        )
+        all_evidence = [ev for caller in row["callers"].values() for ev in caller["evidence"]]
+        assert any(e["method"] == "PRODUCTION-LIVE" for e in all_evidence), (
+            f"{oversized_cmd} has no PRODUCTION-LIVE evidence item in any caller"
+        )
 
     assert rows_by_id["ha.list_entity_registry"]["evidence_method"] == "PRODUCTION-LIVE"
     assert rows_by_id["ha.list_entity_registry"]["outcome"] == "fail"
@@ -839,4 +861,20 @@ def test_sept11_observations_carry_stale_provenance() -> None:
     assert json_live, "system.run direct_nodes_invoke must have a provenanced PRODUCTION-LIVE item"
     assert all(e.get("stale") is True for e in json_live), (
         "system.run Sept 11 observations must be stale (node_version 2026.7.23b1 != current)"
+    )
+
+    # ha.logbook assist_wrapper observation was probed against 2026.7.23b1 (Sept 11).
+    # The staleness rule is the core invariant: version mismatch must produce stale=True.
+    logbook_evidence = rows_by_id["ha.logbook"]["callers"]["assist_wrapper"]["evidence"]
+    logbook_sept11 = [
+        e
+        for e in logbook_evidence
+        if e.get("method") == "PRODUCTION-LIVE" and e.get("node_version") == "2026.7.23b1"
+    ]
+    assert logbook_sept11, (
+        "ha.logbook assist_wrapper must have the Sept 11 PRODUCTION-LIVE observation"
+        " (node 2026.7.23b1)"
+    )
+    assert all(e.get("stale") is True for e in logbook_sept11), (
+        "ha.logbook Sept 11 observations must be stale (node_version 2026.7.23b1 != current)"
     )
