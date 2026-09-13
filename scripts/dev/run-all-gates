@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# run-all-gates — run the full local gate suite, stopping on first failure.
+#
+# NOTE: TS contract tests require the Python venv to include the node package:
+#   uv sync --package openclaw-node --python 3.13
+# Without that, 9 tests fail with: spawnSync .venv/bin/python ENOENT
+#
+# Usage (from repo root):
+#   scripts/dev/run-all-gates
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Some container images inject a shared Corepack cache that is not writable by
+# the current user. Keep package-manager state in the user's cache in that case.
+if [[ -n "${COREPACK_HOME:-}" && ! -w "$COREPACK_HOME" ]]; then
+    export COREPACK_HOME="${XDG_CACHE_HOME:-$HOME/.cache}/corepack"
+fi
+mkdir -p "${COREPACK_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/corepack}"
+
+fail() {
+    echo ""
+    echo "GATE FAILED: $1"
+    echo "Re-run alone: $2"
+    exit 1
+}
+
+# Pin the local Python environment to the same interpreter CI uses before any
+# Python-backed gate runs.
+echo ">>> prepare Python 3.13 environment"
+uv sync --all-extras --python 3.13 \
+    || fail "Python 3.13 environment setup" "uv sync --all-extras --python 3.13"
+PYTHON_PATHS=(app/node/src app/node/tests scripts/*.py scripts/dev/pr-state)
+
+# ── 1. ruff format ──────────────────────────────────────────────────────────
+echo ">>> ruff format --check"
+uv run ruff format --check "${PYTHON_PATHS[@]}" \
+    || fail "ruff format --check" "uv run ruff format --check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state"
+
+# ── 2. ruff lint ────────────────────────────────────────────────────────────
+echo ">>> ruff check"
+uv run ruff check "${PYTHON_PATHS[@]}" \
+    || fail "ruff check" "uv run ruff check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state"
+
+# ── 3. mypy ─────────────────────────────────────────────────────────────────
+echo ">>> mypy --strict"
+uv run mypy --strict "${PYTHON_PATHS[@]}" \
+    || fail "mypy --strict" "uv run mypy --strict app/node/src app/node/tests scripts/*.py scripts/dev/pr-state"
+
+# ── 4. pytest (95% coverage gate) ───────────────────────────────────────────
+echo ">>> pytest"
+uv run pytest app/node/tests/ -q \
+    || fail "pytest" "uv run pytest app/node/tests/ -q"
+
+# ── 5. command coverage ledger ──────────────────────────────────────────────
+echo ">>> generate-command-coverage --check"
+uv run python scripts/generate-command-coverage.py --check \
+    || fail "generate-command-coverage --check" "uv run python scripts/generate-command-coverage.py --check"
+
+# ── 6. active docs schema ───────────────────────────────────────────────────
+echo ">>> check-active-docs-schema"
+uv run python scripts/check-active-docs-schema.py \
+    || fail "check-active-docs-schema" "uv run python scripts/check-active-docs-schema.py"
+
+# ── 7. synchronized release version ──────────────────────────────────────────
+echo ">>> bump-version --check"
+uv run python scripts/bump-version.py --check \
+    || fail "bump-version --check" "uv run python scripts/bump-version.py --check"
+
+# ── 8. Python security checks ────────────────────────────────────────────────
+echo ">>> bandit"
+uv run bandit -r app/node/src -ll \
+    || fail "bandit" "uv run bandit -r app/node/src -ll"
+
+echo ">>> pip-audit"
+uv run pip-audit \
+    || fail "pip-audit" "uv run pip-audit"
+
+# ── 9. strict documentation build ───────────────────────────────────────────
+echo ">>> mkdocs build --strict"
+NO_MKDOCS_2_WARNING=1 uv run \
+    --with-requirements docs-requirements.txt \
+    --with-editable app/node \
+    mkdocs build --strict \
+    || fail "mkdocs build --strict" \
+        "NO_MKDOCS_2_WARNING=1 uv run --with-requirements docs-requirements.txt --with-editable app/node mkdocs build --strict"
+
+# ── 10. TypeScript dependencies ──────────────────────────────────────────────
+echo ">>> pnpm install --no-frozen-lockfile"
+pnpm install --no-frozen-lockfile \
+    || fail "pnpm install --no-frozen-lockfile" "pnpm install --no-frozen-lockfile"
+
+# ── 11. TypeScript API docs ──────────────────────────────────────────────────
+echo ">>> docs:typescript:check"
+pnpm docs:typescript:check \
+    || fail "docs:typescript:check" "pnpm docs:typescript:check"
+
+# ── 12. Plugin tsc --noEmit ─────────────────────────────────────────────────
+echo ">>> plugin typecheck"
+pnpm -r --filter './plugins/*' typecheck \
+    || fail "plugin typecheck" "pnpm -r --filter './plugins/*' typecheck"
+
+# ── 13. Plugin vitest when the CI TypeScript workflow is in scope ──────────
+BRANCH_CHANGED=$(git diff --name-only origin/main...HEAD) \
+    || fail "changed-path enumeration (branch)" "git diff --name-only origin/main...HEAD"
+WORKTREE_CHANGED=$(git diff --name-only) \
+    || fail "changed-path enumeration (worktree)" "git diff --name-only"
+INDEX_CHANGED=$(git diff --cached --name-only) \
+    || fail "changed-path enumeration (index)" "git diff --cached --name-only"
+CHANGED_PATHS=$(printf '%s\n%s\n%s\n' "$BRANCH_CHANGED" "$WORKTREE_CHANGED" "$INDEX_CHANGED" | sort -u) \
+    || fail "changed-path collation" \
+        "printf changed paths from branch, worktree, and index | sort -u"
+RUN_TS_TESTS=false
+while IFS= read -r changed_path; do
+    case "$changed_path" in
+        plugins/*|app/node/*|pyproject.toml|uv.lock|package.json|pnpm-workspace.yaml|tsconfig.json|docs/reference/api/typescript/*|scripts/check-typescript-api-docs.sh|.github/workflows/ts.yml)
+            RUN_TS_TESTS=true
+            break
+            ;;
+    esac
+done <<< "$CHANGED_PATHS"
+if [[ "$RUN_TS_TESTS" == true ]]; then
+    echo ">>> prepare Python for cross-language contract tests"
+    echo ">>> plugin vitest (TypeScript workflow paths changed)"
+    pnpm -r --filter './plugins/*' test \
+        || fail "plugin vitest" "pnpm -r --filter './plugins/*' test"
+else
+    echo ">>> plugin vitest (skipped — TypeScript workflow paths unchanged)"
+fi
+
+# ── 14. container smoke ─────────────────────────────────────────────────────
+echo ">>> Docker build smoke (amd64)"
+docker build app \
+    || fail "Docker build smoke (amd64)" "docker build app"
+
+# ── 15. whitespace check ────────────────────────────────────────────────────
+echo ">>> git diff --check"
+git diff --check origin/main...HEAD \
+    || fail "git diff --check (branch)" "git diff --check origin/main...HEAD"
+git diff --check \
+    || fail "git diff --check (worktree)" "git diff --check"
+git diff --cached --check \
+    || fail "git diff --check (index)" "git diff --cached --check"
+
+echo ""
+echo "All gates passed."

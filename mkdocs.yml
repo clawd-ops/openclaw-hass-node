@@ -96,6 +96,7 @@ nav:
   - Design:
       - Plan: design/PLAN.md
       - Authorization Model: design/AUTHORIZATION-MODEL.md
+      - Coding Principles: design/CODING-PRINCIPLES.md
       - Command Tiers: design/COMMAND-TIERS.md
       - Component Naming: design/COMPONENT-NAMING.md
       - Identity and Scopes: design/IDENTITY-AND-SCOPES.md

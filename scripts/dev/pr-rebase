@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# pr-rebase <num> — safely rebase a PR branch onto origin/main in an isolated
+# worktree, regenerate artifacts, run all gates, audit for leaks, then push.
+#
+# Never mutates the shared clone checkout.  The dedicated worktree is always
+# removed on exit (success or failure).
+#
+# Usage:
+#   scripts/dev/pr-rebase 123
+set -euo pipefail
+
+REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+if [[ $# -ne 1 ]] || [[ ! "$1" =~ ^[1-9][0-9]*$ ]]; then
+    echo "usage: pr-rebase <pr-number>" >&2
+    exit 1
+fi
+
+PR="$1"
+TEMP_ROOT=$(mktemp -d "/tmp/pr-rebase-$PR.XXXXXX")
+WORKTREE_PATH="$TEMP_ROOT/worktree"
+
+cleanup() {
+    if [[ -d "$WORKTREE_PATH" ]]; then
+        git -C "$REPO_ROOT" worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
+    fi
+    rmdir "$TEMP_ROOT" 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# Resolve the repository from this script's own checkout before reading anything
+# about the pull request. Every mutation below (fetch, worktree, rebase, commit,
+# force-push) targets REPO_ROOT, so a cwd-resolved lookup could pair metadata
+# read from one repository with a force-push into another.
+REPOSITORY=$(cd "$REPO_ROOT" && gh repo view --json nameWithOwner --jq '.nameWithOwner')
+
+# Refuse unsupported targets before creating a worktree or changing a branch.
+PR_DATA=$(gh pr view "$PR" --repo "$REPOSITORY" \
+    --json state,baseRefName,headRefName,headRefOid,headRepository \
+    --jq '[.state, .baseRefName, .headRefName, .headRefOid, .headRepository.nameWithOwner] | @tsv')
+IFS=$'\t' read -r PR_STATE BASE_BRANCH BRANCH EXPECTED_HEAD HEAD_REPOSITORY <<< "$PR_DATA"
+if [[ "$PR_STATE" != "OPEN" ]]; then
+    echo "pr-rebase: pull request must be open" >&2
+    exit 1
+fi
+if [[ "$BASE_BRANCH" != "main" ]]; then
+    echo "pr-rebase: only pull requests targeting main are supported" >&2
+    exit 1
+fi
+if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
+    echo "pr-rebase: head repository must match the current repository" >&2
+    exit 1
+fi
+echo "PR $PR → branch: $BRANCH"
+
+# Fetch latest state.
+git -C "$REPO_ROOT" fetch origin main "$BRANCH"
+
+# Create isolated worktree on the PR branch.
+git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_PATH" "$EXPECTED_HEAD"
+cd "$WORKTREE_PATH"
+
+# Rebase onto origin/main.
+echo ">>> git rebase origin/main"
+git rebase origin/main \
+    || { echo "REBASE FAILED — resolve conflicts, then re-run pr-rebase" >&2; exit 1; }
+
+# Regenerate coverage ledger and TS API docs.
+echo ">>> regenerate coverage ledger"
+uv sync --quiet --python 3.13
+uv run python scripts/generate-command-coverage.py
+pnpm install --no-frozen-lockfile
+pnpm docs:typescript
+
+if ! git diff --quiet; then
+    while IFS= read -r changed_path; do
+        case "$changed_path" in
+            docs/reference/COMMAND-COVERAGE.md|docs/reference/command-coverage.json|docs/reference/api/typescript/generated/*)
+                ;;
+            *)
+                echo "pr-rebase: regeneration changed an unexpected path" >&2
+                exit 1
+                ;;
+        esac
+    done < <(git diff --name-only)
+    git add docs/reference/COMMAND-COVERAGE.md \
+        docs/reference/command-coverage.json \
+        docs/reference/api/typescript/generated
+    git commit -m "docs: regenerate derived references after rebase"
+fi
+
+# Run the full gate suite.
+echo ">>> run-all-gates"
+scripts/dev/run-all-gates \
+    || { echo "GATE FAILED — fix failures, then re-run pr-rebase" >&2; exit 1; }
+
+# Confidentiality audit on the complete binary patch, every current changed
+# blob, every deleted base blob, and every commit message.
+echo ">>> confidentiality-check on changed content"
+git diff --binary --no-ext-diff "origin/main...HEAD" | scripts/dev/confidentiality-check \
+    || { echo "CONFIDENTIALITY AUDIT FAILED — binary diff did not scan cleanly" >&2; exit 1; }
+CHANGED_LIST="$TEMP_ROOT/changed-files"
+git diff --name-only -z --diff-filter=ACMRT "origin/main...HEAD" > "$CHANGED_LIST" \
+    || { echo "CONFIDENTIALITY AUDIT FAILED — could not enumerate changes" >&2; exit 1; }
+while IFS= read -r -d '' changed_path; do
+    git cat-file blob "HEAD:$changed_path" | scripts/dev/confidentiality-check \
+        || { echo "CONFIDENTIAL LEAK in changed content — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
+done < "$CHANGED_LIST"
+DELETED_LIST="$TEMP_ROOT/deleted-files"
+git diff --name-only -z --diff-filter=D "origin/main...HEAD" > "$DELETED_LIST" \
+    || { echo "CONFIDENTIALITY AUDIT FAILED — could not enumerate deletions" >&2; exit 1; }
+while IFS= read -r -d '' changed_path; do
+    git cat-file blob "origin/main:$changed_path" | scripts/dev/confidentiality-check \
+        || { echo "CONFIDENTIAL LEAK in deleted content — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
+done < "$DELETED_LIST"
+git log --format='%H%n%B' "origin/main..HEAD" | scripts/dev/confidentiality-check \
+    || { echo "CONFIDENTIAL LEAK in commit messages — DO NOT PUSH; fix and re-verify" >&2; exit 1; }
+
+# Re-read PR state immediately before pushing. Everything above was decided
+# from a snapshot taken before the worktree, the rebase and the gates ran, which
+# is minutes of wall clock. In that window the PR can close, be retargeted, have
+# its head branch renamed, or be repointed at a different head repository. The
+# lease below only protects the head SHA, so it would happily force-push a
+# rebase onto a PR that is no longer the one that was validated.
+CURRENT_PR_DATA=$(gh pr view "$PR" --repo "$REPOSITORY" \
+    --json state,baseRefName,headRefName,headRefOid,headRepository \
+    --jq '[.state, .baseRefName, .headRefName, .headRefOid, .headRepository.nameWithOwner] | @tsv')
+IFS=$'\t' read -r NOW_STATE NOW_BASE NOW_BRANCH NOW_HEAD NOW_HEAD_REPOSITORY <<< "$CURRENT_PR_DATA"
+if [[ "$NOW_STATE" != "$PR_STATE" || "$NOW_BASE" != "$BASE_BRANCH" \
+    || "$NOW_BRANCH" != "$BRANCH" || "$NOW_HEAD" != "$EXPECTED_HEAD" \
+    || "$NOW_HEAD_REPOSITORY" != "$HEAD_REPOSITORY" ]]; then
+    echo "pr-rebase: pull request changed during the rebase; refusing to push" >&2
+    exit 1
+fi
+
+# Push with lease to avoid overwriting concurrent updates.
+echo ">>> git push --force-with-lease"
+git push origin "HEAD:refs/heads/$BRANCH" \
+    "--force-with-lease=refs/heads/$BRANCH:$EXPECTED_HEAD"
+
+echo ""
+echo "PR $PR rebased and pushed successfully."
