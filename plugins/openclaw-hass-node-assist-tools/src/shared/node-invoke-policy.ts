@@ -100,7 +100,15 @@ async function forward(
 function loadPolicyForNode(
   ctx: OpenClawPluginNodeInvokePolicyContext,
 ): PerNodePolicy | undefined {
-  return readPerNodePolicy(ctx.pluginConfig, ctx.nodeId);
+  // Canonical nodeId first so an explicit per-id policy always wins over a
+  // display-name entry; readPerNodePolicy tries every exact identifier before
+  // falling back to the '*' wildcard. Without the display name the documented
+  // `nodes.<name>` config form silently never matches on the node.invoke path,
+  // even though the Assist tool path accepts it.
+  const identifiers = [ctx.nodeId, ctx.node?.displayName].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+  return readPerNodePolicy(ctx.pluginConfig, ...identifiers);
 }
 
 async function enforceCallService(

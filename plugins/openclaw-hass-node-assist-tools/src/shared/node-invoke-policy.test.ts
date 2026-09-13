@@ -10,6 +10,7 @@ type InvokeNodeResult =
 type Ctx = {
   command: string;
   nodeId: string;
+  node?: { nodeId: string; displayName?: string };
   params?: unknown;
   pluginConfig?: unknown;
   invokeNode?: (opts: {
@@ -836,5 +837,53 @@ describe("Contract-to-policy-switch parity", () => {
       registrations.map((r: ContractRegistration) => r.node_command),
     );
     expect(policyCommands).toEqual(contractCommands);
+  });
+});
+
+describe("per-node policy identifier resolution", () => {
+  // Regression: the documented config form is `nodes.<display-name>`, but the
+  // node.invoke path previously passed only the canonical nodeId, so a
+  // name-keyed policy silently never matched and every Tier B lifecycle call
+  // refused with "allowAdminOps is not set" no matter how it was configured.
+  it("resolves a policy keyed by display name", async () => {
+    const result = await runPolicy({
+      command: "ha.addon_stop",
+      nodeId: "10bdb8d9c710",
+      node: { nodeId: "10bdb8d9c710", displayName: "hass" },
+      params: { slug: "d5369777_music_assistant" },
+      pluginConfig: { nodes: { hass: { allowAdminOps: true } } },
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  // Ordering is a security property, not a preference: an explicit canonical-id
+  // deny must not be shadowed by a permissive display-name entry.
+  it("prefers the canonical nodeId entry over a display-name entry", async () => {
+    const result = await runPolicy({
+      command: "ha.addon_stop",
+      nodeId: "10bdb8d9c710",
+      node: { nodeId: "10bdb8d9c710", displayName: "hass" },
+      params: { slug: "d5369777_music_assistant" },
+      pluginConfig: {
+        nodes: {
+          "10bdb8d9c710": { allowAdminOps: false },
+          hass: { allowAdminOps: true },
+        },
+      },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("ADMIN_DENIED");
+  });
+
+  it("still refuses when neither identifier is configured", async () => {
+    const result = await runPolicy({
+      command: "ha.addon_stop",
+      nodeId: "10bdb8d9c710",
+      node: { nodeId: "10bdb8d9c710", displayName: "hass" },
+      params: { slug: "d5369777_music_assistant" },
+      pluginConfig: { nodes: { "some-other-node": { allowAdminOps: true } } },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("ADMIN_DENIED");
   });
 });
