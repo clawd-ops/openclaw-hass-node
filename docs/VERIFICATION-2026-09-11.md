@@ -31,7 +31,21 @@ each line can be trusted or discarded on its own evidence.
 
 ---
 
-## 0. Safety correction: HA-native config writes are not approval-gated
+## 0. ✓ RESOLVED 2026-09-13 — HA-native config write approval gate is working
+
+**Tested live 2026-09-13, gateway plugin `2026.9.13b1`.** `PROPOSAL_REQUIRED` was
+returned for a missing proposal id, for `"direct"`, and for an arbitrary bogus id,
+uniformly across `ha.config.area_registry action=create`, `ha.config.helpers
+action=create`, and `ha.config.scene action=save`. Area count confirmed unchanged
+at 27 with no side effects.
+
+This also means the 19 untested `ha.config.*` mutations are covered by one uniform,
+fail-closed gate rather than 19 separate unknowns. The gate applies uniformly via
+`_require_proposal` across all mutating `ha.config.*` handlers.
+
+**Original CODE-FAIL finding (2026-09-11) preserved below for provenance.**
+
+### Original finding (2026-09-11, now superseded)
 
 `CODE-FAIL`, critical. The earlier live probe established that protected
 `fs.*` writes refuse execution without the missing proposal bridge. That
