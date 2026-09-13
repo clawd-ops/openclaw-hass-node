@@ -100,18 +100,21 @@ def _read_manual_at_ref(ref: str, generator: ModuleType) -> dict[str, dict[str, 
     commands: dict[str, dict[str, object]] = {}
     fields_present = 0
     fields_missing = 0
-    for name, entry in data["commands"].items():
-        if not isinstance(name, str):
-            raise ShipError(f"base manual command name must be a string, got {name!r}")
-        if not isinstance(entry, dict):
-            raise ShipError(f"base manual command entry for {name} must be an object")
-        if "first_shipped_in" in entry:
-            generator._validate_first_shipped_in(name, entry["first_shipped_in"])
-            fields_present += 1
-        else:
-            entry["first_shipped_in"] = BASELINE_MISSING
-            fields_missing += 1
-        commands[name] = entry
+    try:
+        for name, entry in data["commands"].items():
+            if not isinstance(name, str):
+                raise ShipError(f"base manual command name must be a string, got {name!r}")
+            if not isinstance(entry, dict):
+                raise ShipError(f"base manual command entry for {name} must be an object")
+            if "first_shipped_in" in entry:
+                generator._validate_first_shipped_in(name, entry["first_shipped_in"])
+                fields_present += 1
+            else:
+                entry["first_shipped_in"] = BASELINE_MISSING
+                fields_missing += 1
+            commands[name] = entry
+    except generator.LedgerError as exc:
+        raise ShipError(str(exc)) from exc
     if fields_present and fields_missing:
         raise ShipError("base manual ledger has partial first_shipped_in coverage")
     return commands
@@ -125,17 +128,20 @@ def _preflight_manual(
     if not isinstance(commands, dict):
         raise ShipError("manual ledger has no 'commands' object")
     validated: dict[str, dict[str, object]] = {}
-    for name, entry in commands.items():
-        if not isinstance(name, str):
-            raise ShipError(f"manual command name must be a string, got {name!r}")
-        if not isinstance(entry, dict):
-            raise ShipError(f"manual command entry for {name} must be an object")
-        generator._validate_first_shipped_in(name, entry.get("first_shipped_in"))
-        validated[name] = entry
+    try:
+        for name, entry in commands.items():
+            if not isinstance(name, str):
+                raise ShipError(f"manual command name must be a string, got {name!r}")
+            if not isinstance(entry, dict):
+                raise ShipError(f"manual command entry for {name} must be an object")
+            generator._validate_first_shipped_in(name, entry.get("first_shipped_in"))
+            validated[name] = entry
 
-    # This validates all remaining manual metadata, exact command/action parity,
-    # and every referenced source before any tracked file is touched.
-    generator.build_ledger()
+        # This validates all remaining manual metadata, exact command/action parity,
+        # and every referenced source before any tracked file is touched.
+        generator.build_ledger()
+    except generator.LedgerError as exc:
+        raise ShipError(str(exc)) from exc
     return validated
 
 

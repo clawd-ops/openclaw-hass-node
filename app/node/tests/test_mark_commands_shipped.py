@@ -187,6 +187,44 @@ def test_check_release_bump_rejects_a_malformed_ref() -> None:
         assert "Traceback" not in result.stderr
 
 
+def test_check_release_bump_reports_malformed_current_ledger_without_traceback() -> None:
+    """Current ledger validation failures use the controlled CLI diagnostic."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        manual = repo / "contracts/command-coverage-manual.json"
+        data = json.loads(manual.read_text(encoding="utf-8"))
+        first = sorted(data["commands"])[0]
+        data["commands"][first]["first_shipped_in"] = "not-a-release"
+        manual.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+        result = _run_in(repo, "--check-release-bump", "HEAD")
+
+        assert result.returncode == 2
+        assert result.stderr.startswith("error: ")
+        assert "Traceback" not in result.stderr
+
+
+def test_check_release_bump_reports_malformed_base_ledger_without_traceback() -> None:
+    """Base ledger validation failures use the controlled CLI diagnostic."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        manual = repo / "contracts/command-coverage-manual.json"
+        original = manual.read_text(encoding="utf-8")
+        data = json.loads(original)
+        first = sorted(data["commands"])[0]
+        data["commands"][first]["first_shipped_in"] = "not-a-release"
+        manual.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        malformed_base = _commit_all(repo, "malformed base ledger")
+        manual.write_text(original, encoding="utf-8")
+        _commit_all(repo, "restore current ledger")
+
+        result = _run_in(repo, "--check-release-bump", malformed_base)
+
+        assert result.returncode == 2
+        assert result.stderr.startswith("error: ")
+        assert "Traceback" not in result.stderr
+
+
 def test_check_release_bump_refuses_a_version_argument() -> None:
     """The two modes are mutually exclusive; taking both would be ambiguous."""
     with tempfile.TemporaryDirectory() as tmp:
