@@ -2,7 +2,7 @@
 
 ## 2026.9.13b1 (2026-09-13) — Native exec approvals, fail-closed mutations, command ledger
 
-76 commits across 39 pull requests since `2026.7.23b1`. This beta is mostly
+79 commits across 31 pull requests since `2026.7.23b1`. This beta is mostly
 containment and contract work: the mutation surface is fail-closed, `system.run`
 is bound to OpenClaw's native approval protocol, and every advertised command
 now carries machine-checked coverage and release history.
@@ -36,6 +36,10 @@ now carries machine-checked coverage and release history.
   filters are bounded (#281).
 - **`ha.reload_config` takes an explicit domain** instead of silently ignoring
   one.
+- **Generic service payloads are preserved and semantic failures propagate**
+  (#267). A failing node operation previously could be reported as success with
+  the payload dropped; the result now carries the service payload and the real
+  error.
 
 Six commands record this release as their first shipped version:
 `ha.supervisor_info`, `ha.addon_update`, `ha.update_install`,

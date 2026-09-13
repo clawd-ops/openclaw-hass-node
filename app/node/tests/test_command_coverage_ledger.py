@@ -86,20 +86,11 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     assert ledger["release_version_format"].endswith("or final")
     assert isinstance(ledger["commands_new_in_latest_release"], list)
     assert isinstance(ledger["commands_unreleased"], list)
-    # Assert the invariant, not a snapshot of whoever happens to be pending.
-    # This previously pinned a literal list, which is only correct *between*
-    # releases: a release sweep stamps every pending command, so the list is
-    # empty at that moment and the assertion failed on the release commit
-    # itself. What must always hold is that the generated list agrees exactly
-    # with the manual ledger it is derived from.
-    manual = json.loads(
-        (_ROOT / "contracts/command-coverage-manual.json").read_text(encoding="utf-8")
-    )
-    assert sorted(ledger["commands_unreleased"]) == sorted(
-        name
-        for name, entry in manual["commands"].items()
-        if entry.get("first_shipped_in") == "unreleased"
-    )
+    # What `commands_unreleased` actually contains is asserted independently in
+    # test_commands_unreleased_reports_exactly_the_pending_set. It is not
+    # pinned to a literal here: that is only correct *between* releases, since a
+    # release sweep stamps every pending command and empties the list, which
+    # made this assertion fail on the release commit itself.
 
     _version_re = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
 
@@ -199,6 +190,38 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
         assert assist["injected_node_params"] == {}
         assert assist["known_unaccepted_node_params"] == {}
         assert any(item["outcome"] == "pass" for item in assist["evidence"])
+
+
+@pytest.mark.parametrize("pending_count", [0, 1, 3])
+def test_commands_unreleased_reports_exactly_the_pending_set(
+    monkeypatch: pytest.MonkeyPatch, pending_count: int
+) -> None:
+    """The generated pending list must equal the manual ledger's pending set.
+
+    Comparing the generated list against the live manual ledger at assert time
+    would be tautological: the generator derives one directly from the other,
+    and `test_generated_ledger_is_current` already proves the committed artifact
+    matches its source. So choose the pending set here and require the generator
+    to reproduce exactly that.
+
+    `pending_count=0` is the case that matters most. A release sweep stamps
+    every pending command, so an empty list is the normal state at a release
+    commit, and an assertion that silently assumed a non-empty set is what broke
+    on the first cut after the ledger landed.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    names = sorted(manual["commands"])
+    expected = names[:pending_count]
+    for name in names:
+        manual["commands"][name]["first_shipped_in"] = (
+            "unreleased" if name in expected else "2026.1.1b1"
+        )
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    ledger = generator.build_ledger()
+
+    assert sorted(ledger["commands_unreleased"]) == expected
 
 
 @pytest.mark.parametrize(
