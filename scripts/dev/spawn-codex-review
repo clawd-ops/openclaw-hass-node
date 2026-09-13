@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assemble the central exact-head brief and launch one review subagent.
+# Run one exact-head review and publish its parent-attributed result.
 set -euo pipefail
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -17,10 +17,8 @@ fi
 PR="$1"
 NARROWING_FILE="${2:-}"
 
-# One value drives both the requested route and the initial brief. The reviewer
-# still has to replace it when session_status reports a different resolved
-# model. It is overridable because reviews target different variants and must
-# never be fixed in the shared template.
+# The requested slug is only a routing hint. Attribution comes from the child
+# session record after the review finishes.
 MODEL_SLUG="${REVIEW_MODEL_SLUG:-$DEFAULT_MODEL_SLUG}"
 if [[ ! "$MODEL_SLUG" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
     echo "spawn-codex-review: REVIEW_MODEL_SLUG must be a full provider/model slug" >&2
@@ -44,21 +42,20 @@ if [[ -n "$NARROWING_FILE" ]]; then
     NARROWING=$(<"$NARROWING_FILE")
 fi
 
-BRIEF=$(python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" "$TEMPLATE" "$MODEL_SLUG" "$REPOSITORY" "$REPO_ROOT" << 'PYEOF'
+BRIEF=$(python3 - "$HEAD_SHA" "$BASE_SHA" "$PR" "$NARROWING" "$TEMPLATE" "$REPOSITORY" "$REPO_ROOT" << 'PYEOF'
 import sys
 import shlex
 from pathlib import Path
 
-head_sha, base_sha, pr, narrowing, template, model_slug, repository, repo_root = sys.argv[1:]
+head_sha, base_sha, pr, narrowing, template, repository, repo_root = sys.argv[1:]
 content = Path(template).read_text(encoding="utf-8")
 content = content.replace("<PR>", pr)
 content = content.replace("<HEAD_SHA>", head_sha)
 content = content.replace("<BASE_SHA>", base_sha)
 content = content.replace("<NARROWING>", narrowing)
-content = content.replace("<MODEL_SLUG>", model_slug)
 content = content.replace("<REPOSITORY>", repository)
 content = content.replace("<REPOSITORY_ROOT>", shlex.quote(repo_root))
-for placeholder in ("<MODEL_SLUG>", "<REPOSITORY>", "<REPOSITORY_ROOT>"):
+for placeholder in ("<REPOSITORY>", "<REPOSITORY_ROOT>"):
     if placeholder in content:  # pragma: no cover - defensive
         sys.exit(f"spawn-codex-review: {placeholder} substitution failed")
 sys.stdout.write(content)
@@ -73,17 +70,19 @@ TEMP_DIR=$(mktemp -d "/tmp/spawn-codex-review-${PR}.XXXXXX")
 PROMPT_FILE="$TEMP_DIR/launcher-prompt.txt"
 RESULT_FILE="$TEMP_DIR/launcher-result.json"
 SESSIONS_FILE="$TEMP_DIR/sessions.json"
-HISTORY_FILE="$TEMP_DIR/history.json"
+EXPORT_RESULT_FILE="$TEMP_DIR/export-result.json"
+REVIEW_FILE="$TEMP_DIR/review.txt"
+COMMENT_FILE="$TEMP_DIR/comment.md"
+POST_RESULT_FILE="$TEMP_DIR/post-result.json"
+READBACK_FILE="$TEMP_DIR/readback.json"
 ERROR_FILE="$TEMP_DIR/launcher-errors.txt"
 cleanup() {
-    rm -f "$PROMPT_FILE" "$RESULT_FILE" "$SESSIONS_FILE" "$HISTORY_FILE" "$ERROR_FILE"
-    rmdir "$TEMP_DIR" 2>/dev/null || true
+    rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT
 
 {
-    printf '%s\n' 'Call session_status exactly once before any spawn. A full provider/model value on its Model line is a resolved model. If the tool is unavailable or returns no such value, do not call sessions_spawn; return only SELF_IDENTIFICATION_FAILED.'
-    printf '%s\n' "If session_status succeeds, call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", visible=true, and expectsCompletionMessage=true."
+    printf '%s\n' "Call sessions_spawn exactly once with runtime=\"subagent\", mode=\"run\", context=\"isolated\", model=\"${MODEL_SLUG}\", visible=true, and expectsCompletionMessage=true."
     printf '%s\n' 'Use the complete review brief below as the task. Do not perform the review yourself. Return only the accepted spawn receipt as compact JSON with no fence or commentary.'
     printf '\n%s\n' "$BRIEF"
 } > "$PROMPT_FILE"
@@ -114,22 +113,10 @@ try:
     if len(payloads) != 1 or not isinstance(payloads[0].get("text"), str):
         raise ValueError
     payload_text = payloads[0]["text"]
-    terminal = result["result"]["meta"]["agentMeta"]["terminalReceipt"]
-    successful = terminal.get("successfulToolNames")
-    if (
-        not isinstance(successful, list)
-        or "session_status" not in successful
-        or (
-            "sessions_spawn" not in successful
-            and payload_text.strip() == "SELF_IDENTIFICATION_FAILED"
-        )
-    ):
-        print(
-            "Reviewer failed self-identification. No review posted. PR is not review-ready.",
-            file=sys.stderr,
-        )
-        raise SystemExit(2)
-    if successful.count("session_status") != 1 or successful.count("sessions_spawn") != 1:
+    successful = result["result"]["meta"]["agentMeta"]["terminalReceipt"].get(
+        "successfulToolNames"
+    )
+    if not isinstance(successful, list) or successful.count("sessions_spawn") != 1:
         raise ValueError
     receipt = json.loads(payload_text)
     if receipt.get("status") != "accepted":
@@ -143,97 +130,133 @@ print(json.dumps(receipt, separators=(",", ":"), sort_keys=True))
 PYEOF
 ) || exit 1
 
-if ! openclaw sessions --all-agents --json --limit all > "$SESSIONS_FILE" 2> "$ERROR_FILE"; then
-    "$CHECKER" "$ERROR_FILE" || true
-    echo "spawn-codex-review: could not verify the child session" >&2
+CHILD_KEY=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["childSessionKey"])' "$RECEIPT")
+WAIT_TIMEOUT="${REVIEW_WAIT_TIMEOUT_SECONDS:-3600}"
+if [[ ! "$WAIT_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "spawn-codex-review: REVIEW_WAIT_TIMEOUT_SECONDS must be a positive integer" >&2
     exit 1
 fi
-"$CHECKER" "$ERROR_FILE"
-python3 - "$SESSIONS_FILE" "$RECEIPT" << 'PYEOF'
+DEADLINE=$((SECONDS + WAIT_TIMEOUT))
+while true; do
+    if ! openclaw sessions --all-agents --json --limit all > "$SESSIONS_FILE" 2> "$ERROR_FILE"; then
+        "$CHECKER" "$ERROR_FILE" || true
+        echo "spawn-codex-review: could not read child session state" >&2
+        exit 1
+    fi
+    "$CHECKER" "$ERROR_FILE"
+    CHILD_STATUS=$(python3 - "$SESSIONS_FILE" "$CHILD_KEY" << 'PYEOF'
 import json
 import sys
 from pathlib import Path
 
 try:
     sessions = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["sessions"]
-    receipt = json.loads(sys.argv[2])
-    if not any(item.get("key") == receipt["childSessionKey"] for item in sessions):
+    match = next(item for item in sessions if item.get("key") == sys.argv[2])
+    status = match.get("status")
+    if not isinstance(status, str) or not status:
         raise ValueError
-except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
+except (KeyError, StopIteration, TypeError, ValueError, json.JSONDecodeError, OSError):
     print("spawn-codex-review: accepted child session was not found", file=sys.stderr)
     raise SystemExit(1)
+print(status)
 PYEOF
+    ) || exit 1
+    case "$CHILD_STATUS" in
+        done) break ;;
+        failed|cancelled|error)
+            echo "spawn-codex-review: child review ended with status $CHILD_STATUS" >&2
+            exit 1
+            ;;
+    esac
+    if (( SECONDS >= DEADLINE )); then
+        echo "spawn-codex-review: timed out waiting for child review" >&2
+        exit 1
+    fi
+    sleep 5
+done
 
-HISTORY_PARAMS=$(python3 - "$RECEIPT" << 'PYEOF'
-import json
-import sys
+MODEL_SLUG=$("$REPO_ROOT/scripts/dev/resolve-reviewer-model.py" "$SESSIONS_FILE" "$CHILD_KEY")
 
-receipt = json.loads(sys.argv[1])
-print(json.dumps({
-    "name": "sessions_history",
-    "args": {
-        "sessionKey": receipt["childSessionKey"],
-        "limit": 100,
-        "includeTools": False,
-    },
-}))
-PYEOF
-)
-# Brief-delivery verification is best-effort on purpose. The spawn itself is
-# already proven by the accepted receipt and the child-session lookup above;
-# this step is extra assurance that the child received the exact brief. The
-# history API is not reachable in every runtime, so an API failure must be
-# reported as an API failure and must not masquerade as a content mismatch.
-# Conflating the two is worse than skipping the check: it accuses the brief of
-# being wrong when nothing was ever compared.
-HISTORY_AVAILABLE=1
-if ! openclaw gateway call tools.invoke --json --params "$HISTORY_PARAMS" \
-    > "$HISTORY_FILE" 2> "$ERROR_FILE"; then
+EXPORT_NAME="review-result"
+if ! openclaw sessions export-trajectory \
+    --agent "$LAUNCHER_AGENT" \
+    --session-key "$CHILD_KEY" \
+    --workspace "$TEMP_DIR" \
+    --output "$EXPORT_NAME" \
+    --json > "$EXPORT_RESULT_FILE" 2> "$ERROR_FILE"; then
     "$CHECKER" "$ERROR_FILE" || true
-    echo "spawn-codex-review: warning — history API call failed; brief delivery unverified" >&2
-    HISTORY_AVAILABLE=0
+    echo "spawn-codex-review: could not retrieve child review" >&2
+    exit 1
 fi
-if [[ "$HISTORY_AVAILABLE" -eq 1 ]]; then
-    "$CHECKER" "$ERROR_FILE"
-    "$CHECKER" "$HISTORY_FILE"
-    python3 - "$HISTORY_FILE" "$BRIEF" << 'PYEOF'
+"$CHECKER" "$ERROR_FILE"
+EVENTS_FILE="$TEMP_DIR/.openclaw/trajectory-exports/$EXPORT_NAME/events.jsonl"
+python3 - "$EVENTS_FILE" "$REVIEW_FILE" << 'PYEOF'
 import json
 import sys
 from pathlib import Path
 
-raw = Path(sys.argv[1]).read_text(encoding="utf-8")
-brief = sys.argv[2]
-
+messages = []
 try:
-    history = json.loads(raw)
-except (json.JSONDecodeError, OSError) as exc:
-    print(f"spawn-codex-review: warning — history unreadable ({exc}); brief delivery unverified", file=sys.stderr)
-    raise SystemExit(0)
-
-if history.get("ok") is False:
-    message = (history.get("error") or {}).get("message", "unknown error")
-    print(f"spawn-codex-review: warning — history API error ({message}); brief delivery unverified", file=sys.stderr)
-    raise SystemExit(0)
-
-try:
-    messages = history["output"]["details"]["messages"]
-    user_content = next(item["content"] for item in messages if item.get("role") == "user")
-except (KeyError, StopIteration, TypeError):
-    print("spawn-codex-review: warning — no user message in history; brief delivery unverified", file=sys.stderr)
-    raise SystemExit(0)
-
-if not isinstance(user_content, str):
-    print("spawn-codex-review: warning — history content is not text; brief delivery unverified", file=sys.stderr)
-    raise SystemExit(0)
-
-# Delivery may wrap the task in a runtime envelope, so require containment
-# rather than exact suffix equality. A genuine mismatch is still fatal: the
-# brief was compared and did not survive.
-if brief not in user_content:
-    print("spawn-codex-review: child task does not match the assembled brief", file=sys.stderr)
-    raise SystemExit(1)
+    for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+        event = json.loads(line)
+        if event.get("type") != "assistant.message":
+            continue
+        message = event["data"]["message"]
+        if message.get("role") != "assistant" or not message.get("__openclaw", {}).get(
+            "runTerminal"
+        ):
+            continue
+        text = "".join(
+            item["text"]
+            for item in message.get("content", [])
+            if item.get("type") == "text" and isinstance(item.get("text"), str)
+        )
+        if text:
+            messages.append(text)
+except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+    pass
+if len(messages) != 1:
+    sys.exit("spawn-codex-review: child returned no single terminal text reply")
+review = messages[0].strip()
+if review.splitlines()[0] not in {"APPROVE", "REQUEST CHANGES"}:
+    sys.exit("spawn-codex-review: child review has no valid verdict")
+if "Reviewer model:" in review:
+    sys.exit("spawn-codex-review: child review contains forbidden attribution")
+Path(sys.argv[2]).write_text(review, encoding="utf-8")
 PYEOF
+
+python3 - "$REVIEW_FILE" "$COMMENT_FILE" "$MODEL_SLUG" "$HEAD_SHA" "$BASE_SHA" << 'PYEOF'
+import sys
+from pathlib import Path
+
+review = Path(sys.argv[1]).read_text(encoding="utf-8")
+attribution = f"Reviewer model: {sys.argv[3]} — reviewed at {sys.argv[4]} (base {sys.argv[5]})."
+Path(sys.argv[2]).write_text(f"{review}\n\n{attribution}", encoding="utf-8")
+PYEOF
+"$CHECKER" "$COMMENT_FILE"
+
+LIVE_HEAD=$(gh pr view "$PR" --repo "$REPOSITORY" --json headRefOid --jq '.headRefOid')
+if [[ "$LIVE_HEAD" != "$HEAD_SHA" ]]; then
+    echo "spawn-codex-review: PR head moved; review not posted" >&2
+    exit 1
 fi
 
-printf '%s\n' "$RECEIPT" | "$CHECKER"
-printf '%s\n' "$RECEIPT"
+jq -n --rawfile body "$COMMENT_FILE" '{body:$body}' | \
+    gh api --method POST "repos/$REPOSITORY/issues/$PR/comments" --input - > "$POST_RESULT_FILE"
+"$CHECKER" "$POST_RESULT_FILE"
+COMMENT_ID=$(jq -er '.id' "$POST_RESULT_FILE")
+COMMENT_URL=$(jq -er '.html_url' "$POST_RESULT_FILE")
+gh api "repos/$REPOSITORY/issues/comments/$COMMENT_ID" > "$READBACK_FILE"
+"$CHECKER" "$READBACK_FILE"
+jq -e --rawfile expected "$COMMENT_FILE" '.body == $expected' "$READBACK_FILE" >/dev/null || {
+    echo "spawn-codex-review: posted review did not read back exactly" >&2
+    exit 1
+}
+
+jq -n \
+    --arg commentUrl "$COMMENT_URL" \
+    --arg childSessionKey "$CHILD_KEY" \
+    --arg reviewerModel "$MODEL_SLUG" \
+    --arg headSha "$HEAD_SHA" \
+    --arg baseSha "$BASE_SHA" \
+    '{commentUrl:$commentUrl,childSessionKey:$childSessionKey,reviewerModel:$reviewerModel,headSha:$headSha,baseSha:$baseSha}'

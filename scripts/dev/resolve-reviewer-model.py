@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 """Resolve the model a review child actually ran as, from the parent side."""
 
 import json
 import pathlib
+import re
 import sys
 
 # Resolve the model the child ACTUALLY ran as. The requested slug is a routing
@@ -25,7 +27,13 @@ if match is None:
 
 provider = match.get("modelProvider")
 model = match.get("model")
-if not isinstance(provider, str) or not isinstance(model, str) or not provider or not model:
+component = re.compile(r"[A-Za-z0-9._-]+")
+if (
+    not isinstance(provider, str)
+    or not isinstance(model, str)
+    or component.fullmatch(provider) is None
+    or component.fullmatch(model) is None
+):
     sys.exit("attribution: child session reports no resolved model")
 
 # Emit only the slug. Session records carry token counts, context sizes and

@@ -16,12 +16,15 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _CHECK = _REPO_ROOT / "scripts" / "dev" / "confidentiality-check"
 _APPLY = _REPO_ROOT / "scripts" / "dev" / "apply-patch"
 _PR_STATE = _REPO_ROOT / "scripts" / "dev" / "pr-state"
 _PR_REBASE = _REPO_ROOT / "scripts" / "dev" / "pr-rebase"
 _SPAWN_REVIEW = _REPO_ROOT / "scripts" / "dev" / "spawn-codex-review"
+_RESOLVE_REVIEWER_MODEL = _REPO_ROOT / "scripts" / "dev" / "resolve-reviewer-model.py"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -467,61 +470,84 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
     stub_bin.mkdir()
     captured_args = tmp_path / "args.txt"
     captured_prompt = tmp_path / "prompt.txt"
+    captured_comment = tmp_path / "comment.md"
     gh = stub_bin / "gh"
     gh.write_text(
-        (
-            "#!/bin/sh\n"
-            'case "$*" in\n'
-            '  "repo view --json nameWithOwner --jq .nameWithOwner") '
-            "printf '%s\\n' \"example/project\";;\n"
-            "  *headRefOid*) printf '%040d\\n' 0;;\n"
-            "  *) printf '%040d\\n' 1;;\n"
-            "esac\n"
-        ),
+        """#!/usr/bin/env python3
+import json
+import os
+import pathlib
+import sys
+
+args = sys.argv[1:]
+if args[:2] == ["repo", "view"]:
+    print("example/project")
+elif args[:2] == ["pr", "view"] and "headRefOid" in args:
+    print("0" * 40)
+elif args[:2] == ["pr", "view"] and "baseRefOid" in args:
+    print("0" * 39 + "1")
+elif args[:3] == ["api", "--method", "POST"]:
+    body = json.load(sys.stdin)["body"]
+    pathlib.Path(os.environ["CAPTURE_COMMENT"]).write_text(body, encoding="utf-8")
+    print(json.dumps({"id": 17, "html_url": "https://example.invalid/comment/17", "body": body}))
+elif args and args[0] == "api":
+    body = pathlib.Path(os.environ["CAPTURE_COMMENT"]).read_text(encoding="utf-8")
+    print(json.dumps({"id": 17, "html_url": "https://example.invalid/comment/17", "body": body}))
+else:
+    raise SystemExit(9)
+""",
         encoding="utf-8",
     )
     gh.chmod(0o755)
     launcher = stub_bin / "openclaw"
     launcher.write_text(
-        (
-            "#!/bin/sh\n"
-            'if [ "$1" = "agent" ]; then\n'
-            '  printf \'%s\\n\' "$*" > "$CAPTURE_ARGS"\n'
-            '  previous=""\n'
-            '  for argument in "$@"; do\n'
-            '    if [ "$previous" = "--message-file" ]; then '
-            '/bin/cp "$argument" "$CAPTURE_PROMPT"; fi\n'
-            '    previous="$argument"\n'
-            "  done\n"
-            "  printf '%s\\n' \"$LAUNCH_RESULT\"\n"
-            'elif [ "$1" = "sessions" ]; then\n'
-            "  printf '%s\\n' \"$SESSIONS_RESULT\"\n"
-            'elif [ "$1" = "gateway" ]; then\n'
-            "  printf '%s\\n' \"$HISTORY_RESULT\"\n"
-            "else exit 9; fi\n"
-        ),
+        """#!/usr/bin/env python3
+import json
+import os
+import pathlib
+import sys
+
+args = sys.argv[1:]
+if args and args[0] == "agent":
+    pathlib.Path(os.environ["CAPTURE_ARGS"]).write_text(" ".join(args), encoding="utf-8")
+    prompt = pathlib.Path(args[args.index("--message-file") + 1])
+    pathlib.Path(os.environ["CAPTURE_PROMPT"]).write_text(
+        prompt.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    print(os.environ["LAUNCH_RESULT"])
+elif args[:2] == ["sessions", "export-trajectory"]:
+    workspace = pathlib.Path(args[args.index("--workspace") + 1])
+    output = args[args.index("--output") + 1]
+    export_dir = workspace / ".openclaw" / "trajectory-exports" / output
+    export_dir.mkdir(parents=True)
+    event = {
+        "type": "assistant.message",
+        "data": {
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": os.environ["REVIEW_BODY"]}],
+                "__openclaw": {"runTerminal": True},
+            }
+        },
+    }
+    (export_dir / "events.jsonl").write_text(json.dumps(event) + "\\n", encoding="utf-8")
+    print(json.dumps({"outputDir": str(export_dir)}))
+elif args and args[0] == "sessions":
+    print(os.environ["SESSIONS_RESULT"])
+else:
+    raise SystemExit(9)
+""",
         encoding="utf-8",
     )
     launcher.chmod(0o755)
     denylist = _make_denylist(tmp_path, ["ACME-PLACEHOLDER"])
-    expected_brief = (
-        (_REPO_ROOT / "scripts/dev/templates/codex-review-brief.md")
-        .read_text(encoding="utf-8")
-        .replace("<PR>", "7")
-        .replace("<HEAD_SHA>", "0" * 40)
-        .replace("<BASE_SHA>", f"{1:040d}")
-        .replace("<NARROWING>", "(no additional narrowing)")
-        .replace("<MODEL_SLUG>", "openai/gpt-5.6-sol")
-        .replace("<REPOSITORY>", "example/project")
-        .replace("<REPOSITORY_ROOT>", str(_REPO_ROOT))
-        .rstrip("\n")
-    )
     env = os.environ.copy()
     env.update(
         {
             "PATH": f"{stub_bin}:{env['PATH']}",
             "CAPTURE_ARGS": str(captured_args),
             "CAPTURE_PROMPT": str(captured_prompt),
+            "CAPTURE_COMMENT": str(captured_comment),
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
             "LAUNCH_RESULT": json.dumps(
                 {
@@ -540,37 +566,33 @@ def _spawn_review_env(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
                         ],
                         "meta": {
                             "agentMeta": {
-                                "terminalReceipt": {
-                                    "successfulToolNames": ["session_status", "sessions_spawn"]
-                                }
+                                "terminalReceipt": {"successfulToolNames": ["sessions_spawn"]}
                             }
                         },
                     },
                 }
             ),
-            "SESSIONS_RESULT": json.dumps({"sessions": [{"key": "agent:clawd:child-1"}]}),
-            "HISTORY_RESULT": json.dumps(
+            "SESSIONS_RESULT": json.dumps(
                 {
-                    "output": {
-                        "details": {
-                            "messages": [
-                                {
-                                    "role": "user",
-                                    "content": f"[Subagent Task]\n{expected_brief}",
-                                }
-                            ]
+                    "sessions": [
+                        {
+                            "key": "agent:clawd:child-1",
+                            "status": "done",
+                            "modelProvider": "openai",
+                            "model": "gpt-5.6-sol",
                         }
-                    }
+                    ]
                 }
             ),
+            "REVIEW_BODY": "APPROVE\n\nNo blocking findings.",
         }
     )
 
     return env, captured_prompt, captured_args
 
 
-def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> None:
-    """The wrapper dispatches exactly one subagent with the assembled brief."""
+def test_spawn_review_runs_child_and_posts_parent_attributed_comment(tmp_path: Path) -> None:
+    """The wrapper completes one review and posts only after parent attribution."""
     env, captured_prompt, captured_args = _spawn_review_env(tmp_path)
 
     result = subprocess.run(
@@ -579,8 +601,8 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
 
     assert result.returncode == 0, result.stderr
     prompt = captured_prompt.read_text(encoding="utf-8")
-    assert "Call session_status exactly once before any spawn" in prompt
-    assert "call sessions_spawn exactly once" in prompt
+    assert "session_status" not in prompt
+    assert "Call sessions_spawn exactly once" in prompt
     # Attribution moved to the parent: the child has no session_status and
     # cannot prove which model ran, so the brief forbids it signing rather
     # than telling it which slug to claim.
@@ -590,9 +612,15 @@ def test_spawn_review_invokes_launcher_with_subagent_brief(tmp_path: Path) -> No
     assert "example/project" in prompt
     assert f"git -C {_REPO_ROOT}" in prompt
     assert "--model openai/gpt-5.6-sol" in captured_args.read_text(encoding="utf-8")
-    # The placeholder must never survive into a dispatched brief: an
-    # unsubstituted <MODEL_SLUG> would ship a reviewer with no identity to sign.
-    assert "<MODEL_SLUG>" not in prompt
+    output = json.loads(result.stdout)
+    assert output["reviewerModel"] == "openai/gpt-5.6-sol"
+    assert output["commentUrl"] == "https://example.invalid/comment/17"
+    comment = Path(env["CAPTURE_COMMENT"]).read_text(encoding="utf-8")
+    assert comment == (
+        "APPROVE\n\nNo blocking findings.\n\n"
+        f"Reviewer model: openai/gpt-5.6-sol — reviewed at {'0' * 40} "
+        f"(base {'0' * 39 + '1'})."
+    )
 
 
 def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> None:
@@ -620,7 +648,6 @@ def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> N
         {
             "PATH": f"{stub_bin}:{env['PATH']}",
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
-            "CATALOG_RESULT": json.dumps({"groups": [{"tools": [{"id": "session_status"}]}]}),
             "LAUNCH_RESULT": json.dumps(
                 {
                     "status": "ok",
@@ -636,11 +663,7 @@ def test_spawn_review_rejects_success_without_spawn_receipt(tmp_path: Path) -> N
                                 )
                             }
                         ],
-                        "meta": {
-                            "agentMeta": {
-                                "terminalReceipt": {"successfulToolNames": ["session_status"]}
-                            }
-                        },
+                        "meta": {"agentMeta": {"terminalReceipt": {"successfulToolNames": []}}},
                     },
                 }
             ),
@@ -681,96 +704,77 @@ def test_gate_runner_matches_typescript_workflow_scope() -> None:
     assert 'fail "changed-path enumeration (branch)"' in text
 
 
-def test_spawn_review_reports_history_api_error_as_unverified(tmp_path: Path) -> None:
-    """An unreachable history API must not be reported as a brief mismatch.
+def _resolve_model(tmp_path: Path, payload: object) -> subprocess.CompletedProcess[str]:
+    sessions = tmp_path / "sessions.json"
+    sessions.write_text(json.dumps(payload), encoding="utf-8")
+    return subprocess.run(
+        [str(_RESOLVE_REVIEWER_MODEL), str(sessions), "agent:clawd:child-1"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
-    The spawn is already proven by the accepted receipt and the session lookup.
-    If the history call fails, the brief was never compared, so claiming it did
-    not match accuses the wrong thing and sends the operator hunting a
-    non-existent content bug.
-    """
-    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
-    env["HISTORY_RESULT"] = json.dumps(
+
+def test_resolve_reviewer_model_emits_only_slug(tmp_path: Path) -> None:
+    """Attribution output excludes every unrelated session field."""
+    result = _resolve_model(
+        tmp_path,
         {
-            "ok": False,
-            "toolName": "sessions_history",
-            "error": {"code": "validation_error", "message": "no explicit owner"},
-        }
+            "sessions": [
+                {
+                    "key": "agent:clawd:child-1",
+                    "modelProvider": "openai",
+                    "model": "gpt-5.6-sol",
+                    "inputTokens": 123,
+                    "label": "private operational detail",
+                }
+            ]
+        },
     )
+
+    assert result.returncode == 0
+    assert result.stdout == "openai/gpt-5.6-sol\n"
+    assert result.stderr == ""
+
+
+def test_resolve_reviewer_model_refuses_absent_child(tmp_path: Path) -> None:
+    result = _resolve_model(tmp_path, {"sessions": []})
+
+    assert result.returncode != 0
+    assert result.stderr.strip() == "attribution: child session not found"
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"key": "agent:clawd:child-1", "model": "gpt-5.6-sol"},
+        {"key": "agent:clawd:child-1", "modelProvider": "openai"},
+        {"key": "agent:clawd:child-1", "modelProvider": "", "model": "gpt-5.6-sol"},
+        {"key": "agent:clawd:child-1", "modelProvider": "openai", "model": ""},
+    ],
+)
+def test_resolve_reviewer_model_refuses_missing_or_empty_fields(
+    tmp_path: Path, record: dict[str, str]
+) -> None:
+    result = _resolve_model(tmp_path, {"sessions": [record]})
+
+    assert result.returncode != 0
+    assert result.stderr.strip() == "attribution: child session reports no resolved model"
+
+
+def test_resolve_reviewer_model_refuses_malformed_json(tmp_path: Path) -> None:
+    sessions = tmp_path / "sessions.json"
+    sessions.write_text("{", encoding="utf-8")
 
     result = subprocess.run(
-        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+        [str(_RESOLVE_REVIEWER_MODEL), str(sessions), "agent:clawd:child-1"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
-    assert result.returncode == 0, result.stderr
-    assert "brief delivery unverified" in result.stderr
-    assert "does not match the assembled brief" not in result.stderr
-
-
-def test_spawn_review_still_fails_on_real_brief_mismatch(tmp_path: Path) -> None:
-    """A history response that genuinely lacks the brief is still fatal."""
-    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
-    env["HISTORY_RESULT"] = json.dumps(
-        {
-            "output": {
-                "details": {"messages": [{"role": "user", "content": "some entirely other task"}]}
-            }
-        }
-    )
-
-    result = subprocess.run(
-        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
-    )
-
-    assert result.returncode == 1
-    assert "does not match the assembled brief" in result.stderr
-
-
-def test_spawn_review_refuses_when_session_status_is_unavailable(tmp_path: Path) -> None:
-    """No self-identification means no spawn.
-
-    A reviewer that cannot call `session_status` can only guess at its own
-    identity, and the spawn slug is a routing hint rather than proof of what
-    ran. Producing a review nobody can attribute is worse than producing none,
-    so the wrapper refuses before spawning rather than after.
-    """
-    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
-    launch_result = json.loads(env["LAUNCH_RESULT"])
-    launch_result["result"]["meta"]["agentMeta"]["terminalReceipt"]["successfulToolNames"] = []
-    env["LAUNCH_RESULT"] = json.dumps(launch_result)
-
-    result = subprocess.run(
-        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
-    )
-
-    assert result.returncode == 1
-    assert (
-        "Reviewer failed self-identification. No review posted. PR is not review-ready."
-        in result.stderr
-    )
-    # Nothing may be dispatched when self-identification is impossible.
-    assert "accepted" not in result.stdout
-
-
-def test_spawn_review_reports_launcher_self_identification_failure(tmp_path: Path) -> None:
-    """A launcher that cannot prove identity reports the required upstream state."""
-    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
-    launch_result = json.loads(env["LAUNCH_RESULT"])
-    launch_result["result"]["payloads"] = [{"text": "SELF_IDENTIFICATION_FAILED"}]
-    launch_result["result"]["meta"]["agentMeta"]["terminalReceipt"]["successfulToolNames"] = [
-        "session_status"
-    ]
-    env["LAUNCH_RESULT"] = json.dumps(launch_result)
-
-    result = subprocess.run(
-        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
-    )
-
-    assert result.returncode == 1
-    assert (
-        "Reviewer failed self-identification. No review posted. PR is not review-ready."
-        in result.stderr
-    )
+    assert result.returncode != 0
+    assert result.stderr.strip() == "attribution: session list unreadable"
 
 
 def test_review_template_binds_repository_and_complete_confidentiality_scope() -> None:

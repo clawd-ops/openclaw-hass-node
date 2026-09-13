@@ -114,14 +114,15 @@ and an optional per-PR narrowing section into
 `scripts/dev/templates/codex-review-brief.md`. It checks the assembled brief,
 then uses a dedicated launcher session to invoke `sessions_spawn` for one
 visible exact-head review run. It requires exactly one successful spawn tool
-call, parses an accepted receipt, and verifies the returned child session exists
-and received the complete assembled brief before reporting success.
+call and an accepted child receipt, waits for that exact child to finish, and
+reads the child's final review from its exported trajectory.
 The generated brief binds all local Git and GitHub commands to that repository
 instead of relying on the reviewer's starting directory.
 
 The template encodes hard constraints (no commits, no pushes, no merges, no
-file edits, no sub-agents, exactly one `gh pr comment`), the correct
-`uv run` tooling rule, and the deterministic attribution line format.
+file edits, no sub-agents, and no GitHub posts), plus the correct `uv run`
+tooling rule. The child returns only an `APPROVE` or `REQUEST CHANGES`
+review body. The wrapper owns attribution and publication.
 
 ```
 scripts/dev/spawn-codex-review 123
@@ -131,12 +132,12 @@ REVIEW_MODEL_SLUG=openai/gpt-5.6-sol scripts/dev/spawn-codex-review 123
 
 ### Reviewer attribution
 
-One value drives both the requested spawn route and the initial brief. Set
-`REVIEW_MODEL_SLUG` to target a variant; the wrapper substitutes it into
-`<MODEL_SLUG>` and rejects anything that is not a full `provider/model` slug.
-The reviewer must replace that routing value if `session_status` reports a
-different resolved model. The template never hardcodes one, or every reviewer
-would claim the same identity regardless of what ran.
+Set `REVIEW_MODEL_SLUG` to request a model variant. The value is a routing
+hint, not attribution evidence. After the child finishes, the wrapper obtains a
+fresh session list, selects the exact accepted child session key, and runs
+`resolve-reviewer-model.py`. That resolver emits only the child record's
+`provider/model` slug and refuses missing, empty, malformed, or unknown
+records.
 
 A valid sign-off looks like:
 
@@ -147,18 +148,12 @@ Reviewer model: openai/gpt-5.6-sol — reviewed at abc12345 (base def67890).
 Bare `Codex` is **not** valid attribution. It is indistinguishable across every
 variant, which defeats the purpose of pinning a verdict to a reviewer.
 
-There is no fallback sign-off. A reviewer calls `session_status` first; if it
-cannot resolve its own model it posts nothing and returns an error to the
-caller. An unattributable review looks like independent verification while
-proving nothing about who verified it, so no review is the safer outcome.
-
-The wrapper enforces this before spawning with a same-model launcher turn. The
-launcher must successfully call `session_status` before it may call
-`sessions_spawn`. A parent-agent tool catalog is not accepted as proof because
-it can differ from the spawned runtime's toolset. If the preflight cannot
-self-identify, the wrapper refuses to spawn and reports that no review was
-posted and the PR is not review-ready. The reviewer repeats the check because
-its child runtime can still expose a different toolset. There is no bypass.
+There is no fallback sign-off. Resolver failure suppresses the entire review.
+On success, the wrapper appends the resolved slug and exact head/base SHAs to
+the child's body, scans the complete comment with `confidentiality-check`,
+rechecks that the PR head has not moved, posts through the GitHub API, and reads
+the stored comment back exactly. Any failure before posting exits loudly and
+leaves the PR without an unattributable or stale review.
 
 ---
 
