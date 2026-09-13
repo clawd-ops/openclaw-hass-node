@@ -31,27 +31,30 @@ def _load_generator() -> ModuleType:
 @pytest.mark.parametrize(
     "bad",
     [
+        "#316",  # the old string form
         "banana",
         "",
-        "#",
-        "#0",
-        "#007",
         "316",
-        "#316 ",
         "GH-316",
-        "[#316](https://evil.invalid)",
-        123,
+        "[x](x)",
+        '<a href="https://evil.invalid">x</a>',
+        316.0,
+        True,  # bool is an int subclass; would render as issue #1
+        0,
+        -3,
         None,
     ],
 )
-def test_issue_citations_reject_malformed_values(
+def test_issue_citations_must_be_positive_integers(
     monkeypatch: pytest.MonkeyPatch, bad: object
 ) -> None:
-    """A citation is rendered verbatim into the Markdown ledger.
+    """A citation is a number, so nothing stringlike is representable.
 
-    The check was `isinstance(i, str)`, so anything stringlike passed: prose, an
-    empty string, a bare number, or a Markdown link that would be interpolated
-    straight into the published table.
+    This replaces a regex over citation strings. The anchor is constructed from
+    the integer rather than interpolated from authored text, so link syntax, raw
+    HTML and whitespace are not rejected — they cannot be expressed at all.
+    `True` is excluded explicitly because `bool` subclasses `int` and would
+    otherwise render as issue #1.
     """
     generator = _load_generator()
     manual = copy.deepcopy(generator._load_manual())
@@ -62,7 +65,19 @@ def test_issue_citations_reject_malformed_values(
         generator.build_ledger()
 
 
-@pytest.mark.parametrize("container", ["", 0, False, {}, "#316"])
+def test_issue_citation_anchor_is_constructed_not_interpolated() -> None:
+    """The rendered anchor derives entirely from the integer and the repo URL."""
+    generator = _load_generator()
+
+    rendered = generator._citation_link(316)
+
+    assert rendered.endswith(">#316</a>")
+    assert "/issues/316" in rendered
+    assert 'target="_blank"' in rendered
+    assert 'rel="noopener noreferrer"' in rendered
+
+
+@pytest.mark.parametrize("container", ["", 0, False, {}, 316])
 def test_issue_citations_reject_malformed_containers(
     monkeypatch: pytest.MonkeyPatch, container: object
 ) -> None:
@@ -93,94 +108,11 @@ def test_absent_issues_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> Non
     assert next(r for r in ledger["rows"] if r["id"] == "ha.get_config")["issues"] == []
 
 
-@pytest.mark.parametrize(
-    "payload",
-    [
-        "[x](x)",
-        "![i](x)",
-        "see [x][ref]",
-        "[ref]: https://evil.invalid",
-        "<https://evil.invalid>",
-        "<javascript:alert(1)>",
-        "<a@b.invalid>",
-        '<a href="https://evil.invalid">x</a>',
-        "<img src=x onerror=y>",
-        "<script>x</script>",
-        '<iframe src="x">',
-        # Round 3 bypasses: Material attr-list produced an element carrying an
-        # event-handler attribute; escaped and nested closing brackets in a link
-        # label slipped past a naive character class.
-        "text{: onclick=alert(1) }",
-        "heading {: #x .y }",
-        r"[a\]b](https://evil.invalid)",
-        "[a[b]c](https://evil.invalid)",
-    ],
-)
-@pytest.mark.parametrize(
-    "field",
-    ["capability_conditions", "evidence_note", "semantic_result", "semantic_errors"],
-)
-def test_manual_strings_reject_live_markdown(
-    monkeypatch: pytest.MonkeyPatch, field: str, payload: str
-) -> None:
-    """Every manual string is audited, not a named subset of fields.
-
-    An earlier version guarded three fields by name; review then found
-    `semantic_result`, `semantic_errors`, parameter bounds and observation
-    `source` still open. Naming fields leaves the next one uncovered, so the
-    audit walks the whole document at load.
-    """
-    generator = _load_generator()
-    raw = copy.deepcopy(generator._load_manual())
-    raw["commands"]["ha.get_config"][field] = payload
-    monkeypatch.setattr(generator, "_load_manual", lambda: _audited(generator, raw))
-
-    with pytest.raises(generator.LedgerError, match=r"renders as a live element"):
-        generator.build_ledger()
-
-
-def _audited(generator: ModuleType, value: dict[str, Any]) -> dict[str, Any]:
-    """Run the load-time audit the patched loader would otherwise skip."""
-    generator._audit_manual_strings(value)
-    return value
-
-
-@pytest.mark.parametrize(
-    "legitimate",
-    [
-        "Requires `allowAdminOps` and **a paired session**.",
-        "<helper_type>_id",
-        "a < b and c > d",
-        "Returned 27 areas; no side effects.",
-        "returns {ok: true}",
-        "see [note] below",
-    ],
-)
-def test_manual_strings_allow_legitimate_markup(legitimate: str) -> None:
-    """The guard must not break formatting or angle-bracketed parameter names.
-
-    `<helper_type>_id` is a real parameter name in this ledger, not HTML, so a
-    blanket angle-bracket rule would have been wrong.
-    """
-    generator = _load_generator()
-
-    generator._reject_live_markdown("field", legitimate)
-
-
-def test_live_markdown_audit_reaches_nested_values() -> None:
-    """The audit must not stop at the top level of the document."""
-    generator = _load_generator()
-    nested = {"commands": {"x": {"actions": {"y": {"parameters": ["[a](b)"]}}}}}
-
-    with pytest.raises(generator.LedgerError, match=r"parameters\[0\] contains a construct"):
-        generator._audit_manual_strings(nested)
-
-
 def test_issue_citations_reject_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
     """The same issue cited twice on one row is a typo, not a stronger claim."""
     generator = _load_generator()
     manual = copy.deepcopy(generator._load_manual())
-    manual["commands"]["ha.get_config"]["issues"] = ["#316", "#316"]
+    manual["commands"]["ha.get_config"]["issues"] = [316, 316]
     monkeypatch.setattr(generator, "_load_manual", lambda: manual)
 
     with pytest.raises(generator.LedgerError, match=r"duplicate citation"):
@@ -193,13 +125,13 @@ def test_issue_citations_accept_well_formed_references(
     """The guard must not reject legitimate citations."""
     generator = _load_generator()
     manual = copy.deepcopy(generator._load_manual())
-    manual["commands"]["ha.get_config"]["issues"] = ["#316", "#1", "#3300"]
+    manual["commands"]["ha.get_config"]["issues"] = [316, 1, 3300]
     monkeypatch.setattr(generator, "_load_manual", lambda: manual)
 
     ledger = generator.build_ledger()
 
     row = next(r for r in ledger["rows"] if r["id"] == "ha.get_config")
-    assert row["issues"] == ["#316", "#1", "#3300"]
+    assert row["issues"] == [316, 1, 3300]
 
 
 def test_generated_ledger_is_current() -> None:

@@ -79,81 +79,27 @@ _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\
 # An issue citation is rendered verbatim into the Markdown ledger, so it has
 # to be a real `#<number>` reference and nothing else. Leading zeros are
 # rejected because `#007` and `#7` would cite the same issue two ways.
-_ISSUE_CITATION_RE = re.compile(r"^#[1-9][0-9]*$")
-# Manual ledger strings are interpolated into the published Markdown without
-# escaping, so a construct that renders as a live element becomes live content in
-# COMMAND-COVERAGE.md.
+# An issue citation is an integer, not a string. The field cannot express
+# `banana`, `GH-316`, a trailing space, a Markdown link or a raw anchor, because
+# none of them are representable — the anchor below is constructed from the
+# number rather than interpolated from authored text. That closes the class by
+# construction instead of by enumeration, and it removes the `#0` / `#007` /
+# bare-`316` normalisation question, since the `#` is rendered here.
 #
-# READ THIS BEFORE EXTENDING IT. This is a blocklist over input syntax, and it
-# has leaked three times: first it missed raw anchors, reference links and
-# autolinks; then it missed Material's attr-list syntax, which produced an
-# element carrying an event-handler attribute, along with links whose closing
-# bracket is escaped or nested. Each round closed the reported cases and the next
-# round found more. A blocklist over a renderer's full surface does not converge,
-# and nothing here should be read as claiming it has.
+# This replaces a blocklist that validated citation strings, and a second one
+# that scanned every manual string for live-rendering syntax. The second was
+# defeated four times running — raw anchors, then Material attr-list, then
+# escaped and nested link labels, then unenumerated HTML elements — and by the
+# last round it had also started rejecting inert text inside backticks. A
+# blocklist over a renderer's surface does not converge, so it is gone rather
+# than extended again.
 #
-# What this actually does: refuses the constructs enumerated below. That is
-# useful because the realistic failure is an author pasting a link into a prose
-# field, not an adversary — the manual ledger only changes through a reviewed
-# pull request, so an author who wants live content already has merge rights and
-# does not need a bypass. It is an accident-catcher, not a boundary.
-#
-# The convergent fix is to validate rendered output rather than input syntax:
-# render each string with the same extension set mkdocs uses and reject any live
-# element. That cannot be defeated by a syntax nobody thought of, because it asks
-# the renderer instead of guessing. It is not done here because `markdown` is not
-# a dependency of this environment — it lives only in the docs requirements — and
-# pulling a rendering stack into the generator to catch accidental content is a
-# bigger change than it is worth inline. Tracked separately.
-#
-# `issues` is the exception and is genuinely closed: its format is fully
-# specified, so it is validated by allowlist (`_ISSUE_CITATION_RE`) rather than
-# by anything below.
-_LIVE_MARKDOWN_RE = re.compile(
-    r"""
-      !?\[(?:[^\[\]\\]|\\.|\[[^\]]*\])*\]\s*\([^)]*\)   # inline link/image
-    | !?\[(?:[^\[\]\\]|\\.|\[[^\]]*\])*\]\s*\[[^\]]*\]   # reference-style link/image
-    | ^\s*\[[^\]]*\]:\s*\S                      # link reference definition
-    | <[a-zA-Z][a-zA-Z0-9+.-]*:[^>]*>              # autolink, any scheme
-    | <[^>@\s]+@[^>\s]+>                           # email autolink
-    | </?(?:a|img|script|iframe|svg|object|embed|style|link|base)\b   # live HTML
-    | \{:[^}]*\}                                   # Material attr-list
-    """,
-    re.VERBOSE | re.MULTILINE | re.IGNORECASE,
-)
-
-
-def _reject_live_markdown(where: str, value: str) -> None:
-    """Refuse the enumerated live-rendering constructs in *value*.
-
-    Deliberately not described as refusing "all" live content: see the comment
-    above. This closes the constructs listed in `_LIVE_MARKDOWN_RE` and nothing
-    more.
-    """
-    if _LIVE_MARKDOWN_RE.search(value):
-        raise LedgerError(
-            f"{where} contains a construct that renders as a live element "
-            "(link, image, autolink, attribute list, or HTML tag); manual ledger "
-            "strings are rendered verbatim into the published ledger"
-        )
-
-
-def _audit_manual_strings(node: Any, path: str = "manual") -> None:
-    """Walk every string in the manual ledger and apply `_reject_live_markdown`.
-
-    Applied once at load rather than per field. An earlier version guarded three
-    fields by name, and review then found `semantic_result`, `semantic_errors`,
-    parameter bounds and observation `source` still open — naming fields always
-    leaves the next one uncovered.
-    """
-    if isinstance(node, dict):
-        for key, child in node.items():
-            _audit_manual_strings(child, f"{path}.{key}")
-    elif isinstance(node, list):
-        for index, child in enumerate(node):
-            _audit_manual_strings(child, f"{path}[{index}]")
-    elif isinstance(node, str):
-        _reject_live_markdown(path, node)
+# The remaining prose fields are authored Markdown and are treated as such. That
+# is the same trust level as README.md, INSTALL.md and every other document in
+# this repository, none of which are escaped or scanned: they all change only
+# through a reviewed pull request. Singling these four fields out bought nothing
+# an author could not get by editing any other file, and cost the inline code and
+# bold that 11 of them use deliberately.
 
 
 _MKDOCS_REPO_URL_RE = re.compile(r"^repo_url:\s*(\S+)\s*$", re.MULTILINE)
@@ -173,7 +119,7 @@ def _repo_url() -> str:
     return match.group(1).rstrip("/")
 
 
-def _citation_link(citation: str) -> str:
+def _citation_link(citation: int) -> str:
     """Render `#123` as an anchor that opens outside the docs view.
 
     The docs are served through a token-gated portal proxy, so a same-tab
@@ -183,9 +129,8 @@ def _citation_link(citation: str) -> str:
     `rel="noopener noreferrer"` is required with it to avoid handing the opened
     page a reference back to this one.
     """
-    number = citation.lstrip("#")
-    url = f"{_repo_url()}/issues/{number}"
-    return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{citation}</a>'
+    url = f"{_repo_url()}/issues/{citation}"
+    return f'<a href="{url}" target="_blank" rel="noopener noreferrer">#{citation}</a>'
 
 
 # The current release is read from all five tracked version sources. Generated
@@ -785,7 +730,6 @@ def _load_manual() -> dict[str, Any]:
     value = json.loads(MANUAL.read_text(encoding="utf-8"))
     if not isinstance(value, dict) or not isinstance(value.get("commands"), dict):
         raise LedgerError("manual coverage file must contain a commands object")
-    _audit_manual_strings(value)
     return value
 
 
@@ -1347,10 +1291,12 @@ def build_ledger() -> dict[str, Any]:
             if not isinstance(issues, list):
                 raise LedgerError(f"issues for {row_id} must be a list (got {issues!r})")
             for citation in issues:
-                if not isinstance(citation, str) or not _ISSUE_CITATION_RE.fullmatch(citation):
+                # bool is an int subclass, so it must be excluded explicitly or
+                # `true` would be accepted and render as issue #1.
+                if type(citation) is not int or citation < 1:
                     raise LedgerError(
-                        f"issues for {row_id} must each be a '#<number>' issue "
-                        f"citation (got {citation!r})"
+                        f"issues for {row_id} must each be a positive issue number "
+                        f"(got {citation!r})"
                     )
             if len(set(issues)) != len(issues):
                 raise LedgerError(f"issues for {row_id} contains a duplicate citation: {issues}")

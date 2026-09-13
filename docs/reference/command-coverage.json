@@ -1366,7 +1366,7 @@
       "handler": "openclaw_node.commands.fs_write:handle_fs_restore",
       "id": "fs.restore",
       "issues": [
-        "#324"
+        324
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -2286,7 +2286,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_addon_restart",
       "id": "ha.addon_restart",
       "issues": [
-        "#323"
+        323
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -3641,7 +3641,7 @@
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#create",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -3790,7 +3790,7 @@
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#delete",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -4064,7 +4064,7 @@
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#update",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -4358,7 +4358,7 @@
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#delete",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -4648,7 +4648,7 @@
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#save",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -4928,7 +4928,7 @@
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#disable",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -5077,7 +5077,7 @@
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#enable",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -5459,7 +5459,7 @@
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#list",
       "issues": [
-        "#330"
+        330
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -5622,7 +5622,7 @@
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#update",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -6004,7 +6004,7 @@
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#list",
       "issues": [
-        "#316"
+        316
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -6153,7 +6153,7 @@
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#remove",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -6316,7 +6316,7 @@
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#update",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -6624,7 +6624,7 @@
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#create",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -6788,7 +6788,7 @@
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#delete",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -7092,7 +7092,7 @@
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#update",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -7664,7 +7664,7 @@
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_create",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -7938,7 +7938,7 @@
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#save",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -8231,7 +8231,7 @@
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#delete",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -8519,7 +8519,7 @@
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#save",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -8812,7 +8812,7 @@
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#delete",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -9100,7 +9100,7 @@
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#save",
       "issues": [
-        "#339"
+        339
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -10474,7 +10474,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_list_automations",
       "id": "ha.list_automations",
       "issues": [
-        "#330"
+        330
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -10585,7 +10585,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_list_config_entries",
       "id": "ha.list_config_entries",
       "issues": [
-        "#330"
+        330
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -10696,7 +10696,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_list_devices",
       "id": "ha.list_devices",
       "issues": [
-        "#330"
+        330
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -10807,7 +10807,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_list_entity_registry",
       "id": "ha.list_entity_registry",
       "issues": [
-        "#316"
+        316
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -11027,7 +11027,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_list_services",
       "id": "ha.list_services",
       "issues": [
-        "#330"
+        330
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -11169,7 +11169,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_list_states",
       "id": "ha.list_states",
       "issues": [
-        "#319"
+        319
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -11478,7 +11478,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_reload_config",
       "id": "ha.reload_config",
       "issues": [
-        "#338"
+        338
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -11755,7 +11755,7 @@
       "handler": "openclaw_node.commands.ha:handle_ha_update_install",
       "id": "ha.update_install",
       "issues": [
-        "#338"
+        338
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
@@ -11970,7 +11970,7 @@
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get",
       "id": "system.execApprovals.get",
       "issues": [
-        "#333"
+        333
       ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",

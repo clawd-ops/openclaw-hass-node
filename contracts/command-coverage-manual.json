@@ -16,7 +16,7 @@
       "evidence_method": "TEST-PROVEN",
       "outcome": "refused-as-designed",
       "issues": [
-        "#339"
+        339
       ],
       "acceptance_test_ids": [
         {
@@ -192,7 +192,7 @@
       "assist_unavailable_reason": "Assist intentionally has no filesystem restore wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "issues": [
-        "#324"
+        324
       ],
       "actions": {}
     },
@@ -349,7 +349,7 @@
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
-        "#319"
+        319
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
@@ -554,7 +554,7 @@
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
-        "#330"
+        330
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
@@ -580,7 +580,7 @@
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
       "issues": [
-        "#330"
+        330
       ],
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
       "caller_observations": {
@@ -644,7 +644,7 @@
       "first_shipped_in": "2026.6.29b1",
       "actions": {},
       "issues": [
-        "#330"
+        330
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
@@ -713,7 +713,7 @@
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
-        "#316"
+        316
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "fail",
@@ -806,7 +806,7 @@
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
-        "#338"
+        338
       ],
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
@@ -851,7 +851,7 @@
         }
       ],
       "issues": [
-        "#330"
+        330
       ],
       "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter. Sept 13 live sweep (add-on 2026.9.13b1): ha.list_automations returned 115KB response; correctness pass but oversized with no server-side filter on this call path.",
       "caller_observations": {
@@ -1062,7 +1062,7 @@
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
       "issues": [
-        "#323"
+        323
       ],
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
@@ -1081,7 +1081,7 @@
       "first_shipped_in": "2026.9.13b1",
       "actions": {},
       "issues": [
-        "#338"
+        338
       ],
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
@@ -1470,7 +1470,7 @@
             "action"
           ],
           "issues": [
-            "#330"
+            330
           ],
           "evidence_method": "PRODUCTION-LIVE",
           "outcome": "partial",
@@ -1536,7 +1536,7 @@
             "action"
           ],
           "issues": [
-            "#316"
+            316
           ],
           "evidence_method": "PRODUCTION-LIVE",
           "outcome": "fail",
@@ -1639,7 +1639,7 @@
       "authorization_class": "operator_approval",
       "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
       "issues": [
-        "#333"
+        333
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
