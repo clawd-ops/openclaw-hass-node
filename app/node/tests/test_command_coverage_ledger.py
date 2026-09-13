@@ -787,7 +787,6 @@ def test_sept13_sweep_commands_have_production_live_evidence() -> None:
         "ha.get_config",
         "ha.list_areas",
         "ha.list_events",
-        "ha.list_states",
         "ha.get_state",
         "ha.check_config",
         "ha.core_logs",
@@ -857,7 +856,18 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
         "system.which",
         "fs.list",
         "fs.stat",
+        "fs.read",
+        "fs.glob",
+        "fs.history",
         "ha.config.area_registry#list",
+        "ha.config.helpers#list",
+        "ha.config.automation#get",
+        "ha.config.script#get",
+        "ha.config.scene#get",
+        "ha.config.entity_registry#get",
+        "ha.config.config_entries#get",
+        "ha.config.lovelace#dashboards_list",
+        "ha.config.lovelace#resources_list",
     ):
         row = rows_by_id[row_id]
         assert row["evidence_method"] == "PRODUCTION-LIVE"
@@ -870,6 +880,40 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
         ]
         assert current_live, f"{row_id} lacks current direct-node production evidence"
         assert all(item.get("stale") is False for item in current_live)
+
+    fs_diff = rows_by_id["fs.diff"]
+    assert fs_diff["evidence_method"] == "PRODUCTION-LIVE"
+    assert fs_diff["outcome"] == "partial"
+    diff_evidence = [
+        item
+        for item in fs_diff["callers"]["direct_nodes_invoke"]["evidence"]
+        if item.get("method") == "PRODUCTION-LIVE"
+    ]
+    assert diff_evidence
+    assert all(item["outcome"] == "partial" for item in diff_evidence)
+    assert all(item.get("stale") is False for item in diff_evidence)
+
+    for row_id, expected_outcome in (
+        ("ha.config.device_registry#list", "partial"),
+        ("ha.config.entity_registry#list", "fail"),
+        ("ha.config.lovelace#get", "partial"),
+    ):
+        row = rows_by_id[row_id]
+        assert row["evidence_method"] == "PRODUCTION-LIVE"
+        assert row["outcome"] == expected_outcome
+        evidence = row["callers"]["direct_nodes_invoke"]["evidence"]
+        current_live = [item for item in evidence if item.get("method") == "PRODUCTION-LIVE"]
+        assert current_live
+        assert all(item.get("stale") is False for item in current_live)
+
+    states = rows_by_id["ha.list_states"]
+    assert states["outcome"] == "partial"
+    state_evidence = states["callers"]["direct_nodes_invoke"]["evidence"]
+    current_state_live = [
+        item for item in state_evidence if item.get("method") == "PRODUCTION-LIVE"
+    ]
+    assert any(item["outcome"] == "fail" for item in current_state_live)
+    assert all(item.get("stale") is False for item in current_state_live)
 
     approvals = rows_by_id["system.execApprovals.get"]
     assert approvals["evidence_method"] == "PRODUCTION-LIVE"

@@ -194,6 +194,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.diff for /config/configuration.yaml with from_version=-1 returned DIFF_ERROR because no versions were recorded; dispatch and validation were exercised but a successful diff was not.",
+              "observed_at": "2026-09-13",
+              "outcome": "partial",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -273,8 +282,8 @@
       ],
       "capability_conditions": "Allowed path and resolvable backup versions.",
       "command": "fs.diff",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 read-only completion sweep reached fs.diff through direct nodes.invoke, but the inspected file had no stored versions, so successful diff rendering remains unverified.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_diff",
       "id": "fs.diff",
@@ -289,7 +298,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -322,6 +331,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.glob under /config with pattern *.yaml returned five bounded matches and truncated=true at max_matches=5.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -415,8 +433,8 @@
       ],
       "capability_conditions": "Root resolves under a configured allowed root.",
       "command": "fs.glob",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 read-only completion sweep confirmed fs.glob through direct nodes.invoke.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_glob",
       "id": "fs.glob",
@@ -431,7 +449,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -464,6 +482,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.history for /config/configuration.yaml returned a valid empty versions collection.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -515,8 +542,8 @@
       ],
       "capability_conditions": "Allowed path and readable backup index; collection result currently has no caller limit.",
       "command": "fs.history",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 read-only completion sweep confirmed fs.history through direct nodes.invoke; the inspected file had no stored versions.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_history",
       "id": "fs.history",
@@ -531,7 +558,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -1033,6 +1060,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.read returned a bounded one-byte binary slice from /config/configuration.yaml with correct range metadata.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1146,8 +1182,8 @@
       ],
       "capability_conditions": "Path resolves under a configured allowed root and read size policy permits the response.",
       "command": "fs.read",
-      "evidence_method": "TEST-PROVEN",
-      "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 read-only completion sweep confirmed a bounded binary range read through direct nodes.invoke. Existing test evidence continues to cover fail-closed offset behavior.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_read",
       "id": "fs.read",
@@ -4278,7 +4314,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#delete",
@@ -4328,6 +4364,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.automation with action=get returned the requested configuration.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4393,8 +4438,8 @@
       ],
       "capability_conditions": "HA REST API exposes the requested automation config.",
       "command": "ha.config.automation",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the requested configuration.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#get",
@@ -4409,7 +4454,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -4555,7 +4600,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#save",
@@ -4831,7 +4876,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#disable",
@@ -4977,7 +5022,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#enable",
@@ -5026,6 +5071,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.config_entries with action=get returned an existing config entry.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5091,8 +5145,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports config_entries/get.",
       "command": "ha.config.config_entries",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the selected config entry.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#get",
@@ -5107,7 +5161,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -5284,6 +5338,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.device_registry with action=list returned the complete registry (about 878 KB) with no caller limit.",
+              "observed_at": "2026-09-13",
+              "outcome": "partial",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5335,8 +5398,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports config/device_registry/list; collection result has no caller limit.",
       "command": "ha.config.device_registry",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the registry correctly, but the 878 KB response has no pagination.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#list",
@@ -5351,7 +5414,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -5496,7 +5559,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.device_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#update",
@@ -5688,6 +5751,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.entity_registry with action=get returned one existing registered entity.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5753,8 +5825,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports config/entity_registry/get.",
       "command": "ha.config.entity_registry",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned one registered entity.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#get",
@@ -5769,7 +5841,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -5803,6 +5875,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation.",
+              "observed_at": "2026-09-13",
+              "outcome": "fail",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5854,8 +5935,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.",
       "command": "ha.config.entity_registry",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned an internal command error on this large installation; tracked with the related entity-registry size failure in #316.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#list",
@@ -5870,7 +5951,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "fail",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -6001,7 +6082,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#remove",
@@ -6161,7 +6242,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#update",
@@ -6465,7 +6546,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#create",
@@ -6626,7 +6707,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#delete",
@@ -6676,6 +6757,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.helpers with action=list and helper_type=input_boolean returned 15 helpers.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6741,8 +6831,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports the requested helper type; collection result has no caller limit.",
       "command": "ha.config.helpers",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the requested helper collection.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#list",
@@ -6757,7 +6847,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -6917,7 +7007,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#update",
@@ -7138,6 +7228,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.lovelace with action=dashboards_list returned five dashboards.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7189,8 +7288,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports lovelace/dashboards/list; collection result has no caller limit.",
       "command": "ha.config.lovelace",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the dashboard collection.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#dashboards_list",
@@ -7205,7 +7304,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -7239,6 +7338,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.lovelace with action=get returned HA_CONFIG_NOT_FOUND because this installation uses YAML mode.",
+              "observed_at": "2026-09-13",
+              "outcome": "partial",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7304,8 +7412,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports lovelace/config.",
       "command": "ha.config.lovelace",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "The command path was exercised on Sept 13, but this YAML-mode installation returned HA_CONFIG_NOT_FOUND for the default dashboard.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#get",
@@ -7320,7 +7428,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -7465,7 +7573,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_create",
@@ -7514,6 +7622,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.lovelace with action=resources_list returned 49 resources.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7565,8 +7682,8 @@
       ],
       "capability_conditions": "HA WebSocket API supports lovelace/resources; collection result has no caller limit.",
       "command": "ha.config.lovelace",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the resource collection.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_list",
@@ -7581,7 +7698,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -7726,7 +7843,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#save",
@@ -8015,7 +8132,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#delete",
@@ -8064,6 +8181,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.scene with action=get returned the requested configuration.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -8129,8 +8255,8 @@
       ],
       "capability_conditions": "HA REST API exposes the requested scene config.",
       "command": "ha.config.scene",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the requested configuration.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#get",
@@ -8145,7 +8271,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -8290,7 +8416,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#save",
@@ -8579,7 +8705,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#delete",
@@ -8628,6 +8754,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.config.script with action=get returned the requested configuration.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -8693,8 +8828,8 @@
       ],
       "capability_conditions": "HA REST API exposes the requested script config.",
       "command": "ha.config.script",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 direct nodes.invoke returned the requested configuration.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#get",
@@ -8709,7 +8844,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -8854,7 +8989,7 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: ha.config.* mutations are not yet live-tested; requires per-command operator greenlight. CODE-FAIL: approval gating accepts any non-empty proposal_id without verification (see docs/VERIFICATION-2026-09-11.md \u00a70).",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#save",
@@ -10835,6 +10970,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
+              "observed_at": "2026-09-13",
+              "outcome": "fail",
+              "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10887,7 +11031,7 @@
       "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
       "command": "ha.list_states",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_states",
       "id": "ha.list_states",
@@ -10902,7 +11046,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "pass",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
