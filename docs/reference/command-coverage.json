@@ -150,6 +150,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_move_delete:handle_fs_delete",
       "id": "fs.delete",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -287,6 +288,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_diff",
       "id": "fs.diff",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -438,6 +440,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_glob",
       "id": "fs.glob",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -547,6 +550,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_history",
       "id": "fs.history",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -684,6 +688,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_list",
       "id": "fs.list",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -840,6 +845,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_move_delete:handle_fs_move",
       "id": "fs.move",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1010,6 +1016,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_patch:handle_fs_patch",
       "id": "fs.patch",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1187,6 +1194,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_read",
       "id": "fs.read",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1357,6 +1365,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_restore",
       "id": "fs.restore",
+      "issues": [
+        "#324"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1466,6 +1477,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs:handle_fs_stat",
       "id": "fs.stat",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1636,6 +1648,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_write",
       "id": "fs.write",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1761,6 +1774,7 @@
       "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_changelog",
       "id": "ha.addon_changelog",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -1886,6 +1900,7 @@
       "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_documentation",
       "id": "ha.addon_documentation",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2011,6 +2026,7 @@
       "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_info",
       "id": "ha.addon_info",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2152,6 +2168,7 @@
       "first_shipped_in": "2026.6.20b3",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_logs",
       "id": "ha.addon_logs",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2268,6 +2285,9 @@
       "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_restart",
       "id": "ha.addon_restart",
+      "issues": [
+        "#323"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2385,6 +2405,7 @@
       "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_start",
       "id": "ha.addon_start",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2511,6 +2532,7 @@
       "first_shipped_in": "2026.6.20b4",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_stats",
       "id": "ha.addon_stats",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2627,6 +2649,7 @@
       "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_stop",
       "id": "ha.addon_stop",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2744,6 +2767,7 @@
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_update",
       "id": "ha.addon_update",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -2902,6 +2926,7 @@
       "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_calendar_get_events",
       "id": "ha.calendar_get_events",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -3183,6 +3208,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_call_service",
       "id": "ha.call_service",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -3292,6 +3318,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_check_config",
       "id": "ha.check_config",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -3451,6 +3478,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -3608,10 +3636,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The create action accepts name (required) and optional attrs for additional area fields.",
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#create",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -3754,10 +3785,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#delete",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -3868,6 +3902,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#list",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4024,10 +4059,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The update action requires area_id and attrs (dict of fields to change).",
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#update",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4171,6 +4209,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4314,10 +4353,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#delete",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4443,6 +4485,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#get",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4600,10 +4643,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
       "id": "ha.config.automation#save",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4734,6 +4780,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -4876,10 +4923,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#disable",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5022,10 +5072,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#enable",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5150,6 +5203,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries",
       "id": "ha.config.config_entries#get",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5293,6 +5347,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5403,6 +5458,9 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#list",
+      "issues": [
+        "#330"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5559,10 +5617,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.device_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry",
       "id": "ha.config.device_registry#update",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5706,6 +5767,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5830,6 +5892,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#get",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -5940,6 +6003,9 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#list",
+      "issues": [
+        "#316"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -6082,10 +6148,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#remove",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -6242,10 +6311,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
       "id": "ha.config.entity_registry#update",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -6389,6 +6461,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -6546,10 +6619,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#create",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -6707,10 +6783,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#delete",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -6836,6 +6915,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#list",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7007,10 +7087,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#update",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7183,6 +7266,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7293,6 +7377,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#dashboards_list",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7417,6 +7502,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#get",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7573,10 +7659,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_create",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7687,6 +7776,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#resources_list",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7843,10 +7933,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace",
       "id": "ha.config.lovelace#save",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -7990,6 +8083,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8132,10 +8226,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#delete",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8260,6 +8357,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#get",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8416,10 +8514,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#save",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8563,6 +8664,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8705,10 +8807,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#delete",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8833,6 +8938,7 @@
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#get",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -8989,10 +9095,13 @@
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_script:handle_ha_config_script",
       "id": "ha.config.script#save",
+      "issues": [
+        "#339"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9118,6 +9227,7 @@
       "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_core_logs",
       "id": "ha.core_logs",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9226,6 +9336,7 @@
       "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_get_config",
       "id": "ha.get_config",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9351,6 +9462,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_get_state",
       "id": "ha.get_state",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9568,6 +9680,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_history",
       "id": "ha.history",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9730,6 +9843,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_light_turn_off",
       "id": "ha.light_turn_off",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9948,6 +10062,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_light_turn_on",
       "id": "ha.light_turn_on",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10056,6 +10171,7 @@
       "first_shipped_in": "2026.6.20b3",
       "handler": "openclaw_node.commands.ha:handle_ha_list_addons",
       "id": "ha.list_addons",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10164,6 +10280,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_areas",
       "id": "ha.list_areas",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10356,6 +10473,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_automations",
       "id": "ha.list_automations",
+      "issues": [
+        "#330"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10464,6 +10584,9 @@
       "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_list_config_entries",
       "id": "ha.list_config_entries",
+      "issues": [
+        "#330"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10572,6 +10695,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_devices",
       "id": "ha.list_devices",
+      "issues": [
+        "#330"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10680,6 +10806,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_entity_registry",
       "id": "ha.list_entity_registry",
+      "issues": [
+        "#316"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10788,6 +10917,7 @@
       "first_shipped_in": "2026.6.29b1",
       "handler": "openclaw_node.commands.ha:handle_ha_list_events",
       "id": "ha.list_events",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -10896,6 +11026,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_services",
       "id": "ha.list_services",
+      "issues": [
+        "#330"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11035,6 +11168,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_states",
       "id": "ha.list_states",
+      "issues": [
+        "#319"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11208,6 +11344,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_logbook",
       "id": "ha.logbook",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11340,6 +11477,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_reload_config",
       "id": "ha.reload_config",
+      "issues": [
+        "#338"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11449,6 +11589,7 @@
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_supervisor_info",
       "id": "ha.supervisor_info",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11613,6 +11754,9 @@
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_update_install",
       "id": "ha.update_install",
+      "issues": [
+        "#338"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11724,6 +11868,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ping:handle_ping",
       "id": "ping",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11824,6 +11969,9 @@
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get",
       "id": "system.execApprovals.get",
+      "issues": [
+        "#333"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11939,6 +12087,7 @@
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set",
       "id": "system.execApprovals.set",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -12250,6 +12399,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.system_run:handle_system_run",
       "id": "system.run",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -12423,6 +12573,7 @@
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.exec_approvals:handle_system_run_prepare",
       "id": "system.run.prepare",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -12533,6 +12684,7 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.system:handle_system_which",
       "id": "system.which",
+      "issues": [],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",

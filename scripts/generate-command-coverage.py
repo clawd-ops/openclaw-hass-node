@@ -1224,6 +1224,14 @@ def build_ledger() -> dict[str, Any]:
                             stale=obs_stale,
                         )
                     )
+            issues = (
+                _resolved_evidence_field(
+                    "issues", variant, entry, authorization_defaults, manual_defaults
+                )
+                or []
+            )
+            if not isinstance(issues, list) or not all(isinstance(i, str) for i in issues):
+                raise LedgerError(f"issues for {row_id} must be a list of strings")
             rows.append(
                 {
                     "id": row_id,
@@ -1235,6 +1243,7 @@ def build_ledger() -> dict[str, Any]:
                     "callers": row_callers,
                     "canonical_parameters": parameters,
                     "authorization_class": authorization_class,
+                    "issues": issues,
                     "capability_conditions": _resolved_manual(
                         "capability_conditions", variant, entry, manual_defaults
                     ),
@@ -1437,13 +1446,16 @@ def render_markdown(ledger: dict[str, Any]) -> str:
     )
     for row in ledger["rows"]:
         callers = row["callers"]
+        outcome_cell = f"**`{row['outcome']}`**"
+        if row.get("issues"):
+            outcome_cell += " (" + ", ".join(row["issues"]) + ")"
         lines.append(
             f"| `{row['id']}` | {_compact_caller(callers['node_advertisement'])} | "
             f"{_compact_caller(callers['direct_nodes_invoke'])} | "
             f"{_compact_caller(callers['handler_dispatch'])} | "
             f"{_compact_caller(callers['assist_wrapper'])} | "
             f"`{row['authorization_class']}` | `{row['evidence_method']}` | "
-            f"**`{row['outcome']}`** |"
+            f"{outcome_cell} |"
         )
     lines.extend(["", "## Row details", ""])
     for row in ledger["rows"]:
@@ -1459,6 +1471,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
                 f"- Semantic errors: {row['semantic_errors']}",
                 f"- Evidence method: `{row['evidence_method']}`",
                 f"- **Outcome: `{row['outcome']}`**",
+                *([f"- Issues: {', '.join(row['issues'])}"] if row.get("issues") else []),
                 f"- Evidence note: {row['evidence_note']}",
                 f"- Advertisement: {row['callers']['node_advertisement']['reason']}",
                 f"- Direct caller: {row['callers']['direct_nodes_invoke']['reason']}",
