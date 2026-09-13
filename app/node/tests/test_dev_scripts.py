@@ -1160,3 +1160,125 @@ def test_spawn_review_handles_string_message_content(tmp_path: Path) -> None:
     assert "has no attribute" not in result.stderr
     assert "AttributeError" not in result.stderr
     assert json.loads(result.stdout)["commentUrl"] == "https://example.invalid/comment/17"
+
+
+def _cross_repository_stub_bin(tmp_path: Path) -> Path:
+    """Stub `gh` that reports a different repository outside the script root.
+
+    Both helpers are addressed by path, so they can be invoked while the shell
+    sits in an unrelated authenticated checkout. The stub mimics real `gh`,
+    which resolves `repo view` from the working directory.
+    """
+    stub_bin = tmp_path / "bin"
+    stub_bin.mkdir()
+    git = stub_bin / "git"
+    git.write_text(
+        """#!/bin/sh
+case "$*" in
+  *"rev-parse --show-toplevel") printf '%s\\n' "$REPO_ROOT" ;;
+  *) touch "$MUTATION_MARKER"; exit 9 ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    git.chmod(0o755)
+    gh = stub_bin / "gh"
+    gh.write_text(
+        """#!/bin/sh
+printf '%s\\n' "$*" >> "$GH_CALL_LOG"
+case "$*" in
+  "repo view "*)
+    if [ "$PWD" = "$REPO_ROOT" ]; then
+      printf '%s\\n' "example/project"
+    else
+      printf '%s\\n' "intruder/other"
+    fi
+    ;;
+  "pr view "*) printf '%s\\n' "$PR_DATA" ;;
+  *) exit 9 ;;
+esac
+""",
+        encoding="utf-8",
+    )
+    gh.chmod(0o755)
+    return stub_bin
+
+
+def test_pr_rebase_binds_github_lookups_to_the_script_repository(tmp_path: Path) -> None:
+    """Invoked from another checkout, pr-rebase must not read a foreign PR.
+
+    Every mutation it performs (fetch, worktree, rebase, force-push) targets the
+    script's own repository, so resolving PR metadata from the caller's working
+    directory could pair one repository's metadata with another's force-push.
+    """
+    stub_bin = _cross_repository_stub_bin(tmp_path)
+    call_log = tmp_path / "gh-calls.txt"
+    marker = tmp_path / "mutated"
+    foreign_cwd = tmp_path / "other-checkout"
+    foreign_cwd.mkdir()
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{stub_bin}:{env['PATH']}",
+            "MUTATION_MARKER": str(marker),
+            "GH_CALL_LOG": str(call_log),
+            "REPO_ROOT": str(_REPO_ROOT),
+            # Closed PR: stops the run early, after the lookups under test.
+            "PR_DATA": "CLOSED\tmain\ttopic\tdeadbeef\texample/project",
+        }
+    )
+
+    subprocess.run(
+        [str(_PR_REBASE), "7"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        cwd=foreign_cwd,
+    )
+
+    calls = call_log.read_text(encoding="utf-8").splitlines()
+    pr_views = [call for call in calls if call.startswith("pr view ")]
+    assert pr_views, "expected pr-rebase to look up the pull request"
+    for call in pr_views:
+        assert "--repo example/project" in call
+        assert "intruder/other" not in call
+    assert not marker.exists()
+
+
+def test_spawn_review_binds_github_lookups_to_the_script_repository(tmp_path: Path) -> None:
+    """Invoked from another checkout, the wrapper must not review a foreign PR.
+
+    A cwd-resolved repository would make the wrapper read head and base from one
+    repository and publish there, while the brief points reviewers at this one.
+    """
+    stub_bin = _cross_repository_stub_bin(tmp_path)
+    call_log = tmp_path / "gh-calls.txt"
+    foreign_cwd = tmp_path / "other-checkout"
+    foreign_cwd.mkdir()
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{stub_bin}:{env['PATH']}",
+            "MUTATION_MARKER": str(tmp_path / "mutated"),
+            "GH_CALL_LOG": str(call_log),
+            "REPO_ROOT": str(_REPO_ROOT),
+            "PR_DATA": "deadbeef",
+        }
+    )
+
+    subprocess.run(
+        [str(_SPAWN_REVIEW), "7"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+        cwd=foreign_cwd,
+    )
+
+    calls = call_log.read_text(encoding="utf-8").splitlines()
+    pr_views = [call for call in calls if call.startswith("pr view ")]
+    assert pr_views, "expected the wrapper to look up the pull request"
+    for call in pr_views:
+        assert "--repo example/project" in call
+        assert "intruder/other" not in call

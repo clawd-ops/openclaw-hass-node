@@ -36,7 +36,11 @@ if [[ -n "$NARROWING_FILE" && ! -f "$NARROWING_FILE" ]]; then
     exit 1
 fi
 
-REPOSITORY=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+# Resolve the repository from the script's own checkout, never the caller's cwd.
+# This script is addressed by path, so it can be invoked from inside a different
+# authenticated checkout; a cwd-resolved lookup would then read and publish
+# against that other repository while the brief points reviewers at this one.
+REPOSITORY=$(cd "$REPO_ROOT" && gh repo view --json nameWithOwner --jq '.nameWithOwner')
 HEAD_SHA=$(gh pr view "$PR" --repo "$REPOSITORY" --json headRefOid --jq '.headRefOid')
 BASE_SHA=$(gh pr view "$PR" --repo "$REPOSITORY" --json baseRefOid --jq '.baseRefOid')
 NARROWING="(no additional narrowing)"
