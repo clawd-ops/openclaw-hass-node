@@ -98,6 +98,26 @@ _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\
 # through a reviewed pull request. Singling these four fields out bought nothing
 # an author could not get by editing any other file, and cost the inline code and
 # bold that 11 of them use deliberately.
+#
+# DO NOT REINTRODUCE A GUARD HERE without reading the next paragraph. Seeing
+# authored strings interpolated unescaped into published Markdown looks like an
+# injection hole, and the reflex is to add validation or escaping. Escaping was
+# measured and rejected: it renders the inline code and bold those values use as
+# literal backticks and asterisks. Validation was tried and deleted after leaking
+# four times. The framing that resolves it is that this is not untrusted input
+# crossing a boundary — there is no boundary here to defend.
+#
+# THE CONDITION THAT REVERSES THIS: the argument holds only while the manual
+# ledger is written exclusively through reviewed pull requests. If evidence
+# ingestion ever becomes automatic from a source no human reads — a live probe
+# dump, an external artifact, any machine-written content landing in these fields
+# without appearing in a reviewed diff — the trust level changes and so does the
+# conclusion, and escaping or validation becomes correct at that point.
+#
+# This is not hypothetical. Systematic ingestion is being planned. It stays fine
+# for as long as the intermediate lands in-repo and passes through review; it
+# stops being fine the moment it does not. Whoever automates that ingestion owns
+# revisiting this comment.
 
 
 _MKDOCS_REPO_URL_RE = re.compile(r"^repo_url:\s*(\S+)\s*$", re.MULTILINE)
@@ -807,6 +827,19 @@ def _caller(
     }
 
 
+def _resolve_manual_presence(
+    key: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    defaults: dict[str, Any],
+) -> tuple[bool, Any]:
+    """Resolve *key* through manual precedence, reporting whether it was declared."""
+    for scope in (variant, entry, defaults):
+        if key in scope:
+            return True, scope[key]
+    return False, None
+
+
 def _resolved_manual(
     key: str,
     variant: dict[str, Any],
@@ -814,7 +847,34 @@ def _resolved_manual(
     defaults: dict[str, Any],
 ) -> Any:
     """Resolve action, command, then global manual metadata precedence."""
-    return variant.get(key, entry.get(key, defaults.get(key)))
+    _, value = _resolve_manual_presence(key, variant, entry, defaults)
+    return value
+
+
+_DEFAULT_EVIDENCE_NOTE = "Manual reality pass; behavior is not contract-enforced."
+
+
+def _evidence_note(
+    row_id: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    defaults: dict[str, Any],
+) -> str:
+    """Return the authored evidence note, defaulting only when none was written.
+
+    `or <default>` replaced an authored empty string with the fallback, so a row
+    could silently claim a manual reality pass its author never wrote. An empty
+    note is not a way to say "use the default" — omitting the key is.
+    """
+    declared, note = _resolve_manual_presence("evidence_note", variant, entry, defaults)
+    if not declared:
+        return _DEFAULT_EVIDENCE_NOTE
+    if not isinstance(note, str) or not note.strip():
+        raise LedgerError(
+            f"evidence_note for {row_id} must be a non-empty string; omit the key "
+            "entirely to accept the default"
+        )
+    return str(note)
 
 
 def _resolve_evidence_presence(
@@ -1348,10 +1408,7 @@ def build_ledger() -> dict[str, Any]:
                     "source_mentions": _test_references(command),
                     "evidence_method": evidence,
                     "outcome": outcome,
-                    "evidence_note": _resolved_manual(
-                        "evidence_note", variant, entry, manual_defaults
-                    )
-                    or "Manual reality pass; behavior is not contract-enforced.",
+                    "evidence_note": _evidence_note(row_id, variant, entry, manual_defaults),
                     "metadata_provenance": {
                         "inventory": "source-derived",
                         "authorization_class": "manual reality pass",
