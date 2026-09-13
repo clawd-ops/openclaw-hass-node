@@ -229,7 +229,7 @@ completion claim has a row in the coverage ledger.
   refusals, HA failures, and legacy envelopes. It runs actual wrapper output
   and Python gateway result frames and asserts the exact nested
   changed-state payload in the returned tool text; broader command-family
-  coverage across the 87-row ledger is still open.
+  coverage across the 88-row ledger is still open.
 
 **Exit:** every supported request has deterministic parameters and result
 semantics on both direct and Assist paths; unknown input cannot broaden scope.

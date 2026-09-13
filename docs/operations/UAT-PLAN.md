@@ -28,7 +28,7 @@
 ### A2. Install and start
 
 1. Click **OpenClaw Node** → **Install** (multi-arch image; will pick
-   `amd64` / `aarch64` / `armv7` for your host).
+   `amd64` or `aarch64` for your host).
 2. **Configuration** tab — fill in `gateway_url`, `pairing_token`,
    `node_name`, and (recommended) `local_api_token`.
 3. **Start**.

@@ -315,7 +315,8 @@ completion of the target mutation flow below.
 - Single Docker image. Today only the HA add-on run mode is shipped:
   - **HA add-on (app)**: `config.yaml` declares slug, mapped volumes,
     `hassio_api: true`, `hassio_role: manager`, `homeassistant_api: true`.
-    Built per HA arch matrix (`amd64`, `aarch64`, `armv7`).
+    Built for the architectures declared by the released manifest (`amd64`,
+    `aarch64`).
   - **Standalone Docker** (planned, not in beta): would `docker run`
     with explicit volume mounts and `HASS_URL` + `HASS_TOKEN` env;
     the entrypoint already branches on `SUPERVISOR_TOKEN`. Tracked as
@@ -415,7 +416,7 @@ live installation remains `2026.7.23b1` until an operator installs the beta):
 name: OpenClaw Node
 version: "2026.9.13b1"
 slug: openclaw_hass_node
-arch: [amd64, aarch64, armv7]
+arch: [amd64, aarch64]
 init: false
 # Least-privilege API surface. The local HTTP API authenticates with
 # `local_api_token` directly via hmac.compare_digest, not HA-issued tokens.
