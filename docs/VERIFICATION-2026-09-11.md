@@ -416,8 +416,11 @@ fs.write { path: /config/openclaw_probe_should_refuse.txt, content: "probe" }
 
 The protected-filesystem refusal is correct. Its error message names the
 missing piece itself: *the gateway-side proposal bridge.* That is TODO #20.
-Do not generalize this result to the `ha.config.*` families; section 0 records
-their unverified-ID bypass.
+Do not generalize this result to the `ha.config.*` families — but note the
+reason changed. **Superseded 2026-09-13:** those families no longer accept an
+arbitrary ID; they are gated in source by a shared helper and the gate was
+observed refusing live on three actions (section 0). They should not be
+generalized because their live coverage is partial, not because they are open.
 
 Two clarifications from the source read that matter operationally:
 
@@ -536,8 +539,9 @@ stale or overstate existing enforcement.** Of 15 open items, 14 describe work
 that is genuinely unfinished and none are secretly done. That does not make the
 text itself reliable: item 11 still describes service/entity enforcement the
 current routing-only plugin does not provide; item 20 generalizes the protected
-filesystem refusal to HA-native config mutations, whose arbitrary-ID bypass is
-documented in section 0; and item 17 is stale issue inventory.
+filesystem refusal to HA-native config mutations, which at the time of this audit
+accepted an arbitrary ID (**superseded 2026-09-13 — see section 0**); and item 17
+is stale issue inventory.
 
 | Item | Verdict | Evidence |
 |---|---|---|
@@ -546,7 +550,7 @@ documented in section 0; and item 17 is stale issue inventory.
 | 12 | Genuinely open | Release workflow cuts tags only (`release-on-version-bump.yml:41-55`) |
 | 13 | Genuinely open, partly external | `check_suite` absent from recognized events (`AGENTS.md:23-35`) |
 | **17** | **STALE** | Claims only #1 is live; the 53-vs-51 mismatch alone disproves it (`dispatcher.py:134-135`, `gateway_ws.py:114-126`) |
-| 20 | Open, description unsafe | Protected `fs.*` returns `PROPOSAL_REQUIRED` but never emits or awaits a proposal (`fs_write.py:234-250`); `ha.config.*` instead accepts arbitrary nonempty IDs (section 0) |
+| 20 | Open for `fs.*`; `ha.config.*` half superseded | Protected `fs.*` returns `PROPOSAL_REQUIRED` but never emits or awaits a proposal (`fs_write.py:234-250`). The `ha.config.*` arbitrary-ID claim is **superseded 2026-09-13**: those mutations are now gated in source and observed refusing live on three actions (section 0) |
 | 21 | Genuinely open, needs external probe | HACS brands PR state not knowable from repo |
 | 22 | Genuinely open | No `image:` key, no publish job (`app/config.yaml:202-206`) |
 | 23 | Genuinely open | No `docs.*` handler registered (`dispatcher.py:91-145`) |
@@ -638,8 +642,12 @@ The node is in better shape than some docs suggest, and the project is in worse
 shape than the issue tracker suggests.
 
 - **Protected filesystem writes are correctly fail-closed and unusable**, because
-  the approval bridge they wait on was never built. **HA-native config writes are
-  worse: an arbitrary nonempty proposal ID passes and can mutate HA.**
+  the approval bridge they wait on was never built. ~~**HA-native config writes are
+  worse: an arbitrary nonempty proposal ID passes and can mutate HA.**~~
+  **Superseded 2026-09-13:** that bypass is closed. `ha.config.*` mutations are
+  gated in source by one shared helper, and `PROPOSAL_REQUIRED` was observed live
+  on three actions. Sixteen sibling direct paths remain live-unverified. See
+  section 0.
 - **The existing proposal queue is not an authorization system.** Twenty-two
   proposals accumulated for seven weeks against peers that cannot answer, and
   the node cannot validate any of them.
@@ -658,8 +666,11 @@ shape than the issue tracker suggests.
 This differs from the 2026-09-07 audit's, because that audit predates both the
 direct-vs-plugin split and the proposal-queue evidence.
 
-1. **Contain the forged-proposal bypass** — reject every `ha.config.*` mutation
-   until a real approval verifier is wired. This is the first safety gate.
+1. ~~**Contain the forged-proposal bypass** — reject every `ha.config.*` mutation
+   until a real approval verifier is wired. This is the first safety gate.~~
+   **Done 2026-09-13.** `require_config_mutation_approval` rejects every
+   `ha.config.*` mutation; verified by 424 boundary tests and observed refusing
+   live on three actions (section 0).
 2. **Dispatcher parameter schemas and semantic result propagation** — retires
    §1, §2.1, §2.9, and §2.10 wholesale, and
    subsumes #257 and #259 rather than patching them one at a time. Not currently
