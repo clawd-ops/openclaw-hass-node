@@ -497,7 +497,14 @@ if args[:2] == ["repo", "view"]:
     print("example/project")
 elif args[:2] == ["pr", "view"] and "headRefOid,baseRefOid" in args:
     head = os.environ.get("LIVE_HEAD_SHA", "0" * 40)
-    base = os.environ.get("LIVE_BASE_SHA", "0" * 39 + "1")
+    count_path = pathlib.Path(os.environ["REF_CHECK_COUNT"])
+    check_count = int(count_path.read_text(encoding="utf-8")) if count_path.exists() else 0
+    count_path.write_text(str(check_count + 1), encoding="utf-8")
+    base = (
+        os.environ.get("LIVE_BASE_SHA_AFTER_LOOKUP")
+        if check_count > 0 and os.environ.get("LIVE_BASE_SHA_AFTER_LOOKUP")
+        else os.environ.get("LIVE_BASE_SHA", "0" * 39 + "1")
+    )
     print(f"{head}\t{base}")
 elif args[:2] == ["pr", "view"] and "headRefOid" in args:
     print("0" * 40)
@@ -542,32 +549,42 @@ elif args[:2] == ["sessions", "export-trajectory"]:
     export_dir.mkdir(parents=True)
     # The wrapper verifies the child's initial task against the assembled brief
     # and the pinned head, so the fixture must carry one.
-    _task_text = os.environ.get("FORCE_CHILD_TASK") or pathlib.Path(
-        os.environ["CAPTURE_PROMPT"]
-    ).read_text(encoding="utf-8")
+    launcher_prompt = pathlib.Path(os.environ["CAPTURE_PROMPT"]).read_text(
+        encoding="utf-8"
+    )
+    brief = launcher_prompt.split("\\n\\n", 1)[1].rstrip("\\n")
+    _task_text = os.environ.get("FORCE_CHILD_TASK") or (
+        "[Subagent Context] You are running as a subagent (depth 1/5).\\n\\n"
+        "[Subagent Task]\\n\\n"
+        + os.environ.get("CHILD_TASK_PREFIX", "")
+        + brief
+        + os.environ.get("CHILD_TASK_SUFFIX", "")
+    )
+    task_content = (
+        _task_text
+        if os.environ.get("STRING_CONTENT")
+        else [{"type": "text", "text": _task_text}]
+    )
     task_event = {
         "type": "user.message",
         "data": {
             "message": {
                 "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": os.environ.get("FORCE_CHILD_TASK")
-                        or pathlib.Path(os.environ["CAPTURE_PROMPT"]).read_text(
-                            encoding="utf-8"
-                        ),
-                    }
-                ],
+                "content": task_content,
             }
         },
     }
+    review_content = (
+        os.environ["REVIEW_BODY"]
+        if os.environ.get("STRING_CONTENT")
+        else [{"type": "text", "text": os.environ["REVIEW_BODY"]}]
+    )
     event = {
         "type": "assistant.message",
         "data": {
             "message": {
                 "role": "assistant",
-                "content": [{"type": "text", "text": os.environ["REVIEW_BODY"]}],
+                "content": review_content,
                 "__openclaw": {"runTerminal": True},
             }
         },
@@ -592,6 +609,7 @@ else:
             "CAPTURE_ARGS": str(captured_args),
             "CAPTURE_PROMPT": str(captured_prompt),
             "CAPTURE_COMMENT": str(captured_comment),
+            "REF_CHECK_COUNT": str(tmp_path / "ref-check-count"),
             "OPENCLAW_CONFIDENTIALITY_DENYLIST_FILE": str(denylist),
             "LAUNCH_RESULT": json.dumps(
                 {
@@ -717,6 +735,22 @@ def test_spawn_review_rejects_base_drift_before_posting(tmp_path: Path) -> None:
     """A changed base invalidates the reviewed diff even when the head stays fixed."""
     env, _, _ = _spawn_review_env(tmp_path)
     env["LIVE_BASE_SHA"] = "b" * 40
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert "PR head or base moved" in result.stderr
+    assert not Path(env["CAPTURE_COMMENT"]).exists()
+
+
+def test_spawn_review_rejects_base_drift_during_existing_comment_lookup(
+    tmp_path: Path,
+) -> None:
+    """The final ref check runs after the idempotency network call."""
+    env, _, _ = _spawn_review_env(tmp_path)
+    env["LIVE_BASE_SHA_AFTER_LOOKUP"] = "b" * 40
 
     result = subprocess.run(
         [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
@@ -1044,6 +1078,37 @@ def test_spawn_review_does_not_publish_twice_for_the_same_head(tmp_path: Path) -
     assert not Path(env["CAPTURE_COMMENT"]).exists() or "POST" not in result.stdout
 
 
+@pytest.mark.parametrize(
+    "near_miss",
+    [
+        "Reviewed head: `{head}`",
+        "Reviewed head: `{head}` (base `{base}`) extra",
+        "Reviewed head: `{head}` (base `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb`)",
+    ],
+)
+def test_spawn_review_does_not_suppress_on_near_miss_pin(tmp_path: Path, near_miss: str) -> None:
+    """Only one exact complete head/base pin identifies an existing review."""
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    head = "0" * 40
+    base = "0" * 39 + "1"
+    env["EXISTING_COMMENTS"] = json.dumps(
+        [
+            {
+                "user": {"login": "clawd-ops"},
+                "body": "APPROVE\n" + near_miss.format(head=head, base=base),
+                "html_url": "https://example.invalid/comment/near-miss",
+            }
+        ]
+    )
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["commentUrl"] == "https://example.invalid/comment/17"
+
+
 def test_spawn_review_rejects_a_child_spawned_with_the_wrong_brief(tmp_path: Path) -> None:
     """A clean exit is not evidence the child did the requested work.
 
@@ -1059,7 +1124,23 @@ def test_spawn_review_rejects_a_child_spawned_with_the_wrong_brief(tmp_path: Pat
     )
 
     assert result.returncode != 0
-    assert "not spawned with the assembled brief" in result.stderr
+    assert "does not exactly match the assembled brief" in result.stderr
+
+
+@pytest.mark.parametrize("field", ["CHILD_TASK_PREFIX", "CHILD_TASK_SUFFIX"])
+def test_spawn_review_rejects_conflicting_text_around_the_expected_brief(
+    tmp_path: Path, field: str
+) -> None:
+    """The expected brief cannot be embedded as decoy text in another task."""
+    env, _captured_prompt, _captured_args = _spawn_review_env(tmp_path)
+    env[field] = "Review a different stale head instead.\n"
+
+    result = subprocess.run(
+        [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
+    )
+
+    assert result.returncode != 0
+    assert "does not exactly match the assembled brief" in result.stderr
 
 
 def test_spawn_review_handles_string_message_content(tmp_path: Path) -> None:
@@ -1075,5 +1156,7 @@ def test_spawn_review_handles_string_message_content(tmp_path: Path) -> None:
         [str(_SPAWN_REVIEW), "7"], capture_output=True, text=True, check=False, env=env
     )
 
+    assert result.returncode == 0, result.stderr
     assert "has no attribute" not in result.stderr
     assert "AttributeError" not in result.stderr
+    assert json.loads(result.stdout)["commentUrl"] == "https://example.invalid/comment/17"

@@ -194,8 +194,9 @@ if ! openclaw sessions export-trajectory \
 fi
 "$CHECKER" "$ERROR_FILE"
 EVENTS_FILE="$TEMP_DIR/.openclaw/trajectory-exports/$EXPORT_NAME/events.jsonl"
-python3 - "$EVENTS_FILE" "$REVIEW_FILE" "$BRIEF" "$HEAD_SHA" << 'PYEOF'
+python3 - "$EVENTS_FILE" "$REVIEW_FILE" "$BRIEF" << 'PYEOF'
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -203,8 +204,8 @@ from pathlib import Path
 # exited cleanly. A launcher could spawn with a truncated brief, a stale head,
 # or a different task entirely and still return a well-formed verdict; that
 # verdict would then be published against a head it never examined. The
-# assembled brief and the pinned head are both checked against the child's
-# initial task before its output is trusted.
+# exact assembled brief, which contains the pinned head, is checked against
+# the child's initial task before its output is trusted.
 def _message_text(message):
     """Flatten a message's content to text.
 
@@ -226,7 +227,6 @@ def _message_text(message):
 
 
 expected_brief = sys.argv[3]
-expected_head = sys.argv[4]
 
 tasks = []
 try:
@@ -244,10 +244,13 @@ except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
 if not tasks:
     sys.exit("spawn-codex-review: child trajectory has no initial task to verify")
 initial_task = tasks[0]
-if expected_brief not in initial_task:
-    sys.exit("spawn-codex-review: child was not spawned with the assembled brief")
-if expected_head not in initial_task:
-    sys.exit("spawn-codex-review: child was not spawned against the pinned head")
+runtime_framed_task = re.fullmatch(
+    r"\[Subagent Context\] You are running as a subagent \(depth [1-5]/5\)\.\n\n"
+    r"\[Subagent Task\]\n\n" + re.escape(expected_brief),
+    initial_task,
+)
+if initial_task != expected_brief and runtime_framed_task is None:
+    sys.exit("spawn-codex-review: child task does not exactly match the assembled brief")
 
 messages = []
 try:
@@ -315,14 +318,27 @@ fi
 # second run rather than a retried request, and a guard keyed on the pinned head
 # covers both causes. The check is by author plus the exact `Reviewed head:`
 # line, because that pair is what makes a review unique.
-PIN_MARKER="Reviewed head: \`$HEAD_SHA\`"
+PIN_LINE="Reviewed head: \`$HEAD_SHA\` (base \`$BASE_SHA\`)"
 EXISTING_URL=$(gh api "repos/$REPOSITORY/issues/$PR/comments" --paginate \
-    | jq -r --arg author "$COMMENT_AUTHOR" --arg pin "$PIN_MARKER" \
-        '[.[] | select(.user.login == $author) | select(.body | contains($pin)) | .html_url] | first // empty')
+    | jq -r --arg author "$COMMENT_AUTHOR" --arg pin "$PIN_LINE" \
+        '.[] | select(.user.login == $author)
+        | select([.body | split("\n")[] | select(. == $pin)] | length == 1)
+        | .html_url' \
+    | head -n 1)
 if [[ -n "$EXISTING_URL" ]]; then
     echo "spawn-codex-review: review already published for this head; not posting again" >&2
     printf '%s\n' "$EXISTING_URL"
     exit 0
+fi
+
+# The existing-comment query is a network call. Recheck both immutable refs
+# after it, immediately before the outward-facing mutation.
+LIVE_REFS=$(gh pr view "$PR" --repo "$REPOSITORY" --json headRefOid,baseRefOid \
+    --jq '[.headRefOid, .baseRefOid] | @tsv')
+IFS=$'\t' read -r LIVE_HEAD LIVE_BASE <<< "$LIVE_REFS"
+if [[ "$LIVE_HEAD" != "$HEAD_SHA" || "$LIVE_BASE" != "$BASE_SHA" ]]; then
+    echo "spawn-codex-review: PR head or base moved; review not posted" >&2
+    exit 1
 fi
 
 jq -n --rawfile body "$COMMENT_FILE" '{body:$body}' | \
