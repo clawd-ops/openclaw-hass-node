@@ -10,8 +10,6 @@
 type PerNodePolicy = object;
 ```
 
-Defined in: [src/shared/per-node-policy.ts:10](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/shared/per-node-policy.ts#L10)
-
 ## Properties
 
 ### adminToken?
@@ -20,8 +18,6 @@ Defined in: [src/shared/per-node-policy.ts:10](https://github.com/clawd-ops/open
 optional adminToken?: string;
 ```
 
-Defined in: [src/shared/per-node-policy.ts:15](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/shared/per-node-policy.ts#L15)
-
 ***
 
 ### allowAdminOps?
@@ -29,5 +25,3 @@ Defined in: [src/shared/per-node-policy.ts:15](https://github.com/clawd-ops/open
 ```ts
 optional allowAdminOps?: boolean;
 ```
-
-Defined in: [src/shared/per-node-policy.ts:12](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/shared/per-node-policy.ts#L12)

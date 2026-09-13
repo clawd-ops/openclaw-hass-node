@@ -10,8 +10,6 @@
 function invokeHaCommand<T>(input): Promise<T>;
 ```
 
-Defined in: [src/tools/node-tool-invoke.ts:79](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L79)
-
 ## Type Parameters
 
 ### T

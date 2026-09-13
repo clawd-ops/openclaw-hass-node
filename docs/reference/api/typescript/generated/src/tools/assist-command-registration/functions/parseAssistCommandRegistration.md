@@ -10,8 +10,6 @@
 function parseAssistCommandRegistration(value): AssistCommandRegistration;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:332](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L332)
-
 ## Parameters
 
 ### value

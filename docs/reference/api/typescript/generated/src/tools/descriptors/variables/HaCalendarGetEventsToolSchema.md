@@ -14,5 +14,3 @@ const HaCalendarGetEventsToolSchema: TObject<{
   start_date_time: TString;
 }>;
 ```
-
-Defined in: [src/tools/descriptors.ts:125](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L125)

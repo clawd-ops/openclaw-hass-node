@@ -9,5 +9,3 @@
 ```ts
 const HA_CHECK_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor;
 ```
-
-Defined in: [src/tools/descriptors.ts:252](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/descriptors.ts#L252)
