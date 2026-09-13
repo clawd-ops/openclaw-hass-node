@@ -77,6 +77,31 @@ reviews. Merge only on Codex APPROVE or after addressing findings.
 Per the OC-repo autonomy rule, doc-only changes (`docs/`, `README.md`,
 `LICENSE`) can be merged direct to main without the Codex review pass.
 
+## Documentation markup
+
+Only the Markdown extensions listed under `markdown_extensions` in `mkdocs.yml`
+are available. Syntax from an extension that is not enabled is **not a build
+error** — the parser does not recognise it, so it passes through and ships to
+the reader as literal text. `mkdocs build --strict` stays green. This is how
+100 task-list lines across `COMPLETION-ROADMAP.md` and this file rendered as
+literal `[x]` and `[ ]` for as long as they did.
+
+`scripts/lint-rendered-docs.py` runs against the built site in CI and fails the
+build when that markup survives into the HTML, naming the extension that would
+have consumed it.
+
+Two specific decisions:
+
+- **Task lists are supported.** `pymdownx.tasklist` is enabled, so `- [ ]` and
+  `- [x]` render as checkboxes.
+- **Strikethrough and highlight are not.** `pymdownx.tilde` and
+  `pymdownx.caret` are deliberately left off, because no page uses `~~text~~`
+  or `==text==`; the docs that need struck-through text use a literal `<del>`
+  element instead, which Markdown passes through unchanged. Enabling an
+  extension nothing uses is config carried for a hypothetical. If you do want
+  strikethrough, the lint will stop you at the point of use — enable
+  `pymdownx.tilde` in the same PR rather than working around the failure.
+
 ## Cross-provider code review
 
 > Folded in from the former `docs/PROCESS.md` during the Phase 2 doc
