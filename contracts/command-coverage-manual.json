@@ -43,6 +43,21 @@
     "ping": {
       "authorization_class": "diagnostic",
       "capability_conditions": "Node is connected and the ping command is allowed by the Gateway.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep (add-on 2026.9.13b1, node hass): direct nodes.invoke returned pong=true.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "ping returned pong=true through the direct node invocation path.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist does not expose the node diagnostic ping command.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -55,7 +70,7 @@
         "offset": "non-negative integer (bool rejected); offset > file_size fails with OFFSET_BEYOND_EOF",
         "length": "positive integer when supplied (bool rejected); length > max_bytes fails with TOO_LARGE"
       },
-      "evidence_method": "TEST-PROVEN",
+      "evidence_method": "PRODUCTION-LIVE",
       "outcome": "pass",
       "acceptance_test_ids": [
         {
@@ -64,8 +79,18 @@
           "outcome": "pass"
         }
       ],
-      "evidence_note": "Range semantics (#257): byte offsets independent of encoding, fail-closed on OFFSET_BEYOND_EOF, BAD_OFFSET, BAD_LENGTH, and length-vs-max_bytes conflicts. 22 regression tests cover beginning/middle/EOF/beyond-EOF, invalid types, UTF-8 boundary splitting, sha256-of-slice, exact pread bounds, and path containment.",
+      "evidence_note": "Sept 13 read-only completion sweep confirmed a bounded binary range read through direct nodes.invoke. Existing test evidence continues to cover fail-closed offset behavior.",
       "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.read returned a bounded one-byte binary slice from /config/configuration.yaml with correct range metadata.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ],
         "handler_dispatch": [
           {
             "method": "TEST-PROVEN",
@@ -85,6 +110,21 @@
       "bounds": {
         "max_entries": "validated integer from 1 through the source-defined hard maximum"
       },
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed fs.list through direct nodes.invoke. Gateway convenience-tool namespace mismatch remains tracked separately in #317.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.list on /config returned 60 entries with truncated=false.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem listing wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -92,6 +132,21 @@
     "fs.stat": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Path resolves under a configured allowed root.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed fs.stat through direct nodes.invoke.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.stat on /config/configuration.yaml returned complete metadata including mode, uid, gid, and symlink fields.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem metadata wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -101,6 +156,21 @@
       "capability_conditions": "Root resolves under a configured allowed root.",
       "bounds": {
         "max_matches": "validated integer from 1 through the source-defined hard maximum"
+      },
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 read-only completion sweep confirmed fs.glob through direct nodes.invoke.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.glob under /config with pattern *.yaml returned five bounded matches and truncated=true at max_matches=5.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
       },
       "assist_unavailable_reason": "Assist intentionally has no generic filesystem glob wrapper.",
       "first_shipped_in": "2026.6.8a8",
@@ -123,6 +193,21 @@
     "fs.history": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Allowed path and readable backup index; collection result currently has no caller limit.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 read-only completion sweep confirmed fs.history through direct nodes.invoke; the inspected file had no stored versions.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.history for /config/configuration.yaml returned a valid empty versions collection.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist intentionally has no filesystem backup-history wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -130,6 +215,21 @@
     "fs.diff": {
       "authorization_class": "read_path_policy",
       "capability_conditions": "Allowed path and resolvable backup versions.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 read-only completion sweep reached fs.diff through direct nodes.invoke, but the inspected file had no stored versions, so successful diff rendering remains unverified.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "fs.diff for /config/configuration.yaml with from_version=-1 returned DIFF_ERROR because no versions were recorded; dispatch and validation were exercised but a successful diff was not.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist intentionally has no filesystem diff wrapper.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -193,7 +293,9 @@
             "method": "PRODUCTION-LIVE",
             "outcome": "refused-as-designed",
             "source": "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
-            "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan."
+            "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan.",
+            "observed_at": "2026-09-11",
+            "node_version": "2026.7.23b1"
           }
         ],
         "handler_dispatch": [
@@ -216,6 +318,21 @@
     "system.which": {
       "authorization_class": "diagnostic",
       "capability_conditions": "Requested executable name is valid; documented binary/name drift remains unresolved.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed the node command with name=bash. The Gateway nodes-tool bins-array contract remains distinct from this single-name command contract.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "system.which with name=bash returned found=true and /bin/bash; passing the Gateway tool's bins array instead returns NAME_REQUIRED.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist does not expose host executable lookup.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {}
@@ -224,13 +341,53 @@
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_states with entity_filter returned 1 of 7,217 entities. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.get_state": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable and the entity exists.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.get_state returned entity state dict. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.call_service": {
       "authorization_class": "interim_node_effect_denylist",
@@ -356,7 +513,7 @@
           }
         ]
       },
-      "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete.",
+      "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete. AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "semantic_result": "Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O."
@@ -365,37 +522,127 @@
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports the area registry list command.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_areas returned 27 areas. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_devices": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports the device registry list command.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_devices returned 819KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_services": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_services returned 425KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.get_config": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.get_config returned configuration dict including location, unit system, and HA version. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_events": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_events returned 47 event listeners. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_config_entries": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_config_entries returned 667KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.core_logs": {
       "authorization_class": "read_only",
@@ -404,19 +651,64 @@
         "lines": "validated integer from 1 through the source-defined maximum"
       },
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.core_logs returned log lines in ~100ms; pre-existing Alexa relink and DNS warnings present. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.calendar_get_events": {
       "authorization_class": "read_only",
       "capability_conditions": "HA REST API is reachable and the calendar entity/time range is valid.",
       "first_shipped_in": "2026.6.29b1",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.calendar_get_events returned empty result for today (no events). No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_entity_registry": {
       "authorization_class": "read_only",
       "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): response 7.6 MB exceeds aiohttp 4 MiB WebSocket ceiling. Error: COMMAND_ERROR: Message size 7579915 exceeds limit 4194304, WSCloseCode.MESSAGE_TOO_BIG. Fix location: openclaw_node/ha_client.py:255 (pagination, chunked response, or raised max_msg_size). Tracked in GitHub issue.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.logbook": {
       "authorization_class": "read_only",
@@ -430,7 +722,17 @@
             "method": "PRODUCTION-LIVE",
             "outcome": "pass",
             "source": "docs/VERIFICATION-2026-09-11.md#4-live-evidence",
-            "observation": "The installed Assist wrapper honored time and entity scoping in the probed path."
+            "observation": "The installed Assist wrapper honored time and entity scoping in the probed path.",
+            "observed_at": "2026-09-11",
+            "node_version": "2026.7.23b1"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.logbook returned logbook entries correctly via Assist wrapper. Confirms Sept 11 pass observation against 2026.9.13b1. Direct-path key mismatch (start_time/end_time vs start/end) still CODE-PROVEN.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
           }
         ],
         "direct_nodes_invoke": [
@@ -447,17 +749,29 @@
     },
     "ha.history": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; direct caller aliases, URL encoding, and unknown-entity semantics remain unresolved.",
+      "capability_conditions": "HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.",
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "fail",
-      "evidence_note": "Installed-node probes reproduced the +00:00 encoding failure and silent empty unknown-entity result.",
+      "outcome": "partial",
+      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (§2.6) and silent unknown-entity result (§2.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed — encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
             "method": "PRODUCTION-LIVE",
             "outcome": "fail",
             "source": "docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding",
-            "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result."
+            "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
+            "observed_at": "2026-09-11",
+            "node_version": "2026.7.23b1"
+          }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (§2.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
           }
         ]
       },
@@ -469,19 +783,22 @@
       "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.light_turn_on": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_on; trusted principal context is not node-enforced yet.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.light_turn_off": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_off; trusted principal context is not node-enforced yet.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.list_automations": {
       "authorization_class": "read_only",
@@ -490,7 +807,7 @@
         "entity_filter": "non-empty string, must start with 'automation.', capped at 256 chars; fnmatch-style glob",
         "state_filter": "non-empty string, capped at 256 chars; exact match against the state field"
       },
-      "evidence_method": "TEST-PROVEN",
+      "evidence_method": "PRODUCTION-LIVE",
       "outcome": "pass",
       "acceptance_test_ids": [
         {
@@ -509,7 +826,7 @@
           "outcome": "pass"
         }
       ],
-      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter.",
+      "evidence_note": "Filter honoring (#259): entity_filter glob scoped to automation.* narrows results before any trace lookup; state_filter narrows by exact state; both filters are capped at 256 characters; unknown params fail closed with INVALID_PARAM. Curated handler tests prove no-match behavior, trace ordering, and rejection of an oversized state_filter. Sept 13 live sweep (add-on 2026.9.13b1): ha.list_automations returned 115KB response; correctness pass but oversized with no server-side filter on this call path.",
       "caller_observations": {
         "handler_dispatch": [
           {
@@ -530,6 +847,16 @@
             "source": "app/node/tests/test_ha_commands.py::test_list_automations_rejects_oversize_state_filter",
             "observation": "The handler rejects a state_filter longer than 256 characters with INVALID_PARAM and reports the configured boundary."
           }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_automations returned 115KB response. Command returned data correctly. No server-side filter was used on this probe; full automation set returned.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
         ]
       },
       "first_shipped_in": "2026.6.8a8",
@@ -539,7 +866,22 @@
       "authorization_class": "diagnostic",
       "capability_conditions": "Supervisor API is reachable and permits core config validation.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.check_config returned valid config status. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_logs": {
       "authorization_class": "read_only",
@@ -548,72 +890,167 @@
         "lines": "validated integer from 1 through the source-defined maximum"
       },
       "first_shipped_in": "2026.6.20b3",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_logs returned add-on log lines. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_addons": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable; collection result has no caller limit.",
       "first_shipped_in": "2026.6.20b3",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.list_addons returned installed add-on list. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_info": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_info returned add-on metadata dict in 12-100ms. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_stats": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_stats returned utilization metrics. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_changelog": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_changelog returned changelog text. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_documentation": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable and the add-on slug exists.",
       "first_shipped_in": "2026.6.20b4",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1, HA core 2026.9.1, node hass): Tier A read-only probe passed via Assist wrapper.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md",
+            "observation": "ha.addon_documentation returned documentation text. No errors.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_start": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_stop": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_restart": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.6.20b7",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.addon_update": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "outcome": "partial",
       "first_shipped_in": "2026.9.13b1",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.update_install": {
       "authorization_class": "admin_token",
       "capability_conditions": "HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.",
       "outcome": "partial",
       "first_shipped_in": "2026.9.13b1",
-      "actions": {}
+      "actions": {},
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.config.lovelace": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -624,7 +1061,22 @@
           "capability_conditions": "HA WebSocket API supports lovelace/dashboards/list; collection result has no caller limit.",
           "parameters": [
             "action"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the dashboard collection.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.lovelace with action=dashboards_list returned five dashboards.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "get": {
           "authorization_class": "read_only",
@@ -632,7 +1084,22 @@
           "parameters": [
             "action",
             "url_path"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "partial",
+          "evidence_note": "The command path was exercised on Sept 13, but this YAML-mode installation returned HA_CONFIG_NOT_FOUND for the default dashboard.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "partial",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.lovelace with action=get returned HA_CONFIG_NOT_FOUND because this installation uses YAML mode.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "resources_create": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -650,7 +1117,22 @@
           "capability_conditions": "HA WebSocket API supports lovelace/resources; collection result has no caller limit.",
           "parameters": [
             "action"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the resource collection.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.lovelace with action=resources_list returned 49 resources.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -663,7 +1145,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.automation": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -685,7 +1168,22 @@
           "parameters": [
             "action",
             "id"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the requested configuration.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.automation with action=get returned the requested configuration.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -698,7 +1196,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.script": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -720,7 +1219,22 @@
           "parameters": [
             "action",
             "id"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the requested configuration.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.script with action=get returned the requested configuration.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -733,7 +1247,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.scene": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -755,7 +1270,22 @@
           "parameters": [
             "action",
             "id"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the requested configuration.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.scene with action=get returned the requested configuration.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -768,7 +1298,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.helpers": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -802,7 +1333,22 @@
           "parameters": [
             "action",
             "helper_type"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the requested helper collection.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.helpers with action=list and helper_type=input_boolean returned 15 helpers.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "update": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -816,7 +1362,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.area_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -846,6 +1393,21 @@
         "list": {
           "authorization_class": "read_only",
           "capability_conditions": "HA WebSocket API supports config/area_registry/list; collection result has no caller limit.",
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 second-pass live sweep returned 27 areas through direct nodes.invoke.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.area_registry with action=list returned 27 areas.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          },
           "parameters": [
             "action"
           ]
@@ -861,7 +1423,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command operator greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -872,7 +1435,22 @@
           "capability_conditions": "HA WebSocket API supports config/device_registry/list; collection result has no caller limit.",
           "parameters": [
             "action"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "partial",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the registry correctly, but the 878 KB response has no pagination.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "partial",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.device_registry with action=list returned the complete registry (about 878 KB) with no caller limit.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "update": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -885,7 +1463,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.entity_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -897,14 +1476,44 @@
           "parameters": [
             "action",
             "entity_id"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned one registered entity.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.entity_registry with action=get returned one existing registered entity.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "list": {
           "authorization_class": "read_only",
           "capability_conditions": "HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.",
           "parameters": [
             "action"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "fail",
+          "evidence_note": "Sept 13 direct nodes.invoke returned an internal command error on this large installation; tracked with the related entity-registry size failure in #316.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "fail",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "remove": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -927,7 +1536,8 @@
             "proposal_id"
           ]
         }
-      }
+      },
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.config_entries": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -959,9 +1569,25 @@
           "parameters": [
             "action",
             "entry_id"
-          ]
+          ],
+          "evidence_method": "PRODUCTION-LIVE",
+          "outcome": "pass",
+          "evidence_note": "Sept 13 direct nodes.invoke returned the selected config entry.",
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+                "observation": "ha.config.config_entries with action=get returned an existing config entry.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         }
-      }
+      },
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. AWAITING-AUTHORIZATION-PROBE: mutation actions remain unprobed and require per-command greenlight. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",
@@ -973,6 +1599,21 @@
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
       "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "partial",
+      "evidence_note": "Sept 13 second-pass live sweep reached the Gateway but direct nodes.invoke refused this advertised command and directed callers to exec.approvals.node.*. Whether advertisement on the node.invoke surface is intentional remains unresolved.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "The Gateway refused system.execApprovals.* through node.invoke with INVALID_REQUEST and directed callers to exec.approvals.node.*; the command is nevertheless advertised by the node.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "first_shipped_in": "2026.9.13b1",
       "actions": {}
@@ -987,6 +1628,21 @@
     "ha.supervisor_info": {
       "authorization_class": "read_only",
       "capability_conditions": "Supervisor API is reachable.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 second-pass live sweep confirmed Supervisor and platform metadata through direct nodes.invoke.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
+            "observation": "ha.supervisor_info returned Supervisor 2026.09.0, HA 2026.9.1, HAOS 17.1, Docker 29.1.3, and amd64/qemux86-64 platform data.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      },
       "first_shipped_in": "2026.9.13b1",
       "actions": {}
     }
