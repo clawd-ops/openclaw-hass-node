@@ -288,7 +288,9 @@
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_diff",
       "id": "fs.diff",
-      "issues": [],
+      "issues": [
+        "#328"
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",

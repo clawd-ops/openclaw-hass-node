@@ -86,6 +86,38 @@ _ISSUE_CITATION_RE = re.compile(r"^#[1-9][0-9]*$")
 # inline code and bold, which escaping would break. Rejecting only link and image
 # syntax closes the demonstrated vector and matches the data — no value anywhere
 # in the manual ledger uses it today.
+_MKDOCS_REPO_URL_RE = re.compile(r"^repo_url:\s*(\S+)\s*$", re.MULTILINE)
+
+
+def _repo_url() -> str:
+    """Return the canonical repository URL, from the one place it is declared.
+
+    Derived from `mkdocs.yml` rather than written here so a fork or a rename
+    updates one file instead of silently producing citation links that all point
+    at the upstream repository.
+    """
+    text = (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    match = _MKDOCS_REPO_URL_RE.search(text)
+    if match is None:
+        raise LedgerError("mkdocs.yml has no repo_url; cannot build issue citation links")
+    return match.group(1).rstrip("/")
+
+
+def _citation_link(citation: str) -> str:
+    """Render `#123` as an anchor that opens outside the docs view.
+
+    The docs are served through a token-gated portal proxy, so a same-tab
+    navigation to GitHub either takes the operator out of the portal or is
+    bounced by the relay auth boundary (#335 records the portal stripping launch
+    tokens on sub-pages). `target="_blank"` keeps the ledger view intact, and
+    `rel="noopener noreferrer"` is required with it to avoid handing the opened
+    page a reference back to this one.
+    """
+    number = citation.lstrip("#")
+    url = f"{_repo_url()}/issues/{number}"
+    return f'<a href="{url}" target="_blank" rel="noopener noreferrer">{citation}</a>'
+
+
 _MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\([^)]*\)|<https?://|!\[")
 
 
@@ -1490,7 +1522,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         callers = row["callers"]
         outcome_cell = f"**`{row['outcome']}`**"
         if row.get("issues"):
-            outcome_cell += " (" + ", ".join(row["issues"]) + ")"
+            outcome_cell += " (" + ", ".join(_citation_link(c) for c in row["issues"]) + ")"
         lines.append(
             f"| `{row['id']}` | {_compact_caller(callers['node_advertisement'])} | "
             f"{_compact_caller(callers['direct_nodes_invoke'])} | "
@@ -1513,7 +1545,11 @@ def render_markdown(ledger: dict[str, Any]) -> str:
                 f"- Semantic errors: {row['semantic_errors']}",
                 f"- Evidence method: `{row['evidence_method']}`",
                 f"- **Outcome: `{row['outcome']}`**",
-                *([f"- Issues: {', '.join(row['issues'])}"] if row.get("issues") else []),
+                *(
+                    [f"- Issues: {', '.join(_citation_link(c) for c in row['issues'])}"]
+                    if row.get("issues")
+                    else []
+                ),
                 f"- Evidence note: {row['evidence_note']}",
                 f"- Advertisement: {row['callers']['node_advertisement']['reason']}",
                 f"- Direct caller: {row['callers']['direct_nodes_invoke']['reason']}",
