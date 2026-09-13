@@ -4,9 +4,7 @@ import {
   resolvedAssistCommandRegistrations,
   type AssistCommandRegistration,
 } from "./assist-command-registration.js";
-import assistCommandContract from "./assist-command-contract.json" with {
-  type: "json",
-};
+import assistCommandContract from "./assist-command-contract.json" with { type: "json" };
 import pluginManifest from "../../openclaw.plugin.json" with { type: "json" };
 
 const invokeHaCommandMock = vi.fn();
@@ -20,7 +18,8 @@ vi.mock("./node-tool-invoke.js", () => ({
     const v = params[key];
     return typeof v === "string" ? v.trim() : "";
   },
-  resolveNodeAndPolicy: (...args: unknown[]) => resolveNodeAndPolicyMock(...args),
+  resolveNodeAndPolicy: (...args: unknown[]) =>
+    resolveNodeAndPolicyMock(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -31,8 +30,12 @@ describe("Assist executable command contract", () => {
   it("resolves every manifest row to one descriptor and factory", () => {
     const registrations = resolvedAssistCommandRegistrations();
     expect(registrations).toHaveLength(31);
-    expect(new Set(registrations.map(({ contract }) => contract.tool_name)).size).toBe(31);
-    expect(new Set(registrations.map(({ contract }) => contract.node_command)).size).toBe(31);
+    expect(
+      new Set(registrations.map(({ contract }) => contract.tool_name)).size,
+    ).toBe(31);
+    expect(
+      new Set(registrations.map(({ contract }) => contract.node_command)).size,
+    ).toBe(31);
     for (const { contract, descriptor, loadTool } of registrations) {
       expect(descriptor.name).toBe(contract.tool_name);
       expect(typeof loadTool).toBe("function");
@@ -87,7 +90,9 @@ describe("Assist executable command contract", () => {
 describe("Manifest/contract tool parity", () => {
   it("openclaw.plugin.json contracts.tools matches Assist contract tool_names exactly", () => {
     const registrations = resolvedAssistCommandRegistrations();
-    const contractTools = new Set(registrations.map(({ contract }) => contract.tool_name));
+    const contractTools = new Set(
+      registrations.map(({ contract }) => contract.tool_name),
+    );
     const manifestTools = new Set(pluginManifest.contracts.tools);
     expect(contractTools).toEqual(manifestTools);
   });
@@ -114,7 +119,9 @@ describe("Manifest/contract tool parity", () => {
 const ADMIN_TOKEN_SENTINEL = "test-token-sentinel-admin";
 
 /** Unique sentinel per accepted tool param — never reuse across fields. */
-function buildTestArgs(contract: AssistCommandRegistration): Record<string, unknown> {
+function buildTestArgs(
+  contract: AssistCommandRegistration,
+): Record<string, unknown> {
   const args: Record<string, unknown> = {};
   for (const key of contract.accepted_tool_params) {
     switch (key) {
@@ -156,8 +163,12 @@ function expectedCommandParams(
   const result: Record<string, unknown> = {};
   const transformedToolKeys = new Set<string>();
 
-  for (const [nodeKey, transform] of Object.entries(contract.value_transforms)) {
-    const sourceKeys = transform.source_tool_key.split("|").map((key) => key.trim());
+  for (const [nodeKey, transform] of Object.entries(
+    contract.value_transforms,
+  )) {
+    const sourceKeys = transform.source_tool_key
+      .split("|")
+      .map((key) => key.trim());
     sourceKeys.forEach((key) => transformedToolKeys.add(key));
     if (transform.transform === "wrap_array") {
       const sourceKey = sourceKeys[0];
@@ -182,11 +193,15 @@ function expectedCommandParams(
   }
 
   // Injected params: verify exact source semantics
-  for (const [policySource, nodeKey] of Object.entries(contract.injected_node_params)) {
+  for (const [policySource, nodeKey] of Object.entries(
+    contract.injected_node_params,
+  )) {
     if (policySource === "$policy.adminToken") {
       result[nodeKey] = ADMIN_TOKEN_SENTINEL;
     } else {
-      throw new Error(`Unknown injected source ${policySource} for ${contract.tool_name}`);
+      throw new Error(
+        `Unknown injected source ${policySource} for ${contract.tool_name}`,
+      );
     }
   }
 
@@ -230,8 +245,8 @@ async function executeFactory(
   expect(invokeHaCommandMock).toHaveBeenCalledTimes(1);
   return {
     ...(invokeHaCommandMock.mock.calls[0][0] as {
-    command: string;
-    commandParams: Record<string, unknown>;
+      command: string;
+      commandParams: Record<string, unknown>;
     }),
     result,
   };
@@ -254,7 +269,9 @@ describe("Assist executable mapping drift gate", () => {
   // --- ha_call_service alias_merge: both data and service_data map to node "data" ---
 
   it("ha_call_service: service_data normalized to data per contract emitted_params", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_call_service")!;
+    const reg = registrations.find(
+      (r) => r.contract.tool_name === "ha_call_service",
+    )!;
     setupMocks(reg.contract);
     const args = {
       node: "test-hass",
@@ -264,14 +281,18 @@ describe("Assist executable mapping drift gate", () => {
     };
     const call = await executeFactory(reg.contract, reg.loadTool, args);
     expect(call.command).toBe(reg.contract.node_command);
-    expect(call.commandParams).toEqual(expectedCommandParams(reg.contract, args));
+    expect(call.commandParams).toEqual(
+      expectedCommandParams(reg.contract, args),
+    );
     expect(call.commandParams.service_data).toBeUndefined();
   });
 
   // --- ha_list_states: all emitted_params are null-mapped ---
 
   it("ha_list_states: entity_filter not forwarded (null-mapped), complete params verified", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_list_states")!;
+    const reg = registrations.find(
+      (r) => r.contract.tool_name === "ha_list_states",
+    )!;
     expect(reg.contract.client_side_params.entity_filter?.behavior).toBe(
       "glob_filter_result_by_entity_id",
     );
@@ -300,48 +321,77 @@ describe("Assist executable mapping drift gate", () => {
 describe("Assist mapping mutation regression", () => {
   const registrations = resolvedAssistCommandRegistrations();
 
-  it("swapping ha_logbook start/end time targets produces wrong values", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_logbook")!;
-    setupMocks(reg.contract);
-    const args = buildTestArgs(reg.contract);
-    const call = await executeFactory(reg.contract, reg.loadTool, args);
+  // Four tools mutate identically: swap the node-side targets of two tool args
+  // and prove the real factory disagrees with the swapped expectation. As
+  // separate bodies they asserted different amounts — only ha_logbook checked
+  // that the mutation had landed, and ha_calendar_get_events never checked the
+  // unmutated values at all. One table applies the strongest form to all four.
+  for (const { toolName, first, second, firstTarget, secondTarget } of [
+    {
+      toolName: "ha_logbook",
+      first: "start",
+      second: "end",
+      firstTarget: "start_time",
+      secondTarget: "end_time",
+    },
+    {
+      toolName: "ha_history",
+      first: "start",
+      second: "end",
+      firstTarget: "start_time",
+      secondTarget: "end_time",
+    },
+    {
+      toolName: "ha_light_turn_on",
+      first: "entity_id",
+      second: "area_id",
+      firstTarget: "entity_id",
+      secondTarget: "area_id",
+    },
+    {
+      toolName: "ha_calendar_get_events",
+      first: "start_date_time",
+      second: "end_date_time",
+      firstTarget: "start_date_time",
+      secondTarget: "end_date_time",
+    },
+  ]) {
+    it(`swapping ${toolName} ${first}/${second} targets produces wrong values`, async () => {
+      const reg = registrations.find((r) => r.contract.tool_name === toolName)!;
+      setupMocks(reg.contract);
+      const args = buildTestArgs(reg.contract);
+      const call = await executeFactory(reg.contract, reg.loadTool, args);
 
-    // Distinct sentinels:
-    expect(args.start).not.toBe(args.end);
-    // Correct (real factory):
-    expect(call.commandParams.start_time).toBe(args.start);
-    expect(call.commandParams.end_time).toBe(args.end);
+      // Independent oracle. Reading the targets out of the contract under test
+      // would make a *coordinated* swap — contract and factory changed together
+      // — invisible, because both sides of every comparison would move with it.
+      // These literals are the thing the contract is checked against.
+      expect(reg.contract.emitted_params[first]).toBe(firstTarget);
+      expect(reg.contract.emitted_params[second]).toBe(secondTarget);
 
-    // Mutated contract would produce wrong expectations:
-    const mutated = structuredClone(reg.contract);
-    mutated.emitted_params.start = "end_time"; // swap!
-    mutated.emitted_params.end = "start_time"; // swap!
-    const mutatedExpected = expectedCommandParams(mutated, args);
-    // The mutated expectation disagrees with reality:
-    expect(mutatedExpected.start_time).toBe(args.end);
-    expect(mutatedExpected.end_time).toBe(args.start);
-    expect(call.commandParams).not.toEqual(mutatedExpected);
-  });
+      // Distinct sentinels, or a swap would be undetectable.
+      expect(args[first]).not.toBe(args[second]);
+      // The real factory maps each arg to its own target.
+      expect(call.commandParams[firstTarget]).toBe(args[first]);
+      expect(call.commandParams[secondTarget]).toBe(args[second]);
 
-  it("swapping ha_history start/end time targets produces wrong values", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_history")!;
-    setupMocks(reg.contract);
-    const args = buildTestArgs(reg.contract);
-    const call = await executeFactory(reg.contract, reg.loadTool, args);
+      const mutated = structuredClone(reg.contract);
+      mutated.emitted_params[first] = secondTarget;
+      mutated.emitted_params[second] = firstTarget;
+      const mutatedExpected = expectedCommandParams(mutated, args);
 
-    expect(args.start).not.toBe(args.end);
-    expect(call.commandParams.start_time).toBe(args.start);
-    expect(call.commandParams.end_time).toBe(args.end);
-
-    const mutated = structuredClone(reg.contract);
-    mutated.emitted_params.start = "end_time";
-    mutated.emitted_params.end = "start_time";
-    const mutatedExpected = expectedCommandParams(mutated, args);
-    expect(call.commandParams).not.toEqual(mutatedExpected);
-  });
+      // The mutation landed: swapped expectations carry the other arg's value.
+      expect(mutatedExpected[firstTarget]).toBe(args[second]);
+      expect(mutatedExpected[secondTarget]).toBe(args[first]);
+      // And reality disagrees with it.
+      expect(call.commandParams).not.toEqual(mutatedExpected);
+    });
+  }
 
   it("removing ha_history wrap_array transform produces flat value instead of array", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_history")!;
+    const reg = registrations.find(
+      (r) => r.contract.tool_name === "ha_history",
+    )!;
     setupMocks(reg.contract);
     const args = buildTestArgs(reg.contract);
     const call = await executeFactory(reg.contract, reg.loadTool, args);
@@ -358,40 +408,13 @@ describe("Assist mapping mutation regression", () => {
     expect(call.commandParams).not.toEqual(mutatedExpected);
   });
 
-  it("swapping ha_light_turn_on entity_id and area_id targets produces wrong values", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_light_turn_on")!;
-    setupMocks(reg.contract);
-    const args = buildTestArgs(reg.contract);
-    const call = await executeFactory(reg.contract, reg.loadTool, args);
-
-    expect(args.entity_id).not.toBe(args.area_id);
-    expect(call.commandParams.entity_id).toBe(args.entity_id);
-    expect(call.commandParams.area_id).toBe(args.area_id);
-
-    const mutated = structuredClone(reg.contract);
-    mutated.emitted_params.entity_id = "area_id"; // swap!
-    mutated.emitted_params.area_id = "entity_id"; // swap!
-    const mutatedExpected = expectedCommandParams(mutated, args);
-    expect(call.commandParams).not.toEqual(mutatedExpected);
-  });
-
-  it("swapping ha_calendar_get_events start/end_date_time targets produces wrong values", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_calendar_get_events")!;
-    setupMocks(reg.contract);
-    const args = buildTestArgs(reg.contract);
-    const call = await executeFactory(reg.contract, reg.loadTool, args);
-
-    expect(args.start_date_time).not.toBe(args.end_date_time);
-    const mutated = structuredClone(reg.contract);
-    mutated.emitted_params.start_date_time = "end_date_time";
-    mutated.emitted_params.end_date_time = "start_date_time";
-    const mutatedExpected = expectedCommandParams(mutated, args);
-    expect(call.commandParams).not.toEqual(mutatedExpected);
-  });
-
   it("injected $policy.adminToken verified with exact sentinel, not expect.anything()", async () => {
-    const reg = registrations.find((r) => r.contract.tool_name === "ha_reload_config")!;
-    expect(reg.contract.injected_node_params["$policy.adminToken"]).toBe("admin_token");
+    const reg = registrations.find(
+      (r) => r.contract.tool_name === "ha_reload_config",
+    )!;
+    expect(reg.contract.injected_node_params["$policy.adminToken"]).toBe(
+      "admin_token",
+    );
     setupMocks(reg.contract);
     const args = buildTestArgs(reg.contract);
     const call = await executeFactory(reg.contract, reg.loadTool, args);
@@ -414,7 +437,10 @@ type RawRegistration = {
     string,
     { source_tool_key: string; transform: string; description: string }
   >;
-  client_side_params?: Record<string, { behavior: string; description: string }>;
+  client_side_params?: Record<
+    string,
+    { behavior: string; description: string }
+  >;
 };
 
 function rawRegistration(toolName: string): RawRegistration {
@@ -429,12 +455,15 @@ describe("Contract schema validation rejects mutations", () => {
   it("rejects an unsupported transform name", () => {
     const registration = rawRegistration("ha_history");
     registration.value_transforms.entity_ids!.transform = "unsupported";
-    expect(() => parseAssistCommandRegistration(registration)).toThrow(/not in allowed set/);
+    expect(() => parseAssistCommandRegistration(registration)).toThrow(
+      /not in allowed set/,
+    );
   });
 
   it("rejects an orphan transform target", () => {
     const registration = rawRegistration("ha_history");
-    registration.value_transforms.orphan = registration.value_transforms.entity_ids!;
+    registration.value_transforms.orphan =
+      registration.value_transforms.entity_ids!;
     delete registration.value_transforms.entity_ids;
     expect(() => parseAssistCommandRegistration(registration)).toThrow(
       /not an emitted non-null node key/,
@@ -467,7 +496,9 @@ describe("Contract schema validation rejects mutations", () => {
 
   it("rejects an unsupported injected policy source", () => {
     const registration = rawRegistration("ha_reload_config");
-    registration.injected_node_params = { "$policy.notAdminToken": "admin_token" };
+    registration.injected_node_params = {
+      "$policy.notAdminToken": "admin_token",
+    };
     expect(() => parseAssistCommandRegistration(registration)).toThrow(
       /injected source.*not supported/,
     );
