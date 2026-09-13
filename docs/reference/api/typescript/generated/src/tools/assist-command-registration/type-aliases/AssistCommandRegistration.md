@@ -10,8 +10,6 @@
 type AssistCommandRegistration = object;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:25](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L25)
-
 ## Properties
 
 ### accepted\_tool\_params
@@ -19,8 +17,6 @@ Defined in: [src/tools/assist-command-registration.ts:25](https://github.com/cla
 ```ts
 accepted_tool_params: string[];
 ```
-
-Defined in: [src/tools/assist-command-registration.ts:30](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L30)
 
 ***
 
@@ -30,8 +26,6 @@ Defined in: [src/tools/assist-command-registration.ts:30](https://github.com/cla
 client_side_params: Record<string, AssistClientSideParam>;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:35](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L35)
-
 ***
 
 ### descriptor
@@ -39,8 +33,6 @@ Defined in: [src/tools/assist-command-registration.ts:35](https://github.com/cla
 ```ts
 descriptor: string;
 ```
-
-Defined in: [src/tools/assist-command-registration.ts:27](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L27)
 
 ***
 
@@ -50,8 +42,6 @@ Defined in: [src/tools/assist-command-registration.ts:27](https://github.com/cla
 emitted_params: Record<string, string | null>;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:31](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L31)
-
 ***
 
 ### factory
@@ -60,8 +50,6 @@ Defined in: [src/tools/assist-command-registration.ts:31](https://github.com/cla
 factory: string;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:28](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L28)
-
 ***
 
 ### injected\_node\_params
@@ -69,8 +57,6 @@ Defined in: [src/tools/assist-command-registration.ts:28](https://github.com/cla
 ```ts
 injected_node_params: Record<string, string>;
 ```
-
-Defined in: [src/tools/assist-command-registration.ts:32](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L32)
 
 ***
 
@@ -83,8 +69,6 @@ known_unaccepted_node_params: Record<string, {
 }>;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:33](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L33)
-
 ***
 
 ### node\_command
@@ -92,8 +76,6 @@ Defined in: [src/tools/assist-command-registration.ts:33](https://github.com/cla
 ```ts
 node_command: string;
 ```
-
-Defined in: [src/tools/assist-command-registration.ts:29](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L29)
 
 ***
 
@@ -103,8 +85,6 @@ Defined in: [src/tools/assist-command-registration.ts:29](https://github.com/cla
 tool_name: string;
 ```
 
-Defined in: [src/tools/assist-command-registration.ts:26](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L26)
-
 ***
 
 ### value\_transforms
@@ -112,5 +92,3 @@ Defined in: [src/tools/assist-command-registration.ts:26](https://github.com/cla
 ```ts
 value_transforms: Record<string, AssistValueTransform>;
 ```
-
-Defined in: [src/tools/assist-command-registration.ts:34](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.ts#L34)

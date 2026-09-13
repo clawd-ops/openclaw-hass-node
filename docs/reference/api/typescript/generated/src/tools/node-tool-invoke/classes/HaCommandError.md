@@ -6,8 +6,6 @@
 
 # Class: HaCommandError
 
-Defined in: [src/tools/node-tool-invoke.ts:18](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L18)
-
 A failed operation, distinct from failure to reach the gateway/node.
 
 ## Extends
@@ -28,8 +26,6 @@ new HaCommandError(
    retryAfterMs?
 ): HaCommandError;
 ```
-
-Defined in: [src/tools/node-tool-invoke.ts:19](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L19)
 
 #### Parameters
 
@@ -75,8 +71,6 @@ Error.constructor
 readonly code: string;
 ```
 
-Defined in: [src/tools/node-tool-invoke.ts:20](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L20)
-
 ***
 
 ### details?
@@ -84,8 +78,6 @@ Defined in: [src/tools/node-tool-invoke.ts:20](https://github.com/clawd-ops/open
 ```ts
 readonly optional details?: unknown;
 ```
-
-Defined in: [src/tools/node-tool-invoke.ts:24](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L24)
 
 ***
 
@@ -95,8 +87,6 @@ Defined in: [src/tools/node-tool-invoke.ts:24](https://github.com/clawd-ops/open
 readonly optional retryable?: boolean;
 ```
 
-Defined in: [src/tools/node-tool-invoke.ts:23](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L23)
-
 ***
 
 ### retryAfterMs?
@@ -105,8 +95,6 @@ Defined in: [src/tools/node-tool-invoke.ts:23](https://github.com/clawd-ops/open
 readonly optional retryAfterMs?: number;
 ```
 
-Defined in: [src/tools/node-tool-invoke.ts:25](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L25)
-
 ***
 
 ### source
@@ -114,5 +102,3 @@ Defined in: [src/tools/node-tool-invoke.ts:25](https://github.com/clawd-ops/open
 ```ts
 readonly source: "node" | "ha" | "gateway" | "transport";
 ```
-
-Defined in: [src/tools/node-tool-invoke.ts:22](https://github.com/clawd-ops/openclaw-hass-node/blob/main/plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.ts#L22)
