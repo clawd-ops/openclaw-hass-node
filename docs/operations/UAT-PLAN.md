@@ -9,7 +9,8 @@
 > (dual websocket pair, streaming token deltas, tool-named progress)
 > all work end-to-end. Local HTTP API is fail-closed (a token is
 > required); HACS integration probes for the local API at config-flow time.
-> The proposal/write flow is still planned.
+> The native OpenClaw approval/write flow is still planned. The Gateway remains
+> the sole approval authority; any add-on view is presentation-only.
 
 ## Phase A — Install
 
@@ -137,43 +138,51 @@ all hit the node. The gateway-side allowlist
 (`gateway.nodes.commands.allow` in `openclaw.json`) controls which
 commands are surfaced — see `INSTALL.md` step 1.
 
-## Phase D — Writes via proposals *(planned)*
+## Phase D — Native approval and protected writes *(planned)*
 
 The write side of `fs.*` (`fs.write`, `fs.restore`, `fs.move`,
-`fs.delete`, `fs.patch`) is implemented in the node but is *not* yet
-behind the proposal/agent-bridge flow.
+`fs.delete`, `fs.patch`) is implemented in the node but does not yet consume
+native OpenClaw plugin approvals for protected mutations.
 
 ### D1. Toggle a light.
 
 - `node.invoke ha.call_service` with `light.turn_on`.
-- Goes through proposal flow → agent-bridge UI shows the proposal →
-  accept → light turns on → backup engine records the prior state.
+- With an authorized principal and an `auto_allow` policy decision, no approval
+  prompt appears and the light turns on.
 
 ### D2. Edit `configuration.yaml`.
 
 - A small comment-only change. Verify:
-  1. Proposal appears in agent-bridge.
-  2. `ha.check_config` runs before apply.
-  3. Prior bytes captured under `/share/openclaw-backups/`.
-  4. `fs.history /config/configuration.yaml` shows the version.
-  5. `fs.restore` reverses cleanly.
+  1. A request bound to the exact node, principal, command, parameters, and
+     precondition appears on a native operator approval surface.
+  2. An operator-device `allow-once` decision is consumed exactly once.
+  3. `ha.check_config` runs before apply.
+  4. Prior bytes are captured under `/share/openclaw-backups/`.
+  5. `fs.history /config/configuration.yaml` shows the version.
+  6. `fs.restore` reverses cleanly.
 
-### D3. Reject a proposal.
+### D3. Deny an approval request.
 
-- Decline in the agent-bridge UI.
+- Deny on the native operator approval surface.
 - Verify the file is unchanged and the node logs the rejection.
 
 ### D4. `.storage/` refusal.
 
 - Ask the agent to "edit `.storage/core.config`". Expect refusal at the
-  command dispatcher with a clear error message and no proposal
+  command dispatcher with a clear error message and no approval request
   emitted.
 
 ### D5. Breaking-change verification.
 
 - Ask the agent to apply a change that intersects a known recent HA
-  breaking change. Expect the proposal body to cite the
+  breaking change. Expect the approval evidence to cite the
   breaking-change entry and include a functional fix.
+
+### D6. Replay and mutation refusal.
+
+- Reuse a consumed `allow-once` decision, then alter one canonical parameter
+  before a fresh approved operation is forwarded. Both attempts must fail
+  closed without a second side effect.
 
 ## Phase E — Assist conversation agent *(live)*
 
@@ -195,8 +204,8 @@ profile via `openclaw qr`.
 ### E3. Tool calling via Assist.
 
 - "Turn on the kitchen light." Should call back into the same node's
-  `ha.call_service` via the proposal flow (since light writes are
-  protected).
+  `ha.call_service`. With an authorized principal and an `auto_allow` policy
+  decision, no approval prompt appears and the light turns on.
 
 ### E4. Tool-named progress lines.
 

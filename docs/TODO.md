@@ -59,11 +59,20 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Recently closed issues formerly listed here are now recorded in the closed
   section below so this rollup only names live GitHub issues.
 
-### 20. Proposal-gated write path — agent-bridge UI wiring
-- Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; the actual `propose_edit` → `resolve_proposal` round-trip through the agent-bridge UI is not wired.
-- Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `ha.config.*`.
-- Goal: a user-visible "agent wants to make this change → accept / reject" pane in agent-bridge that the node waits on before applying the write.
-- This is the next major write-surface milestone.
+### 20. Native approval-gated write path
+- Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; native OpenClaw
+  plugin approvals are not yet wired to structured HA and filesystem mutations.
+- Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `fs.restore`,
+  `ha.config.*`, and effect-policy-gated HA service calls.
+- Goal: consume a Gateway-authenticated, exact-operation-bound, expiring,
+  single-use decision resolved from an operator device, then revalidate the
+  node-side policy and preconditions immediately before applying the mutation.
+- The Gateway remains the approval authority. Any add-on view is
+  presentation-only and cannot maintain or resolve an independent approval
+  lifecycle. Implementation is tracked in
+  [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289), with
+  principal enforcement and the unresolved operator choice retained in
+  [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275).
 
 ### 21. HACS brands PR — OpenClaw icon
 - Status: OPEN (external)
@@ -76,13 +85,19 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Independent of #20; can land in parallel.
 
 ### 23. HA-version-rooted commands + breaking-change verification (PLAN §2c)
-- Status: OPEN — gated on #20 (writes need to actually round-trip through agent-bridge before pre-change verification has a place to fire).
+- Status: OPEN — gated on #289 because protected writes need the native approval
+  path before pre-change verification has a place to fire.
 - Designed in [`design/PLAN.md`](design/PLAN.md) §2c. Three pieces:
   1. **HA core version detection on connect.** Node hits Supervisor `/info` (or `/api/config`) and emits the version as pairing metadata so the gateway-side agent always knows the live HA version of the target.
   2. **New `docs.lookup(topic, version=current)` command.** Fetches documentation from the `home-assistant/home-assistant.io` repo at the tag matching the running core version, with a local cache. Goes through `dispatcher.py` like any other command.
   3. **New `docs.breaking_changes(version=current, since=<prev>?, domain=?)` command.** Pulls the breaking-changes section of the relevant release notes from the same docs repo. Used by the HARD rule below.
-- **HARD rule on the write path** (also gated on #20): before any proposal that touches HA config (yaml or API-driven), the generator must call `docs.lookup` + `docs.breaking_changes`, cite the relevant breaking-change entry in the proposal body if any, and include the functional fix (not just the original edit). Codex review re-runs `docs.breaking_changes` against the diff and blocks merge if a breaking change was missed.
-- Why deferred, not killed: the discipline (version-aware proposals + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
+- **HARD rule on the write path** (also gated on #289): before any approved
+  mutation that touches HA config (yaml or API-driven), the generator must call
+  `docs.lookup` + `docs.breaking_changes`, cite any relevant breaking-change
+  entry in the operation evidence, and include the functional fix. Codex review
+  re-runs `docs.breaking_changes` against the diff and blocks merge if a
+  breaking change was missed.
+- Why deferred, not killed: the discipline (version-aware operation evidence + cited breaking-change checks) is load-bearing for safe `/config` mutations. Cheap to defer; expensive to recreate later if we drop the design intent.
 
 ### 27. Ingress configuration UI for the add-on
 - Status: OPEN (design) — captured 2026-06-28 from operator UX feedback.
@@ -92,7 +107,8 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   - Inline help / tooltips so the operator doesn't have to know what `addon_lifecycle` means before configuring it.
 - Replaces hand-edited YAML for the shapes HA's option-schema validators cannot express (no native dynamic enums for users or addon slugs).
 - Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
-- Cross-link: shares the ingress surface with #20 (agent-bridge proposal review pane) — consider one ingress app with both panels rather than two.
+- Cross-link: any native approval status shown here is presentation-only; the
+  add-on must not become a second approval authority.
 - Cross-link: shares the ingress surface with #38 (durable Assist transcript / resume UI) — prefer one coherent OpenClaw panel with tabs rather than separate single-purpose web apps.
 
 ### 32. Config option to show/hide tool usage in HA Assist
@@ -140,7 +156,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   2. Add read endpoints for recent conversations, individual transcript history, and the active/resumable session id.
   3. Add an ingress panel tab that renders the transcript with stable scrolling, tool-progress grouping, copy/download affordances, and a "resume last Assist chat" action.
   4. Keep Assist output concise for long/tool-heavy turns and link/point the operator to the durable panel for full details.
-- Cross-link: shares the ingress GUI shell with #27 (configuration UI) and #20 (proposal review pane); prefer one OpenClaw panel with tabs over multiple independent add-on web apps.
+- Cross-link: shares the ingress GUI shell with #27 (configuration UI) and #20
+  (presentation-only native approval status); prefer one OpenClaw panel with
+  tabs over multiple independent add-on web apps.
 - Acceptance: after a long HA Assist turn, closing/reopening HA Assist or the OpenClaw ingress panel does not lose the readable transcript, and a follow-up can resume the intended OpenClaw session instead of silently starting from scratch.
 
 ---
