@@ -309,16 +309,16 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 All cleared 2026-06-20. Kept here as a marker that they were addressed:
 
-- ~~MEMORY.md SUPERVISOR_TOKEN-not-injected loop~~ — removed from `~/.openclaw/proactivity/open-loops.md` in PR #141.
-- ~~STATUS.md "Where we are (2026-06-08 PM)" header~~ — rewritten in PR #150.
-- ~~STATUS.md "Currently on 2026.6.19b1"~~ — updated to b6 in PR #150.
-- ~~"Strip alpha wording" framed as broken~~ — closed under item #3.
+- <del>MEMORY.md SUPERVISOR_TOKEN-not-injected loop</del> — removed from `~/.openclaw/proactivity/open-loops.md` in PR #141.
+- <del>STATUS.md "Where we are (2026-06-08 PM)" header</del> — rewritten in PR #150.
+- <del>STATUS.md "Currently on 2026.6.19b1"</del> — updated to b6 in PR #150.
+- <del>"Strip alpha wording" framed as broken</del> — closed under item #3.
 
 ## Unconfirmed (need outside evidence)
 
 All four items from the original audit have since been confirmed or resolved:
 
-- ~~Item 14: gateway `allowCommands` sync~~ — verified end-to-end after the `paired.json` cache refresh; all six Tier A commands work (LESSONS captures the cache behaviour).
-- ~~Item 4: stale-trailer race~~ — closed as documented (streaming variant fixed in b3; non-streaming variant structurally accepted).
-- ~~Item 5: Ash device issue~~ — closed per Rob.
-- ~~Item 10: gateway stream finalization~~ — closed as gateway-side, not actionable from this repo.
+- <del>Item 14: gateway `allowCommands` sync</del> — verified end-to-end after the `paired.json` cache refresh; all six Tier A commands work (LESSONS captures the cache behaviour).
+- <del>Item 4: stale-trailer race</del> — closed as documented (streaming variant fixed in b3; non-streaming variant structurally accepted).
+- <del>Item 5: Ash device issue</del> — closed per Rob.
+- <del>Item 10: gateway stream finalization</del> — closed as gateway-side, not actionable from this repo.

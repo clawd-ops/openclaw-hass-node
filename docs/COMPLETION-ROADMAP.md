@@ -443,7 +443,7 @@ definition of complete.
 | [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259) | 1 | Resolved at source by PR #281 at `bfb8a95`: `ha.list_automations` server-side filtering with fail-closed params. |
 | [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260) | 1, 3 | Advertisement + drift gate resolved by PR #284 at `762dc86`; live update-path canary and durable receipt still outstanding under Phase 3. |
 | [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | Skill/docs contract corrected by PR #283 at `bc95f95`: skill now describes the real `ping` + `fs.*` + `system.*` + `ha.*` surface and states the node does **not** advertise `file.fetch` / `dir.list` / `dir.fetch`; `allowReadPaths` does not apply here. Acceptance direction 1 (implement compatible `file.fetch`/`dir.*` handlers with policy tests) is deliberately deferred; this repo takes direction 2. |
-| [#262](https://github.com/clawd-ops/openclaw-hass-node/issues/262) | 2 | ~~Ratify one lifecycle policy and remove contradictory token claims.~~ Resolved in #270: lifecycle/admin split implemented and tested. Remaining: converge dedicated and generic service paths on the same policy decision. |
+| [#262](https://github.com/clawd-ops/openclaw-hass-node/issues/262) | 2 | <del>Ratify one lifecycle policy and remove contradictory token claims.</del> Resolved in #270: lifecycle/admin split implemented and tested. Remaining: converge dedicated and generic service paths on the same policy decision. |
 | TODO 7 | 5 | Issue triage automation. |
 | TODO 11 | Closed | Home Assistant MCP retirement is complete; residual caller-policy work belongs to phase 2 and does not reopen it. |
 | TODO 12 | 5 | Generated documentation. |
