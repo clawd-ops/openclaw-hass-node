@@ -38,30 +38,50 @@ SKIP_DIRS = frozenset({"assets", "search"})
 
 
 class _Text(HTMLParser):
-    """Collect page text, dropping anything inside code, pre, or script."""
+    """Collect text nodes, dropping anything inside code, pre, or script.
+
+    Nodes are kept separate rather than concatenated. Joining them invents a
+    text that no reader ever sees, and that synthetic text breaks the check in
+    both directions:
+
+    * ``<p>word</p><li>[ ] task</li>`` joins to ``word[ ] task``. The marker is
+      real and visible, but the preceding character is now a word character, so
+      the boundary condition suppresses it and a genuine defect is missed.
+    * ``<p>~~left</p><p>right~~</p>`` joins to ``~~leftright~~`` and is reported
+      as strikethrough, though neither element contains a pair.
+
+    Today's MkDocs output happens to put whitespace between block elements,
+    which hides the first case. Correctness here should not rest on the
+    pretty-printing of the generator being scanned.
+    """
+
+    _SUPPRESSED = ("code", "pre", "script", "style")
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
+        # A counter, not a flag: `pre > code` is the ordinary shape for a
+        # fenced block, and a flag would stop suppressing at the inner
+        # `</code>` while still inside the `<pre>`.
         self._suppress = 0
-        self.chunks: list[str] = []
+        self.nodes: list[str] = []
 
     def handle_starttag(self, tag: str, _attrs: object) -> None:
-        if tag in ("code", "pre", "script", "style"):
+        if tag in self._SUPPRESSED:
             self._suppress += 1
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in ("code", "pre", "script", "style") and self._suppress:
+        if tag in self._SUPPRESSED and self._suppress:
             self._suppress -= 1
 
     def handle_data(self, data: str) -> None:
         if not self._suppress:
-            self.chunks.append(data)
+            self.nodes.append(data)
 
 
-def _page_text(html: str) -> str:
+def _page_text_nodes(html: str) -> list[str]:
     parser = _Text()
     parser.feed(html)
-    return "".join(parser.chunks)
+    return parser.nodes
 
 
 def main(argv: list[str]) -> int:
@@ -77,14 +97,14 @@ def main(argv: list[str]) -> int:
         if SKIP_DIRS & set(path.relative_to(site).parts):
             continue
         scanned += 1
-        text = _page_text(path.read_text(encoding="utf-8"))
-        for label, pattern, extension in PATTERNS:
-            for match in pattern.finditer(text):
-                context = " ".join(text[max(0, match.start() - 40) : match.end() + 40].split())
-                failures.append(
-                    f"{path.relative_to(site)}: unrendered {label} syntax "
-                    f"{match.group(0)!r} (enable {extension})\n    ...{context}..."
-                )
+        for node in _page_text_nodes(path.read_text(encoding="utf-8")):
+            for label, pattern, extension in PATTERNS:
+                for match in pattern.finditer(node):
+                    context = " ".join(node[max(0, match.start() - 40) : match.end() + 40].split())
+                    failures.append(
+                        f"{path.relative_to(site)}: unrendered {label} syntax "
+                        f"{match.group(0)!r} (enable {extension})\n    ...{context}..."
+                    )
 
     if failures:
         print(f"Unrendered Markdown syntax in {len(failures)} place(s):\n", file=sys.stderr)

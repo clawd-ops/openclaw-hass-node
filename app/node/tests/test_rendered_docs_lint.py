@@ -6,11 +6,12 @@ literal text and the build is green. These fixtures assert both halves of that
 job — the literal markup is caught, and the same characters appearing inside
 code are not, since `[ ]` and `~~` are ordinary content in a code span.
 
-Fixtures are synthetic HTML rather than a real build so each case states the
-exact input it depends on. `test_catches_the_real_regression` is the one
-exception: it renders the repo's own task-list syntax through Markdown with
-and without the extension, so the pass case cannot drift away from what MkDocs
-actually produces.
+Fixtures are synthetic HTML rather than a real build, so each case states the
+exact input it depends on. The two `_RENDERED_*` constants are copied verbatim
+from a real strict build of `docs/COMPLETION-ROADMAP.md` with and without the
+extension; the node test environment has neither `markdown` nor
+`pymdown-extensions`, so rendering them here is not possible. The Docs workflow
+exercises the real MkDocs output, which is what keeps them honest.
 """
 
 from __future__ import annotations
@@ -74,8 +75,8 @@ def test_literal_syntax_fails_and_names_the_extension(
     "body",
     [
         "<p>Use <code>- [ ] item</code> for a task.</p>",
-        "<pre><code>grep -n '\\[x\\]' docs/*.md\n~~not strikethrough~~</code></pre>",
-        "<p>A shell glob <code>a[ ]b</code> and <code>==</code>.</p>",
+        "<pre><code>grep -n docs</code>\n[ ] still inside the pre block\n</pre>",
+        "<p>Write <code>[ ] item</code> to start a task.</p>",
     ],
 )
 def test_code_is_not_flagged(tmp_path: Path, body: str) -> None:
@@ -90,7 +91,35 @@ def test_prose_brackets_are_not_flagged(tmp_path: Path) -> None:
     Citation-style `[1]`, an empty `[]`, and a bracket mid-word must not trip
     the check, or the lint would be noise on ordinary prose.
     """
-    body = "<p>See [1] and [] and file[x]name and [ok] for detail.</p>"
+    body = "<p>See [1] and [] and file[x] item and [ok] for detail.</p>"
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 0, result.stderr
+
+
+def test_marker_is_found_when_a_previous_element_ends_in_a_word(
+    tmp_path: Path,
+) -> None:
+    """A real marker must not be hidden by the element before it.
+
+    Concatenating text nodes turns `<p>word</p><li>[ ] task</li>` into
+    `word[ ] task`, where the synthetic preceding character is a word character
+    and the boundary condition suppresses a marker the reader can plainly see.
+    Today's MkDocs output separates block elements with whitespace, so this is
+    masked on the current build; the check must not depend on that.
+    """
+    body = "<p>word</p><li>[ ] task</li>"
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 1, result.stdout
+    assert "pymdownx.tasklist" in result.stderr
+
+
+def test_delimiters_do_not_pair_across_elements(tmp_path: Path) -> None:
+    """Two elements each holding one tilde are not strikethrough.
+
+    Concatenation would join `<p>~~left</p><p>right~~</p>` into
+    `~~leftright~~` and report markup that exists in neither element.
+    """
+    body = "<p>~~left</p><p>right~~</p>"
     result = _run(_site(tmp_path, {"page.html": body}))
     assert result.returncode == 0, result.stderr
 
