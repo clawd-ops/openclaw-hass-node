@@ -94,59 +94,76 @@ def test_absent_issues_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 @pytest.mark.parametrize(
-    "field",
-    ["capability_conditions", "evidence_note"],
+    "payload",
+    [
+        "[x](x)",
+        "![i](x)",
+        "see [x][ref]",
+        "[ref]: https://evil.invalid",
+        "<https://evil.invalid>",
+        "<javascript:alert(1)>",
+        '<a href="https://evil.invalid">x</a>',
+        "<img src=x onerror=y>",
+        "<script>x</script>",
+        '<iframe src="x">',
+    ],
 )
 @pytest.mark.parametrize(
-    "payload",
-    ["[x](x)", "see [docs](https://evil.invalid)", "<https://evil.invalid>", "![i](x)"],
+    "field",
+    ["capability_conditions", "evidence_note", "semantic_result", "semantic_errors"],
 )
-def test_prose_fields_reject_markdown_links(
+def test_manual_strings_reject_live_markdown(
     monkeypatch: pytest.MonkeyPatch, field: str, payload: str
 ) -> None:
-    """Prose fields are interpolated into the published ledger without escaping.
+    """Every manual string is audited, not a named subset of fields.
 
-    A link therefore renders as live content in COMMAND-COVERAGE.md. Escaping
-    wholesale is not viable — legitimate values use inline code and bold — so
-    link and image syntax specifically is refused.
+    An earlier version guarded three fields by name; review then found
+    `semantic_result`, `semantic_errors`, parameter bounds and observation
+    `source` still open. Naming fields leaves the next one uncovered, so the
+    audit walks the whole document at load.
     """
     generator = _load_generator()
-    manual = copy.deepcopy(generator._load_manual())
-    manual["commands"]["ha.get_config"][field] = payload
-    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    raw = copy.deepcopy(generator._load_manual())
+    raw["commands"]["ha.get_config"][field] = payload
+    monkeypatch.setattr(generator, "_load_manual", lambda: _audited(generator, raw))
 
-    with pytest.raises(generator.LedgerError, match=rf"{field} for .* must not contain"):
+    with pytest.raises(generator.LedgerError, match=r"must not contain link, image"):
         generator.build_ledger()
 
 
-def test_prose_fields_still_allow_inline_code_and_bold(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The guard must not break the formatting real values already use."""
+def _audited(generator: ModuleType, value: dict[str, Any]) -> dict[str, Any]:
+    """Run the load-time audit the patched loader would otherwise skip."""
+    generator._audit_manual_strings(value)
+    return value
+
+
+@pytest.mark.parametrize(
+    "legitimate",
+    [
+        "Requires `allowAdminOps` and **a paired session**.",
+        "<helper_type>_id",
+        "a < b and c > d",
+        "Returned 27 areas; no side effects.",
+    ],
+)
+def test_manual_strings_allow_legitimate_markup(legitimate: str) -> None:
+    """The guard must not break formatting or angle-bracketed parameter names.
+
+    `<helper_type>_id` is a real parameter name in this ledger, not HTML, so a
+    blanket angle-bracket rule would have been wrong.
+    """
     generator = _load_generator()
-    manual = copy.deepcopy(generator._load_manual())
-    manual["commands"]["ha.get_config"]["capability_conditions"] = (
-        "Requires `allowAdminOps` and **a paired session**."
-    )
-    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
 
-    ledger = generator.build_ledger()
-
-    row = next(r for r in ledger["rows"] if r["id"] == "ha.get_config")
-    assert "`allowAdminOps`" in row["capability_conditions"]
+    generator._reject_live_markdown("field", legitimate)
 
 
-def test_observation_text_rejects_markdown_links() -> None:
-    """Observation text reaches the ledger through the shared constructor."""
+def test_live_markdown_audit_reaches_nested_values() -> None:
+    """The audit must not stop at the top level of the document."""
     generator = _load_generator()
+    nested = {"commands": {"x": {"actions": {"y": {"parameters": ["[a](b)"]}}}}}
 
-    with pytest.raises(generator.LedgerError, match=r"observation for .* must not contain"):
-        generator._evidence(
-            "CODE-PROVEN",
-            "pass",
-            "app/node/tests/test_x.py",
-            "Probe returned [a link](https://evil.invalid).",
-        )
+    with pytest.raises(generator.LedgerError, match=r"parameters\[0\] must not contain"):
+        generator._audit_manual_strings(nested)
 
 
 def test_issue_citations_reject_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
