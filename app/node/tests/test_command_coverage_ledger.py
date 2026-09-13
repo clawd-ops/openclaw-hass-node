@@ -102,10 +102,18 @@ def test_absent_issues_defaults_to_empty(monkeypatch: pytest.MonkeyPatch) -> Non
         "[ref]: https://evil.invalid",
         "<https://evil.invalid>",
         "<javascript:alert(1)>",
+        "<a@b.invalid>",
         '<a href="https://evil.invalid">x</a>',
         "<img src=x onerror=y>",
         "<script>x</script>",
         '<iframe src="x">',
+        # Round 3 bypasses: Material attr-list produced an element carrying an
+        # event-handler attribute; escaped and nested closing brackets in a link
+        # label slipped past a naive character class.
+        "text{: onclick=alert(1) }",
+        "heading {: #x .y }",
+        r"[a\]b](https://evil.invalid)",
+        "[a[b]c](https://evil.invalid)",
     ],
 )
 @pytest.mark.parametrize(
@@ -127,7 +135,7 @@ def test_manual_strings_reject_live_markdown(
     raw["commands"]["ha.get_config"][field] = payload
     monkeypatch.setattr(generator, "_load_manual", lambda: _audited(generator, raw))
 
-    with pytest.raises(generator.LedgerError, match=r"must not contain link, image"):
+    with pytest.raises(generator.LedgerError, match=r"renders as a live element"):
         generator.build_ledger()
 
 
@@ -144,6 +152,8 @@ def _audited(generator: ModuleType, value: dict[str, Any]) -> dict[str, Any]:
         "<helper_type>_id",
         "a < b and c > d",
         "Returned 27 areas; no side effects.",
+        "returns {ok: true}",
+        "see [note] below",
     ],
 )
 def test_manual_strings_allow_legitimate_markup(legitimate: str) -> None:
@@ -162,7 +172,7 @@ def test_live_markdown_audit_reaches_nested_values() -> None:
     generator = _load_generator()
     nested = {"commands": {"x": {"actions": {"y": {"parameters": ["[a](b)"]}}}}}
 
-    with pytest.raises(generator.LedgerError, match=r"parameters\[0\] must not contain"):
+    with pytest.raises(generator.LedgerError, match=r"parameters\[0\] contains a construct"):
         generator._audit_manual_strings(nested)
 
 

@@ -238,10 +238,7 @@
       },
       "assist_unavailable_reason": "Assist intentionally has no filesystem diff wrapper.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {},
-      "issues": [
-        "#328"
-      ]
+      "actions": {}
     },
     "fs.move": {
       "authorization_class": "path_dependent_mutation",

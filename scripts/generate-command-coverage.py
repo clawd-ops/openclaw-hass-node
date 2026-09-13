@@ -82,48 +82,69 @@ _FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\
 _ISSUE_CITATION_RE = re.compile(r"^#[1-9][0-9]*$")
 # Manual ledger strings are interpolated into the published Markdown without
 # escaping, so a construct that renders as a live element becomes live content in
-# COMMAND-COVERAGE.md. Wholesale escaping is not an option: values legitimately
-# use inline code and bold, and two parameter names contain angle brackets
-# (`<helper_type>_id`) that are not HTML.
+# COMMAND-COVERAGE.md.
 #
-# This is a blocklist, and a blocklist is leaky by construction — an earlier
-# version of it missed raw anchors, reference-style links and autolinks. It is
-# here to stop a published artifact gaining live content by accident, not as a
-# security boundary. The boundary is that `contracts/command-coverage-manual.json`
-# only changes through a reviewed pull request. Nothing below should be read as
-# defending against an author who already has merge rights.
+# READ THIS BEFORE EXTENDING IT. This is a blocklist over input syntax, and it
+# has leaked three times: first it missed raw anchors, reference links and
+# autolinks; then it missed Material's attr-list syntax, which produced an
+# element carrying an event-handler attribute, along with links whose closing
+# bracket is escaped or nested. Each round closed the reported cases and the next
+# round found more. A blocklist over a renderer's full surface does not converge,
+# and nothing here should be read as claiming it has.
 #
-# The `issues` field is different and genuinely closed: its format is fully
+# What this actually does: refuses the constructs enumerated below. That is
+# useful because the realistic failure is an author pasting a link into a prose
+# field, not an adversary — the manual ledger only changes through a reviewed
+# pull request, so an author who wants live content already has merge rights and
+# does not need a bypass. It is an accident-catcher, not a boundary.
+#
+# The convergent fix is to validate rendered output rather than input syntax:
+# render each string with the same extension set mkdocs uses and reject any live
+# element. That cannot be defeated by a syntax nobody thought of, because it asks
+# the renderer instead of guessing. It is not done here because `markdown` is not
+# a dependency of this environment — it lives only in the docs requirements — and
+# pulling a rendering stack into the generator to catch accidental content is a
+# bigger change than it is worth inline. Tracked separately.
+#
+# `issues` is the exception and is genuinely closed: its format is fully
 # specified, so it is validated by allowlist (`_ISSUE_CITATION_RE`) rather than
-# by this.
+# by anything below.
 _LIVE_MARKDOWN_RE = re.compile(
     r"""
-      !?\[[^\]]*\]\([^)]*\)          # inline link or image
-    | !?\[[^\]]*\]\[[^\]]*\]         # reference-style link or image
-    | ^\s*\[[^\]]*\]:\s*\S           # link reference definition
-    | <[a-zA-Z][a-zA-Z0-9+.-]*:[^>]*>  # autolink of any scheme
-    | </?(?:a|img|script|iframe|svg|object|embed|style|link|base)\b  # live HTML
+      !?\[(?:[^\[\]\\]|\\.|\[[^\]]*\])*\]\s*\([^)]*\)   # inline link/image
+    | !?\[(?:[^\[\]\\]|\\.|\[[^\]]*\])*\]\s*\[[^\]]*\]   # reference-style link/image
+    | ^\s*\[[^\]]*\]:\s*\S                      # link reference definition
+    | <[a-zA-Z][a-zA-Z0-9+.-]*:[^>]*>              # autolink, any scheme
+    | <[^>@\s]+@[^>\s]+>                           # email autolink
+    | </?(?:a|img|script|iframe|svg|object|embed|style|link|base)\b   # live HTML
+    | \{:[^}]*\}                                   # Material attr-list
     """,
     re.VERBOSE | re.MULTILINE | re.IGNORECASE,
 )
 
 
 def _reject_live_markdown(where: str, value: str) -> None:
-    """Refuse constructs that render as live elements in the published ledger."""
+    """Refuse the enumerated live-rendering constructs in *value*.
+
+    Deliberately not described as refusing "all" live content: see the comment
+    above. This closes the constructs listed in `_LIVE_MARKDOWN_RE` and nothing
+    more.
+    """
     if _LIVE_MARKDOWN_RE.search(value):
         raise LedgerError(
-            f"{where} must not contain link, image, autolink or live-HTML syntax; "
-            "manual ledger strings are rendered verbatim into the published ledger"
+            f"{where} contains a construct that renders as a live element "
+            "(link, image, autolink, attribute list, or HTML tag); manual ledger "
+            "strings are rendered verbatim into the published ledger"
         )
 
 
 def _audit_manual_strings(node: Any, path: str = "manual") -> None:
-    """Walk every string in the manual ledger and reject live-rendering syntax.
+    """Walk every string in the manual ledger and apply `_reject_live_markdown`.
 
-    Applied once at load rather than per field. The previous version guarded
-    three fields by name, and review then found `semantic_result`,
-    `semantic_errors`, parameter bounds and observation `source` still open —
-    naming fields individually leaves the next one uncovered.
+    Applied once at load rather than per field. An earlier version guarded three
+    fields by name, and review then found `semantic_result`, `semantic_errors`,
+    parameter bounds and observation `source` still open — naming fields always
+    leaves the next one uncovered.
     """
     if isinstance(node, dict):
         for key, child in node.items():

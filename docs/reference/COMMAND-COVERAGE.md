@@ -58,7 +58,7 @@ _(no unreleased command additions)_
 | Command / action | Advertised | Direct caller | Handler/dispatch | Assist wrapper | Authorization | Method | **Outcome** |
 |---|---|---|---|---|---|---|---|
 | `fs.delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `fs.diff` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/328" target="_blank" rel="noopener noreferrer">#328</a>) |
+| `fs.diff` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`partial`** |
 | `fs.glob` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | `fs.history` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | `fs.list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
@@ -204,7 +204,6 @@ _(no unreleased command additions)_
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `partial`**
-- Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/328" target="_blank" rel="noopener noreferrer">#328</a>
 - Evidence note: Sept 13 read-only completion sweep reached fs.diff through direct nodes.invoke, but the inspected file had no stored versions, so successful diff rendering remains unverified.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
