@@ -326,14 +326,34 @@ describe("Assist mapping mutation regression", () => {
   // separate bodies they asserted different amounts — only ha_logbook checked
   // that the mutation had landed, and ha_calendar_get_events never checked the
   // unmutated values at all. One table applies the strongest form to all four.
-  for (const { toolName, first, second } of [
-    { toolName: "ha_logbook", first: "start", second: "end" },
-    { toolName: "ha_history", first: "start", second: "end" },
-    { toolName: "ha_light_turn_on", first: "entity_id", second: "area_id" },
+  for (const { toolName, first, second, firstTarget, secondTarget } of [
+    {
+      toolName: "ha_logbook",
+      first: "start",
+      second: "end",
+      firstTarget: "start_time",
+      secondTarget: "end_time",
+    },
+    {
+      toolName: "ha_history",
+      first: "start",
+      second: "end",
+      firstTarget: "start_time",
+      secondTarget: "end_time",
+    },
+    {
+      toolName: "ha_light_turn_on",
+      first: "entity_id",
+      second: "area_id",
+      firstTarget: "entity_id",
+      secondTarget: "area_id",
+    },
     {
       toolName: "ha_calendar_get_events",
       first: "start_date_time",
       second: "end_date_time",
+      firstTarget: "start_date_time",
+      secondTarget: "end_date_time",
     },
   ]) {
     it(`swapping ${toolName} ${first}/${second} targets produces wrong values`, async () => {
@@ -342,8 +362,12 @@ describe("Assist mapping mutation regression", () => {
       const args = buildTestArgs(reg.contract);
       const call = await executeFactory(reg.contract, reg.loadTool, args);
 
-      const firstTarget = reg.contract.emitted_params[first]!;
-      const secondTarget = reg.contract.emitted_params[second]!;
+      // Independent oracle. Reading the targets out of the contract under test
+      // would make a *coordinated* swap — contract and factory changed together
+      // — invisible, because both sides of every comparison would move with it.
+      // These literals are the thing the contract is checked against.
+      expect(reg.contract.emitted_params[first]).toBe(firstTarget);
+      expect(reg.contract.emitted_params[second]).toBe(secondTarget);
 
       // Distinct sentinels, or a swap would be undetectable.
       expect(args[first]).not.toBe(args[second]);
