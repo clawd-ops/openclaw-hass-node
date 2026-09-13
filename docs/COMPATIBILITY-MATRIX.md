@@ -74,24 +74,26 @@ starts from until a component is updated.
 | HACS | `2.0.5` | observed-live |
 | Architecture | not recorded | see [Known recording gaps](#known-recording-gaps) |
 | Advertised commands (live) | 51 | observed-live |
-| Advertised commands (source) | 56 | repo-declared (`de8404e`) |
+| Advertised commands (source) | 57 | repo-declared (`bde59c7`) |
 
-**Advertisement delta, 51 live versus 56 in source.** The running artifact
-`2026.7.23b1` does not advertise these five commands, which exist only in merged
-source:
+**Advertisement delta, 51 live versus 57 in source.** The running artifact
+`2026.7.23b1` does not advertise these six commands. They are published in
+`2026.9.13b1`, but that beta has not been installed or live-verified:
 
-| Command | Merged under | Released in `2026.7.23b1` |
+| Command | Merged under | Released in `2026.9.13b1` |
 |---|---|---|
-| `ha.addon_update` | #260 via PR #284 | no |
-| `ha.update_install` | #260 via PR #284 | no |
-| `system.run.prepare` | #258 via PRs #274 / #277 | no |
-| `system.execApprovals.get` | #258 via PRs #274 / #277 | no |
-| `system.execApprovals.set` | #258 via PRs #274 / #277 | no |
+| `ha.addon_update` | #260 via PR #284 | yes |
+| `ha.supervisor_info` | #304 via PR #308 | yes |
+| `ha.update_install` | #260 via PR #284 | yes |
+| `system.run.prepare` | #258 via PRs #274 / #277 | yes |
+| `system.execApprovals.get` | #258 via PRs #274 / #277 | yes |
+| `system.execApprovals.set` | #258 via PRs #274 / #277 | yes |
 
 No command is advertised by the running node and missing from source. This
-confirms the roadmap's released-artifact rule is doing real work: both of those
-changes are correct at source and still unreleased, so neither may be ticked as
-complete on release-tie grounds.
+confirms the roadmap's installed-artifact rule is doing real work: the source
+changes are published, but the live node still runs the prior beta. Completion
+ticks remain open until `2026.9.13b1` is installed and the required UAT evidence
+is recorded.
 
 ### 2026-09-11 — command surface verification
 

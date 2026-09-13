@@ -4,13 +4,16 @@
 > result you should see. If anything diverges, paste the diff into
 > the channel and the agent will dig in.
 >
-> **State as of the current beta (`2026.6.20b7`):** install, pair,
-> connect, gateway-side tool invokes, and Assist conversation relay
-> (dual websocket pair, streaming token deltas, tool-named progress)
-> all work end-to-end. Local HTTP API is fail-closed (a token is
-> required); HACS integration probes for the local API at config-flow time.
-> The native OpenClaw approval/write flow is still planned. The Gateway remains
-> the sole approval authority; any add-on view is presentation-only.
+> **Release and installed state:** the latest published beta is
+> [`2026.9.13b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.9.13b1),
+> but the last observed live installation remains `2026.7.23b1` until an
+> operator performs the Tier B add-on install. Install, pair, connect,
+> gateway-side tool invokes, and Assist conversation relay have prior
+> end-to-end evidence; they are not yet fresh UAT evidence for `2026.9.13b1`.
+> Local HTTP API is fail-closed (a token is required); HACS integration probes
+> for the local API at config-flow time. The native OpenClaw approval/write flow
+> is still planned. The Gateway remains the sole approval authority; any add-on
+> view is presentation-only.
 
 ## Phase A — Install
 
@@ -25,7 +28,7 @@
 ### A2. Install and start
 
 1. Click **OpenClaw Node** → **Install** (multi-arch image; will pick
-   `amd64` / `aarch64` / `armv7` for your host).
+   `amd64` or `aarch64` for your host).
 2. **Configuration** tab — fill in `gateway_url`, `pairing_token`,
    `node_name`, and (recommended) `local_api_token`.
 3. **Start**.
@@ -106,7 +109,7 @@ successful pairing.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 56 (ha.*, fs.*, system.*, ping)
+#         Commands: list of 57 (ha.*, fs.*, system.*, ping)
 ```
 
 ## Phase C — Tool invokes through the gateway *(working)*

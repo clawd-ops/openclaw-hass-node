@@ -1,14 +1,15 @@
 # Status
 
-> **Beta.** Pairing, connection, selected tool invokes, and HA Assist
-> conversation have end-to-end evidence on the beta track. The full command
-> surface is not yet proven and includes known unreachable or broken paths.
-> Publishing infrastructure is still settling and pre-1.0 breaking changes are
-> still possible.
+> **Beta.** The latest published beta is
+> [`2026.9.13b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.9.13b1).
+> Pairing, connection, selected tool invokes, and HA Assist conversation have
+> end-to-end evidence on the beta track, but the full command surface is not yet
+> proven. Pre-1.0 breaking changes are still possible.
 
-> **Reality notice:** the historical release narrative below still contains
-> known-stale versions, availability, and policy claims. Until Phase 6
-> reconciliation is complete, use the
+> **Installed-state notice:** release publication is not deployment evidence.
+> The last observed live installation remains `2026.7.23b1` until an operator
+> performs the Tier B add-on install and records fresh UAT evidence. Until Phase
+> 6 reconciliation is complete, use the
 > [completion roadmap](COMPLETION-ROADMAP.md),
 > [dated verification](VERIFICATION-2026-09-11.md), and generated
 > [command coverage ledger](reference/COMMAND-COVERAGE.md) for current claims.
@@ -18,7 +19,7 @@
 > `docs/design/PLAN.md` and `STATUS.md` disagree, fix whichever is wrong before
 > continuing.
 
-## Phase 0 containment (unreleased source change)
+## Phase 0 containment (released, not yet live-verified)
 
 All 19 mutating actions across the nine `ha.config.*` commands now deny
 unverified proposal identifiers before any HA request. The shared boundary has
@@ -27,12 +28,13 @@ unchanged. API-adapter tests explicitly stub the boundary to retain dormant
 adapter coverage; the independent boundary suite uses real authorization code
 and asserts zero HA requests through both handlers and dispatcher.
 
-This is containment only, not a working approval flow or a deployed fix.
-See [the completion roadmap](COMPLETION-ROADMAP.md) for the remaining work.
-Older release and non-config claims below still await the wider reconciliation.
+This is containment only, not a working approval flow. It shipped in
+`2026.9.13b1`, but it is not deployed or production-proven in the last observed
+live environment. See the [completion roadmap](COMPLETION-ROADMAP.md) for the
+remaining work.
 
 The generic `ha.call_service` path also has bounded Phase 0 containment in
-unreleased source (#287): lifecycle, update, reload, host, shell, and shutdown
+`2026.9.13b1` (#287): lifecycle, update, reload, host, shell, and shutdown
 effects return `SERVICE_DENIED` before HA I/O, while ordinary operations such
 as `light.turn_on` remain available. Input names and aliases are normalized and
 validated before the policy decision. This is not the final approval-aware
@@ -41,8 +43,8 @@ effect policy and has not been deployed or production-proven.
 ## Where we are
 
 **Coverage ledger foundation (#268, delivered by merged PR #269):** a deterministic generator
-now reconciles 56 dispatcher commands, 56 node advertisements, 30 Assist wrapper
-registrations, and 31 action variants into 87 explicit rows. The Assist
+now reconciles 57 dispatcher commands, 57 node advertisements, 31 Assist wrapper
+registrations, and 31 action variants into 88 explicit rows. The Assist
 registration contract is executable by the plugin and records each tool,
 descriptor, factory, node command, accepted tool key, and emitted node-key
 mapping. Machine-readable and human-readable artifacts separate evidence method
@@ -52,17 +54,17 @@ keys, aliases, defaults/bounds, field provenance, semantic/error notes,
 authorization class, capability conditions, and explicit unavailable reasons.
 The check fails on missing or stale command/action/caller coverage, source/action
 parameter drift, unacknowledged Assist mapping drift, and stale generated
-artifacts. The lifecycle `admin_token` mismatch is resolved in the current
-unreleased source: lifecycle wrappers require `allowAdminOps` and the node's
-slug policy without injecting another token. The separate
-`ha.reload_config` domain mismatch is also resolved in the current unreleased
-source: `domain` is optional, only `core` is supported, and any other value is
-refused with `UNSUPPORTED` before any HA request instead of silently reloading
-core config. Per-domain reload stays unimplemented pending the effect policy.
+artifacts. The lifecycle `admin_token` mismatch is resolved in `2026.9.13b1`:
+lifecycle wrappers require `allowAdminOps` and the node's slug policy without
+injecting another token. The separate `ha.reload_config` domain mismatch is
+also resolved in `2026.9.13b1`: `domain` is optional, only `core` is supported,
+and any other value is refused with `UNSUPPORTED` before any HA request instead
+of silently reloading core config. Per-domain reload stays unimplemented
+pending the effect policy.
 This inventory does not enable commands or resolve the other defects it
 records.
 
-**Additional unreleased source repair (#266):** generic service calls normalize
+**Additional repair shipped in `2026.9.13b1` (#266):** generic service calls normalize
 `service_data` to canonical `data` without dropping payloads and reject alias
 conflicts before HA I/O. Inner handler failures now fail the gateway invoke;
 all Assist tools share an error guard that also handles older node envelopes
@@ -74,9 +76,10 @@ I/O and checks the exact nested response rendered by the tool. This is not
 deployed and does not implement per-service approval policy.
 See [the command contract](reference/COMMAND-SURFACE.md#service-payload-and-result-contract-unreleased-266).
 
-Currently on **2026.6.20b7** in the shipped release; `main` is
-`Unreleased → 2026.6.20b8` carrying the merged identity-routing hardening
-(PR #167) and this docs-reconciliation pass. The node ships:
+The latest published beta is
+[`2026.9.13b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.9.13b1).
+The last observed live installation remains `2026.7.23b1`; the following is the
+released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
 
 - **Dual websocket pair.** One `role: node` connection for
   `node.invoke.*`, one `role: operator` connection for the
@@ -89,15 +92,16 @@ Currently on **2026.6.20b7** in the shipped release; `main` is
   session, with token-delta streaming back into HA. Mid-turn
   tool-named progress lines (e.g. `🔧 Calling weather...`) surface
   in the conversation UI while the agent is still working.
-- **56 commands** registered in the dispatcher:
-  - `ha.*` (39): list/get states, call service, list areas/devices/
+- **57 commands** registered in the dispatcher and advertised by the node:
+  - `ha.*` (40): list/get states, call service, list areas/devices/
     services/entity-registry, config, events, config entries, core logs,
     calendar events, logbook, history, reload config,
     light turn on/off, list automations, check config, the
     Tier A read-only addon surface (`list_addons`, `addon_info`,
     `addon_stats`, `addon_logs`, `addon_changelog`,
-    `addon_documentation`), Tier B addon lifecycle
-    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) authenticated
+    `addon_documentation`, `supervisor_info`), Tier B addon lifecycle
+    (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) and
+    `update_install`, authenticated
     by the paired session and constrained by an explicit slug allowlist, with no
     separate lifecycle admin token, and the nine
     `ha.config.*` domain-config editors: `lovelace`, `automation`,

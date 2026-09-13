@@ -10,11 +10,14 @@
 > least-privilege agent. See the [README disclaimer](README.md) for the
 > full version of this warning.
 
-> ⚠️ **Beta.** Pair, connect, tool invokes, and HA Assist conversation
-> all work end-to-end on the current beta track (`2026.6.20b7`). The
-> integration appears as a conversation agent in HA's Voice assistants
-> picker, streams replies in real time, and surfaces tool-named
-> progress lines like `🔧 Calling weather...` mid-turn. Pre-1.0
+> ⚠️ **Beta.** The latest published beta is
+> [`2026.9.13b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.9.13b1).
+> Pair, connect, tool invokes, and HA Assist conversation have end-to-end beta
+> evidence. The integration appears as a conversation agent in HA's Voice
+> assistants picker, streams replies in real time, and surfaces tool-named
+> progress lines like `🔧 Calling weather...` mid-turn. The last observed live
+> installation remains `2026.7.23b1`; installing the new beta is a Tier B
+> operator action, and publication alone is not live UAT evidence. Pre-1.0
 > breaking changes are still possible; track
 > [`docs/STATUS.md`](STATUS.md) for the road to 1.0.
 
@@ -243,7 +246,7 @@ first successful pairing** — it's consumed.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 56
+#         Commands: list of 57
 ```
 
 Or round-trip a command directly from the gateway side:

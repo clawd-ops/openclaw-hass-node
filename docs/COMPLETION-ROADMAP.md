@@ -2,13 +2,15 @@
 
 **Status:** active planning baseline
 
-**Baseline:** repo `bc95f95`; running app `2026.7.23b1`; verification dated
-2026-09-12. Version string is aligned in both `app/config.yaml` and
-`app/node/pyproject.toml`; no released tag has advanced past `2026.7.23b1`.
+**Baseline:** repo `bde59c7`; latest published beta
+[`2026.9.13b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.9.13b1);
+last observed running app `2026.7.23b1`; live verification dated 2026-09-12.
+Release publication does not advance the installed baseline: a Tier B install
+and fresh UAT evidence are still required.
 
 **Evidence source:** [`VERIFICATION-2026-09-11.md`](VERIFICATION-2026-09-11.md)
 
-This is the dependency-ordered path from the current beta to a release where
+This is the dependency-ordered path from the latest beta to a release where
 every supported capability works as advertised. It is intentionally separate
 from `STATUS.md`, `TODO.md`, and `design/PLAN.md` while those files contain
 known-stale claims.
@@ -147,9 +149,9 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
 - [x] Publish a command/action/caller-path coverage ledger generated from the
   current source. Record parameters, aliases, limits, response schema, policy,
   feature availability, and an acceptance-test ID for each row. Foundation work
-  is delivered by merged PR #269 under #268: 56 registered commands,
-  56 advertised commands, 30 executable Assist registrations, and 31 action variants
-  produce 87 deterministic rows in
+  is delivered by merged PR #269 under #268: 57 registered commands,
+  57 advertised commands, 31 executable Assist registrations, and 31 action variants
+  produce 88 deterministic rows in
   [`reference/COMMAND-COVERAGE.md`](reference/COMMAND-COVERAGE.md) and
   `reference/command-coverage.json`. The generated rows distinguish evidence
   method from outcome per caller, separate curated acceptance-test IDs from
@@ -207,9 +209,9 @@ completion claim has a row in the coverage ledger.
     `2f44a65`: node normalizes `service_data` → `data` at the boundary,
     accepts the legacy alias, and rejects conflicting duplicates before HA
     I/O. Covered by `tests/test_ha_commands.py` and the cross-language
-    `tests/contracts/invoke_fixture.py`. Not yet in a released artifact
-    (`2026.7.23b1` still ships the pre-fix behavior); release-tie
-    verification stays with the Phase 6 packaging gate.
+    `tests/contracts/invoke_fixture.py`. Shipped in `2026.9.13b1`, but the last
+    observed live installation (`2026.7.23b1`) still has the pre-fix behavior;
+    install and UAT verification stay with the Phase 6 packaging gate.
   - [ ] URL/path/query percent-encoding.
 - [ ] Propagate handler errors through the transport and plugin. Success text is
   emitted only after the inner operation succeeds. PR #267 merged at `2f44a65`:
@@ -227,7 +229,7 @@ completion claim has a row in the coverage ledger.
   refusals, HA failures, and legacy envelopes. It runs actual wrapper output
   and Python gateway result frames and asserts the exact nested
   changed-state payload in the returned tool text; broader command-family
-  coverage across the 87-row ledger is still open.
+  coverage across the 88-row ledger is still open.
 
 **Exit:** every supported request has deterministic parameters and result
 semantics on both direct and Assist paths; unknown input cannot broaden scope.
@@ -295,8 +297,9 @@ an operator device, and the node consumes it exactly once.
 - [ ] Distinguish unknown entities from valid empty history where HA permits it.
 - [ ] Make `ha.addon_update` and `ha.update_install` advertisement, gateway
   permission, runtime capability, authorization, and plugin exposure agree.
-  Source is merged on `main` but not yet in a released artifact (per the
-  "How progress is counted" rule); tick belongs to the release-tie gate.
+  Source is released in `2026.9.13b1`, but the last observed live installation
+  remains `2026.7.23b1` (per the "How progress is counted" rule); the tick still
+  requires install and UAT evidence.
   Delivered by #260 via PR #284 at `762dc86`: both commands are now advertised
   in `_NODE_COMMANDS`, `_INTENTIONALLY_UNADVERTISED` is the single documented
   exemption list, and a drift gate (`test_command_coverage_ledger`,
@@ -306,7 +309,7 @@ an operator device, and the node consumes it exactly once.
   evidence stays with the Phase 3 durable-receipt item below. Confirmed by
   observation on 2026-09-12: the installed `2026.7.23b1` node advertises 51
   commands and does not include `ha.addon_update` or `ha.update_install`, while
-  source advertises 56. See
+  the `2026.9.13b1` source advertises 57. See
   [`COMPATIBILITY-MATRIX.md`](COMPATIBILITY-MATRIX.md).
 - [ ] Give app/Core update operations a durable operation ID and receipt that
   survives the process being terminated by its own update. Reconcile exact
