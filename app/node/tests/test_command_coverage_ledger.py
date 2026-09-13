@@ -77,6 +77,65 @@ def test_issue_citation_anchor_is_constructed_not_interpolated() -> None:
     assert 'rel="noopener noreferrer"' in rendered
 
 
+@pytest.mark.parametrize("falsey", [None, 0, "", False, []])
+def test_explicitly_null_caller_observations_is_rejected_not_defaulted(
+    monkeypatch: pytest.MonkeyPatch, falsey: object
+) -> None:
+    """`or {}` accepted any falsey value as "no observations".
+
+    That let a higher-precedence null suppress inherited observations instead of
+    failing validation — the same absent-versus-null defect as `issues`, which is
+    why presence is now resolved centrally rather than re-walked per field.
+    """
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"]["caller_observations"] = falsey
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    with pytest.raises(generator.LedgerError, match=r"caller_observations for"):
+        generator.build_ledger()
+
+
+def test_absent_caller_observations_defaults_to_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Omitting the key is still the documented way to mean "none"."""
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.get_config"].pop("caller_observations", None)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+
+    generator.build_ledger()
+
+
+@pytest.mark.parametrize("scope_index", [0, 1, 2, 3])
+def test_presence_resolution_honours_scope_precedence(scope_index: int) -> None:
+    """Presence and value must be resolved from the same scope, in one place.
+
+    An earlier fix re-walked these scopes at the call site to distinguish absent
+    from null. That duplicated the precedence order and would have drifted the
+    moment either copy changed, which is what this pins.
+    """
+    generator = _load_generator()
+    scopes: list[dict[str, object]] = [{}, {}, {}, {}]
+    scopes[scope_index]["issues"] = [scope_index]
+
+    declared, value = generator._resolve_evidence_presence("issues", *scopes)
+
+    assert declared is True
+    assert value == [scope_index]
+
+
+def test_presence_resolution_reports_absence() -> None:
+    """An undeclared key reports absence rather than a None value."""
+    generator = _load_generator()
+
+    declared, value = generator._resolve_evidence_presence("issues", {}, {}, {}, {})
+
+    assert declared is False
+    assert value is None
+
+
 def test_explicitly_null_issues_is_rejected_not_defaulted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

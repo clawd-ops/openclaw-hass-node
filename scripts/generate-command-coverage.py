@@ -817,6 +817,27 @@ def _resolved_manual(
     return variant.get(key, entry.get(key, defaults.get(key)))
 
 
+def _resolve_evidence_presence(
+    key: str,
+    variant: dict[str, Any],
+    entry: dict[str, Any],
+    authorization_defaults: dict[str, Any],
+    defaults: dict[str, Any],
+) -> tuple[bool, Any]:
+    """Resolve *key*, reporting whether any scope declared it.
+
+    Presence and value are resolved together, in one place, because they must
+    agree on precedence. An earlier fix walked these scopes a second time at the
+    call site to tell an absent key from an explicit null; that duplicated the
+    order here and would have drifted the moment either changed. Returning both
+    facts removes the duplicate.
+    """
+    for scope in (variant, entry, authorization_defaults, defaults):
+        if key in scope:
+            return True, scope[key]
+    return False, None
+
+
 def _resolved_evidence_field(
     key: str,
     variant: dict[str, Any],
@@ -825,13 +846,8 @@ def _resolved_evidence_field(
     defaults: dict[str, Any],
 ) -> Any:
     """Resolve explicit row metadata before authorization-class and global defaults."""
-    if key in variant:
-        return variant[key]
-    if key in entry:
-        return entry[key]
-    if key in authorization_defaults:
-        return authorization_defaults[key]
-    return defaults.get(key)
+    _, value = _resolve_evidence_presence(key, variant, entry, authorization_defaults, defaults)
+    return value
 
 
 def _validate_acceptance_test_id(test_id: str) -> None:
@@ -1221,16 +1237,19 @@ def build_ledger() -> dict[str, Any]:
                     "handler_dispatch": handler_dispatch_path,
                 }
             )
-            caller_observations = (
-                _resolved_evidence_field(
-                    "caller_observations",
-                    variant,
-                    entry,
-                    authorization_defaults,
-                    manual_defaults,
-                )
-                or {}
+            # Same absent-versus-null distinction as `issues`. `or {}` accepted an
+            # explicit null as "no observations", so a higher-precedence null
+            # could suppress inherited observations instead of failing.
+            observations_declared, caller_observations = _resolve_evidence_presence(
+                "caller_observations", variant, entry, authorization_defaults, manual_defaults
             )
+            if not observations_declared:
+                caller_observations = {}
+            elif caller_observations is None:
+                raise LedgerError(
+                    f"caller_observations for {row_id} is explicitly null; omit the "
+                    "key entirely to mean 'no observations'"
+                )
             if not isinstance(caller_observations, dict):
                 raise LedgerError(f"caller_observations for {row_id} must be an object")
             for caller_name, observations in caller_observations.items():
@@ -1278,27 +1297,20 @@ def build_ledger() -> dict[str, Any]:
                             stale=obs_stale,
                         )
                     )
-            # `_resolved_evidence_field` returns None both for an absent key and
-            # for one authored as explicit null, so "absent" has to be decided
-            # before resolution. Walking the same scopes in the same precedence
-            # order keeps the two in step. Without this, `"issues": null` was
-            # normalised to [] while the comment claimed only absence defaulted.
-            for _scope in (variant, entry, authorization_defaults, manual_defaults):
-                if "issues" in _scope:
-                    if _scope["issues"] is None:
-                        raise LedgerError(
-                            f"issues for {row_id} is explicitly null; omit the key "
-                            "entirely to mean 'no citations'"
-                        )
-                    break
-            issues = _resolved_evidence_field(
-                "issues", variant, entry, authorization_defaults, manual_defaults
-            )
             # Only a genuinely absent key defaults. `or []` used to run before the
             # type check, so an explicit "", 0, false or {} was silently accepted
-            # as "no citations" instead of being rejected as malformed.
-            if issues is None:
+            # as "no citations" instead of being rejected as malformed, and an
+            # explicit null was indistinguishable from absence.
+            issues_declared, issues = _resolve_evidence_presence(
+                "issues", variant, entry, authorization_defaults, manual_defaults
+            )
+            if not issues_declared:
                 issues = []
+            elif issues is None:
+                raise LedgerError(
+                    f"issues for {row_id} is explicitly null; omit the key "
+                    "entirely to mean 'no citations'"
+                )
             if not isinstance(issues, list):
                 raise LedgerError(f"issues for {row_id} must be a list (got {issues!r})")
             for citation in issues:
