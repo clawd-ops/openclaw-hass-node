@@ -267,25 +267,30 @@ def _stamp(version: str) -> int:
     stamped = sorted(
         name for name, entry in commands.items() if entry["first_shipped_in"] == UNRELEASED
     )
-    if not stamped:
-        print(f"nothing to do: no command is marked {UNRELEASED!r}")
-        return 0
 
-    for name in stamped:
-        commands[name]["first_shipped_in"] = version
+    # Regenerate even when nothing needs stamping. A version-only release still
+    # moves `latest_release`, so "New in this release" is stale until the
+    # artifacts are rebuilt. Returning early here left the ledger describing the
+    # previous release while the repo claimed the new one.
+    if stamped:
+        for name in stamped:
+            commands[name]["first_shipped_in"] = version
 
-    indent = 2 if raw.startswith(b"{\n  ") else 4
-    MANUAL_PATH.write_text(
-        json.dumps(data, indent=indent, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+        indent = 2 if raw.startswith(b"{\n  ") else 4
+        MANUAL_PATH.write_text(
+            json.dumps(data, indent=indent, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
 
     if subprocess.run([sys.executable, str(GENERATOR)], cwd=ROOT).returncode != 0:
         print(
-            "error: ledger regeneration failed after the manual file was rewritten; "
-            "run `git checkout -- .` and retry",
+            "error: ledger regeneration failed; run `git checkout -- .` and retry",
             file=sys.stderr,
         )
         return 1
+
+    if not stamped:
+        print(f"no command was marked {UNRELEASED!r}; regenerated artifacts only")
+        return 0
 
     print(f"stamped {len(stamped)} command(s) with first_shipped_in={version!r}:")
     for name in stamped:

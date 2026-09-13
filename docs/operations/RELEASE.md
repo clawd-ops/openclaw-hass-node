@@ -26,8 +26,9 @@ ledger sweep.
    `scripts/mark-commands-shipped.py` locally after the version bump. The
    manual command ledger and both generated artifacts are committed in the
    same PR as all five version sources and the changelog. This is not tag
-   automation. The helper prepares every candidate before replacement and uses
-   best-effort rollback if a replacement fails or is interrupted.
+   automation. The helper always regenerates the artifacts, including when no
+   command needed stamping, because a version-only release still moves
+   `latest_release`.
 3. **Releases are cut by CI, not by hand.** Pushing a version bump to
    `main` is what triggers the tag + GitHub release. No human runs
    `git tag` in the normal flow.
@@ -128,14 +129,14 @@ scripts/mark-commands-shipped.py 2026.6.20b8
 python scripts/generate-command-coverage.py --check
 ```
 
-The helper preflights the complete manual ledger and prepares every replacement
-before mutating a tracked path. It then applies the files in sequence, catches
-ordinary failures and interruptions, and makes a best-effort rollback that
-restores original bytes and file modes. This is not filesystem-level atomicity:
-a hard process kill, host power loss, or rollback failure can leave a partial
-update. In that case the helper reports incomplete recovery and names the paths
-that require inspection. Candidate and rollback temporary files are cleaned on
-handled paths.
+The helper preflights the complete manual ledger, rewrites it when any command
+is still `unreleased`, and regenerates both artifacts. It has no rollback
+machinery, deliberately: every path it writes is tracked, so a partial run is
+undone with `git checkout -- .` followed by a retry. Git already provides the
+recovery that custom rollback code could only approximate, and the previous
+implementation of that code carried a real defect of its own. If regeneration
+fails after the ledger was rewritten, the helper says so and tells you to reset
+and retry.
 
 Shipment values accept the same canonical forms as `scripts/bump-version.py`:
 historical alpha and beta versions (`aN` and `bN`), release candidates (`rcN`),
