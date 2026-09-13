@@ -642,8 +642,8 @@ The node is in better shape than some docs suggest, and the project is in worse
 shape than the issue tracker suggests.
 
 - **Protected filesystem writes are correctly fail-closed and unusable**, because
-  the approval bridge they wait on was never built. ~~**HA-native config writes are
-  worse: an arbitrary nonempty proposal ID passes and can mutate HA.**~~
+  the approval bridge they wait on was never built. <del>**HA-native config writes are
+  worse: an arbitrary nonempty proposal ID passes and can mutate HA.**</del>
   **Superseded 2026-09-13:** that bypass is closed. `ha.config.*` mutations are
   gated in source by one shared helper, and `PROPOSAL_REQUIRED` was observed live
   on three actions. Sixteen sibling direct paths remain live-unverified. See
@@ -666,8 +666,8 @@ shape than the issue tracker suggests.
 This differs from the 2026-09-07 audit's, because that audit predates both the
 direct-vs-plugin split and the proposal-queue evidence.
 
-1. ~~**Contain the forged-proposal bypass** — reject every `ha.config.*` mutation
-   until a real approval verifier is wired. This is the first safety gate.~~
+1. <del>**Contain the forged-proposal bypass** — reject every `ha.config.*` mutation
+   until a real approval verifier is wired. This is the first safety gate.</del>
    **Done 2026-09-13.** `require_config_mutation_approval` rejects every
    `ha.config.*` mutation; verified by 424 boundary tests and observed refusing
    live on three actions (section 0).
