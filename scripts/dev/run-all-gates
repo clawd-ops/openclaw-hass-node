@@ -31,22 +31,22 @@ fail() {
 echo ">>> prepare Python 3.13 environment"
 uv sync --all-extras --python 3.13 \
     || fail "Python 3.13 environment setup" "uv sync --all-extras --python 3.13"
-PYTHON_PATHS=(app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py)
+PYTHON_PATHS=(app/node/src app/node/tests scripts/*.py scripts/dev/pr-state)
 
 # ── 1. ruff format ──────────────────────────────────────────────────────────
 echo ">>> ruff format --check"
 uv run ruff format --check "${PYTHON_PATHS[@]}" \
-    || fail "ruff format --check" "uv run ruff format --check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py"
+    || fail "ruff format --check" "uv run ruff format --check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state"
 
 # ── 2. ruff lint ────────────────────────────────────────────────────────────
 echo ">>> ruff check"
 uv run ruff check "${PYTHON_PATHS[@]}" \
-    || fail "ruff check" "uv run ruff check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py"
+    || fail "ruff check" "uv run ruff check app/node/src app/node/tests scripts/*.py scripts/dev/pr-state"
 
 # ── 3. mypy ─────────────────────────────────────────────────────────────────
 echo ">>> mypy --strict"
 uv run mypy --strict "${PYTHON_PATHS[@]}" \
-    || fail "mypy --strict" "uv run mypy --strict app/node/src app/node/tests scripts/*.py scripts/dev/pr-state scripts/dev/*.py"
+    || fail "mypy --strict" "uv run mypy --strict app/node/src app/node/tests scripts/*.py scripts/dev/pr-state"
 
 # ── 4. pytest (95% coverage gate) ───────────────────────────────────────────
 echo ">>> pytest"

@@ -110,56 +110,53 @@ Stops loudly at the first failure. Never pushes through a gate or leak failure.
 
 ---
 
-### `spawn-codex-review <num> [narrowing-file]`
+### Exact-head review (`templates/codex-review-brief.md`)
 
-Assembles a Codex review brief by substituting repository identity, PR number, head SHA, base SHA,
-and an optional per-PR narrowing section into
-`scripts/dev/templates/codex-review-brief.md`. It checks the assembled brief,
-then uses a dedicated launcher session to invoke `sessions_spawn` for one
-visible exact-head review run. It requires exactly one successful spawn tool
-call and an accepted child receipt, waits for that exact child to finish, and
-reads the child's final review from its exported trajectory.
-The generated brief binds all local Git and GitHub commands to that repository
-instead of relying on the reviewer's starting directory.
+Reviews are driven by the parent agent, not by a script in this directory.
+`templates/codex-review-brief.md` is the canonical brief: substitute the
+repository, PR number, head SHA, base SHA, and an optional per-PR narrowing
+section, then pass the assembled text verbatim as the `task` of a single
+`sessions_spawn` call with `visible=true`.
 
-The template encodes hard constraints (no commits, no pushes, no merges, no
-file edits, no sub-agents, and no GitHub posts), plus the correct `uv run`
-tooling rule. The child returns an `APPROVE` or `REQUEST CHANGES` review body
-whose exact second line is the single `Reviewed head:` pin. The wrapper
-validates that child-produced pin, owns attribution and publication, and
-`pr-state` parses the pin when deciding whether a review is fresh.
+There is deliberately no wrapper that does the spawning. An earlier version of
+this directory shipped one, and it could not work: bash has no deterministic way
+to call `sessions_spawn`, so the wrapper asked an intermediate model turn to
+re-emit the brief as a tool argument. On a measured run that turn reproduced 58%
+of a 3481-character brief, silently dropping the section defining the verdict
+format, and rewrote a literal path. Validating the result afterwards only
+converted the corruption into a hard failure *after* a full review had been paid
+for. Passing the brief from the parent, which holds the exact text, removes the
+lossy hop rather than checking it.
 
-```
-scripts/dev/spawn-codex-review 123
-scripts/dev/spawn-codex-review 123 reviews/pr-123-narrowing.md
-REVIEW_MODEL_SLUG=openai/gpt-5.6-sol scripts/dev/spawn-codex-review 123
-```
+The template encodes the hard constraints (no commits, pushes, merges, file
+edits, sub-agents, or GitHub posts) and the `uv run` tooling rule, and binds
+every Git and GitHub command to the repository under review rather than the
+reviewer's starting directory.
 
-### Reviewer attribution
+The child returns `APPROVE` or `REQUEST CHANGES` on its first line, with the
+single `Reviewed head:` pin as its exact second line. `pr-state` parses that pin
+to decide whether a review is fresh, so a verdict covers only the SHA it names.
 
-Set `REVIEW_MODEL_SLUG` to request a model variant. The value is a routing
-hint, not attribution evidence. After the child finishes, the wrapper obtains a
-fresh session list, selects the exact accepted child session key, and runs
-`resolve-reviewer-model.py`. That resolver emits only the child record's
-`provider/model` slug and refuses missing, empty, malformed, or unknown
-records.
+### Publishing a review
 
-A valid sign-off looks like:
+The parent publishes, because only the parent can read which model actually ran.
+Before posting: resolve the reviewer's real `provider/model` from the child's
+session record, confirm the pin is on the second line and the head SHA appears
+exactly once, scan the full comment with `confidentiality-check`, check no
+existing comment already carries that exact pin line, re-read the live head and
+base immediately before the POST, and read the stored comment back to confirm it
+matches byte for byte.
+
+Attribution names the actual model:
 
 ```
 Reviewer model: openai/gpt-5.6-sol
 ```
 
 Bare `Codex` is **not** valid attribution. It is indistinguishable across every
-variant, which defeats the purpose of pinning a verdict to a reviewer.
-
-There is no fallback sign-off. Resolver failure suppresses the entire review.
-On success, the wrapper requires the child-produced `Reviewed head:` pin on
-the exact second line, rejects duplicate head mentions, appends only the
-resolved model slug, scans the complete comment with `confidentiality-check`,
-rechecks that the PR head has not moved, posts through the GitHub API, and reads
-the stored comment back exactly. Any failure before posting exits loudly and
-leaves the PR without an unattributable or stale review.
+variant, which defeats the purpose of pinning a verdict to a reviewer. There is
+no fallback sign-off: if the model cannot be resolved, the review is not
+published.
 
 ---
 
