@@ -305,3 +305,23 @@ def log_agent_inventory(identity: IdentityConfig, agents: tuple[str, ...]) -> No
             identity.default_agent_id,
             available,
         )
+    if not identity.default_agent_id and len(agents) > 1:
+        # The one broken topology used to be the only one with no diagnostic.
+        # With several agents and no default, the add-on omits `agentId`, the
+        # gateway cannot resolve an owner for the session, and *every* Assist
+        # turn fails with an opaque INVALID_REQUEST. The inventory needed to
+        # predict that is already in hand here, so say it once at startup
+        # rather than leaving the operator to infer it from repeated turn
+        # failures.
+        #
+        # Deliberately not resolved by picking an agent: see the resolution
+        # rules in docs/design/IDENTITY-AND-SCOPES.md. Guessing would route
+        # household voice commands to an agent nobody chose, and would succeed
+        # while doing it.
+        _LOG.error(
+            "[identity] Gateway has %d agents but default_agent_id is unset, so no agent "
+            "owns an Assist turn and every turn will fail. Set identity.default_agent_id "
+            "in the add-on configuration to one of: %s",
+            len(agents),
+            available,
+        )

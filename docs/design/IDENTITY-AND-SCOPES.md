@@ -281,8 +281,36 @@ Resolution at chat.send time:
 
 1. Look up `actor.user_id` in `user_agent_map` → that's the agentId.
 2. Miss → use `default_agent_id`.
-3. No default configured → omit the `agentId` field (gateway picks
-   its own default, today's behavior).
+3. No default configured → omit the `agentId` field, **but only when the
+   gateway has at most one agent**. See below.
+
+**Step 3 assumes a single-agent gateway, and that assumption is load-bearing.**
+
+"Omit the field and let the gateway pick its own default" is only meaningful
+when there is one agent to pick. A gateway with several agents has no own
+default: it rejects the turn with `INVALID_REQUEST`, because a session key with
+no explicit owner is unresolvable. Omitting `agentId` is therefore not a
+fallback on that topology, it is the failure.
+
+So resolution terminates in one of two ways, not one:
+
+- **At most one gateway agent** → omit `agentId`. Unchanged, and correct.
+- **More than one gateway agent and no `default_agent_id`** → this is an
+  **operator configuration error**, and the add-on must say so at startup (see
+  the ERROR logging rules below). The add-on must not choose an agent on the
+  operator's behalf.
+
+The prohibition on guessing is deliberate. Silently binding Assist to an
+arbitrary agent routes household voice commands somewhere nobody chose, and it
+does so *successfully*: the turn returns a plausible answer from the wrong
+agent, with no error to notice. A refusal naming the setting to configure is
+strictly better than a guess that appears to work. Which agent owns Assist is a
+genuine operator decision; the add-on's job is to ask for it clearly, not to
+invent one.
+
+Consequence for shipping defaults: because `default_agent_id` ships empty, a
+multi-agent gateway is misconfigured on first boot by default. The startup ERROR
+is what makes that state discoverable rather than mysterious.
 
 The add-on trusts `actor` only when the HACS integration signs the actor plus
 turn fields with a signing key derived from `local_api_token`. If the
