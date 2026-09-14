@@ -8,6 +8,7 @@ that assembles the shared :class:`NodeRuntime` and the gateway client.
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from openclaw_node.__main__ import (
     _initial_device_token,
     _reset_pairing_state,
     _resolve_identity_usernames,
+    _warn_lifecycle_allowlist_needs_admin_ops,
     build_runtime,
 )
 from openclaw_node.config import IdentityConfig, NodeConfig
@@ -641,3 +643,112 @@ async def test_main_starts_both_tasks_and_propagates_failure(
     assert cancelled["operator"] is True
     flat = [e for e in exc_info.value.exceptions if isinstance(e, RuntimeError)]
     assert any("http-task-boom" in str(e) for e in flat)
+
+
+# ---------------------------------------------------------------------------
+# _warn_lifecycle_allowlist_needs_admin_ops (issue #332)
+# ---------------------------------------------------------------------------
+
+_WARN_LOGGER = "openclaw_node.__main__"
+
+
+def _warn_text(caplog: pytest.LogCaptureFixture) -> str:
+    """Return the concatenated WARNING output captured from the startup check."""
+    return " ".join(r.getMessage() for r in caplog.records if r.levelno == logging.WARNING)
+
+
+def _with_allowlist(config: NodeConfig, *slugs: str, node_name: str = "test-node") -> NodeConfig:
+    return replace(
+        config,
+        node_name=node_name,
+        identity=replace(config.identity, addon_lifecycle_allowlist=frozenset(slugs)),
+    )
+
+
+def test_warn_silent_when_allowlist_empty(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """An empty allowlist means no gateway gate is needed, so say nothing."""
+    with caplog.at_level(logging.WARNING, logger=_WARN_LOGGER):
+        _warn_lifecycle_allowlist_needs_admin_ops(config)
+    assert _warn_text(caplog) == ""
+
+
+def test_warn_names_the_setting_and_the_remediation(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The warning must name the setting AND what the operator should do.
+
+    Issue #332 is explicit that a warning which only reports that something is
+    wrong is the defect, not the fix. Each assertion below pins a distinct
+    obligation: the setting, the full config path, the affected commands, and
+    the two concrete actions.
+    """
+    with caplog.at_level(logging.WARNING, logger=_WARN_LOGGER):
+        _warn_lifecycle_allowlist_needs_admin_ops(_with_allowlist(config, "my_addon"))
+    text = _warn_text(caplog)
+
+    assert "allowAdminOps" in text
+    assert "plugins.entries.openclaw-hass-node-assist-tools.config.nodes" in text
+    assert "ha.addon_stop" in text
+    assert "openclaw nodes status" in text
+    assert "reload the gateway" in text
+
+
+def test_warn_directs_operator_to_node_id_not_display_name(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The config key is the canonical node ID; the display name is not the key.
+
+    The node cannot know its gateway-assigned ID at startup, so interpolating
+    `node_name` into the config path would hand the operator a key that silently
+    does not match. The message must carry a placeholder and say which value to
+    use.
+    """
+    with caplog.at_level(logging.WARNING, logger=_WARN_LOGGER):
+        _warn_lifecycle_allowlist_needs_admin_ops(
+            _with_allowlist(config, "my_addon", node_name="friendly-hass")
+        )
+    text = _warn_text(caplog)
+
+    assert "<node-id>.allowAdminOps" in text
+    assert "not the display name" in text
+    # The display name may appear as a lookup aid, but never as the config key.
+    assert "nodes.friendly-hass" not in text
+
+
+def test_warn_reports_the_configured_slug_count(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The count comes from the allowlist rather than being a fixed string."""
+    with caplog.at_level(logging.WARNING, logger=_WARN_LOGGER):
+        _warn_lifecycle_allowlist_needs_admin_ops(_with_allowlist(config, "a", "b", "c"))
+    assert "3 slug(s)" in _warn_text(caplog)
+
+
+def test_warn_is_warning_level_and_does_not_raise(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A startup notice must not block startup, and must be visible as a WARNING.
+
+    Returning normally is the no-block assertion: any raise propagates out of
+    ``_main`` and takes the node down. The level check keeps the notice from
+    being demoted to INFO, where the operator watching the add-on log for a
+    problem would not see it.
+    """
+    populated = _with_allowlist(config, "my_addon")
+    with caplog.at_level(logging.DEBUG, logger=_WARN_LOGGER):
+        _warn_lifecycle_allowlist_needs_admin_ops(populated)
+    levels = {r.levelno for r in caplog.records}
+    assert levels == {logging.WARNING}
+
+
+def test_warn_tolerates_unset_node_name(
+    config: NodeConfig, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A blank node_name must not blank out the remediation text."""
+    with caplog.at_level(logging.WARNING, logger=_WARN_LOGGER):
+        _warn_lifecycle_allowlist_needs_admin_ops(_with_allowlist(config, "a", node_name=""))
+    text = _warn_text(caplog)
+    assert "allowAdminOps" in text
+    assert "openclaw nodes status" in text
