@@ -31,6 +31,19 @@ _DEFAULT_TIMEOUT_S: Final[float] = 10.0
 _SUPERVISOR_TEXT_MAX_BYTES: Final[int] = 1_048_576
 _SUPERVISOR_JSON_MAX_BYTES: Final[int] = 1_048_576
 
+# aiohttp defaults WebSocket ``max_msg_size`` to 4 MiB. HA's
+# ``config/entity_registry/list`` returns a single frame whose size scales with
+# the entity count, and a ~7,200-entity installation produced 7.6 MB, so the
+# frame was rejected before any handler saw it (issue #316).
+#
+# This is a CEILING, not a bound on growth. HA does not accept server-side
+# filters on the registry list frames, so the whole registry still crosses the
+# wire and a large enough installation will exceed this value too. When that
+# happens the correct answer is a real pagination contract, and the failure is
+# the evidence that justifies building one. 16 MiB is roughly twice the largest
+# frame observed in production.
+_WS_MAX_MSG_BYTES: Final[int] = 16 * 1024 * 1024
+
 
 class HAClientError(Exception):
     """Raised when the HA REST call fails (network, HTTP, or auth)."""
@@ -236,7 +249,7 @@ async def ha_ws_call(
     try:
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.ws_connect(ws_url) as ws,
+            session.ws_connect(ws_url, max_msg_size=_WS_MAX_MSG_BYTES) as ws,
         ):
             first = await ws.receive_json()
             if first.get("type") != "auth_required":

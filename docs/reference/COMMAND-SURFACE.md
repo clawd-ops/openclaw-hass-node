@@ -95,16 +95,16 @@ Sections for each `ha.config.*` command follow the base surface below.
 |---------------------------|----------------------------------------|
 | `ha.list_states`          | All entities and current state         |
 | `ha.get_state`            | `entity_id`                            |
-| `ha.list_services`        | Service catalog (REST)                 |
+| `ha.list_services`        | `domain?`; service catalog (REST). Filters are applied after the fetch, so they bound the response you receive, not the payload HA sends |
 | `ha.get_config`           | HA core config (REST `/api/config`)    |
 | `ha.list_events`          | Event bus listener summary (REST `/api/events`) |
-| `ha.list_config_entries`  | Config entries (REST `/api/config/config_entries/entry`) |
+| `ha.list_config_entries`  | `domain?`; config entries (REST `/api/config/config_entries/entry`). Filter applied after the fetch |
 | `ha.core_logs`            | `lines?` (1–5000, default 200); HA core logs via Supervisor |
 | `ha.calendar_get_events`  | `entity_id`, `start_date_time`, `end_date_time`; wraps `calendar.get_events?return_response` |
 | `ha.call_service`         | `domain`, `service`, `target?`, `data?`; `service_data?` compatibility alias. Interim node policy denies lifecycle, update, reload, host, shell, and shutdown effects before HA I/O (see below) |
 | `ha.list_areas`           | Via WS API                             |
-| `ha.list_devices`         | Via WS API                             |
-| `ha.list_entity_registry` | Via WS API                             |
+| `ha.list_devices`         | `area_id?`, `config_entry_id?`; via WS API. Filters are AND-combined and applied after the fetch |
+| `ha.list_entity_registry` | `domain?`, `platform?`, `area_id?`, `device_id?`; via WS API. Filters are AND-combined and applied after the fetch. The unfiltered WS frame is what exceeded the transport ceiling on a large installation; the ceiling is now 16 MiB |
 | `ha.logbook`              | `entity_id?`, `start_time?`, `end_time?` (REST). Values are percent-encoded, so both `Z` and `+00:00` offsets work and an entity cannot inject query parameters. The Assist tool accepts `start`/`end` and maps them, but a direct invoke must use `start_time`/`end_time` or the bound is silently dropped |
 | `ha.history`              | `entity_ids?` (list), `start_time?`, `end_time?`, `minimal_response?`, `no_attributes?`, `significant_changes_only?` (REST). Values are percent-encoded, so both `Z` and `+00:00` offsets work and an entity cannot inject query parameters. **Known defect:** an unknown entity returns `{ok: true, count: 0}`, indistinguishable from real empty history. The Assist tool accepts `entity_id`/`start`/`end` and maps them, but a direct invoke must use the node names or the filter and bounds are silently dropped |
 | `ha.reload_config`        | `domain?` (only `core`, omitting is equivalent), `admin_token`; gated by `OPENCLAW_ADMIN_TOKEN`. Calls `homeassistant.reload_core_config` and returns `{ok: true, domain: "core"}`. Per-domain reload is **not implemented**: any other `domain` is rejected with `UNSUPPORTED` rather than silently reloading core config. `ha.call_service` is not a bypass — `*.reload` is on the interim denylist. **Unverified authorization:** the admin-token gate is not the ratified model and moves to operator approval (see [`design/AUTHORIZATION-MODEL.md`](../design/AUTHORIZATION-MODEL.md)) |
@@ -339,7 +339,7 @@ or delete for devices — they are populated by integrations.
 
 | `action`   | Params                                                                                | Notes |
 |------------|---------------------------------------------------------------------------------------|-------|
-| `list`     | —                                                                                     | Returns `{count, devices}`. |
+| `list`     | `area_id?`, `config_entry_id?` (AND-combined, applied after the fetch).               | Returns `{count, devices}`; `count` is the filtered count. |
 | `update`   | `device_id` (required), `attrs` (dict), `proposal_id`.                                | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
 
 ## `ha.config.entity_registry` — Entities (1 command)
@@ -348,7 +348,7 @@ WS `config/entity_registry/{list,get,update,remove}`.
 
 | `action`   | Params                                                                                | Notes |
 |------------|---------------------------------------------------------------------------------------|-------|
-| `list`     | —                                                                                     | Returns `{count, entities}`. |
+| `list`     | `domain?`, `platform?`, `area_id?`, `device_id?` (AND-combined, applied after the fetch). | Returns `{count, entities}`; `count` is the filtered count. |
 | `get`      | `entity_id` (required).                                                               | Returns `{entity_id, entity}`. |
 | `update`   | `entity_id`, `attrs` (dict), `proposal_id`.                                           | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
 | `remove`   | `entity_id`, `proposal_id`.                                                           | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
