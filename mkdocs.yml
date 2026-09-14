@@ -64,6 +64,12 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+  # Unsupported syntax renders as literal text and --strict does not object.
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde:
+      subscript: false
+  - pymdownx.mark
 
 plugins:
   - search

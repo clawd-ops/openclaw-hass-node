@@ -77,6 +77,13 @@ reviews. Merge only on Codex APPROVE or after addressing findings.
 Per the OC-repo autonomy rule, doc-only changes (`docs/`, `README.md`,
 `LICENSE`) can be merged direct to main without the Codex review pass.
 
+## Documentation markup
+
+Only the Markdown extensions enabled in `mkdocs.yml` are available; anything
+else renders as literal text and `mkdocs build --strict` does not object. Task
+lists, `~~strikethrough~~` and `==highlight==` are enabled. If you need another,
+enable it in the same PR.
+
 ## Cross-provider code review
 
 > Folded in from the former `docs/PROCESS.md` during the Phase 2 doc
