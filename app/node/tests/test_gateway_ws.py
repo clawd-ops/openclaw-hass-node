@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from openclaw_node.commands.dispatcher import _REGISTRY
-from openclaw_node.config import NodeConfig
+from openclaw_node.config import IdentityConfig, NodeConfig
 from openclaw_node.gateway_ws import (
     _INTENTIONALLY_UNADVERTISED,
     _NODE_COMMANDS,
@@ -21,6 +21,7 @@ from openclaw_node.gateway_ws import (
     _format_retry_at_utc,
     _make_req,
 )
+from openclaw_node.http_api import NodeRuntime
 from openclaw_node.identity import generate_identity
 from openclaw_node.pairing import PairingError, PairingState
 
@@ -45,6 +46,11 @@ def _make_config() -> NodeConfig:
         supervisor_token="",
         data_dir=Path("/tmp/test"),
     )
+
+
+def _make_runtime() -> NodeRuntime:
+    """A real runtime, so the attribute types stay honest under strict mypy."""
+    return NodeRuntime(_make_config(), bootstrap_token="")
 
 
 def _make_client(device_token: str = "") -> GatewayClient:
@@ -327,7 +333,6 @@ async def test_send_connect_operator_role_advertises_operator_scopes() -> None:
 def test_set_runtime_connected_writes_per_role_flag() -> None:
     """Node and operator clients must write distinct runtime flags so the
     two reconnect loops can't race a shared boolean (#82 follow-up)."""
-    from openclaw_node.http_api import NodeRuntime
 
     config = _make_config()
     identity = generate_identity()
@@ -1504,7 +1509,6 @@ def test_notify_pairing_state_without_callback() -> None:
 
 def test_runtime_gateway_connected_starts_false() -> None:
     """A fresh NodeRuntime reports gateway_connected=False until the WS connects."""
-    from openclaw_node.http_api import NodeRuntime
 
     runtime = NodeRuntime(_make_config())
     assert runtime.gateway_connected is False
@@ -1818,3 +1822,129 @@ def test_reload_device_token_no_file(tmp_path: Path) -> None:
     client._device_token = "original"
     client._reload_device_token()
     assert client._device_token == "original"
+
+
+@pytest.mark.asyncio
+async def test_attach_relay_resolves_the_inventory_before_returning() -> None:
+    """Connect must not hand over a relay whose topology is still unknown.
+
+    A detached fetch left a window where a turn read the topology as unknown,
+    declined to refuse, and sent an unowned session key. Gating or detaching
+    this call reopens #347, and a mutant that did so survived the whole suite
+    until this test existed.
+    """
+    from openclaw_node.chat_relay import ChatRelay
+
+    client = _make_client()
+    sender_frames: list[dict[str, Any]] = []
+
+    async def _send(frame: dict[str, Any]) -> None:
+        sender_frames.append(frame)
+
+    # No default_agent_id: this is the configuration that was silently skipped.
+    relay = ChatRelay(_send, IdentityConfig(default_agent_id=""))
+
+    async def _answer() -> None:
+        await asyncio.sleep(0.01)
+        assert sender_frames, "attach did not ask for the agent inventory"
+        assert sender_frames[0]["method"] == "agents.list"
+        relay.handle_response(
+            {"id": sender_frames[0]["id"], "ok": True, "payload": {"agents": ["a", "b"]}}
+        )
+
+    await asyncio.gather(client._attach_relay(relay), _answer())
+
+    assert relay._gateway_agents == ("a", "b")
+
+
+@pytest.mark.asyncio
+async def test_connect_attaches_the_relay_regardless_of_agent_config() -> None:
+    """Connect must always attach the relay, including with no default agent.
+
+    A mutant that gated this on a configured `identity.default_agent_id` skipped
+    the attach precisely on the deployment shape that is broken, and survived
+    the entire suite until this test existed. The startup ERROR naming the
+    available agents is the operator's only warning before turns start failing.
+    """
+    client = _make_client()
+    client._chat_relay_enabled = True
+    # The attach block only runs when a runtime is present to publish onto.
+    client._runtime = _make_runtime()
+    assert not client._config.identity.default_agent_id, "precondition: unset default"
+
+    attached: list[object] = []
+
+    async def _spy(relay: object) -> None:
+        attached.append(relay)
+
+    client._attach_relay = _spy  # type: ignore[method-assign]
+
+    mock_ws = AsyncMock()
+    mock_ws.send = AsyncMock()
+    challenge = json.dumps(
+        {
+            "type": "event",
+            "event": "connect.challenge",
+            "payload": {"nonce": "nonce1", "ts": 1000},
+        }
+    )
+    recv_step = 0
+
+    async def _recv() -> str:
+        nonlocal recv_step
+        recv_step += 1
+        if recv_step == 1:
+            return challenge
+        if recv_step == 2:
+            connect_req = _find_sent_method(mock_ws.send, "connect")
+            return json.dumps(
+                {"type": "res", "id": connect_req["id"], "ok": True, "payload": {"sessionId": "s1"}}
+            )
+        return json.dumps({"ok": True, "payload": {"items": []}})
+
+    mock_ws.recv = _recv
+
+    async def _empty_iter() -> AsyncIterator[str]:
+        return
+        yield
+
+    mock_ws.__aiter__ = lambda self: _empty_iter()
+    context = AsyncMock()
+    context.__aenter__ = AsyncMock(return_value=mock_ws)
+    context.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("websockets.asyncio.client.connect", return_value=context):
+        await client._connect_and_loop()
+
+    assert attached, "connect did not attach the relay"
+
+
+@pytest.mark.asyncio
+async def test_attach_relay_does_not_wait_for_the_inventory_reply() -> None:
+    """The inventory fetch must stay detached, and this is why.
+
+    `handle_response` is dispatched only from `_event_loop`, which has not
+    started when `_attach_relay` runs. Awaiting `agents.list` here therefore
+    cannot receive its reply: it blocks for the full RPC timeout, leaves the
+    inventory unknown anyway, and delays every connection.
+
+    A previous revision did exactly that and the entire suite passed, because
+    the tests drove `_attach_relay` with a hand-rolled responder instead of
+    through the event loop. Here nothing ever answers, which is the real
+    condition at this point in connect.
+    """
+    from openclaw_node.chat_relay import ChatRelay
+
+    client = _make_client()
+    client._runtime = _make_runtime()
+
+    async def _send_into_the_void(frame: dict[str, Any]) -> None:
+        return None
+
+    relay = ChatRelay(_send_into_the_void, IdentityConfig(default_agent_id=""))
+
+    # Generous next to the 10s RPC timeout, tight next to "returns immediately".
+    await asyncio.wait_for(client._attach_relay(relay), timeout=1.0)
+
+    assert client._runtime is not None
+    assert client._runtime.chat_relay is relay

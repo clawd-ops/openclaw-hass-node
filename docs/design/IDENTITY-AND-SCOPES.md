@@ -281,8 +281,65 @@ Resolution at chat.send time:
 
 1. Look up `actor.user_id` in `user_agent_map` → that's the agentId.
 2. Miss → use `default_agent_id`.
-3. No default configured → omit the `agentId` field (gateway picks
-   its own default, today's behavior).
+3. No default configured → omit the `agentId` field, **but only when the
+   gateway has at most one agent**. See below.
+
+**Step 3 assumes a single-agent gateway, and that assumption is load-bearing.**
+
+"Omit the field and let the gateway pick its own default" is only meaningful
+when there is one agent to pick. A gateway with several agents has no own
+default: it rejects the turn with `INVALID_REQUEST`, because a session key with
+no explicit owner is unresolvable. Omitting `agentId` is therefore not a
+fallback on that topology, it is the failure.
+
+So resolution terminates in one of two ways, not one:
+
+- **At most one gateway agent** → omit `agentId`. Unchanged, and correct.
+- **More than one gateway agent and no `default_agent_id`** → this is an
+  **operator configuration error** for anonymous and unmapped users. Note this
+  is the *terminal* branch: step 1 still resolves a user matched by
+  `user_agent_map`, and those turns succeed. Describing it as "every turn
+  fails" is wrong and was corrected here. The add-on must not choose an agent on the
+  operator's behalf. It must instead:
+  1. log an ERROR at startup naming the available agents (see the ERROR logging
+     rules below), and
+  2. **refuse the turn at the turn boundary**, before `sessions.create`, with a
+     message naming `identity.default_agent_id` and the candidates. The turn
+     resolves the agent inventory itself if startup has not yet delivered it,
+     so the refusal does not depend on winning a race against connect.
+
+  Both are required, and the second is the load-bearing one. A startup-only log
+  reaches whoever happens to read startup logs, which in the production incident
+  was nobody; the operator saw only failing turns. Startup checks do not fail
+  startup, so the refusal has to live on the turn path.
+
+The prohibition on guessing is deliberate. Silently binding Assist to an
+arbitrary agent routes household voice commands somewhere nobody chose, and it
+does so *successfully*: the turn returns a plausible answer from the wrong
+agent, with no error to notice. A refusal naming the setting to configure is
+strictly better than a guess that appears to work. Which agent owns Assist is a
+genuine operator decision; the add-on's job is to ask for it clearly, not to
+invent one.
+
+**The resolved agent must reach every RPC in the turn, not only `chat.send`.**
+`sessions.create` resolves the session owner before `chat.send` is ever sent, so
+an `agentId` carried only on `chat.send` arrives too late and the turn still
+fails at session creation. When an agent resolves, the session key is qualified
+as `agent:<id>:ha-assist:<conversation_id>` for create, subscribe and send. That
+prefixed form is the gateway's own canonical shape, and its rejection message
+names "an agent-prefixed session key" as an accepted remedy.
+
+The inventory fetch at connect must stay **detached**. Gateway responses are
+dispatched from the event loop, so a fetch awaited before that loop starts can
+never receive its reply: it blocks for the full RPC timeout and leaves the
+inventory unknown regardless. The turn-path resolution is what makes the
+refusal reliable; the startup fetch is an optimisation and the source of the
+operator-facing ERROR.
+
+Consequence for shipping defaults: because `default_agent_id` ships empty, a
+multi-agent gateway is misconfigured on first boot by default. The startup ERROR
+plus the turn refusal are what make that state discoverable rather than
+mysterious.
 
 The add-on trusts `actor` only when the HACS integration signs the actor plus
 turn fields with a signing key derived from `local_api_token`. If the

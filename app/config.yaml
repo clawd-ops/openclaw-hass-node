@@ -135,7 +135,13 @@ options:
     # {ha_username, agent_id} pairs — list-of-dicts is the HA-canonical
     # addon-schema shape for an arbitrary key-value map.
     user_agent_map: []
-    # Empty preserves today's gateway-default routing.
+    # Required if your gateway has more than one agent. Empty keeps today's
+    # gateway-default routing ONLY on a single-agent gateway; with several
+    # agents there is no default to fall back to, so leaving this empty makes
+    # Assist turns from anonymous or unmapped users fail with INVALID_REQUEST.
+    # Users matched by user_agent_map above still resolve and are unaffected.
+    # The add-on logs an ERROR naming the available agents at startup when it
+    # detects that state.
     default_agent_id: ""
     # HA actor metadata is signed by the HACS integration with a key derived from
     # local_api_token, so there is no separate actor-signing secret to paste.
