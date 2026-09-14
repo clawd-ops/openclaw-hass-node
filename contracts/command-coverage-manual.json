@@ -184,7 +184,22 @@
       "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 fs mutation sweep: create and update both wrote correctly and archived the prior version.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "fs.write created a 39 B file with proposal_id=direct on the unprotected /share root, then updated it to 57 B with v1 archived.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "fs.restore": {
       "authorization_class": "path_dependent_mutation",
@@ -194,7 +209,22 @@
       "issues": [
         324
       ],
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "fail",
+      "evidence_note": "Sept 13 fs mutation sweep: restores, but silently returns a different version than requested.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "fs.restore is 1-based while fs.history returns a 0-based array: version=1 returned entry 0 and version=4 returned entry 3, and version=0 was silently clamped rather than rejected. A caller asking for a specific version receives a different one with no error. Data-integrity class.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "fs.history": {
       "authorization_class": "read_path_policy",
@@ -245,21 +275,66 @@
       "capability_conditions": "Both paths resolve under allowed writable roots; protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 fs mutation sweep: move relocated the file and carried its version history.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "fs.move with src and dst returned history_moved=true, the source path was gone, and the prev_sha256 chain survived intact. Rejects path and dest; only src/dst are accepted.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "fs.delete": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 fs mutation sweep: delete trashes rather than erases, and the round trip restores.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "fs.delete returned trashed_to=/share/openclaw-trash/<name>.<hash>.<ts>, the original path then reported exists=false and the trash copy exists=true at 39 B. fs.restore on the deleted path recreated the file and purged the trash copy (trash_purged=1); fs.history survived the deletion.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "fs.patch": {
       "authorization_class": "path_dependent_mutation",
       "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 fs mutation sweep: unified diff applied and confirmed by read-back.",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "fs.patch returned hunks_applied=1 and the resulting content matched on read-back. Recorded in history under op=move-src rather than a patch op, so an auditor cannot distinguish a patch from a write or move.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "system.run": {
       "authorization_class": "operator_approval",
@@ -406,8 +481,8 @@
           "service_data"
         ]
       },
-      "evidence_method": "TEST-PROVEN",
-      "outcome": "partial",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
       "acceptance_test_ids": [
         {
           "id": "app/node/tests/test_ha_commands.py::test_call_service_denies_privileged_effects_before_ha",
@@ -467,6 +542,14 @@
             "outcome": "refused-as-designed",
             "source": "app/node/tests/test_gateway_ws.py::test_handle_invoke_call_service_denies_privileged_effect_before_ha",
             "observation": "The real node.invoke request path returns SERVICE_DENIED and makes no HA request for a privileged host effect."
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.call_service invoked persistent_notification.create successfully, and rejected both an unknown top-level parameter and an unknown domain before acting. Note changed_states came back empty on every mutating call.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
           }
         ],
         "handler_dispatch": [
@@ -522,7 +605,7 @@
           }
         ]
       },
-      "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete. AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_note": "Sept 13 control-group exercise: service call succeeded and unknown parameters are rejected.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "semantic_result": "Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O."
@@ -773,7 +856,7 @@
       "capability_conditions": "HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.",
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (§2.6) and silent unknown-entity result (§2.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed — encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
+      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -790,7 +873,7 @@
             "method": "PRODUCTION-LIVE",
             "outcome": "pass",
             "source": "docs/evidence/sweep-2026-09-13.md",
-            "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (§2.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
+            "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (\u00a72.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1"
           }
@@ -808,21 +891,62 @@
       "issues": [
         338
       ],
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "Sept 13 control-group exercise: gated before any HA I/O, and the gate contradicts the documented model.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "partial",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.reload_config was refused with 'adminToken is not configured for this node | INVALID_REQUEST' immediately after ha.check_config reported valid. The shipped plugin's enforceAdminOp checks policy.adminToken, while docs/design/COMMAND-TIERS.md:88 states no add-on admin token exists and that allowAdminOps plus a resolved permission request is the model. The gate also short-circuits before parameter validation, so the domain-rejection path remains unverified.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.light_turn_on": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_on; trusted principal context is not node-enforced yet.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "Sept 13 control-group exercise: verified at group level after an initial member-level test misread.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.light_turn_on drove light.group_master_bedroom from off to on with brightness 255 at 5000K and last_changed advancing. An earlier member-level test appeared partial, but that was a Zigbee2MQTT/Hue bridge grouping property of the install rather than node behaviour. changed_states was empty despite the light physically changing.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.light_turn_off": {
       "authorization_class": "caller_policy_only_auto_allow_intent",
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_off; trusted principal context is not node-enforced yet.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "Sept 13 control-group exercise: returned the group to its exact captured baseline.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "pass",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.light_turn_off returned light.group_master_bedroom to off with every attribute null, matching the baseline captured beforehand. changed_states was empty despite the light physically changing.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.list_automations": {
       "authorization_class": "read_only",
@@ -1042,29 +1166,68 @@
     "ha.addon_start": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
-      "outcome": "partial",
+      "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "Sept 13 Tier B lifecycle exercise: start succeeded and the add-on reached the started state.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_stop": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
-      "outcome": "partial",
+      "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "Sept 13 Tier B lifecycle exercise: stop succeeded and the add-on reached the stopped state.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_restart": {
       "authorization_class": "addon_slug_policy_only",
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
-      "outcome": "partial",
+      "outcome": "fail",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
       "issues": [
         323
       ],
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "Sept 13 Tier B lifecycle exercise: the restart succeeded but was reported as a failure.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "caller_observations": {
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1"
+          }
+        ]
+      }
     },
     "ha.addon_update": {
       "authorization_class": "addon_slug_policy_only",
@@ -1179,7 +1342,7 @@
           ]
         }
       },
-      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.automation": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1230,7 +1393,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.script": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1281,7 +1444,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.scene": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1323,16 +1486,38 @@
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
           "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
-          "evidence_method": "TEST-PROVEN",
+          "evidence_method": "PRODUCTION-LIVE",
           "parameters": [
             "action",
             "id",
             "config",
             "proposal_id"
-          ]
+          ],
+          "outcome": "refused-as-designed",
+          "evidence_note": "Sept 13 mutation-gate probe: same refusal and message as the other families.",
+          "caller_observations": {
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+              }
+            ],
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "refused-as-designed",
+                "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+                "observation": "save refused with PROPOSAL_REQUIRED for a bogus proposal id, with the same message as ha.config.area_registry and ha.config.helpers. No scene was written.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.helpers": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1341,13 +1526,35 @@
         "create": {
           "authorization_class": "deny_pending_trusted_approval",
           "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
-          "evidence_method": "TEST-PROVEN",
+          "evidence_method": "PRODUCTION-LIVE",
           "parameters": [
             "action",
             "helper_type",
             "attrs",
             "proposal_id"
-          ]
+          ],
+          "outcome": "refused-as-designed",
+          "evidence_note": "Sept 13 mutation-gate probe: same refusal and message as the other families.",
+          "caller_observations": {
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+              }
+            ],
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "refused-as-designed",
+                "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+                "observation": "create refused with PROPOSAL_REQUIRED for a bogus proposal id, with the same message as ha.config.area_registry and ha.config.scene. No helper was created.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "delete": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -1396,7 +1603,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.area_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1405,13 +1612,35 @@
         "create": {
           "authorization_class": "deny_pending_trusted_approval",
           "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The create action accepts name (required) and optional attrs for additional area fields.",
-          "evidence_method": "TEST-PROVEN",
+          "evidence_method": "PRODUCTION-LIVE",
           "parameters": [
             "action",
             "name",
             "attrs",
             "proposal_id"
-          ]
+          ],
+          "outcome": "refused-as-designed",
+          "evidence_note": "Sept 13 mutation-gate probe: refused with a bogus proposal id, settling the Sept 11 CODE-FAIL.",
+          "caller_observations": {
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+              }
+            ],
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "refused-as-designed",
+                "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+                "observation": "create refused with PROPOSAL_REQUIRED for a missing proposal_id, for proposal_id=direct, and for proposal_id=bogus-not-a-real-proposal. The third is the exact case docs/VERIFICATION-2026-09-11.md section 0 predicted would slip through. Area count was unchanged at 27 before and after, so nothing was created.",
+                "observed_at": "2026-09-13",
+                "node_version": "2026.9.13b1"
+              }
+            ]
+          }
         },
         "delete": {
           "authorization_class": "deny_pending_trusted_approval",
@@ -1457,7 +1686,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1500,7 +1729,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.entity_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1576,7 +1805,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.config_entries": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1626,7 +1855,7 @@
           }
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",

@@ -52,6 +52,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.delete returned trashed_to=/share/openclaw-trash/<name>.<hash>.<ts>, the original path then reported exists=false and the trash copy exists=true at 39 B. fs.restore on the deleted path recreated the file and purged the trash copy (trash_purged=1); fs.history survived the deletion.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -145,8 +154,8 @@
       ],
       "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
       "command": "fs.delete",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 fs mutation sweep: delete trashes rather than erases, and the round trip restores.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_move_delete:handle_fs_delete",
       "id": "fs.delete",
@@ -162,7 +171,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -733,6 +742,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.move with src and dst returned history_moved=true, the source path was gone, and the prev_sha256 chain survived intact. Rejects path and dest; only src/dst are accepted.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -840,8 +858,8 @@
       ],
       "capability_conditions": "Both paths resolve under allowed writable roots; protected paths fail closed pending trusted approval.",
       "command": "fs.move",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 fs mutation sweep: move relocated the file and carried its version history.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_move_delete:handle_fs_move",
       "id": "fs.move",
@@ -857,7 +875,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -890,6 +908,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.patch returned hunks_applied=1 and the resulting content matched on read-back. Recorded in history under op=move-src rather than a patch op, so an auditor cannot distinguish a patch from a write or move.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1011,8 +1038,8 @@
       ],
       "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
       "command": "fs.patch",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 fs mutation sweep: unified diff applied and confirmed by read-back.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_patch:handle_fs_patch",
       "id": "fs.patch",
@@ -1028,7 +1055,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -1239,6 +1266,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.restore is 1-based while fs.history returns a 0-based array: version=1 returned entry 0 and version=4 returned entry 3, and version=0 was silently clamped rather than rejected. A caller asking for a specific version receives a different one with no error. Data-integrity class.",
+              "observed_at": "2026-09-13",
+              "outcome": "fail",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1374,8 +1410,8 @@
       ],
       "capability_conditions": "Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.",
       "command": "fs.restore",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 fs mutation sweep: restores, but silently returns a different version than requested.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_restore",
       "id": "fs.restore",
@@ -1393,7 +1429,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "fail",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -1536,6 +1572,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.write created a 39 B file with proposal_id=direct on the unprotected /share root, then updated it to 57 B with v1 archived.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1657,8 +1702,8 @@
       ],
       "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable.",
       "command": "fs.write",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 fs mutation sweep: create and update both wrote correctly and archived the prior version.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_write",
       "id": "fs.write",
@@ -1674,7 +1719,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -2243,6 +2288,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
+              "observed_at": "2026-09-13",
+              "outcome": "fail",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2294,8 +2348,8 @@
       ],
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "command": "ha.addon_restart",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 Tier B lifecycle exercise: the restart succeeded but was reported as a failure.",
       "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_restart",
       "id": "ha.addon_restart",
@@ -2313,7 +2367,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "fail",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -2363,6 +2417,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2414,8 +2477,8 @@
       ],
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "command": "ha.addon_start",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 Tier B lifecycle exercise: start succeeded and the add-on reached the started state.",
       "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_start",
       "id": "ha.addon_start",
@@ -2431,7 +2494,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -2607,6 +2670,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2658,8 +2730,8 @@
       ],
       "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
       "command": "ha.addon_stop",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 Tier B lifecycle exercise: stop succeeded and the add-on reached the stopped state.",
       "first_shipped_in": "2026.6.20b7",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_stop",
       "id": "ha.addon_stop",
@@ -2675,7 +2747,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -3096,6 +3168,15 @@
               "observation": "The real node.invoke request path returns SERVICE_DENIED and makes no HA request for a privileged host effect.",
               "outcome": "refused-as-designed",
               "source": "app/node/tests/test_gateway_ws.py::test_handle_invoke_call_service_denies_privileged_effect_before_ha"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.call_service invoked persistent_notification.create successfully, and rejected both an unknown top-level parameter and an unknown domain before acting. Note changed_states came back empty on every mutating call.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -3217,8 +3298,8 @@
       ],
       "capability_conditions": "HA REST API is reachable. The node permits ordinary services such as light.turn_on but refuses lifecycle, update, reload, host, shell, and shutdown effects before HA I/O. Top-level and target keys fail closed; target accepts only entity_id, area_id, and device_id. This is Phase 0 containment, not the final effect-policy or approval path.",
       "command": "ha.call_service",
-      "evidence_method": "TEST-PROVEN",
-      "evidence_note": "Phase 0 interim containment denies privileged service effects and tests both direct handler and real Assist-to-node paths. The approval-aware effect policy remains incomplete. AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 control-group exercise: service call succeeded and unknown parameters are rejected.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_call_service",
       "id": "ha.call_service",
@@ -3234,7 +3315,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O.",
@@ -3549,6 +3630,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "create refused with PROPOSAL_REQUIRED for a missing proposal_id, for proposal_id=direct, and for proposal_id=bogus-not-a-real-proposal. The third is the exact case docs/VERIFICATION-2026-09-11.md section 0 predicted would slip through. Area count was unchanged at 27 before and after, so nothing was created.",
+              "observed_at": "2026-09-13",
+              "outcome": "refused-as-designed",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -3649,8 +3739,8 @@
       ],
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The create action accepts name (required) and optional attrs for additional area fields.",
       "command": "ha.config.area_registry",
-      "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 mutation-gate probe: refused with a bogus proposal id, settling the Sept 11 CODE-FAIL.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry",
       "id": "ha.config.area_registry#create",
@@ -6533,6 +6623,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "create refused with PROPOSAL_REQUIRED for a bogus proposal id, with the same message as ha.config.area_registry and ha.config.scene. No helper was created.",
+              "observed_at": "2026-09-13",
+              "outcome": "refused-as-designed",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6632,8 +6731,8 @@
       ],
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.helpers",
-      "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 mutation-gate probe: same refusal and message as the other families.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers",
       "id": "ha.config.helpers#create",
@@ -8428,6 +8527,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "save refused with PROPOSAL_REQUIRED for a bogus proposal id, with the same message as ha.config.area_registry and ha.config.helpers. No scene was written.",
+              "observed_at": "2026-09-13",
+              "outcome": "refused-as-designed",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -8527,8 +8635,8 @@
       ],
       "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
       "command": "ha.config.scene",
-      "evidence_method": "TEST-PROVEN",
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 mutation-gate probe: same refusal and message as the other families.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_scene:handle_ha_config_scene",
       "id": "ha.config.scene#save",
@@ -9759,6 +9867,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.light_turn_off returned light.group_master_bedroom to off with every attribute null, matching the baseline captured beforehand. changed_states was empty despite the light physically changing.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9852,8 +9969,8 @@
       ],
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_off; trusted principal context is not node-enforced yet.",
       "command": "ha.light_turn_off",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 control-group exercise: returned the group to its exact captured baseline.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_light_turn_off",
       "id": "ha.light_turn_off",
@@ -9869,7 +9986,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -9922,6 +10039,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.light_turn_on drove light.group_master_bedroom from off to on with brightness 255 at 5000K and last_changed advancing. An earlier member-level test appeared partial, but that was a Zigbee2MQTT/Hue bridge grouping property of the install rather than node behaviour. changed_states was empty despite the light physically changing.",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10071,8 +10197,8 @@
       ],
       "capability_conditions": "HA REST API is reachable and caller-side policy allows light.turn_on; trusted principal context is not node-enforced yet.",
       "command": "ha.light_turn_on",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 control-group exercise: verified at group level after an initial member-level test misread.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_light_turn_on",
       "id": "ha.light_turn_on",
@@ -10088,7 +10214,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "unverified",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -11421,6 +11547,15 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "ha.reload_config was refused with 'adminToken is not configured for this node | INVALID_REQUEST' immediately after ha.check_config reported valid. The shipped plugin's enforceAdminOp checks policy.adminToken, while docs/design/COMMAND-TIERS.md:88 states no add-on admin token exists and that allowAdminOps plus a resolved permission request is the model. The gate also short-circuits before parameter validation, so the domain-rejection path remains unverified.",
+              "observed_at": "2026-09-13",
+              "outcome": "partial",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11486,8 +11621,8 @@
       ],
       "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
       "command": "ha.reload_config",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "Sept 13 control-group exercise: gated before any HA I/O, and the gate contradicts the documented model.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_reload_config",
       "id": "ha.reload_config",
