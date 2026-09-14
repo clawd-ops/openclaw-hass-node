@@ -1637,13 +1637,10 @@
     },
     "system.execApprovals.get": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response.",
-      "issues": [
-        333
-      ],
+      "capability_conditions": "Returns the Gateway-native file snapshot with path, existence, exact raw-byte hash, and a fail-closed policy when storage is missing or malformed. The socket token is redacted from every response. Like system.run, direct nodes.invoke system.execApprovals.get is refused by the Gateway with INVALID_REQUEST; the command is only reachable through the operator exec-approval surface (exec.approvals.node.*). The node advertises it, and it must stay in gateway.nodes.commands.allow, because that pair is what permits the Gateway to forward the command on that operator surface at all; advertisement states what the node can handle when forwarded, not which Gateway entry points may reach it.",
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 13 second-pass live sweep reached the Gateway but direct nodes.invoke refused this advertised command and directed callers to exec.approvals.node.*. Whether advertisement on the node.invoke surface is intentional remains unresolved.",
+      "outcome": "refused-as-designed",
+      "evidence_note": "Sept 13 second-pass live sweep reached the Gateway; direct nodes.invoke refused this advertised command and directed callers to exec.approvals.node.*. Resolved in #333: the refusal is the intended gating and the advertisement is also correct, so neither the node.invoke allowlist nor the advertised command list changes. This command is operator_approval class and mirrors system.run, which is likewise advertised, likewise allowlisted, and likewise refused on direct nodes.invoke. Reaching it through nodes.invoke would let any node-invoke caller read the exec-approval policy document outside the approval flow that governs it. The gap was documentation only, now stated in docs/reference/COMMAND-SURFACE.md.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -1662,7 +1659,7 @@
     },
     "system.execApprovals.set": {
       "authorization_class": "operator_approval",
-      "capability_conditions": "Accepts the Gateway-native file and baseHash contract. The target path is resolved once, and the snapshot read, the base-hash comparison, and the atomic replacement all happen under an exclusive lock, so among cooperating writers a write whose base hash no longer matches the file being replaced is refused rather than committed. That guarantee holds while the node's private data directory is intact: an actor able to replace the lock pathname there can split writers onto separate lock inodes, but the same access already permits rewriting the policy document directly. A matching non-empty base hash is required whenever the document exists. Nested policy content is validated against the closed Gateway schema, using JavaScript whitespace semantics where the schema does. A stored socket credential is preserved verbatim across a redacted read-edit-write, and the node never fabricates a socket path or token.",
+      "capability_conditions": "Direct nodes.invoke system.execApprovals.set is refused by the Gateway with INVALID_REQUEST; the command is only reachable through the operator exec-approval surface (exec.approvals.node.*), and it stays advertised and allowlisted because that pair is what permits the Gateway to forward it on that surface. The refusal is load-bearing: this command replaces the document that decides what may execute on the node, so reaching it from nodes.invoke would bypass the approval flow entirely. Accepts the Gateway-native file and baseHash contract. The target path is resolved once, and the snapshot read, the base-hash comparison, and the atomic replacement all happen under an exclusive lock, so among cooperating writers a write whose base hash no longer matches the file being replaced is refused rather than committed. That guarantee holds while the node's private data directory is intact: an actor able to replace the lock pathname there can split writers onto separate lock inodes, but the same access already permits rewriting the policy document directly. A matching non-empty base hash is required whenever the document exists. Nested policy content is validated against the closed Gateway schema, using JavaScript whitespace semantics where the schema does. A stored socket credential is preserved verbatim across a redacted read-edit-write, and the node never fabricates a socket path or token.",
       "assist_unavailable_reason": "Assist does not expose exec policy administration.",
       "first_shipped_in": "2026.9.13b1",
       "actions": {}

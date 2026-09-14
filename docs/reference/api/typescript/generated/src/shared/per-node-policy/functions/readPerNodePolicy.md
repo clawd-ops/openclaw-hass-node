@@ -7,7 +7,7 @@
 # Function: readPerNodePolicy()
 
 ```ts
-function readPerNodePolicy(pluginConfig, ...nodeIdentifiers): PerNodePolicy | undefined;
+function readPerNodePolicy(pluginConfig, nodeId): PerNodePolicy | undefined;
 ```
 
 ## Parameters
@@ -16,9 +16,9 @@ function readPerNodePolicy(pluginConfig, ...nodeIdentifiers): PerNodePolicy | un
 
 `unknown`
 
-### nodeIdentifiers
+### nodeId
 
-...`string`[]
+`string`
 
 ## Returns
 
