@@ -100,24 +100,33 @@ is a side effect nobody asked for.
 If you need syntax from an extension that is not enabled, enable it in the same
 PR. Do not work around it, and do not read a green build as proof it rendered.
 
-### Why the guard reads the source
+### Why the guard reads the build output
 
-`app/node/tests/test_docs_markdown_extensions.py` asserts that if a page uses
-task-list syntax, `pymdownx.tasklist` is enabled. It reads the Markdown, not the
-built HTML, and that is the whole point.
+`scripts/assert-tasklists-rendered.py` runs in the Docs workflow after the
+strict build and asks one question: **did `pymdownx.tasklist` run?** It looks
+for the `task-list-item` class, which the extension emits and nothing else
+produces.
 
-Three earlier attempts scanned rendered HTML and each was wrong, because
-rendering destroys the evidence. `- \[ \] literal choice` escapes the brackets
-deliberately; Python-Markdown correctly leaves it as prose and emits
-`<li>[ ] literal choice</li>`, byte-identical to an unconsumed marker. So no
-check on rendered output can distinguish a missing extension from an author who
-meant a literal bracket, and the scanner reported correct documentation as
-broken while recommending an extension that was already enabled.
+Four earlier revisions tried to decide instead whether a given `[ ]` *should*
+have been consumed, from the rendered HTML or from the Markdown source. Every
+one was wrong, in both directions, because that question needs
+Python-Markdown's grammar:
 
-Detecting unrendered markup in general is worse still: it means deciding what
-each extension *would* have consumed, which is Python-Markdown's grammar
-reimplemented badly. **A diagnostic that names a wrong remedy is worse than
-none: it spends the reader's one good attempt.**
+- `- \[ \] literal choice` escapes the brackets deliberately and renders as
+  `<li>[ ] literal choice</li>`, byte-identical to an unconsumed marker. No
+  check on rendered text can tell a missing extension from an intended literal.
+- `-  [ ] item`, `-\t[ ] item`, `> - [ ] item` and `1. [ ] item` all render as
+  task controls, while an indented `    - [ ] example` renders as code. A source
+  regex that stops short of reimplementing the grammar gets all five wrong.
+
+A version that read `markdown_extensions:` out of `mkdocs.yml` failed for a
+third reason: a second such key later in the file wins in MkDocs, so the check
+passed while the roadmap rendered zero controls. Reading the build output avoids
+the effective-configuration question altogether.
+
+**A diagnostic that names a wrong remedy is worse than none: it spends the
+reader's one good attempt.** That is why this asks something it can answer
+rather than something it can only guess at.
 
 ## Cross-provider code review
 
