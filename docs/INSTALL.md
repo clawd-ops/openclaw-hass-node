@@ -142,6 +142,8 @@ command request so the gateway stores the widened surface. See
                   print(json.loads(base64.urlsafe_b64decode(s+pad))["bootstrapToken"])'
      ```
    - `node_name`: friendly name shown in the gateway UI (e.g. `hass`).
+     Set this explicitly if you plan to enable Tier B commands; the same
+     value identifies this node in the gateway plugin config.
    - `local_api_token` **(required)**: any opaque random string
      (e.g. `openssl rand -hex 32`). The local HTTP API is fail-closed:
      when this is empty, every non-public path returns
@@ -184,9 +186,43 @@ command request so the gateway stores the widened surface. See
      you want lifecycle commands to touch. `homeassistant`,
      `supervisor`, and `core_*` slugs are always denied even if listed.
      The paired session authenticates these calls; no separate lifecycle admin
-     token is required. The Assist plugin additionally requires
-     `allowAdminOps: true`. `ha.reload_config` and `ha.update_install` remain
-     separate admin operations with their existing token gate.
+     token is required.
+
+     **Tier B commands also require `allowAdminOps: true` in the gateway
+     plugin config.** This is a separate step in your gateway
+     `openclaw.json`, not in the add-on options. Without it the gateway
+     silently denies every lifecycle command regardless of the allowlist.
+     Add the following block under the existing plugin entry. Replace
+     `<your-node-name>` with the explicit `node_name` value from this
+     add-on's options:
+
+     ```json
+     {
+       "plugins": {
+         "entries": {
+           "openclaw-hass-node-assist-tools": {
+             "config": {
+               "nodes": {
+                 "<your-node-name>": {
+                   "allowAdminOps": true
+                 }
+               }
+             }
+           }
+         }
+       }
+     }
+     ```
+
+     Then validate and reload the gateway:
+
+     ```bash
+     openclaw config validate
+     openclaw gateway restart
+     ```
+
+     `ha.reload_config` and `ha.update_install` remain separate admin
+     operations with their existing token gate.
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.
