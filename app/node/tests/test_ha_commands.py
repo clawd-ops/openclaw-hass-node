@@ -1375,6 +1375,17 @@ async def test_fallback_fetch_capped_at_max_fetches() -> None:
     assert mock_get.await_count == 10
 
 
+async def test_fallback_fetch_timeout_returns_empty_changed_states() -> None:
+    """A TimeoutError during fallback GET after a successful POST must not propagate."""
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", new_callable=AsyncMock, side_effect=TimeoutError),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": "light.x"})
+    assert result["ok"] is True
+    assert result["changed_states"] == []
+
+
 # ---------------------------------------------------------------------------
 # ha.list_automations
 # ---------------------------------------------------------------------------

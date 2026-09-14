@@ -657,7 +657,7 @@ async def _fetch_entity_states(entity_ids: str | list[str]) -> list[dict[str, An
             continue
         try:
             state = await ha_get(f"/api/states/{encoded}")
-        except HAClientError:
+        except (HAClientError, TimeoutError):
             continue
         if isinstance(state, dict):
             states.append(state)
