@@ -72,9 +72,34 @@ in standalone mode). Path traversal and symlink escape are blocked by
 |----------------|-------------------------------------|------------------------|
 | `system.run`   | `command` (argv list), `systemRunPlan`, `runId`, `approved?`, `approvalDecision?`, `approvalSource?`, `cwd?`, `rawCommand?`, `env?`, `timeoutMs?`, `agentId?`, `sessionKey?`, `proposalId?` | Executes an operator-approved plan. Reached only through the OpenClaw exec tool with `host=node` after `system.run.prepare` produces a canonical `systemRunPlan` and an operator approves. The Gateway rejects direct `nodes.invoke system.run` and rejects a forward whose `command`/`rawCommand`/`cwd`/`agentId`/`sessionKey` mutates between prepare and forward. The node fails closed unless the forward carries `systemRunPlan`, a non-empty `runId`, and one of `approved=true` / `approvalDecision` in `{allow-once,allow-always}` / `approvalSource`; it re-runs the prepare-time validators, re-resolves `cwd` under the allowed roots (or the HA `/config` hierarchy in add-on mode), cross-checks argv / cwd / commandText / agentId / sessionKey against the stored plan, and rejects env keys matching `TOKEN`/`SECRET`/`KEY`/`PASS`/`CREDENTIAL`/`AUTH`/`PWD`. Timeout is read from `timeoutMs` (native wire); the successful payload uses `success`/`exitCode`/`timedOut`. `proposalId` is accepted as audit metadata only (it is not part of the Gateway's forward whitelist). There is no `admin_token`; `OPENCLAW_ADMIN_TOKEN` was inert and has been removed. |
 | `system.run.prepare` | `command` (argv list), `cwd?`, `rawCommand?`, `env?`, `agentId?`, `sessionKey?` | Prepares the canonical `systemRunPlan` an operator will see; executes nothing. See [Authorization model](../design/AUTHORIZATION-MODEL.md). |
-| `system.execApprovals.get` | — | Returns the node's persisted exec-approval snapshot (`path`, `exists`, `hash`, redacted `file`). |
-| `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. |
+| `system.execApprovals.get` | (none) | Returns the node's persisted exec-approval snapshot (`path`, `exists`, `hash`, redacted `file`). Like `system.run`, **not reachable through direct `nodes.invoke`**: the Gateway refuses `system.execApprovals.*` on that path with `INVALID_REQUEST` and directs callers to `exec.approvals.node.*`. See the reachability note below. |
+| `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. Same reachability contract as `system.execApprovals.get`. |
 | `system.which` | `binary`                            | Lookup only, basename-only |
+
+### Advertised commands that are not reachable through `nodes.invoke`
+
+`system.run`, `system.execApprovals.get`, and `system.execApprovals.set` are
+advertised by the node and must be present in
+`gateway.nodes.commands.allow`, yet the Gateway refuses all three on the
+direct `nodes.invoke` path. This is intended, and the two facts are not in
+conflict:
+
+- The advertised list plus the gateway allowlist are what permit the Gateway
+  to forward a command to this node **on any surface**. Dropping these
+  commands from either list would break the operator surfaces that do reach
+  them (`exec host=node` and `exec.approvals.node.*`), not tidy up an unused
+  entry.
+- These commands are `operator_approval` class. Their whole purpose is to be
+  driven by an authenticated operator approval flow. Exposing them on
+  `nodes.invoke` would let any caller with node-invoke access read or rewrite
+  the exec-approval policy document directly, which is the escalation the
+  approval surface exists to prevent. `system.execApprovals.set` in
+  particular replaces the document that decides what may execute.
+
+So "advertised" states what the node can handle when the Gateway forwards it;
+it is not a claim that every Gateway entry point may reach it. Reachability
+per command is the row above and the [Authorization
+model](../design/AUTHORIZATION-MODEL.md).
 
 ## `ha.*` — Home Assistant control (40 commands)
 

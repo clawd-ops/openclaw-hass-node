@@ -168,3 +168,74 @@ describe("invokeHaCommand", () => {
     ).rejects.toThrow("node command failed");
   });
 });
+
+describe("resolveNodeAndPolicy", () => {
+  // #322: the per-node policy must be selected by the canonical node ID, not
+  // by the identifier the caller passed as the `node` tool parameter. The
+  // scenario below is the one the issue describes: one physical node whose
+  // canonical ID carries an explicit deny, and an alias-keyed entry that
+  // grants. Selecting the node by the alias must still resolve the deny.
+  const escalationConfig = {
+    nodes: {
+      "hass-001": { allowAdminOps: false },
+      kitchen: { allowAdminOps: true, adminToken: "alias-token" },
+    },
+  };
+
+  function primeGateway(config: unknown): void {
+    listNodesMock.mockResolvedValue([
+      { nodeId: "hass-001", displayName: "Kitchen" },
+    ]);
+    resolveNodeIdFromListMock.mockReturnValue("hass-001");
+    callGatewayToolMock.mockResolvedValue({ payload: {} });
+    resolvePluginConfigObjectMock.mockReturnValue(config);
+  }
+
+  afterEach(() => {
+    listNodesMock.mockReset();
+    resolveNodeIdFromListMock.mockReset();
+    resolvePluginConfigObjectMock.mockReset();
+  });
+
+  it.each(["kitchen", "Kitchen", "hass-001"])(
+    "resolves the canonical deny when the caller selects the node as %s",
+    async (nodeIdentifier) => {
+      primeGateway(escalationConfig);
+
+      const { resolveNodeAndPolicy } = await loadModule();
+      const resolved = await resolveNodeAndPolicy({
+        nodeIdentifier,
+        gatewayOpts: {},
+      });
+
+      expect(resolved.nodeId).toBe("hass-001");
+      expect(resolved.policy).toEqual({ allowAdminOps: false });
+      expect(resolved.policy?.adminToken).toBeUndefined();
+    },
+  );
+
+  it("does not grant from an alias-keyed entry when the canonical ID has none", async () => {
+    primeGateway({ nodes: { kitchen: { allowAdminOps: true } } });
+
+    const { resolveNodeAndPolicy } = await loadModule();
+    const resolved = await resolveNodeAndPolicy({
+      nodeIdentifier: "kitchen",
+      gatewayOpts: {},
+    });
+
+    expect(resolved.nodeId).toBe("hass-001");
+    expect(resolved.policy).toBeUndefined();
+  });
+
+  it("still reports the node display name for operator-facing messages", async () => {
+    primeGateway(escalationConfig);
+
+    const { resolveNodeAndPolicy } = await loadModule();
+    const resolved = await resolveNodeAndPolicy({
+      nodeIdentifier: "kitchen",
+      gatewayOpts: {},
+    });
+
+    expect(resolved.nodeDisplayName).toBe("Kitchen");
+  });
+});
