@@ -184,44 +184,10 @@ command request so the gateway stores the widened surface. See
      you want lifecycle commands to touch. `homeassistant`,
      `supervisor`, and `core_*` slugs are always denied even if listed.
      The paired session authenticates these calls; no separate lifecycle admin
-     token is required.
-
-     **Tier B commands also require `allowAdminOps: true` in the gateway
-     plugin config.** This is a separate step in your gateway
-     `openclaw.json`, not in the add-on options. Without it the gateway
-     silently denies every lifecycle command regardless of the allowlist.
-     First run `openclaw nodes status`, find this node by its display name,
-     and copy its canonical node ID. Add the following block under the
-     existing plugin entry, replacing `<your-node-id>` with that canonical ID,
-     not the friendly `node_name` value:
-
-     ```json
-     {
-       "plugins": {
-         "entries": {
-           "openclaw-hass-node-assist-tools": {
-             "config": {
-               "nodes": {
-                 "<your-node-id>": {
-                   "allowAdminOps": true
-                 }
-               }
-             }
-           }
-         }
-       }
-     }
-     ```
-
-     Then validate and reload the gateway:
-
-     ```bash
-     openclaw config validate
-     openclaw gateway restart
-     ```
-
-     `ha.reload_config` and `ha.update_install` remain separate admin
-     operations with their existing token gate.
+     token is required. Complete the Tier B gateway policy step after pairing
+     if you populate this allowlist. `ha.reload_config` and
+     `ha.update_install` remain separate admin operations with their existing
+     token gate.
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.
@@ -253,6 +219,43 @@ The gateway issues a long-lived device token in that connect response;
 the add-on (app) persists it to `/data/openclaw/device-token` and reuses it
 on every restart. **You don't need to re-paste `pairing_token` after the
 first successful pairing** — it's consumed.
+
+### Enable Tier B gateway policy
+
+If you populated `addon_lifecycle.allowlist`, the Tier B commands also require
+`allowAdminOps: true` in the gateway plugin config. This is a separate step in
+your gateway `openclaw.json`, not in the add-on options. Without it the gateway
+silently denies every lifecycle command regardless of the allowlist.
+
+Now that the node is paired, run `openclaw nodes status`, find it by its display
+name, and copy its canonical node ID. Add the following block under the existing
+plugin entry, replacing `<your-node-id>` with that canonical ID, not the friendly
+`node_name` value:
+
+```json
+{
+  "plugins": {
+    "entries": {
+      "openclaw-hass-node-assist-tools": {
+        "config": {
+          "nodes": {
+            "<your-node-id>": {
+              "allowAdminOps": true
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Then validate and reload the gateway:
+
+```bash
+openclaw config validate
+openclaw gateway restart
+```
 
 ## 4. HACS integration: install + bind
 
