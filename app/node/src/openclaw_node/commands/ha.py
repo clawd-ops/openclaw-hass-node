@@ -76,6 +76,7 @@ _CALL_SERVICE_PARAMS: Final[frozenset[str]] = frozenset(
 _CALL_SERVICE_TARGET_PARAMS: Final[frozenset[str]] = frozenset(
     {"entity_id", "area_id", "device_id"}
 )
+_MAX_ENTITY_STATE_FETCHES: Final[int] = 10
 
 # Phase 0 containment for effects that already have a narrower lifecycle,
 # update, reload, or shell policy surface.  This is intentionally not an
@@ -296,6 +297,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         if unknown_target:
             rendered = ", ".join(str(key) for key in unknown_target)
             return _error("INVALID_PARAM", f"unknown target parameter(s): {rendered}")
+        entity_id_t = target.get("entity_id")
+        if isinstance(entity_id_t, list) and not all(isinstance(e, str) and e for e in entity_id_t):
+            return _error("INVALID_PARAM", "entity_id list members must be non-empty strings")
     for key in ("data", "service_data"):
         if key in params and not isinstance(params[key], dict):
             return _error("INVALID_PARAM", f"{key} must be a dict")
@@ -647,7 +651,7 @@ async def _fetch_entity_states(entity_ids: str | list[str]) -> list[dict[str, An
     if isinstance(entity_ids, str):
         entity_ids = [entity_ids]
     states: list[dict[str, Any]] = []
-    for eid in entity_ids:
+    for eid in entity_ids[:_MAX_ENTITY_STATE_FETCHES]:
         encoded = _encode_path_segment(eid)
         if encoded is None:
             continue
@@ -675,6 +679,8 @@ def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, 
     if entity_id is not None:
         if not isinstance(entity_id, (str, list)):
             return None, "entity_id must be a string or list of strings"
+        if isinstance(entity_id, list) and not all(isinstance(e, str) and e for e in entity_id):
+            return None, "entity_id list members must be non-empty strings"
         target["entity_id"] = entity_id
     if area_id is not None:
         target["area_id"] = area_id
