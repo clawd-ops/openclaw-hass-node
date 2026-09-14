@@ -3540,3 +3540,25 @@ async def test_turn_resolves_the_topology_when_startup_has_not_yet() -> None:
     assert "identity.default_agent_id" in excinfo.value.message
     # And it refused before creating a session under an unowned key.
     assert "sessions.create" not in [f["method"] for f in sender.frames]
+
+
+@pytest.mark.asyncio
+async def test_non_streaming_turn_is_also_refused() -> None:
+    """`relay_turn` needs its own guard test, not inherited coverage.
+
+    Every other refusal test drives `stream_turn`. A reviewer removed the guard
+    from `relay_turn` alone, which changed behaviour from a local refusal with
+    no frames sent to issuing `sessions.create` under an unowned key, and the
+    entire suite still passed. Two entry points, one tested.
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id=""))
+    relay._gateway_agents = ("a", "b")
+
+    with pytest.raises(ChatRelayError) as excinfo:
+        await relay.relay_turn("conv-nonstream", "turn off the light")
+
+    assert excinfo.value.code == "INVALID_REQUEST"
+    assert "identity.default_agent_id" in excinfo.value.message
+    # Refused before the session existed, not after the gateway objected.
+    assert "sessions.create" not in [f["method"] for f in sender.frames]
