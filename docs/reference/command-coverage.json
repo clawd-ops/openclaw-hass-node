@@ -9592,9 +9592,37 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
+            "null"
+          ],
+          "name": "end",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
           ],
           "name": "end_time",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "entity_id",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -9662,7 +9690,21 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
+            "null"
+          ],
+          "name": "start",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
           ],
           "name": "start_time",
           "provenance": {
@@ -9673,14 +9715,17 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.",
+      "capability_conditions": "HA REST API is reachable; start/end/entity_id aliases accepted alongside canonical names (fix: #344); unknown-entity returns HA_NOT_FOUND instead of silent empty result (fix: #345); +00:00 encoding handled correctly via _encode_query_value.",
       "command": "ha.history",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
+      "evidence_note": "Fixes for #344 and #345: aliases added with conflict detection, unknown params rejected, and empty results with entity_ids specified probe for entity existence to distinguish no-history vs nonexistent. +00:00 encoding was already correct in existing URL helpers.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_history",
       "id": "ha.history",
-      "issues": [],
+      "issues": [
+        344,
+        345
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -9692,7 +9737,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -11159,12 +11204,26 @@
             "defaults": "source-derived AST expression",
             "name": "source-derived AST accepted key"
           }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "entity_filter",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
         }
       ],
-      "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
+      "capability_conditions": "HA REST API is reachable; entity_filter glob applied in direct path (fix: #319); unknown parameters rejected with error.",
       "command": "ha.list_states",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
+      "evidence_note": "Fix for #319 adds fnmatch entity_filter support and unknown-param rejection to the direct handler. Assist wrapper was already passing on 2026-09-13. Both paths now behave consistently.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_states",
       "id": "ha.list_states",
@@ -11182,7 +11241,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -11298,7 +11357,21 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
+            "null"
+          ],
+          "name": "end",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
           ],
           "name": "end_time",
           "provenance": {
@@ -11326,7 +11399,21 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
+            "null"
+          ],
+          "name": "start",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
           ],
           "name": "start_time",
           "provenance": {
@@ -11337,14 +11424,16 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable; direct caller aliases and URL encoding remain unresolved.",
+      "capability_conditions": "HA REST API is reachable; start/end aliases accepted alongside start_time/end_time (fix: #344); unknown parameters rejected with error.",
       "command": "ha.logbook",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Installed-node probes covered plugin-path bounding; direct source contract drift remains unresolved.",
+      "evidence_note": "Fix for #344 adds start/end aliases with conflict detection and unknown-param rejection. Assist wrapper confirmed passing 2026-09-13; direct path now consistent.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_logbook",
       "id": "ha.logbook",
-      "issues": [],
+      "issues": [
+        344
+      ],
       "metadata_provenance": {
         "acceptance_test_ids": "manually curated behavioral IDs",
         "authorization_class": "manual reality pass",
@@ -11356,7 +11445,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
