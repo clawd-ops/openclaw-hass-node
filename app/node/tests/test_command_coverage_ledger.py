@@ -1015,10 +1015,28 @@ def test_evidence_constructor_accepts_a_provenanced_live_record() -> None:
         "Probe returned a result.",
         observed_at="2026-09-13",
         node_version="2026.9.13b1",
+        plugin_version="2026.9.13b1",
     )
 
     assert item["observed_at"] == "2026-09-13"
     assert item["node_version"] == "2026.9.13b1"
+    assert item["plugin_version"] == "2026.9.13b1"
+
+
+def test_evidence_constructor_rejects_an_invalid_plugin_version() -> None:
+    """A supplied Gateway plugin version must use the release version format."""
+    generator = _load_generator()
+
+    with pytest.raises(generator.LedgerError, match=r"invalid plugin_version"):
+        generator._evidence(
+            "PRODUCTION-LIVE",
+            "pass",
+            "docs/evidence/sweep-2026-09-13.md",
+            "Probe returned a result.",
+            observed_at="2026-09-13",
+            node_version="2026.9.13b1",
+            plugin_version="current",
+        )
 
 
 def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None:
@@ -1309,6 +1327,24 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
     assert refused
     assert all(item["outcome"] == "refused-as-designed" for item in refused)
     assert all(item.get("stale") is False for item in refused)
+
+
+def test_tier_b_lifecycle_evidence_carries_gateway_plugin_version() -> None:
+    """Tier B behavior must identify the Gateway plugin build that enforced it."""
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+    rows_by_id = {row["id"]: row for row in ledger["rows"]}
+
+    for row_id in ("ha.addon_start", "ha.addon_stop", "ha.addon_restart"):
+        direct_evidence = rows_by_id[row_id]["callers"]["direct_nodes_invoke"]["evidence"]
+        current_live = [
+            item
+            for item in direct_evidence
+            if item.get("method") == "PRODUCTION-LIVE" and item.get("node_version") == "2026.9.13b1"
+        ]
+        assert current_live, f"{row_id} lacks current production evidence"
+        assert all(item.get("plugin_version") == "2026.9.13b1" for item in current_live), (
+            f"{row_id} lacks Gateway plugin provenance"
+        )
 
 
 def test_sept11_observations_carry_stale_provenance() -> None:
