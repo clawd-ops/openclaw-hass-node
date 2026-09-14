@@ -44,9 +44,11 @@ versions for a path is one file read.
 }
 ```
 
-`op` is one of `write`, `delete`, `move-src`, `move-dst`, `restore`.
-For `delete`, the line records the prior bytes; the object is kept
-until evicted.
+`op` is one of `write`, `delete`, `move-src`, `move-dst`, `restore`,
+`patch`. For `delete`, the line records the prior bytes; the object is
+kept until evicted. `patch` is recorded by `fs.patch` so a diff-applied
+change stays distinguishable in the audit trail from a whole-file
+`fs.write`.
 
 ## Behavioural notes
 
@@ -89,8 +91,16 @@ until evicted.
 
 ## Restore path
 
-- Command: `fs.restore path=<p>` with optional `at`, `proposal`, or
-  `version` selector.
+- Command: `fs.restore path=<p>` with exactly one of the `version_id`,
+  `version`, `proposal_id`, or `at` selectors.
+- `version_id` is the canonical identifier and the preferred selector.
+  It is the sha256 hex digest `fs.history` returns for each entry, and
+  the same value `fs.diff` accepts, so a caller can hand a version
+  straight from `fs.history` to `fs.restore` without converting a list
+  position into an index.
+- `version` is **1-indexed** (`-1` selects the most recent). `0` is not
+  a valid position and is rejected rather than silently resolving to
+  the latest version.
 - Restore is itself a write → produces a fresh proposal that the user
   must accept.
 - The restore proposal's body shows: target path, source version

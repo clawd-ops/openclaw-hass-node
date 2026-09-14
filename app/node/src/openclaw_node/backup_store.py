@@ -150,7 +150,7 @@ class _LiveReadError(BackupStoreError):
 
 class _SelectorRequiredError(ValueError):
     def __init__(self) -> None:
-        super().__init__("Exactly one of version/proposal_id/at is required")
+        super().__init__("Exactly one of version/proposal_id/at/sha256 is required")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -162,7 +162,8 @@ class Version:
         proposal_id: Identifier of the agent-bridge proposal that drove the change.
         sha256: Hex digest of the prior bytes (the object key).
         size: Size of the prior bytes in bytes.
-        op: One of ``write``, ``delete``, ``move-src``, ``move-dst``, ``restore``.
+        op: One of ``write``, ``delete``, ``move-src``, ``move-dst``,
+            ``restore``, ``patch``.
         actor: Caller identity recorded on the line.
         prev_sha256: Hex digest of the version before this one, or ``None`` at first capture.
         evicted: ``True`` when the object body has been GC'd but metadata is kept.

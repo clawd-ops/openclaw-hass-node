@@ -463,8 +463,13 @@ def handle_fs_history(params: dict[str, Any]) -> dict[str, Any]:
         path (str): Absolute path to query.
 
     Returns:
-        ``{ok: True, path, versions: [{ts, proposal_id, sha256, size, op,
-        actor, prev_sha256, evicted}, ...]}`` sorted oldest-first.
+        ``{ok: True, path, versions: [{version_id, ts, proposal_id, sha256,
+        size, op, actor, prev_sha256, evicted}, ...]}`` sorted oldest-first.
+
+        ``version_id`` is the canonical version identifier for this path and
+        is the value to pass back to ``fs.restore`` (as ``version_id``) or to
+        ``fs.diff`` (as ``from_version`` / ``to_version``).  It carries the
+        same sha256 hex digest as the ``sha256`` field.
     """
     path = str(params.get("path", ""))
     if not path:
