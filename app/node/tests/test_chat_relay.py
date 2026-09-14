@@ -3562,3 +3562,36 @@ async def test_non_streaming_turn_is_also_refused() -> None:
     assert "identity.default_agent_id" in excinfo.value.message
     # Refused before the session existed, not after the gateway objected.
     assert "sessions.create" not in [f["method"] for f in sender.frames]
+
+
+@pytest.mark.asyncio
+async def test_refusal_carries_a_user_safe_remedy() -> None:
+    """The #347 refusal must tell a user what to do, without leaking node text.
+
+    The operator-facing `message` names the agent ids; the user-facing `remedy`
+    must not, because agent ids are operator-chosen names and Assist output
+    includes voice transcripts. Assist emits only `remedy` (#348).
+    """
+    sender = FakeSender()
+    relay = ChatRelay(sender.send, IdentityConfig(default_agent_id=""))
+    relay._gateway_agents = ("kitchen-agent", "private-notes-agent")
+
+    with pytest.raises(ChatRelayError) as excinfo:
+        await relay.relay_turn("conv-348", "turn off the light")
+
+    exc = excinfo.value
+    assert exc.remedy, "a caller-fixable configuration error must carry a remedy"
+    assert "identity.default_agent_id" in exc.remedy
+    # The operator log gets the detail; the user-facing sentence does not.
+    assert "private-notes-agent" in exc.message
+    assert "private-notes-agent" not in exc.remedy
+
+
+def test_remedy_defaults_to_absent() -> None:
+    """Absence is the discriminator: no remedy means not caller-fixable.
+
+    `INVALID_REQUEST` meant three unrelated things (#348). A remedy present
+    marks the caller-fixable configuration case; a genuinely malformed request
+    carries none and emits only its code.
+    """
+    assert ChatRelayError("INVALID_REQUEST", "malformed payload").remedy is None
