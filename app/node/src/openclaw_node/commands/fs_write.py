@@ -313,6 +313,10 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
 
     Params:
         path (str): Absolute path of the file to restore.
+        version_id (str, optional): The ``version_id`` value from
+            ``fs.history`` (a sha256 hex digest).  This is the preferred
+            selector because it uses the same identifier the caller received
+            from ``fs.history`` and ``fs.diff``.
         version (int, optional): 1-indexed version number (``-1`` = latest).
         proposal_id (str, optional): Restore the version associated with this
             proposal ID.
@@ -330,6 +334,7 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     if not path:
         return _error("MISSING_PARAM", "path is required")
 
+    version_id_param = params.get("version_id")
     version_param = params.get("version")
     proposal_param = params.get("proposal_id")
     at_param = params.get("at")
@@ -369,6 +374,9 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     # Build kwargs for resolve_version from whichever selector was supplied.
     sel_kwargs: dict[str, Any] = {}
     sel_count = 0
+    if version_id_param is not None:
+        sel_kwargs["sha256"] = str(version_id_param)
+        sel_count += 1
     if version_param is not None:
         try:
             sel_kwargs["version"] = int(version_param)
@@ -385,7 +393,7 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     if sel_count != 1:
         return _error(
             "INVALID_PARAM",
-            "Exactly one of version, proposal_id, or at is required",
+            "Exactly one of version_id, version, proposal_id, or at is required",
         )
 
     try:
@@ -455,8 +463,13 @@ def handle_fs_history(params: dict[str, Any]) -> dict[str, Any]:
         path (str): Absolute path to query.
 
     Returns:
-        ``{ok: True, path, versions: [{ts, proposal_id, sha256, size, op,
-        actor, prev_sha256, evicted}, ...]}`` sorted oldest-first.
+        ``{ok: True, path, versions: [{version_id, ts, proposal_id, sha256,
+        size, op, actor, prev_sha256, evicted}, ...]}`` sorted oldest-first.
+
+        ``version_id`` is the canonical version identifier for this path and
+        is the value to pass back to ``fs.restore`` (as ``version_id``) or to
+        ``fs.diff`` (as ``from_version`` / ``to_version``).  It carries the
+        same sha256 hex digest as the ``sha256`` field.
     """
     path = str(params.get("path", ""))
     if not path:
@@ -473,6 +486,7 @@ def handle_fs_history(params: dict[str, Any]) -> dict[str, Any]:
         "path": path,
         "versions": [
             {
+                "version_id": v.sha256,
                 "ts": v.ts,
                 "proposal_id": v.proposal_id,
                 "sha256": v.sha256,

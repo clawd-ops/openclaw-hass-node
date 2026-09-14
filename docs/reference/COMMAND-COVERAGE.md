@@ -520,7 +520,7 @@ _(no unreleased command additions)_
 ### `fs.restore`
 
 - Handler: `openclaw_node.commands.fs_write:handle_fs_restore`
-- Canonical parameters: actor, agent_bridge, at, path, proposal_id, version
+- Canonical parameters: actor, agent_bridge, at, path, proposal_id, version, version_id
 - Authorization: `path_dependent_mutation`
 - Capability conditions: Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
@@ -560,6 +560,11 @@ _(no unreleased command additions)_
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `version`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `version_id`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet

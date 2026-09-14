@@ -436,3 +436,39 @@ def _sha256(data: bytes) -> str:
     import hashlib
 
     return hashlib.sha256(data).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# resolve_version: sha256 selector (fix for #324/#328)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_version_by_sha256(store: BackupStore) -> None:
+    v1 = store.capture("/config/x.yaml", b"a", proposal_id="p1", op="write")
+    v2 = store.capture("/config/x.yaml", b"b", proposal_id="p2", op="write")
+    assert store.resolve_version("/config/x.yaml", sha256=v1.sha256) == v1
+    assert store.resolve_version("/config/x.yaml", sha256=v2.sha256) == v2
+
+
+def test_resolve_version_by_sha256_unknown_raises(store: BackupStore) -> None:
+    store.capture("/config/x.yaml", b"a", proposal_id="p1", op="write")
+    with pytest.raises(VersionNotFoundError, match="No version with sha256"):
+        store.resolve_version("/config/x.yaml", sha256="0" * 64)
+
+
+def test_resolve_version_zero_is_out_of_range(store: BackupStore) -> None:
+    store.capture("/config/x.yaml", b"a", proposal_id="p1", op="write")
+    with pytest.raises(VersionNotFoundError, match="out of range"):
+        store.resolve_version("/config/x.yaml", version=0)
+
+
+# ---------------------------------------------------------------------------
+# Op: "patch" is valid (fix for #329)
+# ---------------------------------------------------------------------------
+
+
+def test_capture_patch_op_is_valid(store: BackupStore) -> None:
+    v = store.capture("/config/x.yaml", b"before", proposal_id="p1", op="patch")
+    assert v.op == "patch"
+    roundtripped = Version.from_json(v.to_json())
+    assert roundtripped.op == "patch"

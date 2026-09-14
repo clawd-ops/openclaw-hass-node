@@ -1356,6 +1356,20 @@
             "defaults": "source-derived AST expression",
             "name": "source-derived AST accepted key"
           }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "version_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
         }
       ],
       "capability_conditions": "Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.",
