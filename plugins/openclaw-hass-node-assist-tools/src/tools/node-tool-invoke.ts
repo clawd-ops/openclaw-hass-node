@@ -71,7 +71,10 @@ export async function resolveNodeAndPolicy(input: {
 
   const configResult = await callGatewayTool<{ payload?: unknown }>("config.get", input.gatewayOpts, {});
   const pluginConfig = resolvePluginConfigObject(configResult?.payload, PLUGIN_ID);
-  const policy = readPerNodePolicy(pluginConfig, input.nodeIdentifier, nodeId);
+  // Authorization resolves by canonical node ID only. `input.nodeIdentifier`
+  // is a caller-supplied selector (alias or display name) and must not choose
+  // the policy entry. See readPerNodePolicy and #322.
+  const policy = readPerNodePolicy(pluginConfig, nodeId);
 
   return { nodeId, nodeDisplayName, policy };
 }

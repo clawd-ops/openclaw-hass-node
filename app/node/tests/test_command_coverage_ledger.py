@@ -1298,9 +1298,14 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
     assert any(item["outcome"] == "fail" for item in current_state_live)
     assert all(item.get("stale") is False for item in current_state_live)
 
+    # #333 ruled that the direct nodes.invoke refusal is the intended gating and
+    # that the command is correctly advertised, so the row is no longer an open
+    # question. The outcome is the settled `refused-as-designed`, not `partial`,
+    # and the row carries no issue link.
     approvals = rows_by_id["system.execApprovals.get"]
     assert approvals["evidence_method"] == "PRODUCTION-LIVE"
-    assert approvals["outcome"] == "partial"
+    assert approvals["outcome"] == "refused-as-designed"
+    assert not approvals.get("issues")
     refused = [
         item
         for item in approvals["callers"]["direct_nodes_invoke"]["evidence"]
