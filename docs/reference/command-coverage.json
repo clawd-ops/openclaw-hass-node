@@ -2295,7 +2295,6 @@
               "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
-              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -2425,7 +2424,6 @@
               "observation": "ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
-              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -2679,7 +2677,6 @@
               "observation": "ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
-              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
