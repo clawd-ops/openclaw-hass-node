@@ -1389,9 +1389,15 @@ def test_unique_anchors_accepted() -> None:
     [
         # A row the table links to but that has no detail section: the link
         # lands nowhere and the page still builds.
-        ("[`a`](#row-a) [`b`](#row-b)\n### `a` {#row-a}\n", "detail anchors"),
+        (
+            "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n## Row details\n### `a` {#row-a}\n",
+            "detail anchors",
+        ),
         # A detail section nothing points at: unreachable except by scrolling.
-        ("[`a`](#row-a)\n### `a` {#row-a}\n### `b` {#row-b}\n", "table links"),
+        (
+            "## Coverage rows\n[`a`](#row-a)\n## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n",
+            "table links",
+        ),
     ],
 )
 def test_round_trip_mismatch_fails(document: str, expected_error: str) -> None:
@@ -1413,12 +1419,14 @@ def test_generated_markdown_links_every_row_to_a_target() -> None:
     )
 
     expected = {generator._row_anchor(row["id"]) for row in ledger["rows"]}
-    linked = set(re.findall(r"\]\(#(row-[a-z0-9-]+)\)", text))
-    targeted = set(re.findall(r"\{#(row-[a-z0-9-]+)\}", text))
+    table = generator._coverage_rows_table(text)
+    linked = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", table)
+    targeted = re.findall(r"\{#(row-[a-z0-9-]+)\}", text)
 
     assert len(expected) == len(ledger["rows"]), "anchors collided"
-    assert linked == expected
-    assert targeted == expected
+    # Lists, not sets: a duplicated row or detail section keeps the set equal.
+    assert sorted(linked) == sorted(expected)
+    assert sorted(targeted) == sorted(expected)
 
 
 def test_render_markdown_actually_invokes_the_uniqueness_guard() -> None:
@@ -1432,10 +1440,14 @@ def test_render_markdown_actually_invokes_the_uniqueness_guard() -> None:
     generator = _load_generator()
     ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
 
-    colliding = dict(ledger["rows"][0])
-    colliding["id"] = ledger["rows"][0]["id"].replace(".", "_")
-    assert colliding["id"] != ledger["rows"][0]["id"], "fixture must differ in source"
-    ledger["rows"] = [ledger["rows"][0], colliding]
+    # Chosen by id, not position: `ping` has no dot, so replacing `.` with `_`
+    # would be a no-op and the fixture would stop colliding if row order changed.
+    source = next(r for r in ledger["rows"] if r["id"] == "fs.delete")
+    colliding = dict(source)
+    colliding["id"] = source["id"].replace(".", "_")
+    assert colliding["id"] != source["id"], "fixture must differ in source"
+    assert generator._row_anchor(colliding["id"]) == generator._row_anchor(source["id"])
+    ledger["rows"] = [source, colliding]
 
     with pytest.raises(generator.LedgerError, match="unreachable"):
         generator.render_markdown(ledger)
@@ -1450,6 +1462,38 @@ def test_a_duplicated_detail_section_is_rejected() -> None:
     """
     generator = _load_generator()
     rows = [{"id": "a"}, {"id": "b"}]
-    document = "[`a`](#row-a) [`b`](#row-b)\n### `a` {#row-a}\n### `b` {#row-b}\n### `a` {#row-a}\n"
-    with pytest.raises(generator.LedgerError, match="more than once"):
+    document = (
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n"
+        "## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n### `a` {#row-a}\n"
+    )
+    with pytest.raises(generator.LedgerError, match="detail anchors emitted more than once"):
         generator._assert_anchors_round_trip(document, rows)
+
+
+def test_a_duplicated_table_row_is_rejected() -> None:
+    """A row listed twice in the authoritative coverage table.
+
+    The page renders, the id sets are unchanged, and the table silently lists a
+    command more than once. Set comparison cannot see it, which is why both
+    sides count.
+    """
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    document = (
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b) [`a`](#row-a)\n"
+        "## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n"
+    )
+    with pytest.raises(generator.LedgerError, match="table links emitted more than once"):
+        generator._assert_anchors_round_trip(document, rows)
+
+
+def test_a_link_outside_the_table_is_not_a_duplicate() -> None:
+    """Scoping the link count keeps a legitimate cross-reference from failing."""
+    generator = _load_generator()
+    rows = [{"id": "a"}]
+    document = (
+        "Intro mentioning [`a`](#row-a).\n"
+        "## Coverage rows\n[`a`](#row-a)\n"
+        "## Row details\n### `a` {#row-a}\n"
+    )
+    generator._assert_anchors_round_trip(document, rows)

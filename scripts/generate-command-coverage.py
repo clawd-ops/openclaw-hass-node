@@ -185,29 +185,43 @@ def _assert_anchors_round_trip(document: str, rows: list[dict[str, Any]]) -> Non
     and a section nothing points at is unreachable; both build cleanly.
     """
     expected = {_row_anchor(row["id"]) for row in rows}
-    linked_all = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", document)
+
+    # Both sides are counted, not set-compared. Multiplicity is exactly what
+    # goes wrong here and exactly what a set discards:
+    #   * a duplicated detail section emits one id twice, so every link
+    #     resolves to the first and the second section is unreachable;
+    #   * a duplicated table row emits one link twice, so the authoritative
+    #     coverage table silently lists a command more than once.
+    # Both render cleanly and neither changes the set of ids involved.
+    #
+    # Links are counted only within the Coverage rows table, so a future
+    # legitimate reference to a row from elsewhere on the page is not a
+    # false positive.
+    table = _coverage_rows_table(document)
+    linked_all = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", table)
     targeted_all = re.findall(r"\{#(row-[a-z0-9-]+)\}", document)
 
-    # Counts, not just sets. A duplicated detail section emits the same id
-    # twice: the sets still match, the page still builds, and one of the two
-    # sections is no longer addressable because every link resolves to the
-    # first. Comparing sets discards exactly the multiplicity that matters.
-    duplicates = sorted({a for a in targeted_all if targeted_all.count(a) > 1})
-    if duplicates:
-        raise LedgerError(f"detail anchors emitted more than once: {', '.join(duplicates)}")
+    for label, found in (("table links", linked_all), ("detail anchors", targeted_all)):
+        repeated = sorted({a for a in found if found.count(a) > 1})
+        if repeated:
+            raise LedgerError(f"{label} emitted more than once: {', '.join(repeated)}")
+        if set(found) != expected:
+            missing = ", ".join(sorted(expected - set(found))) or "none"
+            extra = ", ".join(sorted(set(found) - expected)) or "none"
+            raise LedgerError(f"{label} do not match rows; missing: {missing}; unexpected: {extra}")
 
-    linked = set(linked_all)
-    targeted = set(targeted_all)
-    if linked != expected:
-        missing = ", ".join(sorted(expected - linked)) or "none"
-        extra = ", ".join(sorted(linked - expected)) or "none"
-        raise LedgerError(f"table links do not match rows; missing: {missing}; unexpected: {extra}")
-    if targeted != expected:
-        missing = ", ".join(sorted(expected - targeted)) or "none"
-        extra = ", ".join(sorted(targeted - expected)) or "none"
-        raise LedgerError(
-            f"detail anchors do not match rows; missing: {missing}; unexpected: {extra}"
-        )
+
+def _coverage_rows_table(document: str) -> str:
+    """The Coverage rows section only.
+
+    Scoping the link count here keeps a future legitimate link to a row from
+    elsewhere on the page from reading as a duplicate.
+    """
+    start = document.find("## Coverage rows")
+    if start == -1:
+        raise LedgerError("generated document has no Coverage rows section")
+    end = document.find("## Row details", start)
+    return document[start:] if end == -1 else document[start:end]
 
 
 def _citation_link(citation: int) -> str:
