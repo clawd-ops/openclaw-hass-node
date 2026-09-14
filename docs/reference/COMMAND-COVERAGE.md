@@ -875,7 +875,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -917,7 +917,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -1000,7 +1000,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`pass`**: ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
