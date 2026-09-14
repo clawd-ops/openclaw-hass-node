@@ -43,6 +43,7 @@ EVIDENCE_METHODS = [
 
 # ISO date pattern for observed_at provenance field.
 _OBSERVED_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_ABSENT = object()
 
 
 def _is_observed_at(value: object) -> bool:
@@ -852,7 +853,7 @@ def _evidence(
     *,
     observed_at: str | None = None,
     node_version: str | None = None,
-    plugin_version: str | None = None,
+    plugin_version: object = _ABSENT,
     stale: bool | None = None,
 ) -> dict[str, Any]:
     if method not in EVIDENCE_METHODS:
@@ -878,7 +879,7 @@ def _evidence(
                 "PRODUCTION-LIVE evidence observation needs a valid "
                 f"node_version (got {node_version!r})"
             )
-        if plugin_version is not None and (
+        if plugin_version is not _ABSENT and (
             not isinstance(plugin_version, str)
             or not _FIRST_SHIPPED_VERSION_RE.fullmatch(plugin_version)
         ):
@@ -886,6 +887,11 @@ def _evidence(
                 "PRODUCTION-LIVE evidence observation has an invalid "
                 f"plugin_version (got {plugin_version!r})"
             )
+    elif plugin_version is not _ABSENT:
+        raise LedgerError(
+            f"{method} evidence observation cannot declare plugin_version; "
+            "plugin build provenance applies only to PRODUCTION-LIVE evidence"
+        )
     item: dict[str, Any] = {
         "method": method,
         "outcome": outcome,
@@ -896,7 +902,7 @@ def _evidence(
         item["observed_at"] = observed_at
     if node_version is not None:
         item["node_version"] = node_version
-    if plugin_version is not None:
+    if plugin_version is not _ABSENT:
         item["plugin_version"] = plugin_version
     if stale is not None:
         item["stale"] = stale
@@ -1418,12 +1424,11 @@ def build_ledger() -> dict[str, Any]:
                             )
                     obs_observed_at: str | None = None
                     obs_node_version: str | None = None
-                    obs_plugin_version: str | None = None
+                    obs_plugin_version: object = observation.get("plugin_version", _ABSENT)
                     obs_stale: bool | None = None
                     if observation["method"] == "PRODUCTION-LIVE":
                         obs_observed_at = observation.get("observed_at")
                         obs_node_version = observation.get("node_version")
-                        obs_plugin_version = observation.get("plugin_version")
                         if not _is_observed_at(obs_observed_at):
                             raise LedgerError(
                                 f"PRODUCTION-LIVE observation for {row_id}/{caller_name} "
