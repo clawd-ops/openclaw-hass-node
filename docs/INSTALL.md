@@ -142,8 +142,6 @@ command request so the gateway stores the widened surface. See
                   print(json.loads(base64.urlsafe_b64decode(s+pad))["bootstrapToken"])'
      ```
    - `node_name`: friendly name shown in the gateway UI (e.g. `hass`).
-     Set this explicitly if you plan to enable Tier B commands; the same
-     value identifies this node in the gateway plugin config.
    - `local_api_token` **(required)**: any opaque random string
      (e.g. `openssl rand -hex 32`). The local HTTP API is fail-closed:
      when this is empty, every non-public path returns
@@ -192,9 +190,10 @@ command request so the gateway stores the widened surface. See
      plugin config.** This is a separate step in your gateway
      `openclaw.json`, not in the add-on options. Without it the gateway
      silently denies every lifecycle command regardless of the allowlist.
-     Add the following block under the existing plugin entry. Replace
-     `<your-node-name>` with the explicit `node_name` value from this
-     add-on's options:
+     First run `openclaw nodes status`, find this node by its display name,
+     and copy its canonical node ID. Add the following block under the
+     existing plugin entry, replacing `<your-node-id>` with that canonical ID,
+     not the friendly `node_name` value:
 
      ```json
      {
@@ -203,7 +202,7 @@ command request so the gateway stores the widened surface. See
            "openclaw-hass-node-assist-tools": {
              "config": {
                "nodes": {
-                 "<your-node-name>": {
+                 "<your-node-id>": {
                    "allowAdminOps": true
                  }
                }
