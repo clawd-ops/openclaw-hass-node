@@ -296,7 +296,10 @@ So resolution terminates in one of two ways, not one:
 
 - **At most one gateway agent** → omit `agentId`. Unchanged, and correct.
 - **More than one gateway agent and no `default_agent_id`** → this is an
-  **operator configuration error**. The add-on must not choose an agent on the
+  **operator configuration error** for anonymous and unmapped users. Note this
+  is the *terminal* branch: step 1 still resolves a user matched by
+  `user_agent_map`, and those turns succeed. Describing it as "every turn
+  fails" is wrong and was corrected here. The add-on must not choose an agent on the
   operator's behalf. It must instead:
   1. log an ERROR at startup naming the available agents (see the ERROR logging
      rules below), and

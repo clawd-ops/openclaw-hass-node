@@ -247,3 +247,66 @@ def test_unset_default_error_names_the_setting_and_the_candidates(
 # new branch deleted. The real guarantee -- that no agent is chosen on the
 # operator's behalf -- is that the turn is refused rather than routed, and it is
 # pinned in `test_chat_relay.py` where routing actually happens.
+
+
+def test_startup_does_not_claim_a_gateway_default_that_does_not_exist(
+    caplog: LogCaptureFixture,
+) -> None:
+    """The contradictory reassurance must be absent, not merely outweighed.
+
+    The startup log used to report `default_agent_id: <gateway-default>`
+    unconditionally, so on the broken topology it named a working fallback
+    immediately before the ERROR saying no agent owns a turn. Two lines, two
+    mutually exclusive diagnoses, to an operator reading the log because turns
+    were failing. #347 lists it as one of four surfaces.
+    """
+    from openclaw_node.authz import log_agent_inventory
+
+    identity = IdentityConfig(user_agent_map={}, default_agent_id="")
+    with caplog.at_level(logging.INFO):
+        log_agent_inventory(identity, ("a", "b"))
+
+    assert "<gateway-default>" not in caplog.text
+    assert "no gateway default exists" in caplog.text
+
+
+def test_single_agent_still_reports_that_a_gateway_default_applies(
+    caplog: LogCaptureFixture,
+) -> None:
+    """With one agent the gateway does resolve it, and saying so is accurate."""
+    from openclaw_node.authz import log_agent_inventory
+
+    with caplog.at_level(logging.INFO):
+        log_agent_inventory(IdentityConfig(user_agent_map={}, default_agent_id=""), ("solo",))
+
+    assert "gateway default applies" in caplog.text
+
+
+def test_the_error_does_not_claim_every_turn_fails(caplog: LogCaptureFixture) -> None:
+    """`user_agent_map` still resolves, so "every turn" was false.
+
+    `resolve_agent_id` returns the mapped agent for a signed actor before
+    `default_agent_id` is consulted, so those turns succeed on exactly the
+    topology the ERROR describes. Claiming otherwise sends an operator looking
+    for a fault in the wrong place.
+    """
+    from openclaw_node.authz import log_agent_inventory
+
+    identity = IdentityConfig(user_agent_map={}, default_agent_id="")
+    with caplog.at_level(logging.INFO):
+        log_agent_inventory(identity, ("a", "b"))
+
+    error = next(r for r in caplog.records if r.levelno >= logging.ERROR).getMessage()
+    assert "every turn" not in error
+    assert "anonymous or unmapped" in error
+    assert "user_agent_map" in error
+
+
+def test_mapped_user_resolves_an_agent_on_the_broken_topology() -> None:
+    """The claim above, asserted against the resolver rather than the prose."""
+    from openclaw_node.authz import Actor, resolve_agent_id
+
+    identity = IdentityConfig(user_agent_map={"ash": "household"}, default_agent_id="")
+    assert resolve_agent_id(identity, Actor("ash", is_admin=False)) == "household"
+    assert resolve_agent_id(identity, Actor("nobody", is_admin=False)) == ""
+    assert resolve_agent_id(identity, None) == ""

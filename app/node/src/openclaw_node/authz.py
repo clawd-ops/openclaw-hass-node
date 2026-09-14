@@ -190,7 +190,7 @@ def resolve_turn_authz(identity: IdentityConfig, actor: Actor | None) -> TurnAut
         actor.user_id if actor else "<anonymous>",
         actor.is_admin if actor else False,
         role,
-        agent_id or "<gateway-default>",
+        agent_id or "<unset>",
         len(forbidden),
     )
     return TurnAuthz(
@@ -281,11 +281,36 @@ def _safe_context_value(value: str) -> str:
     return encoded[1:-1]
 
 
+def _default_agent_id_display(identity: IdentityConfig, agents: tuple[str, ...]) -> str:
+    """How to render `default_agent_id` in the startup log.
+
+    The previous text was `<gateway-default>` whenever the setting was empty.
+    On a multi-agent gateway there is no gateway default, so that line named a
+    working fallback at the exact moment none existed, to an operator reading
+    the log because turns were failing. It is one of the four defective
+    surfaces listed in #347, alongside the config comment that says the same
+    thing.
+
+    Args:
+        identity: Identity configuration.
+        agents: Gateway agent inventory; empty when it was not observed.
+
+    Returns:
+        The configured value, or a description of what the empty value means
+        on the observed topology.
+    """
+    if identity.default_agent_id:
+        return identity.default_agent_id
+    if len(agents) > 1:
+        return "<unset; no gateway default exists with several agents>"
+    return "<unset; gateway default applies>"
+
+
 def log_agent_inventory(identity: IdentityConfig, agents: tuple[str, ...]) -> None:
     """Log configured mappings against the available gateway agents."""
     available = ", ".join(agents) if agents else "<none reported>"
     _LOG.info("[identity] Gateway agents available: %s", available)
-    _LOG.info("[identity] default_agent_id: %s", identity.default_agent_id or "<gateway-default>")
+    _LOG.info("[identity] default_agent_id: %s", _default_agent_id_display(identity, agents))
     if identity.user_agent_map:
         for user_id, agent_id in sorted(identity.user_agent_map.items()):
             _LOG.info("[identity] user_agent_map[%s] -> %s", user_id, agent_id)
@@ -295,7 +320,7 @@ def log_agent_inventory(identity: IdentityConfig, agents: tuple[str, ...]) -> No
                     "Falling back to default_agent_id (%r) for this user. Available agents: %s",
                     user_id,
                     agent_id,
-                    identity.default_agent_id or "<gateway-default>",
+                    identity.default_agent_id or "<unset>",
                     available,
                 )
     if identity.default_agent_id and agents and identity.default_agent_id not in agents:
@@ -320,8 +345,9 @@ def log_agent_inventory(identity: IdentityConfig, agents: tuple[str, ...]) -> No
         # while doing it.
         _LOG.error(
             "[identity] Gateway has %d agents but default_agent_id is unset, so no agent "
-            "owns an Assist turn and every turn will fail. Set identity.default_agent_id "
-            "in the add-on configuration to one of: %s",
+            "owns an Assist turn from an anonymous or unmapped user and those turns will "
+            "fail. Users matched by user_agent_map are unaffected. Set "
+            "identity.default_agent_id in the add-on configuration to one of: %s",
             len(agents),
             available,
         )

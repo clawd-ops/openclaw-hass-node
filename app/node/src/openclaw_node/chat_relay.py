@@ -867,9 +867,10 @@ class ChatRelay:
         raise ChatRelayError(
             "INVALID_REQUEST",
             "No agent owns this Assist turn: the gateway has "
-            f"{len(agents)} agents and identity.default_agent_id is unset. "
-            "Set identity.default_agent_id in the add-on configuration to one "
-            f"of: {', '.join(agents)}",
+            f"{len(agents)} agents and identity.default_agent_id is unset, and this "
+            "turn is from an anonymous or unmapped user. Set "
+            "identity.default_agent_id in the add-on configuration to one of: "
+            f"{', '.join(agents)}",
         )
 
     async def _ensure_session(self, session_key: str, conversation_id: str) -> str:
