@@ -589,7 +589,7 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
             Alias: ``start``.
         end_time (str, optional): ISO-8601 upper bound. Alias: ``end``.
         entity_ids (list[str], optional): List of entity IDs to filter.
-            Alias: ``entity_id`` — a single string is wrapped into a list.
+            Alias: ``entity_id`` (a single string is wrapped into a list).
         minimal_response (bool, optional): Reduce payload size (default False).
         no_attributes (bool, optional): Omit attributes (default False).
         significant_changes_only (bool, optional): Only significant changes.

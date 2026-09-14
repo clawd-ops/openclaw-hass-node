@@ -1193,12 +1193,12 @@ def test_sept13_sweep_commands_have_production_live_evidence() -> None:
             f"{command} has no PRODUCTION-LIVE evidence item in any caller"
         )
 
-    # ha.history: direct-path alias mismatch and silent-empty fixed by #344/#345 — now pass.
+    # ha.history: direct-path alias mismatch and silent-empty fixed by #344/#345, now pass.
     history_row = rows_by_id["ha.history"]
     assert history_row["evidence_method"] == "PRODUCTION-LIVE"
     assert history_row["outcome"] == "pass"
 
-    # ha.logbook: direct-path key mismatch fixed by #344 — now pass.
+    # ha.logbook: direct-path key mismatch fixed by #344, now pass.
     logbook_row = rows_by_id["ha.logbook"]
     assert logbook_row["evidence_method"] == "PRODUCTION-LIVE"
     assert logbook_row["outcome"] == "pass"
