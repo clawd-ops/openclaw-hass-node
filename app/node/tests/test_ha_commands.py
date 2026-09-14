@@ -191,7 +191,13 @@ async def test_call_service_merges_target_and_data() -> None:
         captured.append(body)
         return []
 
-    with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
+    with (
+        patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post),
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         await handle_ha_call_service(
             {
                 "domain": "light",
@@ -335,9 +341,13 @@ async def test_call_service_rejects_noncanonical_or_unknown_params_before_ha(
 
 
 async def test_call_service_preserves_ordinary_light_action() -> None:
-    with patch(
-        "openclaw_node.commands.ha.ha_post", new_callable=AsyncMock, return_value=[]
-    ) as post:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock, return_value=[]) as post,
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         result = await handle_ha_call_service(
             {
                 "domain": " light ",
@@ -1111,14 +1121,26 @@ async def test_light_turn_on_entity_id() -> None:
 
 
 async def test_light_turn_on_with_brightness() -> None:
-    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post,
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         await handle_ha_light_turn_on({"entity_id": "light.x", "brightness": 200})
     body = mock_post.call_args[0][1]
     assert body["brightness"] == 200
 
 
 async def test_light_turn_on_with_rgb_color() -> None:
-    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post,
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         await handle_ha_light_turn_on({"entity_id": "light.x", "rgb_color": [255, 0, 0]})
     body = mock_post.call_args[0][1]
     assert body["rgb_color"] == [255, 0, 0]
@@ -1146,7 +1168,13 @@ async def test_light_turn_on_ha_error() -> None:
 
 
 async def test_light_turn_on_no_body_when_no_data() -> None:
-    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post,
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         await handle_ha_light_turn_on({"entity_id": "light.x"})
     body = mock_post.call_args[0][1]
     assert body is not None
@@ -1174,7 +1202,13 @@ async def test_light_turn_off_entity_id() -> None:
 
 
 async def test_light_turn_off_with_transition() -> None:
-    with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post,
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         await handle_ha_light_turn_off({"entity_id": "light.x", "transition": 2.0})
     body = mock_post.call_args[0][1]
     assert body["transition"] == 2.0
@@ -1190,8 +1224,110 @@ async def test_light_turn_off_ha_error() -> None:
 
 
 async def test_light_turn_off_non_list_result() -> None:
-    with patch("openclaw_node.commands.ha.ha_post", return_value={}):
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value={}),
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", ""),
+        ),
+    ):
         result = await handle_ha_light_turn_off({"entity_id": "light.x"})
+    assert result["ok"] is True
+    assert result["changed_states"] == []
+
+
+# ---------------------------------------------------------------------------
+# changed_states fallback fetch (#337)
+# ---------------------------------------------------------------------------
+
+
+async def test_light_turn_on_fetches_state_when_ha_returns_empty() -> None:
+    fetched = {"entity_id": "light.kitchen", "state": "on", "attributes": {"brightness": 255}}
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", return_value=fetched),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": "light.kitchen"})
+    assert result["ok"] is True
+    assert result["changed_states"] == [fetched]
+
+
+async def test_light_turn_on_no_fallback_for_area_target() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", new_callable=AsyncMock) as mock_get,
+    ):
+        result = await handle_ha_light_turn_on({"area_id": "living_room"})
+    assert result["ok"] is True
+    assert result["changed_states"] == []
+    mock_get.assert_not_awaited()
+
+
+async def test_light_turn_off_fetches_state_when_ha_returns_empty() -> None:
+    fetched = {"entity_id": "light.kitchen", "state": "off", "attributes": {}}
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", return_value=fetched),
+    ):
+        result = await handle_ha_light_turn_off({"entity_id": "light.kitchen"})
+    assert result["ok"] is True
+    assert result["changed_states"] == [fetched]
+
+
+async def test_light_turn_on_no_fallback_when_ha_returns_states() -> None:
+    ha_states = [{"entity_id": "light.kitchen", "state": "on"}]
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=ha_states),
+        patch("openclaw_node.commands.ha.ha_get", new_callable=AsyncMock) as mock_get,
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": "light.kitchen"})
+    assert result["changed_states"] == ha_states
+    mock_get.assert_not_awaited()
+
+
+async def test_call_service_fetches_state_when_ha_returns_empty() -> None:
+    fetched = {"entity_id": "light.x", "state": "on", "attributes": {}}
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", return_value=fetched),
+    ):
+        result = await handle_ha_call_service(
+            {
+                "domain": "light",
+                "service": "turn_on",
+                "target": {"entity_id": "light.x"},
+            }
+        )
+    assert result["ok"] is True
+    assert result["changed_states"] == [fetched]
+
+
+async def test_call_service_no_fallback_without_entity_id_target() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", new_callable=AsyncMock) as mock_get,
+    ):
+        result = await handle_ha_call_service(
+            {
+                "domain": "light",
+                "service": "turn_on",
+                "target": {"area_id": "living_room"},
+            }
+        )
+    assert result["ok"] is True
+    assert result["changed_states"] == []
+    mock_get.assert_not_awaited()
+
+
+async def test_light_turn_on_fallback_fetch_skips_on_ha_error() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch(
+            "openclaw_node.commands.ha.ha_get",
+            side_effect=HAClientError("HA_NOT_FOUND", "entity not found"),
+        ),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": "light.missing"})
     assert result["ok"] is True
     assert result["changed_states"] == []
 
