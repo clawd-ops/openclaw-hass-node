@@ -137,6 +137,87 @@ def _repo_url() -> str:
     return match.group(1).rstrip("/")
 
 
+def _row_anchor(row_id: str) -> str:
+    """Return the in-page anchor id for a coverage row.
+
+    Both the link in the Coverage rows table and the `{#id}` on the Row details
+    heading are built from this one call, so they cannot drift. The alternative,
+    inferring the id that Python-Markdown's slugifier would produce, means
+    reimplementing that slugifier and silently breaking every anchor on the page
+    if it ever changes. Row ids contain backticks, dots and `#`, which is exactly
+    the input where an inferred slug is least predictable.
+
+    `attr_list` (enabled in mkdocs.yml) is what makes the explicit id possible.
+
+    The whole row id is slugified, not just the command: action variants such as
+    `ha.config.lovelace#get` share a command with other rows, so slugifying the
+    command alone would collide.
+    """
+    slug = re.sub(r"[^a-z0-9]+", "-", row_id.lower()).strip("-")
+    return f"row-{slug}"
+
+
+def _assert_unique_anchors(rows: list[dict[str, Any]]) -> None:
+    """Fail generation when two rows would share an anchor.
+
+    A duplicate id is not a rendering error: the page builds, both links point at
+    the first occurrence, and the second row becomes unreachable with nothing to
+    indicate it. Failing here is the only place it is visible.
+    """
+    seen: dict[str, str] = {}
+    for row in rows:
+        anchor = _row_anchor(row["id"])
+        if anchor in seen:
+            raise LedgerError(
+                f"rows {seen[anchor]!r} and {row['id']!r} both slugify to "
+                f"{anchor!r}; one would be unreachable"
+            )
+        seen[anchor] = row["id"]
+
+
+def _assert_anchors_round_trip(document: str, rows: list[dict[str, Any]]) -> None:
+    """Fail when a row has no detail section, or a section has no row.
+
+    The two sides are generated from one list, so they agree by construction
+    today. That is exactly why this is worth asserting: the check costs nothing
+    now and catches the case where a future edit filters one loop and not the
+    other. A row whose detail block is missing renders as a link into nothing,
+    and a section nothing points at is unreachable; both build cleanly.
+    """
+    expected = {_row_anchor(row["id"]) for row in rows}
+
+    # Both sides are counted, not set-compared. Multiplicity is exactly what
+    # goes wrong here and exactly what a set discards:
+    #   * a duplicated detail section emits one id twice, so every link
+    #     resolves to the first and the second section is unreachable;
+    #   * a duplicated table row emits one link twice, so the authoritative
+    #     coverage table silently lists a command more than once.
+    # Both render cleanly and neither changes the set of ids involved.
+    #
+    # Counted across the whole document, deliberately. An earlier revision
+    # scoped link counting to the Coverage rows section so that a future
+    # cross-reference to a row from elsewhere on the page would not read as a
+    # duplicate. That future does not exist yet, and the scoping cost a real
+    # false negative: emitting a second complete `## Coverage rows` section
+    # after Row details produced 176 links against 88 targets and passed every
+    # guard, because the slice ended at the first `## Row details`.
+    #
+    # A hypothetical false positive is not worth a demonstrated false negative.
+    # If a genuine cross-reference is ever added, narrow this then, with that
+    # page in hand.
+    linked_all = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", document)
+    targeted_all = re.findall(r"\{#(row-[a-z0-9-]+)\}", document)
+
+    for label, found in (("table links", linked_all), ("detail anchors", targeted_all)):
+        repeated = sorted({a for a in found if found.count(a) > 1})
+        if repeated:
+            raise LedgerError(f"{label} emitted more than once: {', '.join(repeated)}")
+        if set(found) != expected:
+            missing = ", ".join(sorted(expected - set(found))) or "none"
+            extra = ", ".join(sorted(set(found) - expected)) or "none"
+            raise LedgerError(f"{label} do not match rows; missing: {missing}; unexpected: {extra}")
+
+
 def _citation_link(citation: int) -> str:
     """Render `#123` as an anchor that opens outside the docs view.
 
@@ -1582,6 +1663,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
     lines.extend(["", "## Outcomes", ""])
     for outcome, meaning in ledger["outcomes"].items():
         lines.append(f"- **{outcome}:** {meaning}")
+    _assert_unique_anchors(ledger["rows"])
     lines.extend(
         [
             "",
@@ -1598,7 +1680,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         if row.get("issues"):
             outcome_cell += " (" + ", ".join(_citation_link(c) for c in row["issues"]) + ")"
         lines.append(
-            f"| `{row['id']}` | {_compact_caller(callers['node_advertisement'])} | "
+            f"| [`{row['id']}`](#{_row_anchor(row['id'])}) | "
+            f"{_compact_caller(callers['node_advertisement'])} | "
             f"{_compact_caller(callers['direct_nodes_invoke'])} | "
             f"{_compact_caller(callers['handler_dispatch'])} | "
             f"{_compact_caller(callers['assist_wrapper'])} | "
@@ -1609,7 +1692,7 @@ def render_markdown(ledger: dict[str, Any]) -> str:
     for row in ledger["rows"]:
         lines.extend(
             [
-                f"### `{row['id']}`",
+                f"### `{row['id']}` {{#{_row_anchor(row['id'])}}}",
                 "",
                 f"- Handler: `{row['handler']}`",
                 f"- Canonical parameters: {_compact_params(row)}",
@@ -1700,7 +1783,9 @@ def render_markdown(ledger: dict[str, Any]) -> str:
         else:
             lines.append("  - none")
         lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
+    document = "\n".join(lines).rstrip() + "\n"
+    _assert_anchors_round_trip(document, ledger["rows"])
+    return document
 
 
 def _serialized_outputs() -> dict[Path, str]:

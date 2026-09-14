@@ -1343,3 +1343,163 @@ def test_sept11_observations_carry_stale_provenance() -> None:
     assert all(e.get("stale") is True for e in logbook_sept11), (
         "ha.logbook Sept 11 observations must be stale (node_version 2026.7.23b1 != current)"
     )
+
+
+# ---------------------------------------------------------------------------
+# In-page row anchors: the table links down to each row's detail section.
+#
+# Both sides are emitted from `_row_anchor`, so link and target cannot drift.
+# These pin the properties that a shared helper does not give for free:
+# uniqueness across action variants, and round-trip completeness.
+# ---------------------------------------------------------------------------
+
+
+def test_row_anchor_slugifies_the_whole_row_id() -> None:
+    """Action variants share a command, so the command alone would collide."""
+    generator = _load_generator()
+    assert generator._row_anchor("fs.delete") == "row-fs-delete"
+    assert generator._row_anchor("ha.config.lovelace#get") == "row-ha-config-lovelace-get"
+    assert generator._row_anchor("ha.config.lovelace#list") == "row-ha-config-lovelace-list"
+    # The bare command and its variants stay distinct.
+    assert generator._row_anchor("ha.config.lovelace") != generator._row_anchor(
+        "ha.config.lovelace#get"
+    )
+
+
+def test_duplicate_anchors_fail_generation() -> None:
+    """A collision is silent at render time: the second row becomes unreachable.
+
+    Both links resolve to the first occurrence and the page builds cleanly, so
+    generation is the only place this is visible.
+    """
+    generator = _load_generator()
+    rows = [{"id": "ha.config.lovelace#get"}, {"id": "ha.config.lovelace.get"}]
+    assert generator._row_anchor(rows[0]["id"]) == generator._row_anchor(rows[1]["id"])
+    with pytest.raises(generator.LedgerError, match="unreachable"):
+        generator._assert_unique_anchors(rows)
+
+
+def test_unique_anchors_accepted() -> None:
+    generator = _load_generator()
+    generator._assert_unique_anchors([{"id": "fs.delete"}, {"id": "fs.diff"}])
+
+
+@pytest.mark.parametrize(
+    ("document", "expected_error"),
+    [
+        # A row the table links to but that has no detail section: the link
+        # lands nowhere and the page still builds.
+        (
+            "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n## Row details\n### `a` {#row-a}\n",
+            "detail anchors",
+        ),
+        # A detail section nothing points at: unreachable except by scrolling.
+        (
+            "## Coverage rows\n[`a`](#row-a)\n## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n",
+            "table links",
+        ),
+    ],
+)
+def test_round_trip_mismatch_fails(document: str, expected_error: str) -> None:
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    with pytest.raises(generator.LedgerError, match=expected_error):
+        generator._assert_anchors_round_trip(document, rows)
+
+
+def test_generated_markdown_links_every_row_to_a_target() -> None:
+    """The real document, not a fixture: every row links, every link resolves."""
+    generator = _load_generator()
+    import re
+
+    markdown = _ROOT / "docs" / "reference" / "COMMAND-COVERAGE.md"
+    text = markdown.read_text(encoding="utf-8")
+    ledger = json.loads(
+        (_ROOT / "docs" / "reference" / "command-coverage.json").read_text(encoding="utf-8")
+    )
+
+    expected = {generator._row_anchor(row["id"]) for row in ledger["rows"]}
+    linked = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", text)
+    targeted = re.findall(r"\{#(row-[a-z0-9-]+)\}", text)
+
+    assert len(expected) == len(ledger["rows"]), "anchors collided"
+    # Lists, not sets: a duplicated row or detail section keeps the set equal.
+    assert sorted(linked) == sorted(expected)
+    assert sorted(targeted) == sorted(expected)
+
+
+def test_render_markdown_actually_invokes_the_uniqueness_guard() -> None:
+    """The helper being correct is not the same as generation calling it.
+
+    A reviewer disconnected `_assert_unique_anchors` from `render_markdown` and
+    every anchor test stayed green, because they all exercised the helper
+    directly. A ledger with `fs.delete` and `fs_delete` then rendered two
+    identical `{#row-fs-delete}` targets. This drives the real entry point.
+    """
+    generator = _load_generator()
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+
+    # Chosen by id, not position: `ping` has no dot, so replacing `.` with `_`
+    # would be a no-op and the fixture would stop colliding if row order changed.
+    source = next(r for r in ledger["rows"] if r["id"] == "fs.delete")
+    colliding = dict(source)
+    colliding["id"] = source["id"].replace(".", "_")
+    assert colliding["id"] != source["id"], "fixture must differ in source"
+    assert generator._row_anchor(colliding["id"]) == generator._row_anchor(source["id"])
+    ledger["rows"] = [source, colliding]
+
+    with pytest.raises(generator.LedgerError, match="unreachable"):
+        generator.render_markdown(ledger)
+
+
+def test_a_duplicated_detail_section_is_rejected() -> None:
+    """Two identical targets pass a set comparison and break the page.
+
+    Every link resolves to the first occurrence, so the second section is not
+    addressable, and the build is clean. Multiplicity is the thing being
+    checked, so the assertion has to count rather than compare sets.
+    """
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    document = (
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n"
+        "## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n### `a` {#row-a}\n"
+    )
+    with pytest.raises(generator.LedgerError, match="detail anchors emitted more than once"):
+        generator._assert_anchors_round_trip(document, rows)
+
+
+def test_a_duplicated_table_row_is_rejected() -> None:
+    """A row listed twice in the authoritative coverage table.
+
+    The page renders, the id sets are unchanged, and the table silently lists a
+    command more than once. Set comparison cannot see it, which is why both
+    sides count.
+    """
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    document = (
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b) [`a`](#row-a)\n"
+        "## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n"
+    )
+    with pytest.raises(generator.LedgerError, match="table links emitted more than once"):
+        generator._assert_anchors_round_trip(document, rows)
+
+
+def test_a_second_coverage_section_is_rejected() -> None:
+    """The defect that scoped counting allowed through.
+
+    Emitting a second complete `## Coverage rows` section after Row details
+    produced 176 table links against 88 targets and passed every guard, because
+    the link slice ended at the first `## Row details`. Counting across the
+    whole document catches it.
+    """
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    document = (
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n"
+        "## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n"
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n"
+    )
+    with pytest.raises(generator.LedgerError, match="table links emitted more than once"):
+        generator._assert_anchors_round_trip(document, rows)

@@ -57,98 +57,98 @@ _(no unreleased command additions)_
 
 | Command / action | Advertised | Direct caller | Handler/dispatch | Assist wrapper | Authorization | Method | **Outcome** |
 |---|---|---|---|---|---|---|---|
-| `fs.delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `fs.diff` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`partial`** |
-| `fs.glob` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
-| `fs.history` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
-| `fs.list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
-| `fs.move` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `fs.patch` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `fs.read` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
-| `fs.restore` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/324" target="_blank" rel="noopener noreferrer">#324</a>) |
-| `fs.stat` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
-| `fs.write` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
-| `ha.addon_changelog` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.addon_documentation` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.addon_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.addon_logs` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.addon_restart` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/323" target="_blank" rel="noopener noreferrer">#323</a>) |
-| `ha.addon_start` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
-| `ha.addon_stats` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.addon_stop` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
-| `ha.addon_update` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
-| `ha.calendar_get_events` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.call_service` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>TEST-PROVEN:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass<br>TEST-PROVEN:pass<br>TEST-PROVEN:refused-as-designed | `interim_node_effect_denylist` | `TEST-PROVEN` | **`partial`** |
-| `ha.check_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.area_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.area_registry#create` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.area_registry#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.area_registry#list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.area_registry#update` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.automation` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.automation#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.automation#get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.automation#save` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.config_entries` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.config_entries#disable` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.config_entries#enable` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.config_entries#get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.device_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.device_registry#list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
-| `ha.config.device_registry#update` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.entity_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.entity_registry#get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.entity_registry#list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/316" target="_blank" rel="noopener noreferrer">#316</a>) |
-| `ha.config.entity_registry#remove` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.entity_registry#update` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.helpers` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.helpers#create` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.helpers#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.helpers#list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.helpers#update` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.lovelace` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.lovelace#dashboards_list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.lovelace#get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
-| `ha.config.lovelace#resources_create` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.lovelace#resources_list` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.lovelace#save` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.scene` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.scene#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.scene#get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.scene#save` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.script` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.config.script#delete` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.config.script#get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.config.script#save` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
-| `ha.core_logs` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.get_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.get_state` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.history` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
-| `ha.light_turn_off` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.light_turn_on` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
-| `ha.list_addons` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.list_areas` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.list_automations` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
-| `ha.list_config_entries` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
-| `ha.list_devices` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
-| `ha.list_entity_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:fail | `read_only` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/316" target="_blank" rel="noopener noreferrer">#316</a>) |
-| `ha.list_events` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.list_services` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
-| `ha.list_states` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/319" target="_blank" rel="noopener noreferrer">#319</a>) |
-| `ha.logbook` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
-| `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
-| `ha.supervisor_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.update_install` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
-| `ping` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
-| `system.execApprovals.get` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/333" target="_blank" rel="noopener noreferrer">#333</a>) |
-| `system.execApprovals.set` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
-| `system.run` | advertised<br>CODE-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `TEST-PROVEN` | **`pass`** |
-| `system.run.prepare` | advertised<br>CODE-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
-| `system.which` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.delete`](#row-fs-delete) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
+| [`fs.diff`](#row-fs-diff) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`partial`** |
+| [`fs.glob`](#row-fs-glob) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.history`](#row-fs-history) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.list`](#row-fs-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.move`](#row-fs-move) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
+| [`fs.patch`](#row-fs-patch) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
+| [`fs.read`](#row-fs-read) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.restore`](#row-fs-restore) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/324" target="_blank" rel="noopener noreferrer">#324</a>) |
+| [`fs.stat`](#row-fs-stat) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.write`](#row-fs-write) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.addon_changelog`](#row-ha-addon-changelog) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_documentation`](#row-ha-addon-documentation) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_info`](#row-ha-addon-info) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_logs`](#row-ha-addon-logs) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_restart`](#row-ha-addon-restart) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/323" target="_blank" rel="noopener noreferrer">#323</a>) |
+| [`ha.addon_start`](#row-ha-addon-start) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| [`ha.addon_stats`](#row-ha-addon-stats) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_stop`](#row-ha-addon-stop) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| [`ha.addon_update`](#row-ha-addon-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| [`ha.calendar_get_events`](#row-ha-calendar-get-events) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.call_service`](#row-ha-call-service) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>TEST-PROVEN:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass<br>TEST-PROVEN:pass<br>TEST-PROVEN:refused-as-designed | `interim_node_effect_denylist` | `TEST-PROVEN` | **`partial`** |
+| [`ha.check_config`](#row-ha-check-config) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.area_registry`](#row-ha-config-area-registry) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.area_registry#create`](#row-ha-config-area-registry-create) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.area_registry#delete`](#row-ha-config-area-registry-delete) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.area_registry#list`](#row-ha-config-area-registry-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.area_registry#update`](#row-ha-config-area-registry-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.automation`](#row-ha-config-automation) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.automation#delete`](#row-ha-config-automation-delete) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.automation#get`](#row-ha-config-automation-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.automation#save`](#row-ha-config-automation-save) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.config_entries`](#row-ha-config-config-entries) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.config_entries#disable`](#row-ha-config-config-entries-disable) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.config_entries#enable`](#row-ha-config-config-entries-enable) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.config_entries#get`](#row-ha-config-config-entries-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.device_registry`](#row-ha-config-device-registry) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.device_registry#list`](#row-ha-config-device-registry-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
+| [`ha.config.device_registry#update`](#row-ha-config-device-registry-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.entity_registry`](#row-ha-config-entity-registry) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.entity_registry#get`](#row-ha-config-entity-registry-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.entity_registry#list`](#row-ha-config-entity-registry-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/316" target="_blank" rel="noopener noreferrer">#316</a>) |
+| [`ha.config.entity_registry#remove`](#row-ha-config-entity-registry-remove) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.entity_registry#update`](#row-ha-config-entity-registry-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.helpers`](#row-ha-config-helpers) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.helpers#create`](#row-ha-config-helpers-create) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.helpers#delete`](#row-ha-config-helpers-delete) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.helpers#list`](#row-ha-config-helpers-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.helpers#update`](#row-ha-config-helpers-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.lovelace`](#row-ha-config-lovelace) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.lovelace#dashboards_list`](#row-ha-config-lovelace-dashboards-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.lovelace#get`](#row-ha-config-lovelace-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
+| [`ha.config.lovelace#resources_create`](#row-ha-config-lovelace-resources-create) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.lovelace#resources_list`](#row-ha-config-lovelace-resources-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.lovelace#save`](#row-ha-config-lovelace-save) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.scene`](#row-ha-config-scene) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.scene#delete`](#row-ha-config-scene-delete) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.scene#get`](#row-ha-config-scene-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.scene#save`](#row-ha-config-scene-save) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.script`](#row-ha-config-script) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `action_dependent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.config.script#delete`](#row-ha-config-script-delete) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.config.script#get`](#row-ha-config-script-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.config.script#save`](#row-ha-config-script-save) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed | unavailable<br>CODE-PROVEN:refused-as-designed | `deny_pending_trusted_approval` | `TEST-PROVEN` | **`refused-as-designed`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/339" target="_blank" rel="noopener noreferrer">#339</a>) |
+| [`ha.core_logs`](#row-ha-core-logs) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.get_config`](#row-ha-get-config) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.get_state`](#row-ha-get-state) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.history`](#row-ha-history) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
+| [`ha.light_turn_off`](#row-ha-light-turn-off) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.light_turn_on`](#row-ha-light-turn-on) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
+| [`ha.list_addons`](#row-ha-list-addons) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.list_areas`](#row-ha-list-areas) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.list_automations`](#row-ha-list-automations) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
+| [`ha.list_config_entries`](#row-ha-list-config-entries) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
+| [`ha.list_devices`](#row-ha-list-devices) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
+| [`ha.list_entity_registry`](#row-ha-list-entity-registry) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:fail | `read_only` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/316" target="_blank" rel="noopener noreferrer">#316</a>) |
+| [`ha.list_events`](#row-ha-list-events) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.list_services`](#row-ha-list-services) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
+| [`ha.list_states`](#row-ha-list-states) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/319" target="_blank" rel="noopener noreferrer">#319</a>) |
+| [`ha.logbook`](#row-ha-logbook) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
+| [`ha.reload_config`](#row-ha-reload-config) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
+| [`ha.supervisor_info`](#row-ha-supervisor-info) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.update_install`](#row-ha-update-install) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
+| [`ping`](#row-ping) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
+| [`system.execApprovals.get`](#row-system-execapprovals-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/333" target="_blank" rel="noopener noreferrer">#333</a>) |
+| [`system.execApprovals.set`](#row-system-execapprovals-set) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
+| [`system.run`](#row-system-run) | advertised<br>CODE-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `TEST-PROVEN` | **`pass`** |
+| [`system.run.prepare`](#row-system-run-prepare) | advertised<br>CODE-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
+| [`system.which`](#row-system-which) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
 
 ## Row details
 
-### `fs.delete`
+### `fs.delete` {#row-fs-delete}
 
 - Handler: `openclaw_node.commands.fs_move_delete:handle_fs_delete`
 - Canonical parameters: actor, agent_bridge, path, proposal_id
@@ -194,7 +194,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.diff`
+### `fs.diff` {#row-fs-diff}
 
 - Handler: `openclaw_node.commands.fs_write:handle_fs_diff`
 - Canonical parameters: from_version, path, to_version
@@ -236,7 +236,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.glob`
+### `fs.glob` {#row-fs-glob}
 
 - Handler: `openclaw_node.commands.fs:handle_fs_glob`
 - Canonical parameters: hidden, max_matches, pattern, root
@@ -283,7 +283,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.history`
+### `fs.history` {#row-fs-history}
 
 - Handler: `openclaw_node.commands.fs_write:handle_fs_history`
 - Canonical parameters: path
@@ -315,7 +315,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.list`
+### `fs.list` {#row-fs-list}
 
 - Handler: `openclaw_node.commands.fs:handle_fs_list`
 - Canonical parameters: hidden, max_entries, path
@@ -357,7 +357,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.move`
+### `fs.move` {#row-fs-move}
 
 - Handler: `openclaw_node.commands.fs_move_delete:handle_fs_move`
 - Canonical parameters: actor, agent_bridge, dst, proposal_id, src
@@ -408,7 +408,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.patch`
+### `fs.patch` {#row-fs-patch}
 
 - Handler: `openclaw_node.commands.fs_patch:handle_fs_patch`
 - Canonical parameters: actor, agent_bridge, dry_run, patch, path, proposal_id
@@ -464,7 +464,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.read`
+### `fs.read` {#row-fs-read}
 
 - Handler: `openclaw_node.commands.fs:handle_fs_read`
 - Canonical parameters: encoding, length, max_bytes, offset, path
@@ -517,7 +517,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.restore`
+### `fs.restore` {#row-fs-restore}
 
 - Handler: `openclaw_node.commands.fs_write:handle_fs_restore`
 - Canonical parameters: actor, agent_bridge, at, path, proposal_id, version, version_id
@@ -579,7 +579,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.stat`
+### `fs.stat` {#row-fs-stat}
 
 - Handler: `openclaw_node.commands.fs:handle_fs_stat`
 - Canonical parameters: path
@@ -611,7 +611,7 @@ _(no unreleased command additions)_
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
 
-### `fs.write`
+### `fs.write` {#row-fs-write}
 
 - Handler: `openclaw_node.commands.fs_write:handle_fs_write`
 - Canonical parameters: actor, agent_bridge, content, encoding, path, proposal_id
@@ -668,7 +668,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_gateway_ws.py`
 
-### `ha.addon_changelog`
+### `ha.addon_changelog` {#row-ha-addon-changelog}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_changelog`
 - Canonical parameters: slug
@@ -709,7 +709,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.addon_documentation`
+### `ha.addon_documentation` {#row-ha-addon-documentation}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_documentation`
 - Canonical parameters: slug
@@ -750,7 +750,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.addon_info`
+### `ha.addon_info` {#row-ha-addon-info}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_info`
 - Canonical parameters: slug
@@ -791,7 +791,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.addon_logs`
+### `ha.addon_logs` {#row-ha-addon-logs}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_logs`
 - Canonical parameters: lines, slug
@@ -837,7 +837,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.addon_restart`
+### `ha.addon_restart` {#row-ha-addon-restart}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_restart`
 - Canonical parameters: slug
@@ -879,7 +879,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
-### `ha.addon_start`
+### `ha.addon_start` {#row-ha-addon-start}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_start`
 - Canonical parameters: slug
@@ -920,7 +920,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
-### `ha.addon_stats`
+### `ha.addon_stats` {#row-ha-addon-stats}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_stats`
 - Canonical parameters: slug
@@ -961,7 +961,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.addon_stop`
+### `ha.addon_stop` {#row-ha-addon-stop}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_stop`
 - Canonical parameters: slug
@@ -1002,7 +1002,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
-### `ha.addon_update`
+### `ha.addon_update` {#row-ha-addon-update}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_update`
 - Canonical parameters: slug
@@ -1043,7 +1043,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
-### `ha.calendar_get_events`
+### `ha.calendar_get_events` {#row-ha-calendar-get-events}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_calendar_get_events`
 - Canonical parameters: end_date_time, entity_id, start_date_time
@@ -1094,7 +1094,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-calendar-get-events-tool.test.ts`
 
-### `ha.call_service`
+### `ha.call_service` {#row-ha-call-service}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_call_service`
 - Canonical parameters: data (alias: service_data), domain, service, target
@@ -1168,7 +1168,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
 
-### `ha.check_config`
+### `ha.check_config` {#row-ha-check-config}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_check_config`
 - Canonical parameters: none observed
@@ -1206,7 +1206,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.config.area_registry`
+### `ha.config.area_registry` {#row-ha-config-area-registry}
 
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, area_id, attrs, name, proposal_id
@@ -1258,7 +1258,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.area_registry#create`
+### `ha.config.area_registry#create` {#row-ha-config-area-registry-create}
 
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, name, attrs, proposal_id
@@ -1308,7 +1308,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.area_registry#delete`
+### `ha.config.area_registry#delete` {#row-ha-config-area-registry-delete}
 
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, area_id, proposal_id
@@ -1353,7 +1353,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.area_registry#list`
+### `ha.config.area_registry#list` {#row-ha-config-area-registry-list}
 
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action
@@ -1386,7 +1386,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.area_registry#update`
+### `ha.config.area_registry#update` {#row-ha-config-area-registry-update}
 
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, area_id, attrs, proposal_id
@@ -1436,7 +1436,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.automation`
+### `ha.config.automation` {#row-ha-config-automation}
 
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, config, id, proposal_id
@@ -1484,7 +1484,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
 
-### `ha.config.automation#delete`
+### `ha.config.automation#delete` {#row-ha-config-automation-delete}
 
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, id, proposal_id
@@ -1530,7 +1530,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
 
-### `ha.config.automation#get`
+### `ha.config.automation#get` {#row-ha-config-automation-get}
 
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, id
@@ -1569,7 +1569,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
 
-### `ha.config.automation#save`
+### `ha.config.automation#save` {#row-ha-config-automation-save}
 
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, id, config, proposal_id
@@ -1620,7 +1620,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
 
-### `ha.config.config_entries`
+### `ha.config.config_entries` {#row-ha-config-config-entries}
 
 - Handler: `openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries`
 - Canonical parameters: action, entry_id, proposal_id
@@ -1662,7 +1662,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
-### `ha.config.config_entries#disable`
+### `ha.config.config_entries#disable` {#row-ha-config-config-entries-disable}
 
 - Handler: `openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries`
 - Canonical parameters: action, entry_id, proposal_id
@@ -1707,7 +1707,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
-### `ha.config.config_entries#enable`
+### `ha.config.config_entries#enable` {#row-ha-config-config-entries-enable}
 
 - Handler: `openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries`
 - Canonical parameters: action, entry_id, proposal_id
@@ -1752,7 +1752,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
-### `ha.config.config_entries#get`
+### `ha.config.config_entries#get` {#row-ha-config-config-entries-get}
 
 - Handler: `openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries`
 - Canonical parameters: action, entry_id
@@ -1790,7 +1790,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
-### `ha.config.device_registry`
+### `ha.config.device_registry` {#row-ha-config-device-registry}
 
 - Handler: `openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry`
 - Canonical parameters: action, attrs, device_id, proposal_id
@@ -1837,7 +1837,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.device_registry#list`
+### `ha.config.device_registry#list` {#row-ha-config-device-registry-list}
 
 - Handler: `openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry`
 - Canonical parameters: action
@@ -1871,7 +1871,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.device_registry#update`
+### `ha.config.device_registry#update` {#row-ha-config-device-registry-update}
 
 - Handler: `openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry`
 - Canonical parameters: action, device_id, attrs, proposal_id
@@ -1921,7 +1921,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.entity_registry`
+### `ha.config.entity_registry` {#row-ha-config-entity-registry}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action, attrs, entity_id, proposal_id
@@ -1968,7 +1968,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.entity_registry#get`
+### `ha.config.entity_registry#get` {#row-ha-config-entity-registry-get}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action, entity_id
@@ -2006,7 +2006,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.entity_registry#list`
+### `ha.config.entity_registry#list` {#row-ha-config-entity-registry-list}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action
@@ -2040,7 +2040,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.entity_registry#remove`
+### `ha.config.entity_registry#remove` {#row-ha-config-entity-registry-remove}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action, entity_id, proposal_id
@@ -2085,7 +2085,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.entity_registry#update`
+### `ha.config.entity_registry#update` {#row-ha-config-entity-registry-update}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action, entity_id, attrs, proposal_id
@@ -2135,7 +2135,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
-### `ha.config.helpers`
+### `ha.config.helpers` {#row-ha-config-helpers}
 
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, attrs, helper_type, proposal_id
@@ -2183,7 +2183,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
 
-### `ha.config.helpers#create`
+### `ha.config.helpers#create` {#row-ha-config-helpers-create}
 
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type, attrs, proposal_id
@@ -2234,7 +2234,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
 
-### `ha.config.helpers#delete`
+### `ha.config.helpers#delete` {#row-ha-config-helpers-delete}
 
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type, <helper_type>_id, proposal_id
@@ -2285,7 +2285,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
 
-### `ha.config.helpers#list`
+### `ha.config.helpers#list` {#row-ha-config-helpers-list}
 
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type
@@ -2324,7 +2324,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
 
-### `ha.config.helpers#update`
+### `ha.config.helpers#update` {#row-ha-config-helpers-update}
 
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type, <helper_type>_id, attrs, proposal_id
@@ -2380,7 +2380,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
 
-### `ha.config.lovelace`
+### `ha.config.lovelace` {#row-ha-config-lovelace}
 
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action, config, proposal_id, res_type, url, url_path
@@ -2437,7 +2437,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
-### `ha.config.lovelace#dashboards_list`
+### `ha.config.lovelace#dashboards_list` {#row-ha-config-lovelace-dashboards-list}
 
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action
@@ -2470,7 +2470,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
-### `ha.config.lovelace#get`
+### `ha.config.lovelace#get` {#row-ha-config-lovelace-get}
 
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action, url_path
@@ -2508,7 +2508,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
-### `ha.config.lovelace#resources_create`
+### `ha.config.lovelace#resources_create` {#row-ha-config-lovelace-resources-create}
 
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action, url, res_type, proposal_id
@@ -2558,7 +2558,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
-### `ha.config.lovelace#resources_list`
+### `ha.config.lovelace#resources_list` {#row-ha-config-lovelace-resources-list}
 
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action
@@ -2591,7 +2591,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
-### `ha.config.lovelace#save`
+### `ha.config.lovelace#save` {#row-ha-config-lovelace-save}
 
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action, config, url_path, proposal_id
@@ -2641,7 +2641,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
-### `ha.config.scene`
+### `ha.config.scene` {#row-ha-config-scene}
 
 - Handler: `openclaw_node.commands.ha_config_scene:handle_ha_config_scene`
 - Canonical parameters: action, config, id, proposal_id
@@ -2688,7 +2688,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_scene.py`
 
-### `ha.config.scene#delete`
+### `ha.config.scene#delete` {#row-ha-config-scene-delete}
 
 - Handler: `openclaw_node.commands.ha_config_scene:handle_ha_config_scene`
 - Canonical parameters: action, id, proposal_id
@@ -2733,7 +2733,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_scene.py`
 
-### `ha.config.scene#get`
+### `ha.config.scene#get` {#row-ha-config-scene-get}
 
 - Handler: `openclaw_node.commands.ha_config_scene:handle_ha_config_scene`
 - Canonical parameters: action, id
@@ -2771,7 +2771,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_scene.py`
 
-### `ha.config.scene#save`
+### `ha.config.scene#save` {#row-ha-config-scene-save}
 
 - Handler: `openclaw_node.commands.ha_config_scene:handle_ha_config_scene`
 - Canonical parameters: action, id, config, proposal_id
@@ -2821,7 +2821,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_scene.py`
 
-### `ha.config.script`
+### `ha.config.script` {#row-ha-config-script}
 
 - Handler: `openclaw_node.commands.ha_config_script:handle_ha_config_script`
 - Canonical parameters: action, config, id, proposal_id
@@ -2868,7 +2868,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
-### `ha.config.script#delete`
+### `ha.config.script#delete` {#row-ha-config-script-delete}
 
 - Handler: `openclaw_node.commands.ha_config_script:handle_ha_config_script`
 - Canonical parameters: action, id, proposal_id
@@ -2913,7 +2913,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
-### `ha.config.script#get`
+### `ha.config.script#get` {#row-ha-config-script-get}
 
 - Handler: `openclaw_node.commands.ha_config_script:handle_ha_config_script`
 - Canonical parameters: action, id
@@ -2951,7 +2951,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
-### `ha.config.script#save`
+### `ha.config.script#save` {#row-ha-config-script-save}
 
 - Handler: `openclaw_node.commands.ha_config_script:handle_ha_config_script`
 - Canonical parameters: action, id, config, proposal_id
@@ -3001,7 +3001,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
-### `ha.core_logs`
+### `ha.core_logs` {#row-ha-core-logs}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_core_logs`
 - Canonical parameters: lines
@@ -3042,7 +3042,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.get_config`
+### `ha.get_config` {#row-ha-get-config}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_get_config`
 - Canonical parameters: none observed
@@ -3079,7 +3079,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.get_state`
+### `ha.get_state` {#row-ha-get-state}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_get_state`
 - Canonical parameters: entity_id
@@ -3123,7 +3123,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-get-state-tool.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 
-### `ha.history`
+### `ha.history` {#row-ha-history}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_history`
 - Canonical parameters: end_time, entity_ids, minimal_response, no_attributes, significant_changes_only, start_time
@@ -3190,7 +3190,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-entity-scoped-read-tools.test.ts`
 
-### `ha.light_turn_off`
+### `ha.light_turn_off` {#row-ha-light-turn-off}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_light_turn_off`
 - Canonical parameters: area_id, device_id, entity_id, transition
@@ -3245,7 +3245,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
-### `ha.light_turn_on`
+### `ha.light_turn_on` {#row-ha-light-turn-on}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_light_turn_on`
 - Canonical parameters: area_id, brightness, brightness_pct, color_temp_kelvin, device_id, entity_id, rgb_color, transition
@@ -3320,7 +3320,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
-### `ha.list_addons`
+### `ha.list_addons` {#row-ha-list-addons}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_addons`
 - Canonical parameters: none observed
@@ -3357,7 +3357,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.list_areas`
+### `ha.list_areas` {#row-ha-list-areas}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_areas`
 - Canonical parameters: none observed
@@ -3395,7 +3395,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-metadata-read-tool.test.ts`
 
-### `ha.list_automations`
+### `ha.list_automations` {#row-ha-list-automations}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_automations`
 - Canonical parameters: entity_filter, include_traces, state_filter
@@ -3452,7 +3452,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.list_config_entries`
+### `ha.list_config_entries` {#row-ha-list-config-entries}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_config_entries`
 - Canonical parameters: none observed
@@ -3490,7 +3490,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.list_devices`
+### `ha.list_devices` {#row-ha-list-devices}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_devices`
 - Canonical parameters: none observed
@@ -3528,7 +3528,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-metadata-read-tool.test.ts`
 
-### `ha.list_entity_registry`
+### `ha.list_entity_registry` {#row-ha-list-entity-registry}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_entity_registry`
 - Canonical parameters: none observed
@@ -3566,7 +3566,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-metadata-read-tool.test.ts`
 
-### `ha.list_events`
+### `ha.list_events` {#row-ha-list-events}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_events`
 - Canonical parameters: none observed
@@ -3603,7 +3603,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.list_services`
+### `ha.list_services` {#row-ha-list-services}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_services`
 - Canonical parameters: none observed
@@ -3641,7 +3641,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.list_states`
+### `ha.list_states` {#row-ha-list-states}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_states`
 - Canonical parameters: domain
@@ -3685,7 +3685,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 
-### `ha.logbook`
+### `ha.logbook` {#row-ha-logbook}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_logbook`
 - Canonical parameters: end_time, entity_id, start_time
@@ -3738,7 +3738,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-entity-scoped-read-tools.test.ts`
 
-### `ha.reload_config`
+### `ha.reload_config` {#row-ha-reload-config}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_reload_config`
 - Canonical parameters: admin_token, domain
@@ -3785,7 +3785,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
-### `ha.supervisor_info`
+### `ha.supervisor_info` {#row-ha-supervisor-info}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_supervisor_info`
 - Canonical parameters: none observed
@@ -3822,7 +3822,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
-### `ha.update_install`
+### `ha.update_install` {#row-ha-update-install}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_update_install`
 - Canonical parameters: admin_token, backup, entity_id, version
@@ -3879,7 +3879,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
-### `ping`
+### `ping` {#row-ping}
 
 - Handler: `openclaw_node.commands.ping:handle_ping`
 - Canonical parameters: message
@@ -3917,7 +3917,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_ping.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 
-### `system.execApprovals.get`
+### `system.execApprovals.get` {#row-system-execapprovals-get}
 
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_get`
 - Canonical parameters: none observed
@@ -3947,7 +3947,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_exec_approvals.py`
   - `app/node/tests/test_gateway_ws.py`
 
-### `system.execApprovals.set`
+### `system.execApprovals.set` {#row-system-execapprovals-set}
 
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_exec_approvals_set`
 - Canonical parameters: baseHash, file
@@ -3984,7 +3984,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_exec_approvals.py`
   - `app/node/tests/test_gateway_ws.py`
 
-### `system.run`
+### `system.run` {#row-system-run}
 
 - Handler: `openclaw_node.commands.system_run:handle_system_run`
 - Canonical parameters: agentId, approvalDecision, approvalSource, approved, command, cwd, env, proposalId, rawCommand, runId, sessionKey, systemRunPlan, timeoutMs
@@ -4084,7 +4084,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_http_api.py`
   - `app/node/tests/test_system_run_gateway_contract.py`
 
-### `system.run.prepare`
+### `system.run.prepare` {#row-system-run-prepare}
 
 - Handler: `openclaw_node.commands.exec_approvals:handle_system_run_prepare`
 - Canonical parameters: agentId, command, cwd, env, rawCommand, sessionKey
@@ -4141,7 +4141,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_exec_approvals.py`
   - `app/node/tests/test_gateway_ws.py`
 
-### `system.which`
+### `system.which` {#row-system-which}
 
 - Handler: `openclaw_node.commands.system:handle_system_which`
 - Canonical parameters: name
