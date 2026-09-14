@@ -37,8 +37,9 @@ function createEntityScopedReadTool(input: {
       // Translate Assist-shape params to the node's expected shape:
       //   ha.logbook  → { entity_id, start_time, end_time }
       //   ha.history  → { entity_ids: [entity_id], start_time, end_time }
-      // The node's HA handler ignores `entity_id`/`start`/`end`; sending
-      // those unfiltered would return the full history for the node.
+      // The node's HA handler now also accepts `entity_id`/`start`/`end` as
+      // aliases, but this wrapper still sends the canonical node-shape keys
+      // so there is exactly one contract on the wire.
       const commandParams: Record<string, unknown> = {};
       if (input.command === "ha.history") {
         if (entityId) commandParams.entity_ids = [entityId];

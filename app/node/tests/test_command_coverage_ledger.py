@@ -1193,16 +1193,15 @@ def test_sept13_sweep_commands_have_production_live_evidence() -> None:
             f"{command} has no PRODUCTION-LIVE evidence item in any caller"
         )
 
-    # ha.history: assist_wrapper passed Sept 13; direct-path encoding bug unverified on
-    # current version — outcome is partial, not pass.
+    # ha.history: direct-path alias mismatch and silent-empty fixed by #344/#345, now pass.
     history_row = rows_by_id["ha.history"]
     assert history_row["evidence_method"] == "PRODUCTION-LIVE"
-    assert history_row["outcome"] == "partial"
+    assert history_row["outcome"] == "pass"
 
-    # ha.logbook: assist_wrapper PASS confirmed, but direct-path key mismatch keeps it partial.
+    # ha.logbook: direct-path key mismatch fixed by #344, now pass.
     logbook_row = rows_by_id["ha.logbook"]
     assert logbook_row["evidence_method"] == "PRODUCTION-LIVE"
-    assert logbook_row["outcome"] == "partial"
+    assert logbook_row["outcome"] == "pass"
 
     # Oversized-pass commands: correctness confirmed but response sizes expose ergonomics gap.
     for oversized_cmd in (
@@ -1290,7 +1289,7 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
         assert all(item.get("stale") is False for item in current_live)
 
     states = rows_by_id["ha.list_states"]
-    assert states["outcome"] == "partial"
+    assert states["outcome"] == "pass"
     state_evidence = states["callers"]["direct_nodes_invoke"]["evidence"]
     current_state_live = [
         item for item in state_evidence if item.get("method") == "PRODUCTION-LIVE"

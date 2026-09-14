@@ -99,6 +99,31 @@ async def test_list_states_filter_ignores_malformed_entries() -> None:
     assert result["count"] == 1
 
 
+async def test_list_states_rejects_unknown_params() -> None:
+    result = await handle_ha_list_states({"entity_filter": "sensor.*", "bogus": "x"})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_list_states_entity_filter_matches() -> None:
+    states: list[dict[str, Any]] = [
+        {"entity_id": "scene.good_morning"},
+        {"entity_id": "scene.good_night"},
+        {"entity_id": "light.kitchen"},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_states({"entity_filter": "scene.good_m*"})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["states"][0]["entity_id"] == "scene.good_morning"
+
+
+async def test_list_states_entity_filter_empty_string_rejected() -> None:
+    result = await handle_ha_list_states({"entity_filter": ""})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
 # ---------------------------------------------------------------------------
 # ha.get_state
 # ---------------------------------------------------------------------------
@@ -765,6 +790,42 @@ async def test_logbook_bad_response_shape() -> None:
     assert result["error"] == "HA_BAD_RESPONSE"
 
 
+async def test_logbook_rejects_unknown_params() -> None:
+    result = await handle_ha_logbook({"start_time": "2026-01-01T00:00:00", "nope": "x"})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_logbook_start_alias() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_logbook({"start": "2026-06-01T00:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "2026-06-01T00:00:00" in url
+
+
+async def test_logbook_end_alias() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_logbook({"end": "2026-06-06T12:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "end_time=2026-06-06T12:00:00" in url
+
+
+async def test_logbook_rejects_conflicting_start_aliases() -> None:
+    result = await handle_ha_logbook(
+        {"start": "2026-01-01T00:00:00", "start_time": "2026-01-02T00:00:00"}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_logbook_rejects_conflicting_end_aliases() -> None:
+    result = await handle_ha_logbook(
+        {"end": "2026-01-01T00:00:00", "end_time": "2026-01-02T00:00:00"}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
 # ---------------------------------------------------------------------------
 # ha.history
 # ---------------------------------------------------------------------------
@@ -795,7 +856,8 @@ async def test_history_with_end_time() -> None:
 
 
 async def test_history_with_entity_ids() -> None:
-    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+    history = [[{"entity_id": "light.x", "state": "on"}]]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=history) as mock_get:
         await handle_ha_history({"entity_ids": ["light.x", "sensor.y"]})
     url = mock_get.call_args[0][0]
     assert "filter_entity_id=light.x,sensor.y" in url
@@ -809,6 +871,97 @@ async def test_history_invalid_entity_ids_type() -> None:
 async def test_history_invalid_entity_ids_contents() -> None:
     result = await handle_ha_history({"entity_ids": [1, 2]})
     assert result["error"] == "INVALID_PARAM"
+
+
+async def test_history_rejects_unknown_params() -> None:
+    result = await handle_ha_history({"start_time": "2026-01-01T00:00:00", "bogus": "x"})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_history_start_alias() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"start": "2026-06-01T00:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "2026-06-01T00:00:00" in url
+
+
+async def test_history_end_alias() -> None:
+    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+        await handle_ha_history({"end": "2026-06-06T12:00:00"})
+    url = mock_get.call_args[0][0]
+    assert "end_time=2026-06-06T12:00:00" in url
+
+
+async def test_history_entity_id_alias_string() -> None:
+    history = [[{"entity_id": "light.x", "state": "on"}]]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=history) as mock_get:
+        result = await handle_ha_history({"entity_id": "light.x"})
+    assert result["ok"] is True
+    url = mock_get.call_args[0][0]
+    assert "filter_entity_id=light.x" in url
+
+
+async def test_history_entity_id_alias_list() -> None:
+    history = [[{"entity_id": "light.x", "state": "on"}]]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=history) as mock_get:
+        result = await handle_ha_history({"entity_id": ["light.x", "sensor.y"]})
+    assert result["ok"] is True
+    url = mock_get.call_args[0][0]
+    assert "filter_entity_id=light.x,sensor.y" in url
+
+
+async def test_history_rejects_conflicting_start_aliases() -> None:
+    result = await handle_ha_history(
+        {"start": "2026-01-01T00:00:00", "start_time": "2026-01-02T00:00:00"}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_history_rejects_conflicting_entity_id_aliases() -> None:
+    result = await handle_ha_history({"entity_id": "light.x", "entity_ids": ["light.x"]})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+
+
+async def test_history_unknown_entity_returns_not_found() -> None:
+    def fake_get(path: str) -> Any:
+        if path.startswith("/api/states/"):
+            raise HAClientError("HA_NOT_FOUND", "HA returned 404")
+        return []
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["sensor.nonexistent"]})
+    assert result["ok"] is False
+    assert result["error"] == "HA_NOT_FOUND"
+    assert "sensor.nonexistent" in result["message"]
+
+
+async def test_history_empty_result_existing_entity_ok() -> None:
+    state = {"entity_id": "sensor.existing", "state": "42"}
+
+    def fake_get(path: str) -> Any:
+        if path.startswith("/api/states/"):
+            return state
+        return []
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["sensor.existing"]})
+    assert result["ok"] is True
+    assert result["count"] == 0
+
+
+async def test_history_entity_probe_propagates_non_not_found_error() -> None:
+    def fake_get(path: str) -> Any:
+        if path.startswith("/api/states/"):
+            raise HAClientError("HA_UNAUTHORIZED", "403 Forbidden")
+        return []
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["sensor.secret"]})
+    assert result["ok"] is False
+    assert result["error"] == "HA_UNAUTHORIZED"
 
 
 # ---------------------------------------------------------------------------
@@ -842,7 +995,8 @@ async def test_history_start_time_cannot_escape_its_path_segment() -> None:
 
 
 async def test_history_entity_ids_cannot_inject_query_parameters() -> None:
-    with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
+    history = [[{"entity_id": "light.x&minimal_response", "state": "on"}]]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=history) as mock_get:
         await handle_ha_history({"entity_ids": ["light.x&minimal_response"]})
     url = mock_get.call_args[0][0]
     assert "filter_entity_id=light.x%26minimal_response" in url

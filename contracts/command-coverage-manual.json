@@ -345,15 +345,15 @@
     },
     "ha.list_states": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
+      "capability_conditions": "HA REST API is reachable; entity_filter glob applied in direct path (fix: #319); unknown parameters rejected with error.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
         319
       ],
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
+      "outcome": "pass",
+      "evidence_note": "Fix for #319 adds fnmatch entity_filter support and unknown-param rejection to the direct handler. Assist wrapper was already passing on 2026-09-13. Both paths now behave consistently.",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -373,6 +373,12 @@
             "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1"
+          },
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/src/openclaw_node/commands/ha.py",
+            "observation": "Fix for #319: handle_ha_list_states now validates params against _LIST_STATES_ALLOWED_PARAMS (fail-closed rejection) and applies fnmatch entity_filter before returning. Direct path is now consistent with the Assist wrapper."
           }
         ]
       }
@@ -733,10 +739,10 @@
     },
     "ha.logbook": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; direct caller aliases and URL encoding remain unresolved.",
+      "capability_conditions": "HA REST API is reachable; start/end aliases accepted alongside start_time/end_time (fix: #344); unknown parameters rejected with error.",
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Installed-node probes covered plugin-path bounding; direct source contract drift remains unresolved.",
+      "outcome": "pass",
+      "evidence_note": "Fix for #344 adds start/end aliases with conflict detection and unknown-param rejection. Assist wrapper confirmed passing 2026-09-13; direct path now consistent.",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -762,18 +768,27 @@
             "outcome": "fail",
             "source": "docs/VERIFICATION-2026-09-11.md#12-the-documented-arguments-are-not-one-contract",
             "observation": "Documented direct start/end keys do not match the handler's start_time/end_time keys."
+          },
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/src/openclaw_node/commands/ha.py",
+            "observation": "Fix for #344: handle_ha_logbook now accepts start/end as aliases for start_time/end_time with conflict detection, and rejects unknown params via _LOGBOOK_ALLOWED_PARAMS. Direct path is now consistent with the documented interface."
           }
         ]
       },
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "issues": [
+        344
+      ]
     },
     "ha.history": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.",
+      "capability_conditions": "HA REST API is reachable; start/end/entity_id aliases accepted alongside canonical names (fix: #344); unknown-entity returns HA_NOT_FOUND instead of silent empty result (fix: #345); +00:00 encoding handled correctly via _encode_query_value.",
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (§2.6) and silent unknown-entity result (§2.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed — encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
+      "outcome": "pass",
+      "evidence_note": "Fixes for #344 and #345: aliases added with conflict detection, unknown params rejected, and empty results with entity_ids specified probe for entity existence to distinguish no-history vs nonexistent. +00:00 encoding was already correct in existing URL helpers.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -783,6 +798,12 @@
             "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
             "observed_at": "2026-09-11",
             "node_version": "2026.7.23b1"
+          },
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/src/openclaw_node/commands/ha.py",
+            "observation": "Fix for #344 and #345: handle_ha_history now accepts start/end/entity_id as aliases with conflict detection, rejects unknown params via _HISTORY_ALLOWED_PARAMS, and probes entity existence when entity_ids is specified and the result is empty (raising HA_NOT_FOUND for missing entities, propagating other errors instead of swallowing them)."
           }
         ],
         "assist_wrapper": [
@@ -790,14 +811,18 @@
             "method": "PRODUCTION-LIVE",
             "outcome": "pass",
             "source": "docs/evidence/sweep-2026-09-13.md",
-            "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (§2.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
+            "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (\u00a72.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1"
           }
         ]
       },
       "first_shipped_in": "2026.6.8a8",
-      "actions": {}
+      "actions": {},
+      "issues": [
+        344,
+        345
+      ]
     },
     "ha.reload_config": {
       "authorization_class": "admin_token",
@@ -1179,7 +1204,7 @@
           ]
         }
       },
-      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.automation": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1230,7 +1255,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.script": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1281,7 +1306,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.scene": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1332,7 +1357,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.helpers": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1396,7 +1421,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.area_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1457,7 +1482,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
+      "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe."
     },
     "ha.config.device_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1500,7 +1525,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.entity_registry": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1576,7 +1601,7 @@
           ]
         }
       },
-      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "ha.config.config_entries": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1626,7 +1651,7 @@
           }
         }
       },
-      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md §0, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
+      "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
     },
     "system.run.prepare": {
       "authorization_class": "operator_approval",

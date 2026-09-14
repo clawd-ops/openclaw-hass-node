@@ -123,7 +123,7 @@ _(no unreleased command additions)_
 | `ha.core_logs` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.get_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.get_state` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| `ha.history` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
+| `ha.history` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail<br>CODE-PROVEN:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/344" target="_blank" rel="noopener noreferrer">#344</a>, <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/345" target="_blank" rel="noopener noreferrer">#345</a>) |
 | `ha.light_turn_off` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
 | `ha.light_turn_on` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `caller_policy_only_auto_allow_intent` | `CODE-PROVEN` | **`unverified`** |
 | `ha.list_addons` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
@@ -134,8 +134,8 @@ _(no unreleased command additions)_
 | `ha.list_entity_registry` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:fail | `read_only` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/316" target="_blank" rel="noopener noreferrer">#316</a>) |
 | `ha.list_events` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.list_services` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
-| `ha.list_states` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/319" target="_blank" rel="noopener noreferrer">#319</a>) |
-| `ha.logbook` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** |
+| `ha.list_states` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail<br>CODE-PROVEN:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/319" target="_blank" rel="noopener noreferrer">#319</a>) |
+| `ha.logbook` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail<br>CODE-PROVEN:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/344" target="_blank" rel="noopener noreferrer">#344</a>) |
 | `ha.reload_config` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
 | `ha.supervisor_info` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | `ha.update_install` | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
@@ -3126,14 +3126,15 @@ _(no unreleased command additions)_
 ### `ha.history`
 
 - Handler: `openclaw_node.commands.ha:handle_ha_history`
-- Canonical parameters: end_time, entity_ids, minimal_response, no_attributes, significant_changes_only, start_time
+- Canonical parameters: end, end_time, entity_id, entity_ids, minimal_response, no_attributes, significant_changes_only, start, start_time
 - Authorization: `read_only`
-- Capability conditions: HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.
+- Capability conditions: HA REST API is reachable; start/end/entity_id aliases accepted alongside canonical names (fix: #344); unknown-entity returns HA_NOT_FOUND instead of silent empty result (fix: #345); +00:00 encoding handled correctly via _encode_query_value.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
-- **Outcome: `partial`**
-- Evidence note: Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (§2.6) and silent unknown-entity result (§2.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed — encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.
+- **Outcome: `pass`**
+- Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/344" target="_blank" rel="noopener noreferrer">#344</a>, <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/345" target="_blank" rel="noopener noreferrer">#345</a>
+- Evidence note: Fixes for #344 and #345: aliases added with conflict detection, unknown params rejected, and empty results with entity_ids specified probe for entity existence to distinguish no-history vs nonexistent. +00:00 encoding was already correct in existing URL helpers.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3147,9 +3148,19 @@ _(no unreleased command additions)_
   - Value transforms: `{"entity_ids": {"description": "Wrapper wraps entity_id into a single-element array for the node entity_ids parameter.", "source_tool_key": "entity_id", "transform": "wrap_array"}}`
   - Client-side parameters: `{}`
 - Parameter details:
+  - `end`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `end_time`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `entity_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `entity_ids`
@@ -3172,15 +3183,21 @@ _(no unreleased command additions)_
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `start`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `start_time`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result. (source: `docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding`) [node_version=2026.7.23b1; observed_at=2026-09-11; **STALE**]
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`pass`**: Fix for #344 and #345: handle_ha_history now accepts start/end/entity_id as aliases with conflict detection, rejects unknown params via _HISTORY_ALLOWED_PARAMS, and probes entity existence when entity_ids is specified and the result is empty (raising HA_NOT_FOUND for missing entities, propagating other errors instead of swallowing them). (source: `app/node/src/openclaw_node/commands/ha.py`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `assist_wrapper` / `PRODUCTION-LIVE` / **`pass`**: ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (§2.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
@@ -3644,15 +3661,15 @@ _(no unreleased command additions)_
 ### `ha.list_states`
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_states`
-- Canonical parameters: domain
+- Canonical parameters: domain, entity_filter
 - Authorization: `read_only`
-- Capability conditions: HA REST API is reachable; direct caller/filter contract drift remains unresolved.
+- Capability conditions: HA REST API is reachable; entity_filter glob applied in direct path (fix: #319); unknown parameters rejected with error.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
-- **Outcome: `partial`**
+- **Outcome: `pass`**
 - Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/319" target="_blank" rel="noopener noreferrer">#319</a>
-- Evidence note: Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.
+- Evidence note: Fix for #319 adds fnmatch entity_filter support and unknown-param rejection to the direct handler. Assist wrapper was already passing on 2026-09-13. Both paths now behave consistently.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3671,10 +3688,16 @@ _(no unreleased command additions)_
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `entity_filter`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`pass`**: Fix for #319: handle_ha_list_states now validates params against _LIST_STATES_ALLOWED_PARAMS (fail-closed rejection) and applies fnmatch entity_filter before returning. Direct path is now consistent with the Assist wrapper. (source: `app/node/src/openclaw_node/commands/ha.py`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `assist_wrapper` / `PRODUCTION-LIVE` / **`pass`**: ha.list_states with entity_filter returned 1 of 7,217 entities. No errors. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
@@ -3688,14 +3711,15 @@ _(no unreleased command additions)_
 ### `ha.logbook`
 
 - Handler: `openclaw_node.commands.ha:handle_ha_logbook`
-- Canonical parameters: end_time, entity_id, start_time
+- Canonical parameters: end, end_time, entity_id, start, start_time
 - Authorization: `read_only`
-- Capability conditions: HA REST API is reachable; direct caller aliases and URL encoding remain unresolved.
+- Capability conditions: HA REST API is reachable; start/end aliases accepted alongside start_time/end_time (fix: #344); unknown parameters rejected with error.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
-- **Outcome: `partial`**
-- Evidence note: Installed-node probes covered plugin-path bounding; direct source contract drift remains unresolved.
+- **Outcome: `pass`**
+- Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/344" target="_blank" rel="noopener noreferrer">#344</a>
+- Evidence note: Fix for #344 adds start/end aliases with conflict detection and unknown-param rejection. Assist wrapper confirmed passing 2026-09-13; direct path now consistent.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3709,9 +3733,14 @@ _(no unreleased command additions)_
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
+  - `end`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `end_time`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `entity_id`
@@ -3719,15 +3748,21 @@ _(no unreleased command additions)_
     - defaults: `["''"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `start`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `start_time`
     - aliases: `[]`
-    - defaults: `["''"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`fail`**: Documented direct start/end keys do not match the handler's start_time/end_time keys. (source: `docs/VERIFICATION-2026-09-11.md#12-the-documented-arguments-are-not-one-contract`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`pass`**: Fix for #344: handle_ha_logbook now accepts start/end as aliases for start_time/end_time with conflict detection, and rejects unknown params via _LOGBOOK_ALLOWED_PARAMS. Direct path is now consistent with the documented interface. (source: `app/node/src/openclaw_node/commands/ha.py`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `assist_wrapper` / `PRODUCTION-LIVE` / **`pass`**: The installed Assist wrapper honored time and entity scoping in the probed path. (source: `docs/VERIFICATION-2026-09-11.md#4-live-evidence`) [node_version=2026.7.23b1; observed_at=2026-09-11; **STALE**]
   - `assist_wrapper` / `PRODUCTION-LIVE` / **`pass`**: ha.logbook returned logbook entries correctly via Assist wrapper. Confirms Sept 11 pass observation against 2026.9.13b1. Direct-path key mismatch (start_time/end_time vs start/end) still CODE-PROVEN. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; observed_at=2026-09-13]

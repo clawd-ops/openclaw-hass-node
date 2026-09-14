@@ -76,6 +76,23 @@ _CALL_SERVICE_PARAMS: Final[frozenset[str]] = frozenset(
 _CALL_SERVICE_TARGET_PARAMS: Final[frozenset[str]] = frozenset(
     {"entity_id", "area_id", "device_id"}
 )
+_LIST_STATES_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset({"domain", "entity_filter"})
+_LOGBOOK_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset(
+    {"start_time", "start", "end_time", "end", "entity_id"}
+)
+_HISTORY_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset(
+    {
+        "start_time",
+        "start",
+        "end_time",
+        "end",
+        "entity_ids",
+        "entity_id",
+        "minimal_response",
+        "no_attributes",
+        "significant_changes_only",
+    }
+)
 
 # Phase 0 containment for effects that already have a narrower lifecycle,
 # update, reload, or shell policy surface.  This is intentionally not an
@@ -200,11 +217,27 @@ async def handle_ha_list_states(params: dict[str, Any]) -> dict[str, Any]:
     Params:
         domain (str, optional): If provided, only return entities whose
             ``entity_id`` is under that domain (e.g. ``"sensor"``).
+        entity_filter (str, optional): fnmatch-style glob applied to the full
+            ``entity_id`` (e.g. ``"sensor.kitchen_*"``). Applied after ``domain``.
+
+    Unknown parameters are rejected with ``INVALID_PARAM``.
 
     Returns:
         ``{ok: True, count, states}`` or an error dict.
     """
+    unknown = set(params) - _LIST_STATES_ALLOWED_PARAMS
+    if unknown:
+        allowed = sorted(_LIST_STATES_ALLOWED_PARAMS)
+        return _error(
+            "INVALID_PARAM",
+            f"unknown parameter(s): {sorted(unknown)!r}; allowed: {allowed!r}",
+        )
+
     domain_filter = params.get("domain")
+    entity_filter = params.get("entity_filter")
+    if entity_filter is not None and (not isinstance(entity_filter, str) or not entity_filter):
+        return _error("INVALID_PARAM", "entity_filter must be a non-empty string")
+
     try:
         raw = await ha_get("/api/states")
     except HAClientError as exc:
@@ -220,6 +253,13 @@ async def handle_ha_list_states(params: dict[str, Any]) -> dict[str, Any]:
             s
             for s in states
             if isinstance(s.get("entity_id"), str) and s["entity_id"].startswith(prefix)
+        ]
+    if entity_filter is not None:
+        states = [
+            s
+            for s in states
+            if isinstance(s.get("entity_id"), str)
+            and fnmatch.fnmatchcase(s["entity_id"], entity_filter)
         ]
 
     return {"ok": True, "count": len(states), "states": states}
@@ -490,18 +530,32 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
 
     Params:
         start_time (str, optional): ISO-8601 timestamp; default is one day ago.
-        end_time (str, optional): ISO-8601 upper bound.
+            Alias: ``start``.
+        end_time (str, optional): ISO-8601 upper bound. Alias: ``end``.
         entity_id (str, optional): Restrict to a single entity.
 
     Caller-supplied values are percent-encoded before they reach the URL, so
     both the ``Z`` and ``+00:00`` offset forms are accepted and an entity ID
     cannot inject extra query parameters.
 
+    Unknown parameters are rejected with ``INVALID_PARAM``.
+
     Returns:
         ``{ok: True, count, entries}`` or an error dict.
     """
+    unknown = set(params) - _LOGBOOK_ALLOWED_PARAMS
+    if unknown:
+        return _error(
+            "INVALID_PARAM",
+            f"unknown parameter(s): {sorted(unknown)!r}",
+        )
+    if "start" in params and "start_time" in params:
+        return _error("INVALID_PARAM", "supply start or start_time, not both")
+    if "end" in params and "end_time" in params:
+        return _error("INVALID_PARAM", "supply end or end_time, not both")
+
     path = "/api/logbook"
-    start_time = str(params.get("start_time", ""))
+    start_time = str(params.get("start_time") or params.get("start") or "")
     if start_time:
         encoded_start = _encode_path_segment(start_time)
         if encoded_start is None:
@@ -509,7 +563,7 @@ async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:
         path = f"{path}/{encoded_start}"
 
     query_parts: list[str] = []
-    end_time = str(params.get("end_time", ""))
+    end_time = str(params.get("end_time") or params.get("end") or "")
     if end_time:
         query_parts.append(f"end_time={_encode_query_value(end_time)}")
     entity_id = str(params.get("entity_id", ""))
@@ -532,8 +586,10 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
 
     Params:
         start_time (str, optional): ISO-8601 start; default is one day ago.
-        end_time (str, optional): ISO-8601 upper bound.
+            Alias: ``start``.
+        end_time (str, optional): ISO-8601 upper bound. Alias: ``end``.
         entity_ids (list[str], optional): List of entity IDs to filter.
+            Alias: ``entity_id`` (a single string is wrapped into a list).
         minimal_response (bool, optional): Reduce payload size (default False).
         no_attributes (bool, optional): Omit attributes (default False).
         significant_changes_only (bool, optional): Only significant changes.
@@ -542,16 +598,31 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
     both the ``Z`` and ``+00:00`` offset forms are accepted and an entity ID
     cannot inject extra query parameters.
 
-    Known defect, still open: an unknown entity in ``entity_ids`` yields
-    ``{ok: True, count: 0}``, which is indistinguishable from a real entity with
-    no history in the window.
+    Unknown parameters are rejected with ``INVALID_PARAM``.
+
+    When ``entity_ids`` (or its alias) is supplied and HA returns no history,
+    entities that do not exist in HA are reported via ``HA_NOT_FOUND`` so the
+    caller can distinguish a genuinely empty window from a nonexistent entity.
 
     Returns:
         ``{ok: True, count, history}`` where ``history`` is a list of entity
         history lists, or an error dict.
     """
+    unknown = set(params) - _HISTORY_ALLOWED_PARAMS
+    if unknown:
+        return _error(
+            "INVALID_PARAM",
+            f"unknown parameter(s): {sorted(unknown)!r}",
+        )
+    if "start" in params and "start_time" in params:
+        return _error("INVALID_PARAM", "supply start or start_time, not both")
+    if "end" in params and "end_time" in params:
+        return _error("INVALID_PARAM", "supply end or end_time, not both")
+    if "entity_id" in params and "entity_ids" in params:
+        return _error("INVALID_PARAM", "supply entity_id or entity_ids, not both")
+
     path = "/api/history/period"
-    start_time = str(params.get("start_time", ""))
+    start_time = str(params.get("start_time") or params.get("start") or "")
     if start_time:
         encoded_start = _encode_path_segment(start_time)
         if encoded_start is None:
@@ -559,10 +630,14 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
         path = f"{path}/{encoded_start}"
 
     query_parts: list[str] = []
-    end_time = str(params.get("end_time", ""))
+    end_time = str(params.get("end_time") or params.get("end") or "")
     if end_time:
         query_parts.append(f"end_time={_encode_query_value(end_time)}")
     entity_ids = params.get("entity_ids")
+    if entity_ids is None:
+        raw_eid = params.get("entity_id")
+        if raw_eid is not None:
+            entity_ids = [raw_eid] if isinstance(raw_eid, str) else raw_eid
     if entity_ids is not None:
         if not isinstance(entity_ids, list) or not all(isinstance(e, str) for e in entity_ids):
             return _error("INVALID_PARAM", "entity_ids must be a list of strings")
@@ -579,6 +654,22 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
         return _to_error(exc)
     if not isinstance(raw, list):
         return _error("HA_BAD_RESPONSE", "Expected list from /api/history/period")
+
+    if entity_ids is not None and not raw:
+        missing: list[str] = []
+        for eid in entity_ids:
+            encoded_eid = _encode_path_segment(eid)
+            if encoded_eid is None:
+                continue
+            try:
+                await ha_get(f"/api/states/{encoded_eid}")
+            except HAClientError as exc:
+                if exc.code != "HA_NOT_FOUND":
+                    return _to_error(exc)
+                missing.append(eid)
+        if missing:
+            return _error("HA_NOT_FOUND", f"entity not found: {', '.join(missing)}")
+
     return {"ok": True, "count": len(raw), "history": raw}
 
 
