@@ -81,33 +81,43 @@ Per the OC-repo autonomy rule, doc-only changes (`docs/`, `README.md`,
 
 Only the Markdown extensions listed under `markdown_extensions` in `mkdocs.yml`
 are available. Syntax from an extension that is not enabled is **not a build
-error**: the parser does not recognise it, so it passes through and ships to the
-reader as literal text while `mkdocs build --strict` stays green. That is how
-100 task-list lines across `COMPLETION-ROADMAP.md` and this file rendered as
+error**: Python-Markdown does not recognise it, so it passes through and ships
+to the reader as literal text while `mkdocs build --strict` stays green. That is
+how 100 task-list lines across `COMPLETION-ROADMAP.md` and this file rendered as
 literal `[x]` and `[ ]` for as long as they did.
 
-**Every extension whose syntax appears in these docs is enabled**, including
+**Every extension whose syntax these docs use is enabled**, including
 `pymdownx.tasklist`, `pymdownx.tilde` (`~~strikethrough~~`) and `pymdownx.mark`
 (`==highlight==`). Enabling the last two changed no rendered page, because
-nothing used them; they are on so that the first author who reaches for either
-gets what they wrote instead of literal tildes.
+nothing used them. They are on so the first author who reaches for either gets
+what they wrote.
 
-That is deliberately the opposite of the earlier approach here, which left them
-off and tried to detect their use. Detecting unrendered markup in general means
-deciding what each extension *would* have consumed, from the rendered HTML,
-which is Python-Markdown's grammar reimplemented badly. It reported ordinary
-prose such as `Select [ ] blank for no.` and recommended enabling an extension
-that was already on. **A diagnostic that names a wrong remedy is worse than
-none: it spends the reader's one good attempt.** Removing the unsupported class
-is cheaper and more reliable than detecting it.
+`pymdownx.tilde` is configured with `subscript: false`. It would otherwise also
+consume single tildes, so `about ~5~ minutes` would silently render as
+`about <sub>5</sub> minutes`. Deletion is the syntax these docs want; subscript
+is a side effect nobody asked for.
 
 If you need syntax from an extension that is not enabled, enable it in the same
-PR. Do not work around it, and do not assume a green build means it rendered.
+PR. Do not work around it, and do not read a green build as proof it rendered.
 
-`scripts/lint-rendered-docs.py` remains as a regression test for the original
-bug alone. It fails the Docs workflow when a rendered list item still begins
-with a literal `[ ]` or `[x]`, an invariant that needs no grammar: with
-`pymdownx.tasklist` enabled such an item is a checkbox.
+### Why the guard reads the source
+
+`app/node/tests/test_docs_markdown_extensions.py` asserts that if a page uses
+task-list syntax, `pymdownx.tasklist` is enabled. It reads the Markdown, not the
+built HTML, and that is the whole point.
+
+Three earlier attempts scanned rendered HTML and each was wrong, because
+rendering destroys the evidence. `- \[ \] literal choice` escapes the brackets
+deliberately; Python-Markdown correctly leaves it as prose and emits
+`<li>[ ] literal choice</li>`, byte-identical to an unconsumed marker. So no
+check on rendered output can distinguish a missing extension from an author who
+meant a literal bracket, and the scanner reported correct documentation as
+broken while recommending an extension that was already enabled.
+
+Detecting unrendered markup in general is worse still: it means deciding what
+each extension *would* have consumed, which is Python-Markdown's grammar
+reimplemented badly. **A diagnostic that names a wrong remedy is worse than
+none: it spends the reader's one good attempt.**
 
 ## Cross-provider code review
 

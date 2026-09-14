@@ -29,10 +29,3 @@ jobs:
           # removes the plugin APIs required by Material and mkdocstrings.
           NO_MKDOCS_2_WARNING: "1"
         run: mkdocs build --strict
-
-      # `--strict` does not catch Markdown that uses an extension the site does
-      # not enable: the syntax is not recognised, so it is emitted as literal
-      # text and the build passes with the page shipped broken. This scans the
-      # output the previous step just produced.
-      - name: Check for unrendered Markdown syntax
-        run: python scripts/lint-rendered-docs.py site
