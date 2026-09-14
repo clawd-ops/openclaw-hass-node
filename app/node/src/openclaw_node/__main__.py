@@ -494,6 +494,46 @@ def build_runtime(
     return runtime, node_client, operator_client
 
 
+def _warn_lifecycle_allowlist_needs_admin_ops(config: NodeConfig) -> None:
+    """Log a startup warning when the lifecycle allowlist needs a gateway-side gate.
+
+    ``addon_lifecycle.allowlist`` is a node-side option that says which add-on
+    slugs this node will accept Tier B lifecycle commands for. It is necessary
+    but not sufficient: the gateway refuses to forward those commands at all
+    unless ``allowAdminOps`` is set for this node in the Assist plugin's config.
+    An operator who completes the visible add-on step and stops there sees every
+    lifecycle command denied, with the explanation going to the agent rather
+    than to the add-on log they are watching (issue #332).
+
+    The node cannot read the gateway's config, so this cannot check whether
+    ``allowAdminOps`` is actually set; it fires whenever the allowlist is
+    populated and is worded as a reminder rather than a diagnosis.
+
+    The config key is the gateway's canonical node ID, which is assigned during
+    pairing and is not the friendly ``node_name``. The node does not know that
+    ID at startup, so the message points at ``openclaw nodes status`` to look it
+    up rather than interpolating a value that would be wrong.
+
+    Never raises; a warning must not prevent the node from starting.
+    """
+    allowlist = config.identity.addon_lifecycle_allowlist
+    if not allowlist:
+        return
+    display_name = config.node_name or "(unset)"
+    _LOG.warning(
+        "addon_lifecycle.allowlist has %d slug(s) configured, which is only half of the "
+        "Tier B gate. The gateway will deny ha.addon_start / ha.addon_stop / "
+        "ha.addon_restart / ha.addon_update unless allowAdminOps is also set for this node "
+        "in the gateway's Assist plugin config. To enable them: run `openclaw nodes status`, "
+        "find this node (display name: %s) and copy its canonical node ID, then set "
+        "plugins.entries.openclaw-hass-node-assist-tools.config.nodes.<node-id>.allowAdminOps "
+        "= true in the gateway's openclaw.json and reload the gateway. Use the canonical node "
+        "ID as the key, not the display name.",
+        len(allowlist),
+        display_name,
+    )
+
+
 async def _main() -> None:
     """Load config, resolve identity, and run the gateway + HTTP API concurrently."""
     config = load_config()
@@ -505,6 +545,7 @@ async def _main() -> None:
     )
     _LOG.info("Gateway URL: %s", config.gateway_url)
     _LOG.info("Data dir: %s", config.data_dir)
+    _warn_lifecycle_allowlist_needs_admin_ops(config)
     _reset_pairing_state(config)
     _reset_bootstrap_state(config)
     _migrate_legacy_device_token(config)
