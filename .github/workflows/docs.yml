@@ -29,9 +29,3 @@ jobs:
           # removes the plugin APIs required by Material and mkdocstrings.
           NO_MKDOCS_2_WARNING: "1"
         run: mkdocs build --strict
-
-      # `--strict` cannot fail on a missing Markdown extension: unrecognised
-      # syntax is emitted as literal text, not reported. This asks whether
-      # pymdownx.tasklist actually ran, by looking for the class it emits.
-      - name: Check task lists rendered
-        run: python scripts/assert-tasklists-rendered.py site

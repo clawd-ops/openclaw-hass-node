@@ -64,10 +64,7 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
-  # The docs already use task-list syntax on 100 lines across
-  # COMPLETION-ROADMAP.md and CONTRIBUTING.md. Without this extension every one
-  # rendered as literal `[x]` / `[ ]` text, and strict MkDocs did not object —
-  # unsupported syntax fails silently, which is how it went unnoticed.
+  # Unsupported syntax renders as literal text and --strict does not object.
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde:

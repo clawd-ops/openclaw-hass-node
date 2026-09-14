@@ -79,54 +79,10 @@ Per the OC-repo autonomy rule, doc-only changes (`docs/`, `README.md`,
 
 ## Documentation markup
 
-Only the Markdown extensions listed under `markdown_extensions` in `mkdocs.yml`
-are available. Syntax from an extension that is not enabled is **not a build
-error**: Python-Markdown does not recognise it, so it passes through and ships
-to the reader as literal text while `mkdocs build --strict` stays green. That is
-how 100 task-list lines across `COMPLETION-ROADMAP.md` and this file rendered as
-literal `[x]` and `[ ]` for as long as they did.
-
-**Every extension whose syntax these docs use is enabled**, including
-`pymdownx.tasklist`, `pymdownx.tilde` (`~~strikethrough~~`) and `pymdownx.mark`
-(`==highlight==`). Enabling the last two changed no rendered page, because
-nothing used them. They are on so the first author who reaches for either gets
-what they wrote.
-
-`pymdownx.tilde` is configured with `subscript: false`. It would otherwise also
-consume single tildes, so `about ~5~ minutes` would silently render as
-`about <sub>5</sub> minutes`. Deletion is the syntax these docs want; subscript
-is a side effect nobody asked for.
-
-If you need syntax from an extension that is not enabled, enable it in the same
-PR. Do not work around it, and do not read a green build as proof it rendered.
-
-### Why the guard reads the build output
-
-`scripts/assert-tasklists-rendered.py` runs in the Docs workflow after the
-strict build and asks one question: **did `pymdownx.tasklist` run?** It looks
-for the `task-list-item` class, which the extension emits and nothing else
-produces.
-
-Four earlier revisions tried to decide instead whether a given `[ ]` *should*
-have been consumed, from the rendered HTML or from the Markdown source. Every
-one was wrong, in both directions, because that question needs
-Python-Markdown's grammar:
-
-- `- \[ \] literal choice` escapes the brackets deliberately and renders as
-  `<li>[ ] literal choice</li>`, byte-identical to an unconsumed marker. No
-  check on rendered text can tell a missing extension from an intended literal.
-- `-  [ ] item`, `-\t[ ] item`, `> - [ ] item` and `1. [ ] item` all render as
-  task controls, while an indented `    - [ ] example` renders as code. A source
-  regex that stops short of reimplementing the grammar gets all five wrong.
-
-A version that read `markdown_extensions:` out of `mkdocs.yml` failed for a
-third reason: a second such key later in the file wins in MkDocs, so the check
-passed while the roadmap rendered zero controls. Reading the build output avoids
-the effective-configuration question altogether.
-
-**A diagnostic that names a wrong remedy is worse than none: it spends the
-reader's one good attempt.** That is why this asks something it can answer
-rather than something it can only guess at.
+Only the Markdown extensions enabled in `mkdocs.yml` are available; anything
+else renders as literal text and `mkdocs build --strict` does not object. Task
+lists, `~~strikethrough~~` and `==highlight==` are enabled. If you need another,
+enable it in the same PR.
 
 ## Cross-provider code review
 
