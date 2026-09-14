@@ -1419,8 +1419,7 @@ def test_generated_markdown_links_every_row_to_a_target() -> None:
     )
 
     expected = {generator._row_anchor(row["id"]) for row in ledger["rows"]}
-    table = generator._coverage_rows_table(text)
-    linked = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", table)
+    linked = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", text)
     targeted = re.findall(r"\{#(row-[a-z0-9-]+)\}", text)
 
     assert len(expected) == len(ledger["rows"]), "anchors collided"
@@ -1487,13 +1486,20 @@ def test_a_duplicated_table_row_is_rejected() -> None:
         generator._assert_anchors_round_trip(document, rows)
 
 
-def test_a_link_outside_the_table_is_not_a_duplicate() -> None:
-    """Scoping the link count keeps a legitimate cross-reference from failing."""
+def test_a_second_coverage_section_is_rejected() -> None:
+    """The defect that scoped counting allowed through.
+
+    Emitting a second complete `## Coverage rows` section after Row details
+    produced 176 table links against 88 targets and passed every guard, because
+    the link slice ended at the first `## Row details`. Counting across the
+    whole document catches it.
+    """
     generator = _load_generator()
-    rows = [{"id": "a"}]
+    rows = [{"id": "a"}, {"id": "b"}]
     document = (
-        "Intro mentioning [`a`](#row-a).\n"
-        "## Coverage rows\n[`a`](#row-a)\n"
-        "## Row details\n### `a` {#row-a}\n"
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n"
+        "## Row details\n### `a` {#row-a}\n### `b` {#row-b}\n"
+        "## Coverage rows\n[`a`](#row-a) [`b`](#row-b)\n"
     )
-    generator._assert_anchors_round_trip(document, rows)
+    with pytest.raises(generator.LedgerError, match="table links emitted more than once"):
+        generator._assert_anchors_round_trip(document, rows)

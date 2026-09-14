@@ -194,11 +194,18 @@ def _assert_anchors_round_trip(document: str, rows: list[dict[str, Any]]) -> Non
     #     coverage table silently lists a command more than once.
     # Both render cleanly and neither changes the set of ids involved.
     #
-    # Links are counted only within the Coverage rows table, so a future
-    # legitimate reference to a row from elsewhere on the page is not a
-    # false positive.
-    table = _coverage_rows_table(document)
-    linked_all = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", table)
+    # Counted across the whole document, deliberately. An earlier revision
+    # scoped link counting to the Coverage rows section so that a future
+    # cross-reference to a row from elsewhere on the page would not read as a
+    # duplicate. That future does not exist yet, and the scoping cost a real
+    # false negative: emitting a second complete `## Coverage rows` section
+    # after Row details produced 176 links against 88 targets and passed every
+    # guard, because the slice ended at the first `## Row details`.
+    #
+    # A hypothetical false positive is not worth a demonstrated false negative.
+    # If a genuine cross-reference is ever added, narrow this then, with that
+    # page in hand.
+    linked_all = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", document)
     targeted_all = re.findall(r"\{#(row-[a-z0-9-]+)\}", document)
 
     for label, found in (("table links", linked_all), ("detail anchors", targeted_all)):
@@ -209,19 +216,6 @@ def _assert_anchors_round_trip(document: str, rows: list[dict[str, Any]]) -> Non
             missing = ", ".join(sorted(expected - set(found))) or "none"
             extra = ", ".join(sorted(set(found) - expected)) or "none"
             raise LedgerError(f"{label} do not match rows; missing: {missing}; unexpected: {extra}")
-
-
-def _coverage_rows_table(document: str) -> str:
-    """The Coverage rows section only.
-
-    Scoping the link count here keeps a future legitimate link to a row from
-    elsewhere on the page from reading as a duplicate.
-    """
-    start = document.find("## Coverage rows")
-    if start == -1:
-        raise LedgerError("generated document has no Coverage rows section")
-    end = document.find("## Row details", start)
-    return document[start:] if end == -1 else document[start:end]
 
 
 def _citation_link(citation: int) -> str:
