@@ -13,6 +13,11 @@ import logging
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.ha import (
+    ENTITY_REGISTRY_FILTERS,
+    filter_entity_registry,
+    filter_param_error,
+)
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -39,7 +44,13 @@ def _require_entity_id(params: dict[str, Any]) -> tuple[str | None, dict[str, An
 
 
 async def handle_ha_config_entity_registry(params: dict[str, Any]) -> dict[str, Any]:
-    """Dispatch an entity-registry action."""
+    """Dispatch an entity-registry action.
+
+    The ``list`` action accepts optional ``domain``, ``platform``, ``area_id``,
+    and ``device_id`` filters, AND-combined and applied after the fetch. They
+    bound the response the caller receives; HA accepts no server-side narrowing
+    on this frame, which is what exceeded the transport ceiling in issue #316.
+    """
     action = params.get("action")
     if not isinstance(action, str) or not action.strip():
         return _error("INVALID_PARAM", "action is required")
@@ -51,13 +62,28 @@ async def handle_ha_config_entity_registry(params: dict[str, Any]) -> dict[str, 
         )
 
     if action == "list":
+        invalid = filter_param_error(params, ENTITY_REGISTRY_FILTERS)
+        if invalid is not None:
+            return invalid
+        # Read each filter through a literal key here rather than forwarding
+        # `params` wholesale: the command-coverage generator derives an action's
+        # accepted parameters by AST-walking its branch for literal
+        # ``params.get`` keys, and a forwarded dict leaves the ledger claiming
+        # this action takes only `action`.
+        filters = {
+            "domain": params.get("domain"),
+            "platform": params.get("platform"),
+            "area_id": params.get("area_id"),
+            "device_id": params.get("device_id"),
+        }
         try:
             result = await ha_ws_call("config/entity_registry/list")
         except HAClientError as exc:
             return _to_error(exc)
         if not isinstance(result, list):
             return _error("HA_BAD_RESPONSE", "Expected list from config/entity_registry/list")
-        return {"ok": True, "count": len(result), "entities": result}
+        entities = filter_entity_registry(result, filters)
+        return {"ok": True, "count": len(entities), "entities": entities}
 
     if action in {"update", "remove"}:
         denied = require_config_mutation_approval("ha.config.entity_registry", action)

@@ -14,6 +14,11 @@ import logging
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.ha import (
+    DEVICE_REGISTRY_FILTERS,
+    filter_device_registry,
+    filter_param_error,
+)
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -30,7 +35,12 @@ def _to_error(exc: HAClientError) -> dict[str, Any]:
 
 
 async def handle_ha_config_device_registry(params: dict[str, Any]) -> dict[str, Any]:
-    """Dispatch a device-registry action."""
+    """Dispatch a device-registry action.
+
+    The ``list`` action accepts optional ``area_id`` and ``config_entry_id``
+    filters, AND-combined and applied after the fetch. They bound the response
+    the caller receives; HA accepts no server-side narrowing on this frame.
+    """
     action = params.get("action")
     if not isinstance(action, str) or not action.strip():
         return _error("INVALID_PARAM", "action is required")
@@ -42,13 +52,26 @@ async def handle_ha_config_device_registry(params: dict[str, Any]) -> dict[str, 
         )
 
     if action == "list":
+        invalid = filter_param_error(params, DEVICE_REGISTRY_FILTERS)
+        if invalid is not None:
+            return invalid
+        # Read each filter through a literal key here rather than forwarding
+        # `params` wholesale: the command-coverage generator derives an action's
+        # accepted parameters by AST-walking its branch for literal
+        # ``params.get`` keys, and a forwarded dict leaves the ledger claiming
+        # this action takes only `action`.
+        filters = {
+            "area_id": params.get("area_id"),
+            "config_entry_id": params.get("config_entry_id"),
+        }
         try:
             result = await ha_ws_call("config/device_registry/list")
         except HAClientError as exc:
             return _to_error(exc)
         if not isinstance(result, list):
             return _error("HA_BAD_RESPONSE", "Expected list from config/device_registry/list")
-        return {"ok": True, "count": len(result), "devices": result}
+        devices = filter_device_registry(result, filters)
+        return {"ok": True, "count": len(devices), "devices": devices}
 
     denied = require_config_mutation_approval("ha.config.device_registry", action)
     if denied is not None:

@@ -1810,7 +1810,7 @@ _(no unreleased command additions)_
 ### `ha.config.device_registry` {#row-ha-config-device-registry}
 
 - Handler: `openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry`
-- Canonical parameters: action, attrs, device_id, proposal_id
+- Canonical parameters: action, area_id, attrs, config_entry_id, device_id, proposal_id
 - Authorization: `action_dependent`
 - Capability conditions: Registered command entry point; parameters, policy, and runtime capability vary by the selected action.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
@@ -1828,7 +1828,17 @@ _(no unreleased command additions)_
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `area_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `attrs`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `config_entry_id`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -1857,9 +1867,9 @@ _(no unreleased command additions)_
 ### `ha.config.device_registry#list` {#row-ha-config-device-registry-list}
 
 - Handler: `openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry`
-- Canonical parameters: action
+- Canonical parameters: action, area_id, config_entry_id
 - Authorization: `read_only`
-- Capability conditions: HA WebSocket API supports config/device_registry/list; collection result has no caller limit.
+- Capability conditions: HA WebSocket API supports config/device_registry/list. Caller may narrow the result server-side after fetch via area_id and config_entry_id (membership in config_entries); filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -1872,6 +1882,16 @@ _(no unreleased command additions)_
 - Assist caller: Assist voice turns intentionally do not expose HA-native configuration commands.
 - Parameter details:
   - `action`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `area_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `config_entry_id`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -1941,7 +1961,7 @@ _(no unreleased command additions)_
 ### `ha.config.entity_registry` {#row-ha-config-entity-registry}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
-- Canonical parameters: action, attrs, entity_id, proposal_id
+- Canonical parameters: action, area_id, attrs, device_id, domain, entity_id, platform, proposal_id
 - Authorization: `action_dependent`
 - Capability conditions: Registered command entry point; parameters, policy, and runtime capability vary by the selected action.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
@@ -1959,12 +1979,32 @@ _(no unreleased command additions)_
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `area_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `attrs`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `device_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `domain`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `entity_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `platform`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -2026,9 +2066,9 @@ _(no unreleased command additions)_
 ### `ha.config.entity_registry#list` {#row-ha-config-entity-registry-list}
 
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
-- Canonical parameters: action
+- Canonical parameters: action, domain, platform, area_id, device_id
 - Authorization: `read_only`
-- Capability conditions: HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.
+- Capability conditions: HA WebSocket API supports config/entity_registry/list. Caller may narrow the result server-side after fetch via domain (entity_id prefix), platform, area_id, device_id; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -2041,6 +2081,26 @@ _(no unreleased command additions)_
 - Assist caller: Assist voice turns intentionally do not expose HA-native configuration commands.
 - Parameter details:
   - `action`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `domain`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `platform`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `area_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `device_id`
     - aliases: `[]`
     - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
@@ -3481,9 +3541,9 @@ _(no unreleased command additions)_
 ### `ha.list_config_entries` {#row-ha-list-config-entries}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_config_entries`
-- Canonical parameters: none observed
+- Canonical parameters: domain
 - Authorization: `read_only`
-- Capability conditions: HA WebSocket API supports config_entries/get; collection result has no caller limit.
+- Capability conditions: HA WebSocket API supports config_entries/get. Caller may narrow the result server-side after fetch via domain; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -3503,7 +3563,11 @@ _(no unreleased command additions)_
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - none observed
+  - `domain`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
@@ -3519,9 +3583,9 @@ _(no unreleased command additions)_
 ### `ha.list_devices` {#row-ha-list-devices}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_devices`
-- Canonical parameters: none observed
+- Canonical parameters: area_id, config_entry_id
 - Authorization: `read_only`
-- Capability conditions: HA WebSocket API supports the device registry list command.
+- Capability conditions: HA WebSocket API supports the device registry list command. Caller may narrow the result server-side after fetch via area_id and config_entry_id (membership in config_entries); filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -3541,7 +3605,16 @@ _(no unreleased command additions)_
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - none observed
+  - `area_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `config_entry_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
@@ -3557,9 +3630,9 @@ _(no unreleased command additions)_
 ### `ha.list_entity_registry` {#row-ha-list-entity-registry}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_entity_registry`
-- Canonical parameters: none observed
+- Canonical parameters: area_id, device_id, domain, platform
 - Authorization: `read_only`
-- Capability conditions: HA WebSocket API supports entity_registry/list; collection result has no caller limit.
+- Capability conditions: HA WebSocket API supports entity_registry/list. Caller may narrow the result server-side after fetch via domain (entity_id prefix), platform, area_id, device_id; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection. The transport ceiling for the WS frame is 16 MiB (ha_client._WS_MAX_MSG_BYTES).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -3579,7 +3652,26 @@ _(no unreleased command additions)_
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - none observed
+  - `area_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `device_id`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `domain`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
+  - `platform`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
@@ -3632,9 +3724,9 @@ _(no unreleased command additions)_
 ### `ha.list_services` {#row-ha-list-services}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_list_services`
-- Canonical parameters: none observed
+- Canonical parameters: domain
 - Authorization: `read_only`
-- Capability conditions: HA REST API is reachable; collection result has no caller limit.
+- Capability conditions: HA REST API is reachable. Caller may narrow the result server-side after fetch via domain; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -3654,7 +3746,11 @@ _(no unreleased command additions)_
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - none observed
+  - `domain`
+    - aliases: `[]`
+    - defaults: `["null"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
