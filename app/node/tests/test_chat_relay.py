@@ -3422,7 +3422,7 @@ async def test_single_agent_and_empty_inventory_still_turn(agents: list[Any]) ->
         _serve_agents_list(sender, relay, agents),
     )
 
-    relay._require_resolvable_owner(None)  # must not raise
+    await relay._require_resolvable_owner(None)  # must not raise
 
 
 def test_session_key_is_qualified_only_when_an_agent_resolves() -> None:
@@ -3461,7 +3461,7 @@ async def test_inventory_failure_leaves_the_topology_unknown(
         await asyncio.gather(relay.log_gateway_agents(), _fail())
 
     assert relay._gateway_agents is None
-    relay._require_resolvable_owner(None)  # unknown must not refuse
+    await relay._require_resolvable_owner(None)  # unknown must not refuse
 
 
 @pytest.mark.asyncio

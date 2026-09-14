@@ -7,7 +7,6 @@ import contextlib
 import json
 from collections.abc import AsyncIterator, Mapping
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -22,6 +21,7 @@ from openclaw_node.gateway_ws import (
     _format_retry_at_utc,
     _make_req,
 )
+from openclaw_node.http_api import NodeRuntime
 from openclaw_node.identity import generate_identity
 from openclaw_node.pairing import PairingError, PairingState
 
@@ -46,6 +46,11 @@ def _make_config() -> NodeConfig:
         supervisor_token="",
         data_dir=Path("/tmp/test"),
     )
+
+
+def _make_runtime() -> NodeRuntime:
+    """A real runtime, so the attribute types stay honest under strict mypy."""
+    return NodeRuntime(_make_config(), bootstrap_token="")
 
 
 def _make_client(device_token: str = "") -> GatewayClient:
@@ -328,7 +333,6 @@ async def test_send_connect_operator_role_advertises_operator_scopes() -> None:
 def test_set_runtime_connected_writes_per_role_flag() -> None:
     """Node and operator clients must write distinct runtime flags so the
     two reconnect loops can't race a shared boolean (#82 follow-up)."""
-    from openclaw_node.http_api import NodeRuntime
 
     config = _make_config()
     identity = generate_identity()
@@ -1505,7 +1509,6 @@ def test_notify_pairing_state_without_callback() -> None:
 
 def test_runtime_gateway_connected_starts_false() -> None:
     """A fresh NodeRuntime reports gateway_connected=False until the WS connects."""
-    from openclaw_node.http_api import NodeRuntime
 
     runtime = NodeRuntime(_make_config())
     assert runtime.gateway_connected is False
@@ -1866,9 +1869,7 @@ async def test_connect_attaches_the_relay_regardless_of_agent_config() -> None:
     client = _make_client()
     client._chat_relay_enabled = True
     # The attach block only runs when a runtime is present to publish onto.
-    client._runtime = SimpleNamespace(
-        chat_relay=None, node_connected=False, operator_connected=False
-    )
+    client._runtime = _make_runtime()
     assert not client._config.identity.default_agent_id, "precondition: unset default"
 
     attached: list[object] = []
@@ -1935,7 +1936,7 @@ async def test_attach_relay_does_not_wait_for_the_inventory_reply() -> None:
     from openclaw_node.chat_relay import ChatRelay
 
     client = _make_client()
-    client._runtime = SimpleNamespace(chat_relay=None)
+    client._runtime = _make_runtime()
 
     async def _send_into_the_void(frame: dict[str, Any]) -> None:
         return None
@@ -1945,4 +1946,5 @@ async def test_attach_relay_does_not_wait_for_the_inventory_reply() -> None:
     # Generous next to the 10s RPC timeout, tight next to "returns immediately".
     await asyncio.wait_for(client._attach_relay(relay), timeout=1.0)
 
+    assert client._runtime is not None
     assert client._runtime.chat_relay is relay
