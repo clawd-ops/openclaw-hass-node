@@ -1332,6 +1332,49 @@ async def test_light_turn_on_fallback_fetch_skips_on_ha_error() -> None:
     assert result["changed_states"] == []
 
 
+async def test_light_turn_on_rejects_non_string_entity_id_list() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as mock_post:
+        result = await handle_ha_light_turn_on({"entity_id": [123, "light.x"]})
+    assert result["error"] == "MISSING_PARAM"
+    assert "non-empty strings" in result["message"]
+    mock_post.assert_not_awaited()
+
+
+async def test_light_turn_off_rejects_non_string_entity_id_list() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as mock_post:
+        result = await handle_ha_light_turn_off({"entity_id": [{}]})
+    assert result["error"] == "MISSING_PARAM"
+    assert "non-empty strings" in result["message"]
+    mock_post.assert_not_awaited()
+
+
+async def test_call_service_rejects_non_string_entity_id_list_in_target() -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as mock_post:
+        result = await handle_ha_call_service(
+            {
+                "domain": "light",
+                "service": "turn_on",
+                "target": {"entity_id": [123]},
+            }
+        )
+    assert result["error"] == "INVALID_PARAM"
+    assert "non-empty strings" in result["message"]
+    mock_post.assert_not_awaited()
+
+
+async def test_fallback_fetch_capped_at_max_fetches() -> None:
+    entity_ids = [f"light.bulb{i}" for i in range(15)]
+    fetched = {"entity_id": "light.bulb0", "state": "on", "attributes": {}}
+    mock_get = AsyncMock(return_value=fetched)
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", mock_get),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": entity_ids})
+    assert result["ok"] is True
+    assert mock_get.await_count == 10
+
+
 # ---------------------------------------------------------------------------
 # ha.list_automations
 # ---------------------------------------------------------------------------
