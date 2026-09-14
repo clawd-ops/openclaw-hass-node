@@ -56,7 +56,7 @@ _DEFAULT_CAP_BYTES: Final[int] = 500 * 1024 * 1024
 # of path depth — adequate for the deepest realistic HA custom_components paths.
 _INDEX_NAME_MAX: Final[int] = 250
 
-Op = Literal["write", "delete", "move-src", "move-dst", "restore"]
+Op = Literal["write", "delete", "move-src", "move-dst", "restore", "patch"]
 
 
 class BackupStoreError(Exception):
@@ -245,7 +245,7 @@ def _validate_op(value: str) -> Op:
     Raises:
         BackupStoreError: If *value* is not a known op.
     """
-    if value not in ("write", "delete", "move-src", "move-dst", "restore"):
+    if value not in ("write", "delete", "move-src", "move-dst", "restore", "patch"):
         raise _UnknownOpError(value)
     return value  # type: ignore[return-value]
 
@@ -588,18 +588,25 @@ class BackupStore:
         version: int | None = None,
         proposal_id: str | None = None,
         at: str | None = None,
+        sha256: str | None = None,
     ) -> Version:
         """Resolve one of several selectors to a concrete :class:`Version`.
 
-        Exactly one of *version*, *proposal_id*, or *at* must be supplied.
+        Exactly one of *version*, *proposal_id*, *at*, or *sha256* must be
+        supplied.
 
         Args:
             path: Caller-supplied absolute path.
             version: 1-indexed position in :meth:`history` (``-1`` selects
-                the most recent).
+                the most recent). ``0`` is invalid and raises
+                :exc:`VersionNotFoundError`.
             proposal_id: Match a recorded proposal identifier.
             at: ISO-8601 timestamp; selects the latest version with
                 ``ts <= at``.
+            sha256: Hex digest; selects the most recent version whose
+                captured object matches this digest.  This is the same
+                identifier emitted by :meth:`~BackupStore.history` as
+                ``sha256`` and accepted by :meth:`~BackupStore.diff`.
 
         Returns:
             The matching :class:`Version`.
@@ -608,13 +615,15 @@ class BackupStore:
             ValueError: If zero or multiple selectors are supplied.
             VersionNotFoundError: If no recorded version matches.
         """
-        chosen = [s for s in (version, proposal_id, at) if s is not None]
+        chosen = [s for s in (version, proposal_id, at, sha256) if s is not None]
         if len(chosen) != 1:
             raise _SelectorRequiredError
         versions = self.history(path)
         if not versions:
             raise _NoVersionsForPathError(path)
         if version is not None:
+            if version == 0:
+                raise _VersionOutOfRangeError(version, path)
             try:
                 return versions[version - 1] if version > 0 else versions[version]
             except IndexError as exc:
@@ -624,6 +633,11 @@ class BackupStore:
                 if v.proposal_id == proposal_id:
                     return v
             raise _NoSuchProposalError(proposal_id)
+        if sha256 is not None:
+            matched = [v for v in versions if v.sha256 == sha256]
+            if not matched:
+                raise _NoVersionWithShaError(sha256, path)
+            return matched[-1]
         if at is None:  # pragma: no cover - guarded by selector check above
             raise _SelectorRequiredError
         at_dt = _parse_iso(at)

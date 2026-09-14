@@ -460,3 +460,22 @@ def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
     call_kwargs = mock_store.capture.call_args
     assert call_kwargs.kwargs["actor"] == "rob"
     assert call_kwargs.kwargs["proposal_id"] == "prop-99"
+
+
+# ---------------------------------------------------------------------------
+# Fix #329: fs.patch records op="patch", not op="write"
+# ---------------------------------------------------------------------------
+
+
+def test_fs_patch_records_patch_op_in_history(tmp_path: Path) -> None:
+    from openclaw_node.commands.fs_write import handle_fs_history
+
+    p = _allowed_file(tmp_path, "target.yaml", "line one\n")
+    diff = "--- a/target.yaml\n+++ b/target.yaml\n@@ -1 +1 @@\n-line one\n+line two\n"
+    result = handle_fs_patch({"path": str(p), "patch": diff})
+    assert result["ok"] is True
+
+    history = handle_fs_history({"path": str(p)})
+    assert history["ok"] is True
+    assert len(history["versions"]) == 1
+    assert history["versions"][0]["op"] == "patch"

@@ -899,3 +899,60 @@ def test_fs_restore_purges_matching_trash_entries(
     # Matching entries gone; unrelated entry preserved.
     remaining = {p.name for p in trash_dir.iterdir()}
     assert remaining == {f"other.txt.{other_slug}.20260101T000000000000"}
+
+
+# ---------------------------------------------------------------------------
+# Fix #324/#328: version_id in fs.history; fs.restore by version_id
+# ---------------------------------------------------------------------------
+
+
+def test_fs_history_includes_version_id(tmp_path: Path, live_file: Path) -> None:
+    handle_fs_write(
+        {
+            "path": str(live_file),
+            "content": "v2\n",
+            "agent_bridge": False,
+            "proposal_id": "p1",
+        }
+    )
+    result = handle_fs_history({"path": str(live_file)})
+    assert result["ok"] is True
+    entry = result["versions"][0]
+    assert "version_id" in entry
+    assert entry["version_id"] == entry["sha256"]
+
+
+def test_fs_restore_by_version_id(tmp_path: Path, live_file: Path) -> None:
+    original = live_file.read_bytes()
+    handle_fs_write(
+        {
+            "path": str(live_file),
+            "content": "v2\n",
+            "agent_bridge": False,
+            "proposal_id": "p1",
+        }
+    )
+    history = handle_fs_history({"path": str(live_file)})
+    version_id = history["versions"][0]["version_id"]
+
+    result = handle_fs_restore(
+        {"path": str(live_file), "version_id": version_id, "agent_bridge": False}
+    )
+    assert result["ok"] is True
+    assert live_file.read_bytes() == original
+
+
+def test_fs_restore_version_id_not_found(tmp_path: Path, live_file: Path) -> None:
+    handle_fs_write(
+        {
+            "path": str(live_file),
+            "content": "v2\n",
+            "agent_bridge": False,
+            "proposal_id": "p1",
+        }
+    )
+    result = handle_fs_restore(
+        {"path": str(live_file), "version_id": "0" * 64, "agent_bridge": False}
+    )
+    assert result["ok"] is False
+    assert result["error"] == "VERSION_NOT_FOUND"

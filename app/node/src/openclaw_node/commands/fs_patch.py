@@ -353,7 +353,7 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
             path,
             original_bytes,
             proposal_id=proposal_id,
-            op="write",
+            op="patch",
             actor=actor,
         )
     except BackupStoreError as exc:
