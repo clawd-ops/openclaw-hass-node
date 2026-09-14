@@ -185,8 +185,19 @@ def _assert_anchors_round_trip(document: str, rows: list[dict[str, Any]]) -> Non
     and a section nothing points at is unreachable; both build cleanly.
     """
     expected = {_row_anchor(row["id"]) for row in rows}
-    linked = set(re.findall(r"\]\(#(row-[a-z0-9-]+)\)", document))
-    targeted = set(re.findall(r"\{#(row-[a-z0-9-]+)\}", document))
+    linked_all = re.findall(r"\]\(#(row-[a-z0-9-]+)\)", document)
+    targeted_all = re.findall(r"\{#(row-[a-z0-9-]+)\}", document)
+
+    # Counts, not just sets. A duplicated detail section emits the same id
+    # twice: the sets still match, the page still builds, and one of the two
+    # sections is no longer addressable because every link resolves to the
+    # first. Comparing sets discards exactly the multiplicity that matters.
+    duplicates = sorted({a for a in targeted_all if targeted_all.count(a) > 1})
+    if duplicates:
+        raise LedgerError(f"detail anchors emitted more than once: {', '.join(duplicates)}")
+
+    linked = set(linked_all)
+    targeted = set(targeted_all)
     if linked != expected:
         missing = ", ".join(sorted(expected - linked)) or "none"
         extra = ", ".join(sorted(linked - expected)) or "none"

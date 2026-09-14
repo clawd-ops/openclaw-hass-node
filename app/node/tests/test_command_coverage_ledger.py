@@ -1419,3 +1419,37 @@ def test_generated_markdown_links_every_row_to_a_target() -> None:
     assert len(expected) == len(ledger["rows"]), "anchors collided"
     assert linked == expected
     assert targeted == expected
+
+
+def test_render_markdown_actually_invokes_the_uniqueness_guard() -> None:
+    """The helper being correct is not the same as generation calling it.
+
+    A reviewer disconnected `_assert_unique_anchors` from `render_markdown` and
+    every anchor test stayed green, because they all exercised the helper
+    directly. A ledger with `fs.delete` and `fs_delete` then rendered two
+    identical `{#row-fs-delete}` targets. This drives the real entry point.
+    """
+    generator = _load_generator()
+    ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
+
+    colliding = dict(ledger["rows"][0])
+    colliding["id"] = ledger["rows"][0]["id"].replace(".", "_")
+    assert colliding["id"] != ledger["rows"][0]["id"], "fixture must differ in source"
+    ledger["rows"] = [ledger["rows"][0], colliding]
+
+    with pytest.raises(generator.LedgerError, match="unreachable"):
+        generator.render_markdown(ledger)
+
+
+def test_a_duplicated_detail_section_is_rejected() -> None:
+    """Two identical targets pass a set comparison and break the page.
+
+    Every link resolves to the first occurrence, so the second section is not
+    addressable, and the build is clean. Multiplicity is the thing being
+    checked, so the assertion has to count rather than compare sets.
+    """
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    document = "[`a`](#row-a) [`b`](#row-b)\n### `a` {#row-a}\n### `b` {#row-b}\n### `a` {#row-a}\n"
+    with pytest.raises(generator.LedgerError, match="more than once"):
+        generator._assert_anchors_round_trip(document, rows)
