@@ -231,6 +231,20 @@ async function enforceEntityScopedRead(
   const forwarded: Record<string, unknown> = { ...params };
   const start = readString(params, "start");
   const end = readString(params, "end");
+  const startTime = readString(params, "start_time");
+  const endTime = readString(params, "end_time");
+  if (start && startTime && start !== startTime) {
+    return deny(
+      "INVALID_PARAMS",
+      `${ctx.command}: conflicting values for start and start_time; supply one`,
+    );
+  }
+  if (end && endTime && end !== endTime) {
+    return deny(
+      "INVALID_PARAMS",
+      `${ctx.command}: conflicting values for end and end_time; supply one`,
+    );
+  }
   if (start && !("start_time" in forwarded)) forwarded.start_time = start;
   if (end && !("end_time" in forwarded)) forwarded.end_time = end;
   delete forwarded.start;

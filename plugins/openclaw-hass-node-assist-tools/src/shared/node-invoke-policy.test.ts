@@ -273,6 +273,76 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     expect(forwarded).not.toHaveProperty("end");
   });
 
+  it("ha.history rejects conflicting start/start_time values", async () => {
+    const invokeNode = vi.fn();
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        start: "2026-07-01T00:00:00",
+        start_time: "2026-07-02T00:00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    expect((result as { code?: string }).code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history rejects conflicting end/end_time values", async () => {
+    const invokeNode = vi.fn();
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        end: "2026-07-01T00:00:00",
+        end_time: "2026-07-02T00:00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    expect((result as { code?: string }).code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
+  it("ha.history passes through when start equals start_time (redundant but not conflicting)", async () => {
+    const invokeNode = vi.fn(async () => ({
+      ok: true,
+      payload: { count: 0, history: [] },
+    }));
+    const result = await runPolicy({
+      command: "ha.history",
+      nodeId: "node-1",
+      params: {
+        start: "2026-07-01T00:00:00",
+        start_time: "2026-07-01T00:00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(true);
+    expect(invokeNode).toHaveBeenCalledTimes(1);
+  });
+
+  it("ha.logbook rejects conflicting start/start_time values", async () => {
+    const invokeNode = vi.fn();
+    const result = await runPolicy({
+      command: "ha.logbook",
+      nodeId: "node-1",
+      params: {
+        start: "2026-07-01T00:00:00",
+        start_time: "2026-07-02T00:00:00",
+      },
+      pluginConfig: nodeConfig,
+      invokeNode,
+    });
+    expect(result.ok).toBe(false);
+    expect((result as { code?: string }).code).toBe("INVALID_PARAMS");
+    expect(invokeNode).not.toHaveBeenCalled();
+  });
+
   it("ha.history forwards entity_ids-only when every id has valid format", async () => {
     const invokeNode = vi.fn(async () => ({ ok: true, payload: {} }));
     const result = await runPolicy({

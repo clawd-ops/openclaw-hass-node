@@ -373,6 +373,12 @@
             "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1"
+          },
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/src/openclaw_node/commands/ha.py",
+            "observation": "Fix for #319: handle_ha_list_states now validates params against _LIST_STATES_ALLOWED_PARAMS (fail-closed rejection) and applies fnmatch entity_filter before returning. Direct path is now consistent with the Assist wrapper."
           }
         ]
       }
@@ -762,6 +768,12 @@
             "outcome": "fail",
             "source": "docs/VERIFICATION-2026-09-11.md#12-the-documented-arguments-are-not-one-contract",
             "observation": "Documented direct start/end keys do not match the handler's start_time/end_time keys."
+          },
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/src/openclaw_node/commands/ha.py",
+            "observation": "Fix for #344: handle_ha_logbook now accepts start/end as aliases for start_time/end_time with conflict detection, and rejects unknown params via _LOGBOOK_ALLOWED_PARAMS. Direct path is now consistent with the documented interface."
           }
         ]
       },
@@ -786,6 +798,12 @@
             "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
             "observed_at": "2026-09-11",
             "node_version": "2026.7.23b1"
+          },
+          {
+            "method": "CODE-PROVEN",
+            "outcome": "pass",
+            "source": "app/node/src/openclaw_node/commands/ha.py",
+            "observation": "Fix for #344 and #345: handle_ha_history now accepts start/end/entity_id as aliases with conflict detection, rejects unknown params via _HISTORY_ALLOWED_PARAMS, and probes entity existence when entity_ids is specified and the result is empty (raising HA_NOT_FOUND for missing entities, propagating other errors instead of swallowing them)."
           }
         ],
         "assist_wrapper": [

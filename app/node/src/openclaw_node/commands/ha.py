@@ -664,8 +664,9 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
             try:
                 await ha_get(f"/api/states/{encoded_eid}")
             except HAClientError as exc:
-                if exc.code == "HA_NOT_FOUND":
-                    missing.append(eid)
+                if exc.code != "HA_NOT_FOUND":
+                    return _to_error(exc)
+                missing.append(eid)
         if missing:
             return _error("HA_NOT_FOUND", f"entity not found: {', '.join(missing)}")
 

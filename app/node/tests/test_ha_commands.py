@@ -952,6 +952,18 @@ async def test_history_empty_result_existing_entity_ok() -> None:
     assert result["count"] == 0
 
 
+async def test_history_entity_probe_propagates_non_not_found_error() -> None:
+    def fake_get(path: str) -> Any:
+        if path.startswith("/api/states/"):
+            raise HAClientError("HA_UNAUTHORIZED", "403 Forbidden")
+        return []
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["sensor.secret"]})
+    assert result["ok"] is False
+    assert result["error"] == "HA_UNAUTHORIZED"
+
+
 # ---------------------------------------------------------------------------
 # URL percent-encoding for ha.history / ha.logbook / ha.get_state
 #
