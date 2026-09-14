@@ -76,6 +76,7 @@ _CALL_SERVICE_PARAMS: Final[frozenset[str]] = frozenset(
 _CALL_SERVICE_TARGET_PARAMS: Final[frozenset[str]] = frozenset(
     {"entity_id", "area_id", "device_id"}
 )
+_MAX_ENTITY_STATE_FETCHES: Final[int] = 10
 
 # Phase 0 containment for effects that already have a narrower lifecycle,
 # update, reload, or shell policy surface.  This is intentionally not an
@@ -296,6 +297,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         if unknown_target:
             rendered = ", ".join(str(key) for key in unknown_target)
             return _error("INVALID_PARAM", f"unknown target parameter(s): {rendered}")
+        entity_id_t = target.get("entity_id")
+        if isinstance(entity_id_t, list) and not all(isinstance(e, str) and e for e in entity_id_t):
+            return _error("INVALID_PARAM", "entity_id list members must be non-empty strings")
     for key in ("data", "service_data"):
         if key in params and not isinstance(params[key], dict):
             return _error("INVALID_PARAM", f"{key} must be a dict")
@@ -326,7 +330,12 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")
-    return {"ok": True, "changed_states": result}
+    changed = result
+    if not changed:
+        entity_id_val = target.get("entity_id") if target is not None else None
+        if entity_id_val and isinstance(entity_id_val, (str, list)):
+            changed = await _fetch_entity_states(entity_id_val)
+    return {"ok": True, "changed_states": changed}
 
 
 async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:
@@ -629,6 +638,32 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "domain": _RELOAD_CORE_DOMAIN}
 
 
+async def _fetch_entity_states(entity_ids: str | list[str]) -> list[dict[str, Any]]:
+    """Fetch current states for named entity IDs after a service call.
+
+    HA's REST service endpoint no longer reliably returns changed states in
+    newer versions; this provides a post-call snapshot when the caller named
+    explicit entity IDs.  area_id and device_id targets are not handled here
+    because enumerating their members requires additional registry calls.
+    Errors from individual fetches are silently skipped so a partially-unavailable
+    entity does not fail the whole response.
+    """
+    if isinstance(entity_ids, str):
+        entity_ids = [entity_ids]
+    states: list[dict[str, Any]] = []
+    for eid in entity_ids[:_MAX_ENTITY_STATE_FETCHES]:
+        encoded = _encode_path_segment(eid)
+        if encoded is None:
+            continue
+        try:
+            state = await ha_get(f"/api/states/{encoded}")
+        except (HAClientError, TimeoutError):
+            continue
+        if isinstance(state, dict):
+            states.append(state)
+    return states
+
+
 def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     """Extract and validate a light service target from params.
 
@@ -644,6 +679,8 @@ def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, 
     if entity_id is not None:
         if not isinstance(entity_id, (str, list)):
             return None, "entity_id must be a string or list of strings"
+        if isinstance(entity_id, list) and not all(isinstance(e, str) and e for e in entity_id):
+            return None, "entity_id list members must be non-empty strings"
         target["entity_id"] = entity_id
     if area_id is not None:
         target["area_id"] = area_id
@@ -691,6 +728,10 @@ async def handle_ha_light_turn_on(params: dict[str, Any]) -> dict[str, Any]:
         return _to_error(exc)
 
     changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    if not changed:
+        entity_id_val = params.get("entity_id")
+        if isinstance(entity_id_val, (str, list)):
+            changed = await _fetch_entity_states(entity_id_val)
     return {"ok": True, "changed_states": changed}
 
 
@@ -724,6 +765,10 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
         return _to_error(exc)
 
     changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    if not changed:
+        entity_id_val = params.get("entity_id")
+        if isinstance(entity_id_val, (str, list)):
+            changed = await _fetch_entity_states(entity_id_val)
     return {"ok": True, "changed_states": changed}
 
 
