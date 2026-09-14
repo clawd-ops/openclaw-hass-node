@@ -1048,3 +1048,125 @@ async def test_assist_turn_stream_no_client_caps_passes_empty_list(tmp_path: Pat
 
     await _post_stream(runtime, {"text": "hi", "conversation_id": "c-nocaps"})
     assert captured_caps == [[]]
+
+
+@pytest.mark.asyncio
+async def test_assist_stream_surfaces_the_remedy_not_only_the_code(tmp_path: Path) -> None:
+    """The regression this PR exists to prevent (#348).
+
+    A user asked Assist to turn a light off and the entire reply was
+    `OpenClaw Node stream error: INVALID_REQUEST`, while the node had already
+    written the cause and the fix to its log one line earlier. The curated
+    remedy must reach the client; the operator-facing message must not.
+    """
+    from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _failing_stream(*_args: Any, **_kwargs: Any) -> Any:
+        raise ChatRelayError(
+            "INVALID_REQUEST",
+            "operator detail naming private-notes-agent and /config/secrets.yaml",
+            remedy=(
+                "No agent is configured to answer. An administrator needs to set "
+                "identity.default_agent_id in the OpenClaw add-on configuration."
+            ),
+        )
+        yield ""  # type: ignore[unreachable]  # makes this an async generator
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _failing_stream
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation/stream",
+            json={"text": "turn off the light", "conversation_id": "conv-348"},
+        )
+        body = await response.text()
+    finally:
+        await tc.close()
+
+    frames = [json.loads(line) for line in body.strip().split("\n") if line]
+    error_frames = [f for f in frames if "error" in f]
+    assert error_frames, f"no error frame emitted: {frames}"
+    frame = error_frames[-1]
+    assert frame["error"] == "INVALID_REQUEST"
+    assert "identity.default_agent_id" in frame["message"]
+    # The operator-facing text must not reach the client at all.
+    assert "private-notes-agent" not in body
+    assert "secrets.yaml" not in body
+
+
+@pytest.mark.asyncio
+async def test_assist_stream_emits_bare_code_when_there_is_no_remedy(
+    tmp_path: Path,
+) -> None:
+    """A genuinely malformed request carries no remedy and gets none.
+
+    Remedy presence is what separates a caller-fixable configuration problem
+    from malformed input, which the shared `INVALID_REQUEST` code could not.
+    """
+    from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _failing_stream(*_args: Any, **_kwargs: Any) -> Any:
+        raise ChatRelayError("INVALID_REQUEST", "malformed payload at /config/x.yaml")
+        yield ""  # type: ignore[unreachable]  # makes this an async generator
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.stream_turn = _failing_stream
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation/stream",
+            json={"text": "hi", "conversation_id": "conv-348b"},
+        )
+        body = await response.text()
+    finally:
+        await tc.close()
+
+    frames = [json.loads(line) for line in body.strip().split("\n") if line]
+    frame = [f for f in frames if "error" in f][-1]
+    assert frame == {"error": "INVALID_REQUEST"}
+    assert "x.yaml" not in body

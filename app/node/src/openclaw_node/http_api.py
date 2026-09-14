@@ -491,12 +491,13 @@ async def assist_turn(request: web.Request) -> web.Response:
         reply = await relay.relay_turn(conversation_id, text, language, authz=authz)
     except ChatRelayError as exc:
         _LOG.warning("Assist relay failed: %s %s", exc.code, exc.message)
+        # Same rule as the streaming path: curated remedy or the bare code.
         return web.json_response(
             {
                 "ok": False,
                 "paired": True,
                 "gateway_connected": True,
-                "response": f"Relay error: {exc.code}",
+                "response": exc.remedy or f"Relay error: {exc.code}",
                 "echo": text,
                 "error": exc.code,
             },
@@ -663,7 +664,12 @@ async def assist_turn_stream(request: web.Request) -> web.StreamResponse:
         await response.write(b'{"done":true}\n')
     except ChatRelayError as exc:
         _LOG.warning("Assist stream failed: %s %s", exc.code, exc.message)
-        await response.write(json.dumps({"error": exc.code}).encode("utf-8") + b"\n")
+        # `exc.message` stays in the log. Only the curated `remedy` is emitted,
+        # so no uncurated node text can reach a user-facing surface (#348).
+        error_frame: dict[str, Any] = {"error": exc.code}
+        if exc.remedy:
+            error_frame["message"] = exc.remedy
+        await response.write(json.dumps(error_frame).encode("utf-8") + b"\n")
     except Exception as exc:
         _LOG.exception("Unexpected error in assist stream: %s", exc)
         await response.write(b'{"error":"INTERNAL_ERROR"}\n')

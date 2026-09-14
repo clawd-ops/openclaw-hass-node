@@ -196,16 +196,32 @@ class ToolProgressFrame:
 class ChatRelayError(Exception):
     """Raised when a relay RPC or turn fails."""
 
-    def __init__(self, code: str, message: str) -> None:
-        """Initialise with a stable error code and human message.
+    def __init__(self, code: str, message: str, *, remedy: str | None = None) -> None:
+        """Initialise with a stable error code, operator detail, and user remedy.
+
+        `message` is operator-facing and goes to the log unchanged. It routinely
+        contains absolute paths, entity ids, add-on slugs and hostnames, so it is
+        never emitted to Assist, whose output includes voice transcripts.
+
+        `remedy` is the opposite: a curated sentence, written where the cause is
+        known and reviewed like any other string in this repository, safe to show
+        a user. Assist emits this and nothing else, so there is no code path by
+        which uncurated text reaches a user-facing surface. That is a stronger
+        guarantee than filtering, because an absent path cannot be wrong.
+
+        Its presence also distinguishes a caller-fixable configuration problem
+        from a genuinely malformed request, which `INVALID_REQUEST` alone could
+        not: three unrelated failures wore that code (#348).
 
         Args:
             code: Stable error code for the wire result.
-            message: Human-readable detail.
+            message: Operator-facing detail, for logs only.
+            remedy: Optional user-safe sentence naming what to do about it.
         """
         super().__init__(message)
         self.code = code
         self.message = message
+        self.remedy = remedy
 
 
 SendFn = Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
@@ -871,6 +887,13 @@ class ChatRelay:
             "turn is from an anonymous or unmapped user. Set "
             "identity.default_agent_id in the add-on configuration to one of: "
             f"{', '.join(agents)}",
+            # Deliberately omits the agent ids. They are operator-chosen names and
+            # belong in the add-on log, which an administrator opens on purpose,
+            # not in a voice transcript.
+            remedy=(
+                "No agent is configured to answer. An administrator needs to set "
+                "identity.default_agent_id in the OpenClaw add-on configuration."
+            ),
         )
 
     async def _ensure_session(self, session_key: str, conversation_id: str) -> str:
