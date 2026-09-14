@@ -9,6 +9,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from openclaw_node.commands.ha import (
+    filter_device_registry,
+    filter_entity_registry,
+    filter_param_error,
     handle_ha_addon_changelog,
     handle_ha_addon_documentation,
     handle_ha_addon_info,
@@ -2289,3 +2292,222 @@ async def test_update_install_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
             {"entity_id": "update.hacs", "admin_token": "secret"}
         )
     assert result["error"] == "HA_HTTP_ERROR"
+
+
+# ---------------------------------------------------------------------------
+# Registry list filters (issues #316, #330)
+# ---------------------------------------------------------------------------
+
+_ENTITIES: list[Any] = [
+    {"entity_id": "sensor.kitchen", "platform": "hue", "area_id": "kitchen", "device_id": "d1"},
+    {"entity_id": "sensor.porch", "platform": "zwave", "area_id": "porch", "device_id": "d2"},
+    {"entity_id": "light.kitchen", "platform": "hue", "area_id": "kitchen", "device_id": "d1"},
+]
+
+_DEVICES: list[Any] = [
+    {"id": "d1", "area_id": "kitchen", "config_entries": ["ce1", "ce2"]},
+    {"id": "d2", "area_id": "porch", "config_entries": ["ce2"]},
+    {"id": "d3", "area_id": None, "config_entries": []},
+]
+
+
+def _ids(entries: list[Any]) -> list[str]:
+    return [str(entry["entity_id"]) for entry in entries]
+
+
+def test_filter_entity_registry_unfiltered_returns_input_object() -> None:
+    """With no filter the exact input list is returned, not a copy or a rebuild.
+
+    Identity matters here: it is what guarantees the unfiltered path cannot
+    silently drop or reorder entries that the pre-filter behaviour returned.
+    """
+    assert filter_entity_registry(_ENTITIES, {}) is _ENTITIES
+    assert filter_entity_registry(_ENTITIES, {"domain": None}) is _ENTITIES
+
+
+def test_filter_entity_registry_domain_is_prefix_not_substring() -> None:
+    """domain matches the entity_id domain segment, not any occurrence of it."""
+    assert _ids(filter_entity_registry(_ENTITIES, {"domain": "sensor"})) == [
+        "sensor.kitchen",
+        "sensor.porch",
+    ]
+    # "kitchen" appears in two entity_ids but is not a domain, so nothing matches.
+    assert filter_entity_registry(_ENTITIES, {"domain": "kitchen"}) == []
+
+
+def test_filter_entity_registry_each_field_filter_selects() -> None:
+    """platform, area_id, and device_id each narrow on their own field."""
+    assert _ids(filter_entity_registry(_ENTITIES, {"platform": "zwave"})) == ["sensor.porch"]
+    assert _ids(filter_entity_registry(_ENTITIES, {"area_id": "porch"})) == ["sensor.porch"]
+    assert _ids(filter_entity_registry(_ENTITIES, {"device_id": "d2"})) == ["sensor.porch"]
+
+
+def test_filter_entity_registry_filters_are_and_combined() -> None:
+    """Two filters intersect; they do not union."""
+    both = filter_entity_registry(_ENTITIES, {"domain": "sensor", "area_id": "kitchen"})
+    assert _ids(both) == ["sensor.kitchen"]
+    # domain alone yields 2 and area alone yields 2, so a union would yield 3.
+    assert len(filter_entity_registry(_ENTITIES, {"domain": "sensor"})) == 2
+    assert len(filter_entity_registry(_ENTITIES, {"area_id": "kitchen"})) == 2
+
+
+def test_filter_entity_registry_conflicting_filters_yield_nothing() -> None:
+    """An entity satisfying only one of two filters is excluded."""
+    assert filter_entity_registry(_ENTITIES, {"platform": "hue", "area_id": "porch"}) == []
+
+
+def test_filter_entity_registry_drops_non_dict_only_when_filtering() -> None:
+    """A non-dict entry survives the unfiltered path and is dropped once filtering."""
+    ragged: list[Any] = [*_ENTITIES, "not-a-dict"]
+    assert filter_entity_registry(ragged, {}) is ragged
+    assert "not-a-dict" not in filter_entity_registry(ragged, {"domain": "sensor"})
+
+
+def test_filter_entity_registry_preserves_input_order() -> None:
+    """Selected entries keep their original relative order."""
+    filtered = filter_entity_registry(_ENTITIES, {"platform": "hue"})
+    assert _ids(filtered) == ["sensor.kitchen", "light.kitchen"]
+
+
+def test_filter_entity_registry_ignores_entry_missing_entity_id() -> None:
+    """An entry with no entity_id cannot satisfy a domain filter."""
+    entries: list[Any] = [{"platform": "hue"}, {"entity_id": 42, "platform": "hue"}]
+    assert filter_entity_registry(entries, {"domain": "sensor"}) == []
+
+
+def test_filter_device_registry_unfiltered_returns_input_object() -> None:
+    """With no filter the exact input list is returned."""
+    assert filter_device_registry(_DEVICES, {}) is _DEVICES
+
+
+def test_filter_device_registry_area_and_config_entry() -> None:
+    """area_id is equality; config_entry_id is membership in config_entries."""
+    assert [d["id"] for d in filter_device_registry(_DEVICES, {"area_id": "kitchen"})] == ["d1"]
+    assert [d["id"] for d in filter_device_registry(_DEVICES, {"config_entry_id": "ce2"})] == [
+        "d1",
+        "d2",
+    ]
+    assert [d["id"] for d in filter_device_registry(_DEVICES, {"config_entry_id": "ce1"})] == ["d1"]
+
+
+def test_filter_device_registry_filters_are_and_combined() -> None:
+    """area_id and config_entry_id intersect."""
+    assert filter_device_registry(_DEVICES, {"area_id": "porch", "config_entry_id": "ce1"}) == []
+    kitchen_ce2 = filter_device_registry(_DEVICES, {"area_id": "kitchen", "config_entry_id": "ce2"})
+    assert [d["id"] for d in kitchen_ce2] == ["d1"]
+
+
+def test_filter_device_registry_config_entries_not_a_list_is_excluded() -> None:
+    """A device whose config_entries is not a list cannot match a membership filter."""
+    devices: list[Any] = [{"id": "x", "config_entries": "ce1"}, {"id": "y"}]
+    assert filter_device_registry(devices, {"config_entry_id": "ce1"}) == []
+
+
+@pytest.mark.parametrize("bad", [123, True, [], {}, "", "   "])
+def test_filter_param_error_rejects_unusable_values(bad: Any) -> None:
+    """A non-string or blank filter is rejected rather than matching nothing."""
+    err = filter_param_error({"domain": bad}, ("domain",))
+    assert err is not None
+    assert err["error"] == "INVALID_PARAM"
+    assert "domain" in err["message"]
+
+
+def test_filter_param_error_allows_absent_and_valid() -> None:
+    """An omitted filter does not constrain, and a real value passes."""
+    assert filter_param_error({}, ("domain", "area_id")) is None
+    assert filter_param_error({"domain": "sensor"}, ("domain",)) is None
+    assert filter_param_error({"domain": None}, ("domain",)) is None
+
+
+def test_filter_param_error_only_checks_named_filters() -> None:
+    """An unrelated bad-typed key is not this validator's business."""
+    assert filter_param_error({"action": 5, "domain": "sensor"}, ("domain",)) is None
+
+
+# --- handler wiring -------------------------------------------------------
+
+
+async def test_list_entity_registry_applies_filter_and_counts_filtered() -> None:
+    """count reflects the filtered result, not the registry size."""
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=_ENTITIES):
+        result = await handle_ha_list_entity_registry({"domain": "sensor"})
+    assert result["ok"] is True
+    assert result["count"] == 2
+    assert _ids(result["entities"]) == ["sensor.kitchen", "sensor.porch"]
+
+
+async def test_list_entity_registry_unfiltered_returns_everything() -> None:
+    """Omitting every filter preserves the pre-existing behaviour."""
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=_ENTITIES):
+        result = await handle_ha_list_entity_registry({})
+    assert result["count"] == 3
+    assert result["entities"] == _ENTITIES
+
+
+async def test_list_entity_registry_rejects_bad_filter_before_calling_ha() -> None:
+    """An invalid filter fails fast; HA is never contacted."""
+    ws_call = AsyncMock()
+    with patch("openclaw_node.commands.ha.ha_ws_call", ws_call):
+        result = await handle_ha_list_entity_registry({"platform": 7})
+    assert result["error"] == "INVALID_PARAM"
+    ws_call.assert_not_awaited()
+
+
+async def test_list_devices_applies_filter() -> None:
+    with patch("openclaw_node.commands.ha.ha_ws_call", return_value=_DEVICES):
+        result = await handle_ha_list_devices({"area_id": "kitchen"})
+    assert result["count"] == 1
+    assert [d["id"] for d in result["devices"]] == ["d1"]
+
+
+async def test_list_devices_rejects_bad_filter_before_calling_ha() -> None:
+    ws_call = AsyncMock()
+    with patch("openclaw_node.commands.ha.ha_ws_call", ws_call):
+        result = await handle_ha_list_devices({"config_entry_id": ""})
+    assert result["error"] == "INVALID_PARAM"
+    ws_call.assert_not_awaited()
+
+
+async def test_list_services_filters_by_domain() -> None:
+    services: list[Any] = [
+        {"domain": "light", "services": {"turn_on": {}}},
+        {"domain": "switch", "services": {"toggle": {}}},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=services):
+        result = await handle_ha_list_services({"domain": "light"})
+    assert result["count"] == 1
+    assert result["services"] == [services[0]]
+
+
+async def test_list_services_unfiltered_returns_everything() -> None:
+    services: list[Any] = [{"domain": "light"}, {"domain": "switch"}]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=services):
+        result = await handle_ha_list_services({})
+    assert result["count"] == 2
+
+
+async def test_list_services_rejects_bad_filter_before_calling_ha() -> None:
+    ha_get = AsyncMock()
+    with patch("openclaw_node.commands.ha.ha_get", ha_get):
+        result = await handle_ha_list_services({"domain": 1})
+    assert result["error"] == "INVALID_PARAM"
+    ha_get.assert_not_awaited()
+
+
+async def test_list_config_entries_filters_by_domain() -> None:
+    entries: list[Any] = [
+        {"entry_id": "a", "domain": "hue"},
+        {"entry_id": "b", "domain": "zwave_js"},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=entries):
+        result = await handle_ha_list_config_entries({"domain": "hue"})
+    assert result["count"] == 1
+    assert result["entries"] == [entries[0]]
+
+
+async def test_list_config_entries_rejects_bad_filter_before_calling_ha() -> None:
+    ha_get = AsyncMock()
+    with patch("openclaw_node.commands.ha.ha_get", ha_get):
+        result = await handle_ha_list_config_entries({"domain": []})
+    assert result["error"] == "INVALID_PARAM"
+    ha_get.assert_not_awaited()

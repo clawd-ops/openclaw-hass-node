@@ -5317,7 +5317,35 @@
           "defaults": [
             "null"
           ],
+          "name": "area_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
           "name": "attrs",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "config_entry_id",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -5463,9 +5491,37 @@
             "defaults": "action-specific source-derived AST expression",
             "name": "source-derived AST accepted key"
           }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "area_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "action-specific source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "config_entry_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "action-specific source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
         }
       ],
-      "capability_conditions": "HA WebSocket API supports config/device_registry/list; collection result has no caller limit.",
+      "capability_conditions": "HA WebSocket API supports config/device_registry/list. Caller may narrow the result server-side after fetch via area_id and config_entry_id (membership in config_entries); filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "command": "ha.config.device_registry",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 direct nodes.invoke returned the registry correctly, but the 878 KB response has no pagination.",
@@ -5737,6 +5793,20 @@
           "defaults": [
             "null"
           ],
+          "name": "area_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
           "name": "attrs",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
@@ -5751,7 +5821,49 @@
           "defaults": [
             "null"
           ],
+          "name": "device_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "domain",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
           "name": "entity_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "platform",
           "provenance": {
             "aliases": "manual declaration validated against source accepted keys",
             "bounds": "manual UNVERIFIED placeholder",
@@ -6008,9 +6120,65 @@
             "defaults": "action-specific source-derived AST expression",
             "name": "source-derived AST accepted key"
           }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "domain",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "action-specific source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "platform",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "action-specific source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "area_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "action-specific source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "device_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "action-specific source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
         }
       ],
-      "capability_conditions": "HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.",
+      "capability_conditions": "HA WebSocket API supports config/entity_registry/list. Caller may narrow the result server-side after fetch via domain (entity_id prefix), platform, area_id, device_id; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "command": "ha.config.entity_registry",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 direct nodes.invoke returned an internal command error on this large installation; tracked with the related entity-registry size failure in #316.",
@@ -10590,8 +10758,23 @@
           "status": "advertised"
         }
       },
-      "canonical_parameters": [],
-      "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
+      "canonical_parameters": [
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "domain",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        }
+      ],
+      "capability_conditions": "HA WebSocket API supports config_entries/get. Caller may narrow the result server-side after fetch via domain; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "command": "ha.list_config_entries",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
@@ -10701,8 +10884,37 @@
           "status": "advertised"
         }
       },
-      "canonical_parameters": [],
-      "capability_conditions": "HA WebSocket API supports the device registry list command.",
+      "canonical_parameters": [
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "area_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "config_entry_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        }
+      ],
+      "capability_conditions": "HA WebSocket API supports the device registry list command. Caller may narrow the result server-side after fetch via area_id and config_entry_id (membership in config_entries); filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "command": "ha.list_devices",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",
@@ -10812,8 +11024,65 @@
           "status": "advertised"
         }
       },
-      "canonical_parameters": [],
-      "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
+      "canonical_parameters": [
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "area_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "device_id",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "domain",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        },
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "platform",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        }
+      ],
+      "capability_conditions": "HA WebSocket API supports entity_registry/list. Caller may narrow the result server-side after fetch via domain (entity_id prefix), platform, area_id, device_id; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection. The transport ceiling for the WS frame is 16 MiB (ha_client._WS_MAX_MSG_BYTES).",
       "command": "ha.list_entity_registry",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): response 7.6 MB exceeds aiohttp 4 MiB WebSocket ceiling. Error: COMMAND_ERROR: Message size 7579915 exceeds limit 4194304, WSCloseCode.MESSAGE_TOO_BIG. Fix location: openclaw_node/ha_client.py:255 (pagination, chunked response, or raised max_msg_size). Tracked in GitHub issue.",
@@ -11032,8 +11301,23 @@
           "status": "advertised"
         }
       },
-      "canonical_parameters": [],
-      "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
+      "canonical_parameters": [
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "null"
+          ],
+          "name": "domain",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        }
+      ],
+      "capability_conditions": "HA REST API is reachable. Caller may narrow the result server-side after fetch via domain; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "command": "ha.list_services",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 live sweep (add-on 2026.9.13b1): command returned correct data but response is oversized with no caller-side pagination or filter. Pass on correctness; ergonomics gap observed.",

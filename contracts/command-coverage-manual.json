@@ -550,7 +550,7 @@
     },
     "ha.list_devices": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA WebSocket API supports the device registry list command.",
+      "capability_conditions": "HA WebSocket API supports the device registry list command. Caller may narrow the result server-side after fetch via area_id and config_entry_id (membership in config_entries); filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
@@ -574,7 +574,7 @@
     },
     "ha.list_services": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; collection result has no caller limit.",
+      "capability_conditions": "HA REST API is reachable. Caller may narrow the result server-side after fetch via domain; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "evidence_method": "PRODUCTION-LIVE",
@@ -640,7 +640,7 @@
     },
     "ha.list_config_entries": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA WebSocket API supports config_entries/get; collection result has no caller limit.",
+      "capability_conditions": "HA WebSocket API supports config_entries/get. Caller may narrow the result server-side after fetch via domain; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
       "first_shipped_in": "2026.6.29b1",
       "actions": {},
       "issues": [
@@ -709,7 +709,7 @@
     },
     "ha.list_entity_registry": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA WebSocket API supports entity_registry/list; collection result has no caller limit.",
+      "capability_conditions": "HA WebSocket API supports entity_registry/list. Caller may narrow the result server-side after fetch via domain (entity_id prefix), platform, area_id, device_id; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection. The transport ceiling for the WS frame is 16 MiB (ha_client._WS_MAX_MSG_BYTES).",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
@@ -1465,9 +1465,11 @@
       "actions": {
         "list": {
           "authorization_class": "read_only",
-          "capability_conditions": "HA WebSocket API supports config/device_registry/list; collection result has no caller limit.",
+          "capability_conditions": "HA WebSocket API supports config/device_registry/list. Caller may narrow the result server-side after fetch via area_id and config_entry_id (membership in config_entries); filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
           "parameters": [
-            "action"
+            "action",
+            "area_id",
+            "config_entry_id"
           ],
           "issues": [
             330
@@ -1531,9 +1533,13 @@
         },
         "list": {
           "authorization_class": "read_only",
-          "capability_conditions": "HA WebSocket API supports config/entity_registry/list; collection result has no caller limit.",
+          "capability_conditions": "HA WebSocket API supports config/entity_registry/list. Caller may narrow the result server-side after fetch via domain (entity_id prefix), platform, area_id, device_id; filters are AND-combined and each must be a non-empty string. This bounds the response returned to the caller, not the frame HA sends: HA accepts no server-side filter on this collection.",
           "parameters": [
-            "action"
+            "action",
+            "domain",
+            "platform",
+            "area_id",
+            "device_id"
           ],
           "issues": [
             316

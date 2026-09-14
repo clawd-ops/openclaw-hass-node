@@ -154,6 +154,148 @@ def _to_error(exc: HAClientError) -> dict[str, Any]:
     return _error(exc.code, exc.message)
 
 
+# Registry list filters (issues #316, #330).
+#
+# These narrow a collection so a caller on a large installation receives the
+# slice it asked for instead of the whole registry. They are exact-match
+# comparisons against fields HA already returns, applied after the fetch.
+#
+# They deliberately do NOT constitute a pagination contract, and they do not
+# shrink the frame HA sends: neither the registry WebSocket commands nor
+# ``/api/services`` accept server-side narrowing, so the full collection still
+# crosses the wire and is bounded only by the transport ceiling in
+# ``ha_client``. What these bound is the response the caller has to handle.
+ENTITY_REGISTRY_FILTERS: Final[tuple[str, ...]] = ("domain", "platform", "area_id", "device_id")
+DEVICE_REGISTRY_FILTERS: Final[tuple[str, ...]] = ("area_id", "config_entry_id")
+
+
+def _filter_value(value: Any) -> str:
+    """Return a trimmed filter value, or ``""`` when the value is not a string."""
+    return value.strip() if isinstance(value, str) else ""
+
+
+def filter_param_error(params: dict[str, Any], names: tuple[str, ...]) -> dict[str, Any] | None:
+    """Return an ``INVALID_PARAM`` error when a supplied filter is unusable.
+
+    A filter of the wrong type, or an empty string, would otherwise match
+    nothing and return ``count: 0``, which a caller cannot distinguish from a
+    registry that genuinely holds no such record. Rejecting it keeps a caller
+    typo from reading as an authoritative empty answer.
+
+    Args:
+        params: The caller-supplied parameter dict.
+        names: Filter names to validate. Absent names do not constrain.
+
+    Returns:
+        An error dict for the first unusable filter, or ``None`` when every
+        supplied filter is a non-empty string.
+    """
+    for name in names:
+        value = params.get(name)
+        if value is None:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            return _error("INVALID_PARAM", f"{name} must be a non-empty string when supplied")
+    return None
+
+
+def filter_entity_registry(entries: list[Any], params: dict[str, Any]) -> list[Any]:
+    """Narrow entity-registry entries by domain and exact registry fields.
+
+    Filters are AND-combined; an omitted filter does not constrain. When no
+    filter is supplied the input list is returned unchanged, so an unfiltered
+    call behaves exactly as it did before filtering existed.
+
+    Args:
+        entries: Raw entries from ``config/entity_registry/list``.
+        params: Caller params; reads ``domain``, ``platform``, ``area_id``,
+            and ``device_id``.
+
+    Returns:
+        The matching entries, in their original order.
+    """
+    # Each filter is read through a literal key rather than a loop over
+    # ENTITY_REGISTRY_FILTERS, because the command-coverage generator derives a
+    # command's accepted parameters by AST-walking for literal ``params.get``
+    # keys. A loop variable is invisible to it, and the ledger would then
+    # understate the surface this command actually accepts.
+    domain = _filter_value(params.get("domain"))
+    platform = _filter_value(params.get("platform"))
+    area_id = _filter_value(params.get("area_id"))
+    device_id = _filter_value(params.get("device_id"))
+    prefix = f"{domain}." if domain else ""
+    if not prefix and not platform and not area_id and not device_id:
+        return entries
+    selected: list[Any] = []
+    for entry in entries:
+        # A non-dict entry has no readable fields, so it cannot satisfy a
+        # filter. Dropping it is only reachable once a filter is active; the
+        # unfiltered path above returns the raw list untouched.
+        if not isinstance(entry, dict):
+            continue
+        entity_id = entry.get("entity_id")
+        if prefix and not (isinstance(entity_id, str) and entity_id.startswith(prefix)):
+            continue
+        if platform and entry.get("platform") != platform:
+            continue
+        if area_id and entry.get("area_id") != area_id:
+            continue
+        if device_id and entry.get("device_id") != device_id:
+            continue
+        selected.append(entry)
+    return selected
+
+
+def filter_device_registry(devices: list[Any], params: dict[str, Any]) -> list[Any]:
+    """Narrow device-registry entries by area and owning config entry.
+
+    Filters are AND-combined; an omitted filter does not constrain. When no
+    filter is supplied the input list is returned unchanged.
+
+    ``config_entry_id`` is a membership test against the device's
+    ``config_entries`` list, because one device can be contributed by more than
+    one integration.
+
+    Args:
+        devices: Raw entries from ``config/device_registry/list``.
+        params: Caller params; reads ``area_id`` and ``config_entry_id``.
+
+    Returns:
+        The matching devices, in their original order.
+    """
+    area_id = _filter_value(params.get("area_id"))
+    config_entry_id = _filter_value(params.get("config_entry_id"))
+    if not area_id and not config_entry_id:
+        return devices
+    selected: list[Any] = []
+    for device in devices:
+        if not isinstance(device, dict):
+            continue
+        if area_id and device.get("area_id") != area_id:
+            continue
+        if config_entry_id:
+            owning = device.get("config_entries")
+            if not isinstance(owning, list) or config_entry_id not in owning:
+                continue
+        selected.append(device)
+    return selected
+
+
+def _filter_by_domain(records: list[Any], params: dict[str, Any]) -> list[Any]:
+    """Narrow records that carry a top-level ``domain`` field.
+
+    Used by ``ha.list_services`` and ``ha.list_config_entries``, whose payloads
+    are both lists of objects keyed by integration domain. Returns the input
+    unchanged when no ``domain`` filter is supplied.
+    """
+    domain = _filter_value(params.get("domain"))
+    if not domain:
+        return records
+    return [
+        record for record in records if isinstance(record, dict) and record.get("domain") == domain
+    ]
+
+
 def _service_data_equal(left: Any, right: Any) -> bool:
     """Compare JSON values without Python's boolean/number coercion."""
     if isinstance(left, dict) and isinstance(right, dict):
@@ -345,37 +487,59 @@ async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "count": len(result), "areas": result}
 
 
-async def handle_ha_list_devices(_params: dict[str, Any]) -> dict[str, Any]:
-    """Return all device-registry entries from Home Assistant.
+async def handle_ha_list_devices(params: dict[str, Any]) -> dict[str, Any]:
+    """Return device-registry entries from Home Assistant, optionally narrowed.
+
+    Params:
+        area_id (str, optional): Only devices assigned to this area.
+        config_entry_id (str, optional): Only devices contributed by this
+            config entry.
+
+    Filters are AND-combined and applied after the registry is fetched: HA does
+    not accept server-side narrowing on this frame, so this bounds the response
+    the caller receives rather than the frame HA sends.
 
     Returns:
         ``{ok: True, count, devices}`` or an error dict.
     """
+    invalid = filter_param_error(params, DEVICE_REGISTRY_FILTERS)
+    if invalid is not None:
+        return invalid
     try:
         result = await ha_ws_call("config/device_registry/list")
     except HAClientError as exc:
         return _to_error(exc)
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected list from device_registry/list")
-    return {"ok": True, "count": len(result), "devices": result}
+    devices = filter_device_registry(result, params)
+    return {"ok": True, "count": len(devices), "devices": devices}
 
 
-async def handle_ha_list_services(_params: dict[str, Any]) -> dict[str, Any]:
-    """Return all service descriptions from Home Assistant.
+async def handle_ha_list_services(params: dict[str, Any]) -> dict[str, Any]:
+    """Return service descriptions from Home Assistant, optionally narrowed.
 
     Uses the REST ``/api/services`` endpoint which returns a list of domain
     objects, each containing the services available in that domain.
 
+    Params:
+        domain (str, optional): Only the entry for this service domain, e.g.
+            ``"light"``. Applied after the fetch; the endpoint accepts no
+            server-side filter.
+
     Returns:
         ``{ok: True, count, services}`` or an error dict.
     """
+    invalid = filter_param_error(params, ("domain",))
+    if invalid is not None:
+        return invalid
     try:
         raw = await ha_get("/api/services")
     except HAClientError as exc:
         return _to_error(exc)
     if not isinstance(raw, list):
         return _error("HA_BAD_RESPONSE", "Expected list from /api/services")
-    return {"ok": True, "count": len(raw), "services": raw}
+    services = _filter_by_domain(raw, params)
+    return {"ok": True, "count": len(services), "services": services}
 
 
 async def handle_ha_get_config(_params: dict[str, Any]) -> dict[str, Any]:
@@ -400,15 +564,28 @@ async def handle_ha_list_events(_params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "count": len(raw), "events": raw}
 
 
-async def handle_ha_list_config_entries(_params: dict[str, Any]) -> dict[str, Any]:
-    """Return Home Assistant config entries from the internal config-entry API."""
+async def handle_ha_list_config_entries(params: dict[str, Any]) -> dict[str, Any]:
+    """Return Home Assistant config entries, optionally narrowed by integration.
+
+    Params:
+        domain (str, optional): Only entries for this integration domain, e.g.
+            ``"hue"``. Applied after the fetch; the endpoint accepts no
+            server-side filter.
+
+    Returns:
+        ``{ok: True, count, entries}`` or an error dict.
+    """
+    invalid = filter_param_error(params, ("domain",))
+    if invalid is not None:
+        return invalid
     try:
         raw = await ha_get("/api/config/config_entries/entry")
     except HAClientError as exc:
         return _to_error(exc)
     if not isinstance(raw, list):
         return _error("HA_BAD_RESPONSE", "Expected list from /api/config/config_entries/entry")
-    return {"ok": True, "count": len(raw), "entries": raw}
+    entries = _filter_by_domain(raw, params)
+    return {"ok": True, "count": len(entries), "entries": entries}
 
 
 async def handle_ha_core_logs(params: dict[str, Any]) -> dict[str, Any]:
@@ -470,19 +647,36 @@ async def handle_ha_calendar_get_events(params: dict[str, Any]) -> dict[str, Any
     return {"ok": True, "response": raw}
 
 
-async def handle_ha_list_entity_registry(_params: dict[str, Any]) -> dict[str, Any]:
-    """Return all entity-registry entries from Home Assistant.
+async def handle_ha_list_entity_registry(params: dict[str, Any]) -> dict[str, Any]:
+    """Return entity-registry entries from Home Assistant, optionally narrowed.
+
+    Params:
+        domain (str, optional): Only entries whose ``entity_id`` is under this
+            domain, e.g. ``"sensor"``.
+        platform (str, optional): Only entries provided by this integration.
+        area_id (str, optional): Only entries assigned to this area.
+        device_id (str, optional): Only entries belonging to this device.
+
+    Filters are AND-combined and applied after the registry is fetched: HA does
+    not accept server-side narrowing on this frame, so this bounds the response
+    the caller receives rather than the frame HA sends. On a large installation
+    that frame is what exceeded the transport ceiling in issue #316; the ceiling
+    itself is raised in ``ha_client``.
 
     Returns:
         ``{ok: True, count, entities}`` or an error dict.
     """
+    invalid = filter_param_error(params, ENTITY_REGISTRY_FILTERS)
+    if invalid is not None:
+        return invalid
     try:
         result = await ha_ws_call("config/entity_registry/list")
     except HAClientError as exc:
         return _to_error(exc)
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected list from entity_registry/list")
-    return {"ok": True, "count": len(result), "entities": result}
+    entities = filter_entity_registry(result, params)
+    return {"ok": True, "count": len(entities), "entities": entities}
 
 
 async def handle_ha_logbook(params: dict[str, Any]) -> dict[str, Any]:

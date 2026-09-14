@@ -491,3 +491,86 @@ async def test_entity_direct_proposal_refused() -> None:
 async def test_entity_id_wrong_type() -> None:
     result = await handle_ha_config_entity_registry({"action": "get", "entity_id": 42})
     assert result["error"] == "MISSING_PARAM"
+
+
+# -----------------------------------------------------------------------
+# registry list filters (issues #316, #330)
+# -----------------------------------------------------------------------
+
+_FILTER_ENTITIES: list[Any] = [
+    {"entity_id": "sensor.a", "platform": "hue", "area_id": "kitchen", "device_id": "d1"},
+    {"entity_id": "light.b", "platform": "hue", "area_id": "porch", "device_id": "d2"},
+]
+
+_FILTER_DEVICES: list[Any] = [
+    {"id": "d1", "area_id": "kitchen", "config_entries": ["ce1"]},
+    {"id": "d2", "area_id": "porch", "config_entries": ["ce2"]},
+]
+
+
+async def test_entity_list_applies_domain_filter() -> None:
+    """action=list narrows by domain and counts the filtered result."""
+    mock = AsyncMock(return_value=_FILTER_ENTITIES)
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry({"action": "list", "domain": "sensor"})
+    assert result["ok"] is True
+    assert result["count"] == 1
+    assert result["entities"][0]["entity_id"] == "sensor.a"
+
+
+async def test_entity_list_applies_area_filter() -> None:
+    """A filter other than domain also reaches the filter helper."""
+    mock = AsyncMock(return_value=_FILTER_ENTITIES)
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry({"action": "list", "area_id": "porch"})
+    assert result["count"] == 1
+    assert result["entities"][0]["entity_id"] == "light.b"
+
+
+async def test_entity_list_unfiltered_returns_everything() -> None:
+    mock = AsyncMock(return_value=_FILTER_ENTITIES)
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry({"action": "list"})
+    assert result["count"] == 2
+
+
+async def test_entity_list_rejects_bad_filter_before_calling_ha() -> None:
+    mock = AsyncMock()
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry({"action": "list", "device_id": 9})
+    assert result["error"] == "INVALID_PARAM"
+    mock.assert_not_awaited()
+
+
+async def test_device_list_applies_filters() -> None:
+    mock = AsyncMock(return_value=_FILTER_DEVICES)
+    with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
+        result = await handle_ha_config_device_registry({"action": "list", "area_id": "kitchen"})
+    assert result["count"] == 1
+    assert result["devices"][0]["id"] == "d1"
+
+    mock = AsyncMock(return_value=_FILTER_DEVICES)
+    with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
+        result = await handle_ha_config_device_registry(
+            {"action": "list", "config_entry_id": "ce2"}
+        )
+    assert result["count"] == 1
+    assert result["devices"][0]["id"] == "d2"
+
+
+async def test_device_list_rejects_bad_filter_before_calling_ha() -> None:
+    mock = AsyncMock()
+    with patch("openclaw_node.commands.ha_config_device_registry.ha_ws_call", mock):
+        result = await handle_ha_config_device_registry({"action": "list", "area_id": "  "})
+    assert result["error"] == "INVALID_PARAM"
+    mock.assert_not_awaited()
+
+
+async def test_entity_get_ignores_registry_filters() -> None:
+    """Filters are a list-action concern; action=get is unaffected by them."""
+    mock = AsyncMock(return_value={"entity_id": "sensor.a"})
+    with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
+        result = await handle_ha_config_entity_registry(
+            {"action": "get", "entity_id": "sensor.a", "domain": 12345}
+        )
+    assert result["ok"] is True
