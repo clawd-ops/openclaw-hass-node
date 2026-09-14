@@ -1,20 +1,40 @@
 #!/usr/bin/env python3
-"""Fail when Markdown extension syntax survives into the rendered HTML.
+"""Fail when a task-list marker survives into the rendered HTML.
 
-MkDocs `--strict` does not catch this class of bug. Markdown that uses an
-extension which is not enabled in `mkdocs.yml` is not an error: the parser
-simply does not recognise the syntax and passes it through as literal text.
-The build stays green and the page ships with `[x]` or `~~text~~` visible to
-the reader. That is exactly how 100 task-list lines across COMPLETION-ROADMAP
-and CONTRIBUTING rendered as literal brackets without anyone noticing.
+`mkdocs build --strict` cannot catch this. Markdown that uses an extension the
+site does not enable is not an error: the parser does not recognise the syntax,
+passes it through as literal text, and the build stays green. That is how 100
+task-list lines across COMPLETION-ROADMAP and CONTRIBUTING shipped as literal
+`[x]` and `[ ]` without anyone noticing.
 
-Rather than maintain a mapping from each syntax to the extension that enables
-it, this checks the only thing that actually matters: markup that should have
-been consumed is still present in the output. Any future extension syntax that
-someone writes without enabling gets caught by adding one pattern here.
+## Why this checks one thing rather than markup in general
 
-Code is excluded. `[ ]`, `~~` and `==` are all ordinary content inside a code
-span or block, and the docs legitimately contain them there.
+Earlier revisions scanned for any unrendered extension syntax: strikethrough,
+highlight, task lists. That requires answering "would this extension have
+consumed this text", and answering it from rendered HTML means reimplementing
+Python-Markdown's grammar. Three review rounds produced three different defects
+from exactly that gap, in both directions:
+
+* `Select [ ] blank for no.` in ordinary prose was reported as unrendered, with
+  advice to enable an extension that was already enabled and would not have
+  changed it.
+* `~~text ~~` is not consumed by `pymdownx.tilde` at all, but was reported as
+  unrendered strikethrough with advice to enable it.
+* `~~left<br/>right~~` *is* consumed, and escaped the check entirely, because a
+  hard break ended the scanned run.
+
+A detector that misidentifies what an extension consumes recommends a non-fix,
+which is worse than silence: it spends the reader's one good attempt.
+`docs/design/CODING-PRINCIPLES.md` calls repeated defects in one defensive layer
+a signal to delete the layer, and three rounds is enough evidence.
+
+So the general problem was removed rather than narrowed. Every extension whose
+syntax appears in these docs is now enabled in `mkdocs.yml`, leaving no
+unsupported-syntax class to detect. What remains here is a regression test for
+the specific bug that started this, expressed as an invariant needing no
+grammar: with `pymdownx.tasklist` enabled, a list item beginning with a task
+marker renders as a checkbox, so a rendered `<li>` whose own leading text still
+begins with `[ ]` or `[x]` proves the extension did not run.
 """
 
 from __future__ import annotations
@@ -23,167 +43,70 @@ import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import NamedTuple
 
+# A marker only means "task list" at the start of a list item's own text.
+# Anywhere else it is ordinary prose, which is the distinction the general
+# scanner could not make.
+_MARKER = re.compile(r"^\s*\[[ xX]\]\s")
 
-class _Syntax(NamedTuple):
-    """One unrendered-markup pattern and both ways out of it.
-
-    `extension` and `alternative` are why this reports rather than merely
-    detects. A message that says only "unconsumed markup" leaves the author
-    exactly where the operator in #347 was: told something is wrong, given no
-    path to fixing it. Naming the extension that consumes the syntax *and* the
-    supported markup that needs no extension covers both decisions an author can
-    make.
-    """
-
-    label: str
-    pattern: re.Pattern[str]
-    extension: str
-    alternative: str
-
-
-PATTERNS: tuple[_Syntax, ...] = (
-    _Syntax(
-        "task list",
-        re.compile(r"(?<![\w`])\[[ xX]\](?=\s)"),
-        "pymdownx.tasklist",
-        "a plain list item without the bracket marker",
-    ),
-    _Syntax(
-        "strikethrough",
-        re.compile(r"~~[^\s~][^~]*~~"),
-        "pymdownx.tilde",
-        "a literal <del>...</del> element, which Markdown passes through",
-    ),
-    # `==text==` is pymdownx.mark. pymdownx.caret is `^^insert^^` and `^sup^`,
-    # and naming it here would send an author to an extension that cannot
-    # consume what they wrote.
-    _Syntax(
-        "highlight",
-        re.compile(r"==[^\s=][^=]*=="),
-        "pymdownx.mark",
-        "a literal <mark>...</mark> element, which Markdown passes through",
-    ),
-)
-
-# Directories of build output that are not authored documentation.
+# Build output that is not authored documentation.
 SKIP_DIRS = frozenset({"assets", "search"})
 
-# Tags that do not interrupt a run of text. Markdown emits extension syntax as
-# one logical run, but inline markup splits it across nodes: `~~a *b* c~~` with
-# the extension disabled renders as three text nodes, and scanning each node in
-# isolation finds no delimiter pair in any of them.
-#
-# Anything not listed is treated as a block boundary, which is the conservative
-# default: an unknown tag ends the run rather than joining two unrelated ones.
-# That risks missing a marker spanning an unrecognised inline element, and
-# avoids inventing one across two paragraphs. A false failure blocks the build
-# for everyone; a missed one costs what the status quo already costs.
-INLINE_TAGS = frozenset(
-    {
-        "a",
-        "abbr",
-        "b",
-        "bdi",
-        "bdo",
-        "cite",
-        "data",
-        "del",
-        "dfn",
-        "em",
-        "i",
-        "ins",
-        "kbd",
-        "label",
-        "mark",
-        "q",
-        "rp",
-        "rt",
-        "ruby",
-        "s",
-        "samp",
-        "small",
-        "span",
-        "strong",
-        "sub",
-        "sup",
-        "time",
-        "u",
-        "var",
-        "wbr",
-    }
-)
 
+class _ListItems(HTMLParser):
+    """Collect the leading text of each list item.
 
-class _Text(HTMLParser):
-    """Collect runs of visible text, one per block-level container.
+    Only text belonging to the item itself counts. `code` and `pre` content is
+    ordinary text where `[ ]` is legitimate, so it ends collection for the
+    enclosing item.
 
-    Two failure modes bracket this, and both were shipped before being caught.
-
-    Concatenating the whole page invents text nobody sees:
-    ``<p>~~left</p><p>right~~</p>`` becomes ``~~leftright~~`` and reports
-    strikethrough present in neither element.
-
-    Scanning each text node alone misses real markup: with the extension
-    disabled, ``~~a *b* c~~`` renders as three text nodes and no single node
-    holds a delimiter pair, so genuinely unrendered syntax passes.
-
-    A run therefore spans inline markup and stops at block boundaries. Content
-    inside ``code``, ``pre``, ``script`` and ``style`` is dropped, because
-    ``[ ]`` and ``~~`` are ordinary characters there.
+    A nested list needs no handling of its own: its first `<li>` closes the
+    enclosing item, and text between a `<ul>` and its first `<li>` is not valid
+    content. Listing `ul`/`ol` here as well changed no behaviour and no test, so
+    it was removed rather than kept as a defensive branch nothing exercises.
     """
-
-    _SUPPRESSED = ("code", "pre", "script", "style")
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        # A counter, not a flag: `pre > code` is the ordinary fenced-block
-        # shape, and a flag would resume at the inner `</code>`.
-        self._suppress = 0
-        self._current: list[str] = []
-        self.runs: list[str] = []
+        self._open = False
+        self._leading: list[str] = []
+        self.items: list[str] = []
 
-    def _flush(self) -> None:
-        if self._current:
-            self.runs.append("".join(self._current))
-            self._current = []
-
-    def _boundary(self, tag: str) -> None:
-        if tag not in INLINE_TAGS:
-            self._flush()
+    def _close_item(self) -> None:
+        if self._open:
+            self.items.append("".join(self._leading))
+            self._leading = []
+            self._open = False
 
     def handle_starttag(self, tag: str, _attrs: object) -> None:
-        self._boundary(tag)
-        if tag in self._SUPPRESSED:
-            self._suppress += 1
-
-    def handle_startendtag(self, tag: str, _attrs: object) -> None:
-        self._boundary(tag)
+        if tag == "li":
+            self._close_item()
+            self._open = True
+        elif tag in ("code", "pre"):
+            self._close_item()
 
     def handle_endtag(self, tag: str) -> None:
-        if tag in self._SUPPRESSED and self._suppress:
-            self._suppress -= 1
-        self._boundary(tag)
+        if tag == "li":
+            self._close_item()
 
     def handle_data(self, data: str) -> None:
-        if not self._suppress:
-            self._current.append(data)
+        if self._open:
+            self._leading.append(data)
 
     def close(self) -> None:
         super().close()
-        self._flush()
+        self._close_item()
 
 
-def _page_text_runs(html: str) -> list[str]:
-    parser = _Text()
+def _list_item_text(html: str) -> list[str]:
+    parser = _ListItems()
     parser.feed(html)
     parser.close()
-    return parser.runs
+    return parser.items
 
 
 def main(argv: list[str]) -> int:
-    """Scan a built site, returning 1 if any unrendered syntax is found."""
+    """Scan a built site, returning 1 if any task marker survived rendering."""
     site = Path(argv[1] if len(argv) > 1 else "site")
     if not site.is_dir():
         print(f"error: {site} is not a directory; run `mkdocs build` first", file=sys.stderr)
@@ -195,35 +118,27 @@ def main(argv: list[str]) -> int:
         if SKIP_DIRS & set(path.relative_to(site).parts):
             continue
         scanned += 1
-        for run in _page_text_runs(path.read_text(encoding="utf-8")):
-            for syntax in PATTERNS:
-                for match in syntax.pattern.finditer(run):
-                    context = " ".join(run[max(0, match.start() - 40) : match.end() + 40].split())
-                    failures.append(
-                        f"{path.relative_to(site)}: unrendered {syntax.label} syntax "
-                        f"{match.group(0)!r}\n"
-                        f"    ...{context}...\n"
-                        f"    fix: enable {syntax.extension} in mkdocs.yml, "
-                        f"or use {syntax.alternative}"
-                    )
+        for item in _list_item_text(path.read_text(encoding="utf-8")):
+            if _MARKER.match(item):
+                failures.append(f"{path.relative_to(site)}: {' '.join(item.split())[:80]}")
 
     if failures:
-        print(f"Unrendered Markdown syntax in {len(failures)} place(s):\n", file=sys.stderr)
+        print(
+            f"Task-list markers rendered as literal text in {len(failures)} list item(s):\n",
+            file=sys.stderr,
+        )
         for failure in failures:
             print(f"  {failure}", file=sys.stderr)
-        # Each finding already carries its own fix. This explains why the build
-        # was green, which is the part no individual finding can say, and does
-        # not repeat "use supported syntax" at the reader.
         print(
-            "\nThe MkDocs build passed because syntax from an unenabled extension "
-            "is not an error:\nit is emitted as literal text, so the page ships "
-            "with the markup visible to readers.\nSee the Documentation markup "
-            "section of docs/CONTRIBUTING.md for which are enabled.",
+            "\nThese ship to readers as `[x]` and `[ ]` rather than checkboxes.\n"
+            "The MkDocs build passes regardless: syntax from an extension that is not "
+            "enabled\nis emitted as literal text, not reported as an error.\n"
+            "Fix: ensure pymdownx.tasklist is enabled in mkdocs.yml.",
             file=sys.stderr,
         )
         return 1
 
-    print(f"OK: no unrendered Markdown syntax across {scanned} page(s).")
+    print(f"OK: no literal task-list markers across {scanned} page(s).")
     return 0
 
 

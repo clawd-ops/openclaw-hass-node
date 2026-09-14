@@ -70,6 +70,8 @@ markdown_extensions:
   # unsupported syntax fails silently, which is how it went unnoticed.
   - pymdownx.tasklist:
       custom_checkbox: true
+  - pymdownx.tilde
+  - pymdownx.mark
 
 plugins:
   - search

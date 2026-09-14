@@ -81,29 +81,33 @@ Per the OC-repo autonomy rule, doc-only changes (`docs/`, `README.md`,
 
 Only the Markdown extensions listed under `markdown_extensions` in `mkdocs.yml`
 are available. Syntax from an extension that is not enabled is **not a build
-error** — the parser does not recognise it, so it passes through and ships to
-the reader as literal text. `mkdocs build --strict` stays green. This is how
+error**: the parser does not recognise it, so it passes through and ships to the
+reader as literal text while `mkdocs build --strict` stays green. That is how
 100 task-list lines across `COMPLETION-ROADMAP.md` and this file rendered as
 literal `[x]` and `[ ]` for as long as they did.
 
-`scripts/lint-rendered-docs.py` runs against the built site in CI and fails the
-build when that markup survives into the HTML, naming the extension that would
-have consumed it.
+**Every extension whose syntax appears in these docs is enabled**, including
+`pymdownx.tasklist`, `pymdownx.tilde` (`~~strikethrough~~`) and `pymdownx.mark`
+(`==highlight==`). Enabling the last two changed no rendered page, because
+nothing used them; they are on so that the first author who reaches for either
+gets what they wrote instead of literal tildes.
 
-Two specific decisions:
+That is deliberately the opposite of the earlier approach here, which left them
+off and tried to detect their use. Detecting unrendered markup in general means
+deciding what each extension *would* have consumed, from the rendered HTML,
+which is Python-Markdown's grammar reimplemented badly. It reported ordinary
+prose such as `Select [ ] blank for no.` and recommended enabling an extension
+that was already on. **A diagnostic that names a wrong remedy is worse than
+none: it spends the reader's one good attempt.** Removing the unsupported class
+is cheaper and more reliable than detecting it.
 
-- **Task lists are supported.** `pymdownx.tasklist` is enabled, so `- [ ]` and
-  `- [x]` render as checkboxes.
-- **Strikethrough and highlight are not.** `pymdownx.tilde` (`~~text~~`) and
-  `pymdownx.mark` (`==text==`) are deliberately left off, because no page uses
-  either. Write a literal `<del>text</del>` or `<mark>text</mark>` instead:
-  Markdown passes raw HTML through unchanged, which is what
-  `docs/VERIFICATION-2026-09-11.md` already does. Enabling an extension nothing
-  uses is config carried for a hypothetical.
+If you need syntax from an extension that is not enabled, enable it in the same
+PR. Do not work around it, and do not assume a green build means it rendered.
 
-  If you do want the extension syntax, the lint stops you at the point of use
-  and names both options, so enable it in the same PR rather than working
-  around the failure.
+`scripts/lint-rendered-docs.py` remains as a regression test for the original
+bug alone. It fails the Docs workflow when a rendered list item still begins
+with a literal `[ ]` or `[x]`, an invariant that needs no grammar: with
+`pymdownx.tasklist` enabled such an item is a checkbox.
 
 ## Cross-provider code review
 

@@ -2,16 +2,17 @@
 
 The lint exists because `mkdocs build --strict` cannot fail on Markdown that
 uses an unenabled extension: the syntax is not recognised, so it is emitted as
-literal text and the build is green. These fixtures assert both halves of that
-job — the literal markup is caught, and the same characters appearing inside
-code are not, since `[ ]` and `~~` are ordinary content in a code span.
+literal text and the build is green.
 
-Fixtures are synthetic HTML rather than a real build, so each case states the
-exact input it depends on. The two `_RENDERED_*` constants are copied verbatim
-from a real strict build of `docs/COMPLETION-ROADMAP.md` with and without the
-extension; the node test environment has neither `markdown` nor
-`pymdown-extensions`, so rendering them here is not possible. The Docs workflow
-exercises the real MkDocs output, which is what keeps them honest.
+It deliberately checks one invariant rather than markup in general. Three
+earlier review rounds each found a new defect in a general scanner, because
+deciding "would this extension have consumed this text" from rendered HTML means
+reimplementing Python-Markdown's grammar. The cases that defeated it are kept
+below as negative tests, so a future attempt to generalise has to confront them.
+
+Fixtures are synthetic HTML, so each case states the exact input it depends on.
+The Docs workflow runs the lint against the real built site, which is what keeps
+the fixtures honest.
 """
 
 from __future__ import annotations
@@ -45,81 +46,33 @@ def _site(tmp_path: Path, pages: dict[str, str]) -> Path:
     return site
 
 
-def test_clean_page_passes(tmp_path: Path) -> None:
-    site = _site(tmp_path, {"index.html": "<p>Ordinary prose with no markup.</p>"})
-    result = _run(site)
-    assert result.returncode == 0, result.stderr
-    assert "no unrendered Markdown syntax" in result.stdout
-
-
-@pytest.mark.parametrize(
-    ("body", "extension"),
-    [
-        ("<li>[ ] unchecked item</li>", "pymdownx.tasklist"),
-        ("<li>[x] checked item</li>", "pymdownx.tasklist"),
-        ("<li>[X] capitalised item</li>", "pymdownx.tasklist"),
-        ("<p>~~superseded claim~~</p>", "pymdownx.tilde"),
-        ("<p>==highlighted==</p>", "pymdownx.mark"),
-    ],
-)
-def test_literal_syntax_fails_and_names_the_extension(
-    tmp_path: Path, body: str, extension: str
-) -> None:
-    result = _run(_site(tmp_path, {"page.html": body}))
-    assert result.returncode == 1
-    assert extension in result.stderr
-    assert "page.html" in result.stderr
-
-
 @pytest.mark.parametrize(
     "body",
     [
-        "<p>Use <code>- [ ] item</code> for a task.</p>",
-        "<pre><code>grep -n docs</code>\n[ ] still inside the pre block\n</pre>",
-        "<p>Write <code>[ ] item</code> to start a task.</p>",
+        "<ul><li>[ ] unchecked item</li></ul>",
+        "<ul><li>[x] checked item</li></ul>",
+        "<ul><li>[X] capitalised item</li></ul>",
+        # The real shape: wrapped continuation text inside the same item.
+        "<ul><li>[ ] One authoritative contract defines every supported\n  command.</li></ul>",
     ],
 )
-def test_code_is_not_flagged(tmp_path: Path, body: str) -> None:
-    """`[ ]`, `~~` and `==` are legitimate content inside code."""
+def test_literal_marker_in_a_list_item_fails(tmp_path: Path, body: str) -> None:
+    """This is the regression that motivated the lint."""
     result = _run(_site(tmp_path, {"page.html": body}))
-    assert result.returncode == 0, result.stderr
-
-
-def test_prose_brackets_are_not_flagged(tmp_path: Path) -> None:
-    """Only a bracket pair followed by whitespace looks like a task marker.
-
-    Citation-style `[1]`, an empty `[]`, and a bracket mid-word must not trip
-    the check, or the lint would be noise on ordinary prose.
-    """
-    body = "<p>See [1] and [] and file[x] item and [ok] for detail.</p>"
-    result = _run(_site(tmp_path, {"page.html": body}))
-    assert result.returncode == 0, result.stderr
-
-
-def test_marker_is_found_when_a_previous_element_ends_in_a_word(
-    tmp_path: Path,
-) -> None:
-    """A real marker must not be hidden by the element before it.
-
-    Concatenating text nodes turns `<p>word</p><li>[ ] task</li>` into
-    `word[ ] task`, where the synthetic preceding character is a word character
-    and the boundary condition suppresses a marker the reader can plainly see.
-    Today's MkDocs output separates block elements with whitespace, so this is
-    masked on the current build; the check must not depend on that.
-    """
-    body = "<p>word</p><li>[ ] task</li>"
-    result = _run(_site(tmp_path, {"page.html": body}))
-    assert result.returncode == 1, result.stdout
+    assert result.returncode == 1
+    assert "page.html" in result.stderr
     assert "pymdownx.tasklist" in result.stderr
 
 
-def test_delimiters_do_not_pair_across_elements(tmp_path: Path) -> None:
-    """Two elements each holding one tilde are not strikethrough.
-
-    Concatenation would join `<p>~~left</p><p>right~~</p>` into
-    `~~leftright~~` and report markup that exists in neither element.
-    """
-    body = "<p>~~left</p><p>right~~</p>"
+def test_rendered_checkbox_passes(tmp_path: Path) -> None:
+    """Markup copied from a real strict build with the extension enabled."""
+    body = (
+        '<ul class="task-list">\n'
+        '<li class="task-list-item"><label class="task-list-control">'
+        '<input type="checkbox" disabled/><span class="task-list-indicator"></span>'
+        "</label> One authoritative contract defines every supported command.</li>\n"
+        "</ul>"
+    )
     result = _run(_site(tmp_path, {"page.html": body}))
     assert result.returncode == 0, result.stderr
 
@@ -127,49 +80,49 @@ def test_delimiters_do_not_pair_across_elements(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "body",
     [
-        # `~~a *b* c~~` with the extension disabled: three text nodes, and no
-        # single one holds a delimiter pair. Scanning nodes in isolation missed
-        # this entirely.
-        "<p>~~left <em>emphasis</em> right~~</p>",
-        "<p>~~left <!-- comment --> right~~</p>",
-        "<li>[ ] task with <strong>bold</strong> text</li>",
-        "<p>==high <em>light</em> ed==</p>",
+        # Each of these defeated the general scanner in a review round. They are
+        # not task-list markers, and reporting them recommended a non-fix.
+        "<p>Select [ ] blank for no.</p>",
+        "<p>~~text ~~</p>",
+        "<p>~~left<br/>right~~</p>",
+        "<p>==high  <br/>light==</p>",
+        # A marker mid-item is prose, not a task marker: the extension only
+        # consumes it at the start of the item.
+        "<ul><li>choose [ ] when unsure</li></ul>",
+        # Citation-style and empty brackets.
+        "<ul><li>[1] a reference</li><li>[] empty</li></ul>",
     ],
 )
-def test_markup_split_by_inline_elements_is_still_found(tmp_path: Path, body: str) -> None:
-    """Inline markup must not hide unrendered syntax.
-
-    This is legitimate extension syntax, not an invented cross-element pair:
-    enabling the extension consumes exactly this source.
-    """
-    result = _run(_site(tmp_path, {"page.html": body}))
-    assert result.returncode == 1, result.stdout
-
-
-@pytest.mark.parametrize("tag", ["script", "style"])
-def test_each_suppressed_container_is_suppressed(tmp_path: Path, tag: str) -> None:
-    """Every entry in the suppressed set must actually be doing work.
-
-    A reviewer found that removing `script` or `style` individually left the
-    whole suite green, so the set was asserted only in aggregate.
-    """
-    body = f"<{tag}>var s = '~~not strikethrough~~';</{tag}>"
+def test_prose_is_not_reported(tmp_path: Path, body: str) -> None:
     result = _run(_site(tmp_path, {"page.html": body}))
     assert result.returncode == 0, result.stderr
 
 
-def test_failure_message_names_both_ways_out(tmp_path: Path) -> None:
-    """A diagnostic that cannot be acted on is the defect in #348.
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<ul><li><code>[ ] item</code> is the source syntax</li></ul>",
+        "<ul><li><pre>[ ] inside a block</pre></li></ul>",
+    ],
+)
+def test_code_in_a_list_item_is_not_reported(tmp_path: Path, body: str) -> None:
+    """`[ ]` is ordinary content inside code, and the docs show it that way."""
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 0, result.stderr
 
-    Naming only the problem leaves the author where the operator was: told
-    something is wrong, given no path to the fix. Assert against real output,
-    not the format string.
-    """
-    result = _run(_site(tmp_path, {"page.html": "<p>~~struck~~</p>"}))
-    assert result.returncode == 1
-    assert "pymdownx.tilde" in result.stderr
-    assert "<del>" in result.stderr
-    assert "mkdocs.yml" in result.stderr
+
+def test_nested_list_item_is_checked_on_its_own(tmp_path: Path) -> None:
+    """A nested item is its own item, not trailing text of its parent."""
+    body = "<ul><li>parent text<ul><li>[ ] nested marker</li></ul></li></ul>"
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 1, result.stdout
+
+
+def test_parent_item_text_before_a_nested_list_is_not_confused(tmp_path: Path) -> None:
+    """Opening a nested list ends the parent's leading text rather than merging."""
+    body = "<ul><li>parent<ul><li>child</li></ul>[ ] trailing prose</li></ul>"
+    result = _run(_site(tmp_path, {"page.html": body}))
+    assert result.returncode == 0, result.stderr
 
 
 def test_build_assets_are_skipped(tmp_path: Path) -> None:
@@ -177,8 +130,8 @@ def test_build_assets_are_skipped(tmp_path: Path) -> None:
     site = _site(
         tmp_path,
         {
-            "assets/javascripts/bundle.html": "<p>~~tilde in a vendored bundle~~</p>",
-            "search/search_index.html": "<p>[ ] indexed copy of a task line</p>",
+            "assets/javascripts/bundle.html": "<ul><li>[ ] in a vendored bundle</li></ul>",
+            "search/search_index.html": "<ul><li>[ ] indexed copy</li></ul>",
         },
     )
     result = _run(site)
@@ -191,40 +144,14 @@ def test_missing_site_directory_is_a_usage_error(tmp_path: Path) -> None:
     assert "mkdocs build" in result.stderr
 
 
-# Both fixtures below are the real markup for the opening checklist of
-# `docs/COMPLETION-ROADMAP.md`, copied from `site/` built with and without
-# `pymdownx.tasklist`. Reproducing the rendered shape here rather than calling
-# Markdown keeps this test running in the node suite, which does not depend on
-# the docs toolchain. Note the continuation lines: every task item on that page
-# is a flat `<li>` with its wrapped text inside, with no nested sub-list, which
-# is why enabling the extension could not restructure the page.
-_RENDERED_WITH_EXTENSION = (
-    '<ul class="task-list">\n'
-    '<li class="task-list-item"><label class="task-list-control">'
-    '<input type="checkbox" disabled/><span class="task-list-indicator"></span>'
-    "</label> One authoritative contract defines every supported command/action,\n"
-    "  parameters, aliases, bounds, result schema, caller paths, authorization, and\n"
-    "  availability conditions.</li>\n"
-    "</ul>"
-)
+def test_failure_message_names_the_fix(tmp_path: Path) -> None:
+    """Asserted against real stderr, not the format string.
 
-_RENDERED_WITHOUT_EXTENSION = (
-    "<ul>\n"
-    "<li>[ ] One authoritative contract defines every supported command/action,\n"
-    "  parameters, aliases, bounds, result schema, caller paths, authorization, and\n"
-    "  availability conditions.</li>\n"
-    "</ul>"
-)
-
-
-def test_accepts_the_real_rendered_checklist(tmp_path: Path) -> None:
-    """The shape MkDocs actually emits must not trip the lint."""
-    result = _run(_site(tmp_path, {"page.html": _RENDERED_WITH_EXTENSION}))
-    assert result.returncode == 0, result.stderr
-
-
-def test_catches_the_real_regression(tmp_path: Path) -> None:
-    """The same source without the extension is what shipped broken."""
-    result = _run(_site(tmp_path, {"page.html": _RENDERED_WITHOUT_EXTENSION}))
+    A diagnostic naming no remedy leaves the reader where they started, which is
+    the defect tracked in #348.
+    """
+    result = _run(_site(tmp_path, {"page.html": "<ul><li>[ ] task</li></ul>"}))
     assert result.returncode == 1
     assert "pymdownx.tasklist" in result.stderr
+    assert "mkdocs.yml" in result.stderr
+    assert "checkboxes" in result.stderr
