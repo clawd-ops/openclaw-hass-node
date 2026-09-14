@@ -246,6 +246,7 @@ class ChatRelay:
         # None and () mean different things: None is 'topology unknown, do
         # not conclude anything', () is 'the gateway reported no agents'.
         self._gateway_agents: tuple[str, ...] | None = None
+        self._inventory_lock = asyncio.Lock()
         self._subscribed: set[str] = set()  # canonical keys
         # Running buffer — overwritten by every assistant event (deltas
         # included). Used as the BEST-EFFORT fallback when the turn times
@@ -376,7 +377,7 @@ class ChatRelay:
                 received.
         """
         agent_id = authz.agent_id if authz is not None and authz.agent_id else None
-        self._require_resolvable_owner(agent_id)
+        await self._require_resolvable_owner(agent_id)
         session_key = _session_key(conversation_id, agent_id)
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
         use_tool_frames = _CAP_TOOL_PROGRESS_FRAMES in (client_caps or [])
@@ -717,7 +718,7 @@ class ChatRelay:
             ChatRelayError: On timeout, gateway rejection, or missing reply.
         """
         agent_id = authz.agent_id if authz is not None and authz.agent_id else None
-        self._require_resolvable_owner(agent_id)
+        await self._require_resolvable_owner(agent_id)
         session_key = _session_key(conversation_id, agent_id)
 
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
@@ -839,7 +840,7 @@ class ChatRelay:
             )
         return reply
 
-    def _require_resolvable_owner(self, agent_id: str | None) -> None:
+    async def _require_resolvable_owner(self, agent_id: str | None) -> None:
         """Refuse a turn whose session would have no owner.
 
         The gateway rejects an unowned session key when several agents exist, so
@@ -854,8 +855,14 @@ class ChatRelay:
         Raises:
             ChatRelayError: When several agents are known and none resolves.
         """
+        if agent_id:
+            return
+        # Resolve on demand rather than trusting startup to have finished.
+        # This runs while the event loop is live, so the reply can arrive;
+        # awaiting it during connect cannot work (see `_attach_relay`).
+        await self._ensure_agent_inventory()
         agents = self._gateway_agents
-        if agent_id or agents is None or len(agents) <= 1:
+        if agents is None or len(agents) <= 1:
             return
         raise ChatRelayError(
             "INVALID_REQUEST",
@@ -938,17 +945,41 @@ class ChatRelay:
         agent inventory is an operator diagnostic, not a reason to keep Assist
         offline.
         """
-        try:
-            response = await self._rpc("agents.list", {}, timeout=_RPC_TIMEOUT_S)
-        except ChatRelayError as exc:
-            _LOG.warning("[identity] agents.list failed: %s %s", exc.code, exc.message)
-            return
-        agents = _extract_agent_ids(response)
-        # Retained, not just logged. The turn boundary needs this to refuse
-        # an unresolvable turn; a startup-only log reaches whoever happens
-        # to read startup logs, which in production was nobody.
-        self._gateway_agents = agents
-        log_agent_inventory(self._identity, agents)
+        await self._ensure_agent_inventory()
+        if self._gateway_agents is not None:
+            log_agent_inventory(self._identity, self._gateway_agents)
+
+    async def _ensure_agent_inventory(self) -> None:
+        """Learn the gateway topology, once, if it is not already known.
+
+        Called from two places: a detached task at connect, which usually wins,
+        and the turn guard, which closes the window where it has not. Both run
+        while the event loop is live, which is required: `handle_response` is
+        dispatched from that loop, so a fetch awaited before it starts can never
+        receive its reply.
+
+        The cost of the on-demand path is one `agents.list` round trip ahead of
+        the first turn on a deployment that has not set `default_agent_id`, and
+        only until the answer is cached. A turn that already resolves an agent
+        short-circuits before reaching here and pays nothing.
+
+        Failure is warning-only and leaves the inventory unknown. The add-on
+        must not refuse turns because it could not ask.
+        """
+        # One check, inside the lock. A fast path outside it would be the
+        # classic double-checked idiom, but it buys nothing here (an
+        # uncontended asyncio lock is cheap) and mypy reads the inner re-check
+        # as unreachable, since it cannot know an `await` lets another turn
+        # change the field.
+        async with self._inventory_lock:
+            if self._gateway_agents is not None:
+                return
+            try:
+                response = await self._rpc("agents.list", {}, timeout=_RPC_TIMEOUT_S)
+            except ChatRelayError as exc:
+                _LOG.warning("[identity] agents.list failed: %s %s", exc.code, exc.message)
+                return
+            self._gateway_agents = _extract_agent_ids(response)
 
     async def _rpc(
         self,

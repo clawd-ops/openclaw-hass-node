@@ -301,7 +301,9 @@ So resolution terminates in one of two ways, not one:
   1. log an ERROR at startup naming the available agents (see the ERROR logging
      rules below), and
   2. **refuse the turn at the turn boundary**, before `sessions.create`, with a
-     message naming `identity.default_agent_id` and the candidates.
+     message naming `identity.default_agent_id` and the candidates. The turn
+     resolves the agent inventory itself if startup has not yet delivered it,
+     so the refusal does not depend on winning a race against connect.
 
   Both are required, and the second is the load-bearing one. A startup-only log
   reaches whoever happens to read startup logs, which in the production incident
@@ -323,6 +325,13 @@ fails at session creation. When an agent resolves, the session key is qualified
 as `agent:<id>:ha-assist:<conversation_id>` for create, subscribe and send. That
 prefixed form is the gateway's own canonical shape, and its rejection message
 names "an agent-prefixed session key" as an accepted remedy.
+
+The inventory fetch at connect must stay **detached**. Gateway responses are
+dispatched from the event loop, so a fetch awaited before that loop starts can
+never receive its reply: it blocks for the full RPC timeout and leaves the
+inventory unknown regardless. The turn-path resolution is what makes the
+refusal reliable; the startup fetch is an optimisation and the source of the
+operator-facing ERROR.
 
 Consequence for shipping defaults: because `default_agent_id` ships empty, a
 multi-agent gateway is misconfigured on first boot by default. The startup ERROR

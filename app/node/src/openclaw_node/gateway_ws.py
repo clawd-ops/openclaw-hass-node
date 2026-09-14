@@ -555,9 +555,7 @@ class GatewayClient:
             if self._runtime is not None:
                 self._set_runtime_connected(True)
                 if relay is not None:
-                    self._runtime.chat_relay = relay
-                    task = asyncio.create_task(relay.log_gateway_agents())
-                    task.add_done_callback(_log_background_task_error)
+                    await self._attach_relay(relay)
 
             try:
                 # Step 7: main event loop
@@ -1256,6 +1254,27 @@ class GatewayClient:
         """Notify the optional callback of the current pairing state."""
         if self._pairing_state_callback is not None:
             self._pairing_state_callback(self._pairing.state)
+
+    async def _attach_relay(self, relay: ChatRelay) -> None:
+        """Publish the relay and resolve the gateway agent inventory.
+
+        The inventory fetch is **detached on purpose. Do not await it here.**
+        `handle_response` is dispatched only from `_event_loop`, which has not
+        started yet at this point, so an awaited `agents.list` can never receive
+        its reply: it blocks for the full RPC timeout, then leaves the inventory
+        unknown forever. An earlier revision did exactly that, and every test
+        passed because they drive this method directly with a hand-rolled
+        responder rather than through the event loop.
+
+        The race it was trying to close, a turn arriving before the inventory
+        lands, is closed in `ChatRelay._require_resolvable_owner`, which
+        resolves the topology on demand. That runs while the loop is live, so
+        its reply can actually arrive.
+        """
+        if self._runtime is not None:
+            self._runtime.chat_relay = relay
+        task = asyncio.create_task(relay.log_gateway_agents())
+        task.add_done_callback(_log_background_task_error)
 
     def _set_runtime_connected(self, value: bool) -> None:
         """Write this client's role-specific connected flag on the runtime.
