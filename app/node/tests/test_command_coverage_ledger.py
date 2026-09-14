@@ -1343,3 +1343,79 @@ def test_sept11_observations_carry_stale_provenance() -> None:
     assert all(e.get("stale") is True for e in logbook_sept11), (
         "ha.logbook Sept 11 observations must be stale (node_version 2026.7.23b1 != current)"
     )
+
+
+# ---------------------------------------------------------------------------
+# In-page row anchors: the table links down to each row's detail section.
+#
+# Both sides are emitted from `_row_anchor`, so link and target cannot drift.
+# These pin the properties that a shared helper does not give for free:
+# uniqueness across action variants, and round-trip completeness.
+# ---------------------------------------------------------------------------
+
+
+def test_row_anchor_slugifies_the_whole_row_id() -> None:
+    """Action variants share a command, so the command alone would collide."""
+    generator = _load_generator()
+    assert generator._row_anchor("fs.delete") == "row-fs-delete"
+    assert generator._row_anchor("ha.config.lovelace#get") == "row-ha-config-lovelace-get"
+    assert generator._row_anchor("ha.config.lovelace#list") == "row-ha-config-lovelace-list"
+    # The bare command and its variants stay distinct.
+    assert generator._row_anchor("ha.config.lovelace") != generator._row_anchor(
+        "ha.config.lovelace#get"
+    )
+
+
+def test_duplicate_anchors_fail_generation() -> None:
+    """A collision is silent at render time: the second row becomes unreachable.
+
+    Both links resolve to the first occurrence and the page builds cleanly, so
+    generation is the only place this is visible.
+    """
+    generator = _load_generator()
+    rows = [{"id": "ha.config.lovelace#get"}, {"id": "ha.config.lovelace.get"}]
+    assert generator._row_anchor(rows[0]["id"]) == generator._row_anchor(rows[1]["id"])
+    with pytest.raises(generator.LedgerError, match="unreachable"):
+        generator._assert_unique_anchors(rows)
+
+
+def test_unique_anchors_accepted() -> None:
+    generator = _load_generator()
+    generator._assert_unique_anchors([{"id": "fs.delete"}, {"id": "fs.diff"}])
+
+
+@pytest.mark.parametrize(
+    ("document", "expected_error"),
+    [
+        # A row the table links to but that has no detail section: the link
+        # lands nowhere and the page still builds.
+        ("[`a`](#row-a) [`b`](#row-b)\n### `a` {#row-a}\n", "detail anchors"),
+        # A detail section nothing points at: unreachable except by scrolling.
+        ("[`a`](#row-a)\n### `a` {#row-a}\n### `b` {#row-b}\n", "table links"),
+    ],
+)
+def test_round_trip_mismatch_fails(document: str, expected_error: str) -> None:
+    generator = _load_generator()
+    rows = [{"id": "a"}, {"id": "b"}]
+    with pytest.raises(generator.LedgerError, match=expected_error):
+        generator._assert_anchors_round_trip(document, rows)
+
+
+def test_generated_markdown_links_every_row_to_a_target() -> None:
+    """The real document, not a fixture: every row links, every link resolves."""
+    generator = _load_generator()
+    import re
+
+    markdown = _ROOT / "docs" / "reference" / "COMMAND-COVERAGE.md"
+    text = markdown.read_text(encoding="utf-8")
+    ledger = json.loads(
+        (_ROOT / "docs" / "reference" / "command-coverage.json").read_text(encoding="utf-8")
+    )
+
+    expected = {generator._row_anchor(row["id"]) for row in ledger["rows"]}
+    linked = set(re.findall(r"\]\(#(row-[a-z0-9-]+)\)", text))
+    targeted = set(re.findall(r"\{#(row-[a-z0-9-]+)\}", text))
+
+    assert len(expected) == len(ledger["rows"]), "anchors collided"
+    assert linked == expected
+    assert targeted == expected
