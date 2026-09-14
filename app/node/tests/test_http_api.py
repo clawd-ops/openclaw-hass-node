@@ -1170,3 +1170,116 @@ async def test_assist_stream_emits_bare_code_when_there_is_no_remedy(
     frame = [f for f in frames if "error" in f][-1]
     assert frame == {"error": "INVALID_REQUEST"}
     assert "x.yaml" not in body
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_surfaces_the_remedy_not_only_the_code(tmp_path: Path) -> None:
+    """The non-streaming boundary needs its own test, not inherited coverage.
+
+    A reviewer reverted `/v1/conversation` alone to the pre-PR
+    `f"Relay error: {exc.code}"` and the full suite stayed green, because every
+    other test drove `/v1/conversation/stream`. That path is what the HA REST
+    integration uses when it does not open a stream, so the regression would
+    re-open #348 on exactly the surface a user sees.
+    """
+    from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _failing_relay(*_args: Any, **_kwargs: Any) -> str:
+        raise ChatRelayError(
+            "INVALID_REQUEST",
+            "operator detail naming private-notes-agent and /config/secrets.yaml",
+            remedy=(
+                "No agent is configured to answer. An administrator needs to set "
+                "identity.default_agent_id in the OpenClaw add-on configuration."
+            ),
+        )
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.relay_turn = _failing_relay
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation",
+            json={"text": "turn off the light", "conversation_id": "conv-348c"},
+        )
+        body = await response.text()
+        payload = json.loads(body)
+    finally:
+        await tc.close()
+
+    assert payload["ok"] is False
+    assert "identity.default_agent_id" in payload["response"]
+    # The operator-facing text must not reach the client on this path either.
+    assert "private-notes-agent" not in body
+    assert "secrets.yaml" not in body
+
+
+@pytest.mark.asyncio
+async def test_assist_turn_emits_bare_code_when_there_is_no_remedy(
+    tmp_path: Path,
+) -> None:
+    """Non-streaming path keeps the bare code when the error is not caller-fixable."""
+    from openclaw_node.chat_relay import ChatRelay, ChatRelayError
+
+    config = NodeConfig(
+        addon_mode=False,
+        gateway_url="wss://gw.test/ws",
+        pairing_token="",
+        node_name="",
+        hass_url="",
+        hass_token="",
+        supervisor_token="",
+        data_dir=tmp_path,
+        local_api_token=_TEST_TOKEN,
+    )
+    runtime = NodeRuntime(config)
+    runtime.pairing_state = PairingState.PAIRED
+    runtime.node_connected = True
+    runtime.operator_connected = True
+
+    async def _failing_relay(*_args: Any, **_kwargs: Any) -> str:
+        raise ChatRelayError("INVALID_REQUEST", "malformed payload at /config/x.yaml")
+
+    mock_relay = MagicMock(spec=ChatRelay)
+    mock_relay.relay_turn = _failing_relay
+    runtime.chat_relay = mock_relay
+
+    server = TestServer(create_app(runtime))
+    tc = TestClient[Request, Application](
+        server, headers={"Authorization": f"Bearer {_TEST_TOKEN}"}
+    )
+    await tc.start_server()
+    try:
+        response = await tc.post(
+            "/v1/conversation",
+            json={"text": "hi", "conversation_id": "conv-348d"},
+        )
+        body = await response.text()
+        payload = json.loads(body)
+    finally:
+        await tc.close()
+
+    assert payload["response"] == "Relay error: INVALID_REQUEST"
+    assert "x.yaml" not in body
