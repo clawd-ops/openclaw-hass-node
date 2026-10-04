@@ -351,13 +351,10 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     # Apply (or dry-run) the patch before capturing backup, so we don't
     # pollute the store when the diff is malformed.
     try:
-        patched_bytes, hunks = _run_patch(original_bytes, patch_text, dry_run=dry_run)
+        patched_bytes, hunks = _run_patch(original_bytes, patch_text)
     except PatchApplyError as exc:
         _LOG.error("patch failed for %r: %s", path, exc)
         return _error("PATCH_FAILED", f"Patch did not apply cleanly: {exc}")
-
-    if dry_run:
-        return {"ok": True, "path": path, "dry_run": True, "hunks_applicable": hunks}
 
     if len(patched_bytes) > MAX_WRITE_BYTES:
         return _error(
@@ -365,6 +362,9 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
             f"patched file would be {len(patched_bytes)} bytes; limit is {MAX_WRITE_BYTES}",
             limit=MAX_WRITE_BYTES,
         )
+
+    if dry_run:
+        return {"ok": True, "path": path, "dry_run": True, "hunks_applicable": hunks}
 
     # Capture prior bytes to backup store.
     store = _get_store()

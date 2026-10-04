@@ -527,3 +527,13 @@ def test_fs_patch_result_over_limit_refused_without_write_or_snapshot(tmp_path: 
     assert result["error"] == "RESULT_TOO_LARGE"
     assert p.stat().st_size == MAX_WRITE_BYTES
     assert _get_store().history(str(p)) == []
+
+
+def test_fs_patch_dry_run_result_over_limit_refused(tmp_path: Path) -> None:
+    p = _allowed_file(tmp_path, "a.txt", "x" * MAX_WRITE_BYTES)
+    patch = "@@ -0,0 +1 @@\n+y\n"
+    result = handle_fs_patch({"path": str(p), "patch": patch, "dry_run": True})
+    assert result["ok"] is False
+    assert result["error"] == "RESULT_TOO_LARGE"
+    assert p.stat().st_size == MAX_WRITE_BYTES
+    assert _get_store().history(str(p)) == []
