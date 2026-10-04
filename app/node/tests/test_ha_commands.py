@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from openclaw_node.caller import Caller
+from openclaw_node.commands.dispatcher import dispatch_async
 from openclaw_node.commands.ha import (
     filter_device_registry,
     filter_entity_registry,
@@ -3103,6 +3105,11 @@ async def test_list_config_entries_rejects_bad_filter_before_calling_ha() -> Non
     ha_get.assert_not_awaited()
 
 
+async def _dispatched(params: dict[str, Any]) -> dict[str, Any]:
+    """Scrubbing lives at the dispatcher, so code-handling cases go through it."""
+    return await dispatch_async("ha.call_service", params, caller=Caller.operator("t"))
+
+
 @pytest.mark.parametrize(
     ("code", "text"), [("482913", "482913"), (482913, "482913"), (1e20, "1e+20")]
 )
@@ -3122,9 +3129,7 @@ async def test_call_service_sends_lock_code_as_text_and_masks_it_everywhere(
         ]
 
     with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
-        result = await handle_ha_call_service(
-            {"domain": "lock", "service": "unlock", "data": {"code": code}}
-        )
+        result = await _dispatched({"domain": "lock", "service": "unlock", "data": {"code": code}})
     assert sent[0]["code"] == text
     dumped = json.dumps(result)
     assert text not in dumped
@@ -3137,9 +3142,7 @@ async def test_call_service_sends_lock_code_as_text_and_masks_it_everywhere(
         "openclaw_node.commands.ha.ha_post",
         side_effect=HAClientError("HA_REJECTED", f"bad code {text}"),
     ):
-        err = await handle_ha_call_service(
-            {"domain": "lock", "service": "unlock", "data": {"code": code}}
-        )
+        err = await _dispatched({"domain": "lock", "service": "unlock", "data": {"code": code}})
     assert text not in json.dumps(err)
 
 
@@ -3174,16 +3177,14 @@ async def test_call_service_marker_collision_never_echoes_the_code(secret: str) 
         return [{"entity_id": "lock.door", "state": "x", "attributes": {"note": f"a {secret} b"}}]
 
     with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
-        result = await handle_ha_call_service(
+        result = await _dispatched(
             {"domain": "lock", "service": "unlock", "data": {"code": secret}}
         )
     assert result["changed_states"][0]["attributes"]["note"].count(secret) == 0
 
     failing = AsyncMock(side_effect=HAClientError("HA_ERROR", f"bad code {secret}"))
     with patch("openclaw_node.commands.ha.ha_post", failing):
-        err = await handle_ha_call_service(
-            {"domain": "lock", "service": "unlock", "data": {"code": secret}}
-        )
+        err = await _dispatched({"domain": "lock", "service": "unlock", "data": {"code": secret}})
     assert secret not in json.dumps(err)
 
 
@@ -3195,18 +3196,7 @@ async def test_call_service_validation_errors_never_echo_a_supplied_code_as_a_ke
     ]
     for params in cases:
         with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
-            result = await handle_ha_call_service(params)
+            result = await _dispatched(params)
         assert result["error"] == "INVALID_PARAM"
         assert secret not in json.dumps(result)
         post.assert_not_called()
-
-
-async def test_call_service_impl_alone_would_echo_the_code() -> None:
-    # Mutation guard: the scrub lives only in the registered wrapper.
-    from openclaw_node.commands.ha import _handle_ha_call_service_impl
-
-    secret = "482913"
-    raw = await _handle_ha_call_service_impl(
-        {"domain": "lock", "service": "unlock", "target": {secret: 1}, "data": {"code": secret}}
-    )
-    assert secret in json.dumps(raw)

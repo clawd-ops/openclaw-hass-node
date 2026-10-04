@@ -609,3 +609,16 @@ async def test_ws_unknown_key_equal_to_code_is_refused_without_echo(
         sent = await _invoke(tmp_path, "ha.call_service", params)
         assert "482913" not in json.dumps(sent)
     assert ha_stub.calls == []
+
+
+async def test_ws_admin_approval_refusal_never_echoes_a_supplied_code(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    tmp_path: Path,
+) -> None:
+    _as_role(monkeypatch, True)
+    params = {"domain": "automation", "service": "trigger", "data": {"code": "automation"}}
+    sent = await _invoke(tmp_path, "ha.call_service", params)
+    assert sent["error"]["code"] == "APPROVAL_REQUIRED"
+    assert "automation" not in sent["error"]["message"]
+    assert ha_stub.calls == []

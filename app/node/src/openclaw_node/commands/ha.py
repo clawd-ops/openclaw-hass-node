@@ -53,7 +53,7 @@ import re
 from typing import Any, Final
 from urllib.parse import quote
 
-from openclaw_node.authz import collect_codes, normalise_service_code, scrub_codes
+from openclaw_node.authz import normalise_service_code
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
     HAClientError,
@@ -440,18 +440,6 @@ async def handle_ha_get_state(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
-    """Call a Home Assistant service; the single exit that scrubs supplied codes.
-
-    Codes are collected from the raw params before anything else, and every
-    returned value (success, HA error, validation or refusal error) passes
-    through ``scrub_codes``, so no early return can echo a supplied code.
-    """
-    codes = collect_codes(params)
-    scrubbed: dict[str, Any] = scrub_codes(await _handle_ha_call_service_impl(params), codes)
-    return scrubbed
-
-
-async def _handle_ha_call_service_impl(params: dict[str, Any]) -> dict[str, Any]:
     """Call a Home Assistant service.
 
     Params:

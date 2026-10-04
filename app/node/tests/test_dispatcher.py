@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
 
-from openclaw_node.authz import USER_ALLOWED_COMMANDS, USER_FORBIDDEN_COMMANDS, forbidden_for_role
+from openclaw_node.authz import (
+    USER_ALLOWED_COMMANDS,
+    USER_FORBIDDEN_COMMANDS,
+    Actor,
+    forbidden_for_role,
+    resolve_turn_authz,
+)
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.dispatcher import (
     _REGISTRY,
@@ -15,9 +22,11 @@ from openclaw_node.commands.dispatcher import (
     dispatch,
     dispatch_async,
 )
+from openclaw_node.commands.ha import handle_ha_call_service
 from openclaw_node.config import IdentityConfig
 
 _OP = Caller.operator("t")
+_ADMIN = Caller.from_turn(resolve_turn_authz(IdentityConfig(), Actor("u", is_admin=True)))
 
 
 def test_dispatch_unknown_command() -> None:
@@ -155,3 +164,51 @@ async def test_dispatch_async_user_cannot_reach_review_probe_mutations(
         result = await dispatch_async(command, params, caller=caller)
         assert result["error"] == "PERMISSION_DENIED"
     assert calls == []
+
+
+_SECRET = "482913"
+
+
+async def test_dispatch_async_scrubs_a_pre_handler_refusal() -> None:
+    result = await dispatch_async(
+        "ha.call_service",
+        {"domain": "automation", "service": "trigger", "data": {"code": "automation"}},
+        caller=_ADMIN,
+    )
+    assert result["error"] == "APPROVAL_REQUIRED"
+    assert "automation" not in result["message"]
+
+
+async def test_dispatch_async_scrubs_every_result_and_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _echo(params: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": False, "message": f"bad value {_SECRET}", _SECRET: 1}
+
+    monkeypatch.setitem(_REGISTRY, "ping", _echo)
+    result = await dispatch_async("ping", {"data": {"code": _SECRET}}, caller=_OP)
+    assert _SECRET not in json.dumps(result)
+
+
+def test_dispatch_scrubs_sync_result_and_unknown_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(_REGISTRY, "ping", lambda params: {"echo": _SECRET})
+    assert _SECRET not in json.dumps(dispatch("ping", {"code": _SECRET}, caller=_OP))
+    with pytest.raises(UnknownCommandError) as info:
+        dispatch(_SECRET, {"code": _SECRET}, caller=_OP)
+    assert _SECRET not in str(info.value)
+    assert _SECRET not in info.value.command
+
+
+async def test_handler_alone_does_not_scrub_the_dispatcher_does() -> None:
+    raw = await handle_ha_call_service(
+        {"domain": "lock", "service": "unlock", "target": {_SECRET: 1}, "data": {"code": _SECRET}}
+    )
+    assert _SECRET in json.dumps(raw)
+    scrubbed = await dispatch_async(
+        "ha.call_service",
+        {"domain": "lock", "service": "unlock", "target": {_SECRET: 1}, "data": {"code": _SECRET}},
+        caller=_OP,
+    )
+    assert _SECRET not in json.dumps(scrubbed)

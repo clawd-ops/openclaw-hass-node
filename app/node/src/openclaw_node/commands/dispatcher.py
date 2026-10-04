@@ -11,7 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
-from openclaw_node.authz import redact_code
+from openclaw_node.authz import collect_codes, redact_code, scrub_codes
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.exec_approvals import (
     handle_system_exec_approvals_get,
@@ -192,6 +192,12 @@ class UnknownCommandError(Exception):
         self.command = command
 
 
+def _scrubbed(result: dict[str, Any], codes: list[str | int | float]) -> dict[str, Any]:
+    """The single exit: mask every supplied code in a value leaving the dispatcher."""
+    scrubbed: dict[str, Any] = scrub_codes(result, codes)
+    return scrubbed
+
+
 def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED) -> dict[str, Any]:
     """Dispatch *command* to its handler and return the result payload.
 
@@ -214,22 +220,23 @@ def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED
         >>> result["pong"]
         True
     """
+    codes = collect_codes(params)
     handler = _REGISTRY.get(command)
     if handler is None:
-        _LOG.warning("Received unknown command: %r", command)
-        raise UnknownCommandError(command)
+        _LOG.warning("Received unknown command: %r", scrub_codes(command, codes))
+        raise UnknownCommandError(scrub_codes(command, codes))
 
     refusal = check(caller, command, params)
     if refusal is not None:
         _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
-        return refusal
+        return _scrubbed(refusal, codes)
 
     _LOG.debug("Dispatching command=%r params=%r", command, redact_code(params))
     result = handler(params)
     if inspect.iscoroutine(result):
         result.close()
         raise AsyncHandlerError(command)
-    return result  # type: ignore[return-value]
+    return _scrubbed(result, codes)  # type: ignore[arg-type]
 
 
 async def dispatch_async(
@@ -250,19 +257,19 @@ async def dispatch_async(
     Raises:
         UnknownCommandError: If *command* has no registered handler.
     """
+    codes = collect_codes(params)
     handler = _REGISTRY.get(command)
     if handler is None:
-        _LOG.warning("Received unknown command: %r", command)
-        raise UnknownCommandError(command)
+        _LOG.warning("Received unknown command: %r", scrub_codes(command, codes))
+        raise UnknownCommandError(scrub_codes(command, codes))
 
     refusal = check(caller, command, params)
     if refusal is not None:
         _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
-        return refusal
+        return _scrubbed(refusal, codes)
 
     _LOG.debug("Dispatching (async) command=%r params=%r", command, redact_code(params))
     result = handler(params)
     if inspect.iscoroutine(result):
-        awaited: dict[str, Any] = await result
-        return awaited
-    return result  # type: ignore[return-value]
+        result = await result
+    return _scrubbed(result, codes)  # type: ignore[arg-type]
