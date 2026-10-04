@@ -173,6 +173,15 @@ async def test_lifecycle_policy_runs_before_key_check(
         mock.assert_not_awaited()
 
 
+@pytest.mark.parametrize("key", ["include_traces", "entity_filter", "state_filter"])
+async def test_list_automations_refuses_null_key(key: str, ha_calls: list[AsyncMock]) -> None:
+    result = await ha.handle_ha_list_automations({key: None})
+    assert result["error"] == "INVALID_PARAM"
+    assert key in result["message"]
+    for mock in ha_calls:
+        mock.assert_not_awaited()
+
+
 def test_every_key_a_wrapper_emits_is_accepted_by_the_handler() -> None:
     registrations = json.loads(CONTRACT.read_text())["registrations"]
     seen: set[str] = set()

@@ -1185,20 +1185,17 @@ async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
         state_filter (str, optional): Exact match against the entity ``state``
             (typically ``"on"`` or ``"off"``); maximum 256 characters.
 
-    Unknown params are rejected with ``INVALID_PARAM``; narrowing is applied
+    Unknown params and explicit ``null`` values are rejected with
+    ``INVALID_PARAM``; narrowing is applied
     before any trace lookup so traces are fetched only for selected automations.
 
     Returns:
         ``{ok: True, count, automations}`` where each automation has
         ``entity_id``, ``state``, ``attributes`` and optionally ``traces``.
     """
-    unknown = set(params) - _LIST_AUTOMATIONS_ALLOWED_PARAMS
-    if unknown:
-        allowed = sorted(_LIST_AUTOMATIONS_ALLOWED_PARAMS)
-        return _error(
-            "INVALID_PARAM",
-            f"unknown params {sorted(unknown)!r}; allowed: {allowed!r}",
-        )
+    invalid = strict_keys_error(params, _LIST_AUTOMATIONS_ALLOWED_PARAMS)
+    if invalid is not None:
+        return invalid
 
     include_traces = params.get("include_traces", False)
     if not isinstance(include_traces, bool):

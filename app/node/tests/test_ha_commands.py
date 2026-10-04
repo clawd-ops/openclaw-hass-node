@@ -1699,7 +1699,7 @@ async def test_list_automations_rejects_unknown_param() -> None:
     result = await handle_ha_list_automations({"bogus": 1})
     assert result["ok"] is False
     assert result["error"] == "INVALID_PARAM"
-    assert "unknown params" in result["message"]
+    assert "unknown parameter(s)" in result["message"]
 
 
 async def test_list_automations_rejects_non_bool_include_traces() -> None:
