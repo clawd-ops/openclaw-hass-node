@@ -25,6 +25,9 @@ what a running system had installed.
 - Add-on, integration, and plugin versions are separate fields even when the
   release process keeps them in step. A release that advances one and not the
   others is the exact failure this table exists to catch.
+- Every PRODUCTION-LIVE observation in the coverage ledger carries the same
+  `plugin_version` field (`observed_at`, `node_version`, `plugin_version`), with
+  `not recorded` as the only non-version value.
 - Architecture means the architecture the verified artifact actually ran on, not
   the set of architectures the add-on advertises support for.
 - Record the advertised command count observed from the running node alongside

@@ -876,6 +876,7 @@ def test_production_live_observation_requires_observed_at(
                 "observation": "Returned config dict.",
                 # observed_at deliberately absent
                 "node_version": "2026.9.13b1",
+                "plugin_version": "not recorded",
             }
         ]
     }
@@ -928,6 +929,7 @@ def test_production_live_observation_requires_valid_iso_date(
                 "observation": "Returned config dict.",
                 "observed_at": "September 13 2026",  # not ISO format
                 "node_version": "2026.9.13b1",
+                "plugin_version": "not recorded",
             }
         ]
     }
@@ -960,6 +962,7 @@ def test_production_live_observation_rejects_an_impossible_calendar_date(
                 "observation": "Returned config dict.",
                 "observed_at": impossible,
                 "node_version": "2026.9.13b1",
+                "plugin_version": "not recorded",
             }
         ]
     }
@@ -1001,6 +1004,7 @@ def test_evidence_constructor_rejects_unprovenanced_live_records(
             "Probe returned a result.",
             observed_at=observed_at,
             node_version=node_version,
+            plugin_version="not recorded",
         )
 
 
@@ -1015,10 +1019,115 @@ def test_evidence_constructor_accepts_a_provenanced_live_record() -> None:
         "Probe returned a result.",
         observed_at="2026-09-13",
         node_version="2026.9.13b1",
+        plugin_version="0.1.1",
     )
 
     assert item["observed_at"] == "2026-09-13"
     assert item["node_version"] == "2026.9.13b1"
+    assert item["plugin_version"] == "0.1.1"
+
+
+def test_evidence_constructor_accepts_plugin_version_not_recorded() -> None:
+    generator = _load_generator()
+
+    item = generator._evidence(
+        "PRODUCTION-LIVE",
+        "pass",
+        "docs/evidence/sweep-2026-09-13.md",
+        "Probe returned a result.",
+        observed_at="2026-09-13",
+        node_version="2026.9.13b1",
+        plugin_version="not recorded",
+    )
+
+    assert item["plugin_version"] == "not recorded"
+
+
+@pytest.mark.parametrize("plugin_version", [None, "", "unknown", "Not Recorded", "0.1", 1])
+def test_evidence_constructor_rejects_missing_or_malformed_plugin_version(
+    plugin_version: object,
+) -> None:
+    generator = _load_generator()
+
+    with pytest.raises(generator.LedgerError, match=r"plugin_version"):
+        generator._evidence(
+            "PRODUCTION-LIVE",
+            "pass",
+            "docs/evidence/sweep-2026-09-13.md",
+            "Probe returned a result.",
+            observed_at="2026-09-13",
+            node_version="2026.9.13b1",
+            plugin_version=plugin_version,
+        )
+
+
+def _manual_with_observation(generator: Any, **overrides: Any) -> dict[str, Any]:
+    manual: dict[str, Any] = copy.deepcopy(generator._load_manual())
+    observation: dict[str, Any] = {
+        "method": "PRODUCTION-LIVE",
+        "outcome": "pass",
+        "source": "docs/evidence/sweep-2026-09-13.md",
+        "observation": "Returned config dict.",
+        "observed_at": "2026-09-13",
+        "node_version": "2026.9.13b1",
+        "plugin_version": "2026.9.13b1",
+    }
+    observation.update(overrides)
+    observation = {k: v for k, v in observation.items() if v is not _ABSENT}
+    manual["commands"]["ha.get_config"]["caller_observations"] = {"assist_wrapper": [observation]}
+    return manual
+
+
+_ABSENT = object()
+
+
+def test_manual_observation_without_plugin_version_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generator = _load_generator()
+    manual = _manual_with_observation(generator, plugin_version=_ABSENT)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(generator.LedgerError, match=r"missing required field: plugin_version"):
+        generator.build_ledger()
+
+
+def test_manual_observation_with_malformed_plugin_version_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generator = _load_generator()
+    manual = _manual_with_observation(generator, plugin_version="latest")
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(generator.LedgerError, match=r"plugin_version"):
+        generator.build_ledger()
+
+
+def test_plugin_version_is_recorded_and_rendered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generator = _load_generator()
+    for value in ("0.1.1", "not recorded"):
+        manual = _manual_with_observation(generator, plugin_version=value)
+        monkeypatch.setattr(generator, "_load_manual", lambda manual=manual: manual)
+        ledger = generator.build_ledger()
+        row = next(r for r in ledger["rows"] if r["command"] == "ha.get_config")
+        evidence = row["callers"]["assist_wrapper"]["evidence"]
+        assert [e["plugin_version"] for e in evidence if e["method"] == "PRODUCTION-LIVE"] == [
+            value
+        ]
+        assert f"plugin_version={value}" in generator.render_markdown(ledger)
+
+
+def test_every_committed_live_observation_carries_plugin_version() -> None:
+    generator = _load_generator()
+    live = [
+        e
+        for row in generator.build_ledger()["rows"]
+        for caller in row["callers"].values()
+        for e in caller["evidence"]
+        if e["method"] == "PRODUCTION-LIVE"
+    ]
+    assert live
+    assert all(generator._is_plugin_version(e.get("plugin_version")) for e in live)
 
 
 def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None:
@@ -1085,6 +1194,7 @@ def test_production_live_observation_requires_valid_version_string(
                 "observation": "Returned config dict.",
                 "observed_at": "2026-09-13",
                 "node_version": "not-a-version",
+                "plugin_version": "not recorded",
             }
         ]
     }
@@ -1112,6 +1222,7 @@ def test_stale_observation_flagged_when_version_mismatches_current(
                 "observation": "Returned config dict.",
                 "observed_at": "2026-07-23",
                 "node_version": "2026.7.23b1",  # older than current
+                "plugin_version": "not recorded",
             }
         ]
     }
@@ -1144,6 +1255,7 @@ def test_current_observation_not_stale(
                 "observation": "Returned config dict.",
                 "observed_at": "2026-09-13",
                 "node_version": current_version,
+                "plugin_version": "not recorded",
             }
         ]
     }

@@ -44,6 +44,19 @@ EVIDENCE_METHODS = [
 # ISO date pattern for observed_at provenance field.
 _OBSERVED_AT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# Tier B behaviour depends on the gateway plugin build as well as the node
+# build, so live evidence names the plugin too. The COMPATIBILITY-MATRIX
+# convention `not recorded` is the only non-version value.
+_PLUGIN_VERSION_NOT_RECORDED = "not recorded"
+
+
+def _is_plugin_version(value: object) -> bool:
+    """True for a release version string or the explicit `not recorded`."""
+    return isinstance(value, str) and (
+        value == _PLUGIN_VERSION_NOT_RECORDED
+        or _FIRST_SHIPPED_VERSION_RE.fullmatch(value) is not None
+    )
+
 
 def _is_observed_at(value: object) -> bool:
     """True when *value* is a real calendar date in YYYY-MM-DD form.
@@ -852,6 +865,7 @@ def _evidence(
     *,
     observed_at: str | None = None,
     node_version: str | None = None,
+    plugin_version: str | None = None,
     stale: bool | None = None,
 ) -> dict[str, Any]:
     if method not in EVIDENCE_METHODS:
@@ -877,6 +891,11 @@ def _evidence(
                 "PRODUCTION-LIVE evidence observation needs a valid "
                 f"node_version (got {node_version!r})"
             )
+        if not _is_plugin_version(plugin_version):
+            raise LedgerError(
+                "PRODUCTION-LIVE evidence observation needs a valid "
+                f"plugin_version or 'not recorded' (got {plugin_version!r})"
+            )
     item: dict[str, Any] = {
         "method": method,
         "outcome": outcome,
@@ -887,6 +906,8 @@ def _evidence(
         item["observed_at"] = observed_at
     if node_version is not None:
         item["node_version"] = node_version
+    if plugin_version is not None:
+        item["plugin_version"] = plugin_version
     if stale is not None:
         item["stale"] = stale
     return item
@@ -1407,10 +1428,12 @@ def build_ledger() -> dict[str, Any]:
                             )
                     obs_observed_at: str | None = None
                     obs_node_version: str | None = None
+                    obs_plugin_version: str | None = None
                     obs_stale: bool | None = None
                     if observation["method"] == "PRODUCTION-LIVE":
                         obs_observed_at = observation.get("observed_at")
                         obs_node_version = observation.get("node_version")
+                        obs_plugin_version = observation.get("plugin_version")
                         if not _is_observed_at(obs_observed_at):
                             raise LedgerError(
                                 f"PRODUCTION-LIVE observation for {row_id}/{caller_name} "
@@ -1426,6 +1449,12 @@ def build_ledger() -> dict[str, Any]:
                                 f"missing required version field: node_version "
                                 f"(got {obs_node_version!r})"
                             )
+                        if not _is_plugin_version(obs_plugin_version):
+                            raise LedgerError(
+                                f"PRODUCTION-LIVE observation for {row_id}/{caller_name} "
+                                f"missing required field: plugin_version "
+                                f"(a version or 'not recorded'; got {obs_plugin_version!r})"
+                            )
                         obs_stale = obs_node_version != current_release
                     row_callers[caller_name]["evidence"].append(
                         _evidence(
@@ -1435,6 +1464,7 @@ def build_ledger() -> dict[str, Any]:
                             observation["observation"],
                             observed_at=obs_observed_at,
                             node_version=obs_node_version,
+                            plugin_version=obs_plugin_version,
                             stale=obs_stale,
                         )
                     )
@@ -1761,6 +1791,8 @@ def render_markdown(ledger: dict[str, Any]) -> str:
                     prov_parts = []
                     if observation.get("node_version"):
                         prov_parts.append(f"node_version={observation['node_version']}")
+                    if observation.get("plugin_version"):
+                        prov_parts.append(f"plugin_version={observation['plugin_version']}")
                     if observation.get("observed_at"):
                         prov_parts.append(f"observed_at={observation['observed_at']}")
                     if observation.get("stale"):
