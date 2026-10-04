@@ -10,10 +10,12 @@ contract) and the successful payload uses ``success``/``exitCode``/
 
 from __future__ import annotations
 
-import subprocess
+import contextlib
+import os
+import signal
+import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch as mock_patch
 
 import pytest
 
@@ -164,31 +166,27 @@ def test_missing_approval_signal_is_refused() -> None:
 
 
 def test_approved_true_alone_is_accepted() -> None:
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(
-            {
-                "command": ["true"],
-                "systemRunPlan": _plan(),
-                "runId": "run-uuid",
-                "approved": True,
-            }
-        )
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "systemRunPlan": _plan(),
+            "runId": "run-uuid",
+            "approved": True,
+        }
+    )
     assert result["ok"] is True
     assert result["success"] is True
 
 
 def test_approval_source_non_empty_is_accepted() -> None:
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(
-            {
-                "command": ["true"],
-                "systemRunPlan": _plan(),
-                "runId": "run-uuid",
-                "approvalSource": "ask-fallback",
-            }
-        )
+    result = handle_system_run(
+        {
+            "command": ["true"],
+            "systemRunPlan": _plan(),
+            "runId": "run-uuid",
+            "approvalSource": "ask-fallback",
+        }
+    )
     assert result["ok"] is True
 
 
@@ -431,19 +429,13 @@ def test_raw_command_mismatch_rejected() -> None:
 
 
 def test_raw_command_matching_canonical_accepted() -> None:
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(_params(rawCommand="true"))
+    result = handle_system_run(_params(rawCommand="true"))
     assert result["ok"] is True
 
 
 def test_raw_command_inline_shell_payload_accepted() -> None:
     """/bin/sh -c wrappers may present the inline payload as rawCommand."""
-    proc = subprocess.CompletedProcess(args=["/bin/sh"], returncode=0, stdout=b"", stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(
-            _params(command=["/bin/sh", "-c", "echo hi"], rawCommand="echo hi")
-        )
+    result = handle_system_run(_params(command=["/bin/sh", "-c", "echo hi"], rawCommand="echo hi"))
     assert result["ok"] is True
 
 
@@ -476,27 +468,19 @@ def test_cwd_no_allowed_roots_fails_closed(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_cwd_within_allowed_root_bound_to_subprocess(tmp_path: Path) -> None:
-    captured: list[dict[str, Any]] = []
-    proc = subprocess.CompletedProcess(args=["pwd"], returncode=0, stdout=b"", stderr=b"")
-
-    def _fake(_argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured.append(kwargs)
-        return proc
-
-    with mock_patch("subprocess.run", side_effect=_fake):
-        result = handle_system_run(
-            _params(
-                command=["pwd"],
-                cwd=str(tmp_path),
-                systemRunPlan={
-                    "argv": ["pwd"],
-                    "commandText": "pwd",
-                    "cwd": str(tmp_path.resolve()),
-                },
-            )
+    result = handle_system_run(
+        _params(
+            command=["pwd"],
+            cwd=str(tmp_path),
+            systemRunPlan={
+                "argv": ["pwd"],
+                "commandText": "pwd",
+                "cwd": str(tmp_path.resolve()),
+            },
         )
+    )
     assert result["ok"] is True
-    assert captured[0]["cwd"] == str(tmp_path.resolve())
+    assert result["stdout"].strip() == str(tmp_path.resolve())
 
 
 # ---------------------------------------------------------------------------
@@ -525,33 +509,17 @@ def test_env_non_string_value_rejected() -> None:
 
 
 def test_timeout_ms_capped_at_max(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_RUN_TIMEOUT_MAX_MS", "10000")
-    captured: list[dict[str, Any]] = []
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-
-    def _fake(_argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured.append(kwargs)
-        return proc
-
-    with mock_patch("subprocess.run", side_effect=_fake):
-        handle_system_run(_params(timeoutMs=9_999_000))
-
-    assert captured[0]["timeout"] == pytest.approx(10.0)
+    monkeypatch.setenv("OPENCLAW_RUN_TIMEOUT_MAX_MS", "300")
+    result = handle_system_run(_params(command=["sleep", "30"], timeoutMs=9_999_000))
+    assert result["timedOut"] is True
+    assert result["elapsed_ms"] < 5_000
 
 
-def test_timeout_ms_honored(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A short timeoutMs is passed to subprocess as seconds, not the default."""
-    captured: list[dict[str, Any]] = []
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-
-    def _fake(_argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured.append(kwargs)
-        return proc
-
-    with mock_patch("subprocess.run", side_effect=_fake):
-        handle_system_run(_params(timeoutMs=1500))
-
-    assert captured[0]["timeout"] == pytest.approx(1.5)
+def test_timeout_ms_honored() -> None:
+    """A short timeoutMs ends a long command well before the default timeout."""
+    result = handle_system_run(_params(command=["sleep", "30"], timeoutMs=300))
+    assert result["timedOut"] is True
+    assert result["elapsed_ms"] < 5_000
 
 
 def test_legacy_seconds_timeout_rejected() -> None:
@@ -582,9 +550,7 @@ def test_session_key_blank_rejected() -> None:
 
 def test_proposal_id_is_audit_metadata_only() -> None:
     """A proposalId travels with the invoke but never authorizes it."""
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(_params(proposalId="prop-123"))
+    result = handle_system_run(_params(proposalId="prop-123"))
     assert result["ok"] is True
 
 
@@ -599,11 +565,7 @@ def test_proposal_id_blank_rejected() -> None:
 
 
 def test_timeout_returns_timed_out_payload() -> None:
-    with mock_patch(
-        "subprocess.run",
-        side_effect=subprocess.TimeoutExpired(["true"], 30),
-    ):
-        result = handle_system_run(_params())
+    result = handle_system_run(_params(command=["sleep", "30"], timeoutMs=200))
     assert result["ok"] is True
     assert result["timedOut"] is True
     assert result["success"] is False
@@ -611,14 +573,14 @@ def test_timeout_returns_timed_out_payload() -> None:
 
 
 def test_binary_not_found() -> None:
-    with mock_patch("subprocess.run", side_effect=FileNotFoundError("no such binary")):
-        result = handle_system_run(_params(command=["no_such_binary"]))
+    result = handle_system_run(_params(command=["no_such_binary"]))
     assert result["error"] == "NOT_FOUND"
 
 
-def test_oserror_returns_exec_error() -> None:
-    with mock_patch("subprocess.run", side_effect=OSError("permission denied")):
-        result = handle_system_run(_params())
+def test_oserror_returns_exec_error(tmp_path: Path) -> None:
+    not_executable = tmp_path / "plain.txt"
+    not_executable.write_text("x")
+    result = handle_system_run(_params(command=[str(not_executable)]))
     assert result["error"] == "EXEC_ERROR"
 
 
@@ -628,80 +590,212 @@ def test_oserror_returns_exec_error() -> None:
 
 
 def test_success_returns_native_payload_shape() -> None:
-    proc = subprocess.CompletedProcess(args=["echo"], returncode=0, stdout=b"hi\n", stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(_params(command=["echo", "hi"], rawCommand="echo hi"))
+    result = handle_system_run(_params(command=["echo", "hi"], rawCommand="echo hi"))
     assert result["ok"] is True
     assert result["success"] is True
     assert result["exitCode"] == 0
     assert result["timedOut"] is False
     assert result["stdout"] == "hi\n"
     assert result["stderr"] == ""
+    assert "outputTruncated" not in result
     assert "elapsed_ms" in result
 
 
 def test_nonzero_exit_reports_success_false() -> None:
-    proc = subprocess.CompletedProcess(args=["false"], returncode=1, stdout=b"", stderr=b"error\n")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(_params())
+    result = handle_system_run(_params(command=["false"]))
     assert result["ok"] is True
     assert result["success"] is False
     assert result["exitCode"] == 1
 
 
-def test_stdout_truncated_at_limit() -> None:
-    big = b"x" * (300 * 1024)
-    proc = subprocess.CompletedProcess(args=["cat"], returncode=0, stdout=big, stderr=b"")
-    with mock_patch("subprocess.run", return_value=proc):
-        result = handle_system_run(_params())
-    assert result["ok"] is True
-    assert len(result["stdout"]) == 256 * 1024
+def test_stderr_is_captured() -> None:
+    result = handle_system_run(_params(command=["sh", "-c", "echo error >&2"]))
+    assert result["stderr"] == "error\n"
 
 
 def test_subprocess_never_uses_shell() -> None:
-    captured: list[dict[str, Any]] = []
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-
-    def _fake(_argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured.append(kwargs)
-        return proc
-
-    with mock_patch("subprocess.run", side_effect=_fake):
-        handle_system_run(_params())
-
-    assert captured
-    assert not captured[0].get("shell", False)
+    """Shell metacharacters in argv are passed literally, never interpreted."""
+    result = handle_system_run(_params(command=["echo", "a; echo b"]))
+    assert result["stdout"] == "a; echo b\n"
 
 
 def test_subprocess_receives_sanitised_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DANGEROUS_VAR", "should_not_appear")
-    captured: list[dict[str, Any]] = []
-    proc = subprocess.CompletedProcess(args=["true"], returncode=0, stdout=b"", stderr=b"")
-
-    def _fake(_argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured.append(kwargs)
-        return proc
-
-    with mock_patch("subprocess.run", side_effect=_fake):
-        handle_system_run(_params())
-
-    assert "DANGEROUS_VAR" not in captured[0]["env"]
+    result = handle_system_run(_params(command=["env"]))
+    assert "DANGEROUS_VAR" not in result["stdout"]
 
 
 def test_subprocess_argv_matches_plan() -> None:
-    captured_argv: list[list[str]] = []
-    proc = subprocess.CompletedProcess(args=["echo"], returncode=0, stdout=b"", stderr=b"")
+    result = handle_system_run(_params(command=["echo", "hi", "there"], rawCommand="echo hi there"))
+    assert result["stdout"] == "hi there\n"
 
-    def _fake(argv: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
-        captured_argv.append(argv)
-        return proc
 
-    with mock_patch("subprocess.run", side_effect=_fake):
-        handle_system_run(
-            _params(
-                command=["echo", "hi", "there"],
-                rawCommand="echo hi there",
-            )
-        )
+# ---------------------------------------------------------------------------
+# handle_system_run — argv/env/output bounds and process-group teardown
+# ---------------------------------------------------------------------------
 
-    assert captured_argv == [["echo", "hi", "there"]]
+_ARGV_CAP = 128 * 1024
+_OUTPUT_CAP = 256 * 1024
+
+
+def _alive(pid: int) -> bool:
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except FileNotFoundError:
+        return False
+    return state != "Z"
+
+
+def _wait_dead(pid: int) -> bool:
+    for _ in range(100):
+        if not _alive(pid):
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_output_truncated_per_stream_after_capture() -> None:
+    result = handle_system_run(
+        _params(command=["sh", "-c", "head -c 400000 /dev/zero; head -c 400000 /dev/zero >&2"])
+    )
+    assert result["success"] is True
+    assert len(result["stdout"]) == _OUTPUT_CAP
+    assert len(result["stderr"]) == _OUTPUT_CAP
+
+
+def test_timeout_kills_grandchildren(tmp_path: Path) -> None:
+    pidfile = tmp_path / "gc.pid"
+    script = f"sleep 60 & echo $! > {pidfile}; sleep 60"
+    result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=500))
+    assert result["timedOut"] is True
+    assert result["elapsed_ms"] < 10_000
+    assert _wait_dead(int(pidfile.read_text()))
+
+
+def test_timeout_abandons_detached_pipe_holder(tmp_path: Path) -> None:
+    pidfile = tmp_path / "detached.pid"
+    script = f"setsid sh -c 'echo $$ > {pidfile}; exec sleep 5' & sleep 30"
+    t0 = time.monotonic()
+    try:
+        result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=200))
+        elapsed = time.monotonic() - t0
+        assert result["timedOut"] is True
+        assert result["outputIncomplete"] is True
+        assert elapsed < 2.5
+    finally:
+        deadline = time.monotonic() + 2
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        if pidfile.exists():
+            with contextlib.suppress(ProcessLookupError, ValueError):
+                os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+def test_timeout_without_detached_holder_is_output_complete() -> None:
+    result = handle_system_run(_params(command=["sleep", "30"], timeoutMs=200))
+    assert result["timedOut"] is True
+    assert result["outputIncomplete"] is False
+
+
+def test_argv_over_cap_refused_before_spawn(tmp_path: Path) -> None:
+    sentinel = tmp_path / "ran"
+    arg = "a" * 8000
+    padding = [arg] * (_ARGV_CAP // 8001 + 1)
+    argv = ["sh", "-c", f"touch {sentinel}", *padding]
+    assert sum(len(a) + 1 for a in argv) > _ARGV_CAP
+    result = handle_system_run(_params(command=argv))
+    assert result["ok"] is False
+    assert result["error"] == "ARGV_TOO_LARGE"
+    assert not sentinel.exists()
+
+
+def test_argv_at_cap_succeeds() -> None:
+    argv = ["echo", *["a" * 8000 for _ in range(16)]]
+    argv.append("b" * (_ARGV_CAP - sum(len(a) + 1 for a in argv) - 1))
+    assert sum(len(a) + 1 for a in argv) == _ARGV_CAP
+    result = handle_system_run(_params(command=argv))
+    assert result["ok"] is True
+    assert result["success"] is True
+
+
+def test_env_over_cap_refused_before_spawn(tmp_path: Path) -> None:
+    sentinel = tmp_path / "ran"
+    env = {f"E{i}": "v" * 4000 for i in range(40)}
+    result = handle_system_run(_params(command=["touch", str(sentinel)], env=env))
+    assert result["error"] == "ENV_TOO_LARGE"
+    assert not sentinel.exists()
+
+
+def test_env_under_cap_succeeds() -> None:
+    env = {f"E{i}": "v" * 3000 for i in range(20)}
+    result = handle_system_run(_params(command=["true"], env=env))
+    assert result["success"] is True
+
+
+def test_normal_exit_leaves_background_grandchild_alive(tmp_path: Path) -> None:
+    pidfile = tmp_path / "bg.pid"
+    script = f"sleep 30 >/dev/null 2>&1 & echo $! > {pidfile}; echo fg"
+    result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=20_000))
+    pid = int(pidfile.read_text())
+    try:
+        assert result["success"] is True
+        assert result["stdout"] == "fg\n"
+        assert result["elapsed_ms"] < 5_000
+        assert _alive(pid)
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_exited_child_with_pipe_holding_background_not_timed_out() -> None:
+    result = handle_system_run(
+        _params(command=["sh", "-c", "sleep 5 & echo $! >&2; echo fg"], timeoutMs=300)
+    )
+    pid = int(result["stderr"].strip())
+    try:
+        assert result["timedOut"] is False
+        assert result["success"] is True
+        assert result["exitCode"] == 0
+        assert result["stdout"] == "fg\n"
+        assert result["outputIncomplete"] is True
+        assert _alive(pid)
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_exited_child_nonzero_with_pipe_holding_background_reports_exit_code() -> None:
+    result = handle_system_run(
+        _params(command=["sh", "-c", "sleep 5 & echo $! >&2; exit 3"], timeoutMs=300)
+    )
+    pid = int(result["stderr"].strip())
+    try:
+        assert result["timedOut"] is False
+        assert result["success"] is False
+        assert result["exitCode"] == 3
+        assert result["outputIncomplete"] is True
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_clean_exit_output_is_complete() -> None:
+    result = handle_system_run(_params(command=["echo", "hi"]))
+    assert result["outputIncomplete"] is False
+
+
+def test_argv_unencodable_value_refused_before_spawn(tmp_path: Path) -> None:
+    sentinel = tmp_path / "ran"
+    argv = ["sh", "-c", f"touch {sentinel}", "\ud800"]
+    result = handle_system_run(_params(command=argv))
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert not sentinel.exists()
+
+
+def test_env_unencodable_value_refused_before_spawn(tmp_path: Path) -> None:
+    sentinel = tmp_path / "ran"
+    result = handle_system_run(_params(command=["touch", str(sentinel)], env={"V": "\ud800"}))
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert not sentinel.exists()

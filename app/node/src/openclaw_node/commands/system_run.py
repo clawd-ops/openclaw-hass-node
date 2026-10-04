@@ -46,8 +46,10 @@ Reference:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
+import signal
 import subprocess
 import time
 from typing import Any, Final
@@ -63,7 +65,10 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_MS: Final[int] = 30_000
 _DEFAULT_MAX_TIMEOUT_MS: Final[int] = 60_000
+_KILL_DRAIN_TIMEOUT_S: Final[float] = 1.0  # post-kill pipe drain bound
 _MAX_OUTPUT_BYTES: Final[int] = 256 * 1024  # 256 KiB per stream
+_MAX_ARGV_BYTES: Final[int] = 128 * 1024  # total argv bytes, NUL-terminated
+_MAX_ENV_BYTES: Final[int] = 128 * 1024  # merged env, KEY=VALUE NUL-terminated
 
 _SAFE_ENV_KEYS: Final[frozenset[str]] = frozenset(
     ["PATH", "HOME", "LANG", "TZ", "USER", "TERM", "LOGNAME"]
@@ -103,6 +108,30 @@ def _merge_env(caller_env: dict[str, str]) -> dict[str, str] | None:
     base = _base_env()
     base.update(caller_env)
     return base
+
+
+def _encoded_size(items: list[str]) -> int:
+    return sum(len(item.encode()) + 1 for item in items)
+
+
+def _is_utf8_encodable(items: list[str]) -> bool:
+    try:
+        for item in items:
+            item.encode()
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _kill_group(proc: subprocess.Popen[bytes]) -> None:
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(proc.pid, signal.SIGKILL)
+
+
+def _close_pipes(proc: subprocess.Popen[bytes]) -> None:
+    for pipe in (proc.stdout, proc.stderr):
+        if pipe is not None:
+            pipe.close()
 
 
 def _max_timeout_ms() -> int:
@@ -332,6 +361,11 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     if raw_env is not None:
         caller_env = dict(raw_env)
 
+    if not _is_utf8_encodable(argv):
+        return _error("INVALID_PARAM", "command contains a value that cannot be UTF-8 encoded")
+    if _encoded_size(argv) > _MAX_ARGV_BYTES:
+        return _error("ARGV_TOO_LARGE", f"command exceeds {_MAX_ARGV_BYTES} total argv bytes")
+
     merged_env = _merge_env(caller_env)
     if merged_env is None:
         return _error(
@@ -339,6 +373,12 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "env contains a key matching a blocked pattern "
             "(TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, PWD)",
         )
+
+    env_items = [f"{k}={v}" for k, v in merged_env.items()]
+    if not _is_utf8_encodable(env_items):
+        return _error("INVALID_PARAM", "env contains a value that cannot be UTF-8 encoded")
+    if _encoded_size(env_items) > _MAX_ENV_BYTES:
+        return _error("ENV_TOO_LARGE", f"env exceeds {_MAX_ENV_BYTES} total bytes")
 
     timeout_ms, timeout_error = _resolve_timeout_ms(params)
     if timeout_error is not None:
@@ -356,15 +396,51 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     )
     t0 = time.monotonic()
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             argv,
-            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=resolved_cwd,
             env=merged_env,
-            timeout=timeout_s,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired:
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
+    except FileNotFoundError:
+        return _error("NOT_FOUND", f"Binary not found: {argv[0]!r}")
+    except OSError as exc:
+        return _error("EXEC_ERROR", f"Execution failed: {exc}")
+
+    timed_out = False
+    output_incomplete = False
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        if proc.poll() is None:
+            # The direct child is still running: a genuine timeout. Kill the
+            # whole session so grandchildren do not outlive it, then reap.
+            timed_out = True
+            _kill_group(proc)
+            try:
+                proc.communicate(timeout=_KILL_DRAIN_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                # A descendant that left the session (setsid) still holds the
+                # pipes. The direct child is dead: reap it, abandon the pipes.
+                proc.wait()
+                _close_pipes(proc)
+                output_incomplete = True
+            stdout = stderr = b""
+        else:
+            # The direct child exited but a background descendant still holds
+            # the pipes, so EOF never arrived. Not a timeout: keep what was
+            # captured, leave the descendants alone, and drop our pipe ends.
+            output_incomplete = True
+            stdout = exc.stdout or b""
+            stderr = exc.stderr or b""
+            _close_pipes(proc)
+    returncode = proc.returncode
+
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    if timed_out:
         _LOG.warning("system.run timed out after %dms argv=%r", elapsed_ms, argv)
         return {
             "ok": True,
@@ -373,31 +449,24 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "timedOut": True,
             "stdout": "",
             "stderr": "",
+            "outputIncomplete": output_incomplete,
             "error": f"Command timed out after {timeout_ms}ms",
             "elapsed_ms": elapsed_ms,
         }
-    except FileNotFoundError:
-        return _error("NOT_FOUND", f"Binary not found: {argv[0]!r}")
-    except OSError as exc:
-        return _error("EXEC_ERROR", f"Execution failed: {exc}")
-
-    elapsed_ms = int((time.monotonic() - t0) * 1000)
-
-    stdout = result.stdout[:_MAX_OUTPUT_BYTES].decode(errors="replace")
-    stderr = result.stderr[:_MAX_OUTPUT_BYTES].decode(errors="replace")
 
     _LOG.info(
         "system.run finished argv=%r exitCode=%d elapsed_ms=%d",
         argv,
-        result.returncode,
+        returncode,
         elapsed_ms,
     )
     return {
         "ok": True,
-        "success": result.returncode == 0,
-        "exitCode": result.returncode,
+        "success": returncode == 0,
+        "exitCode": returncode,
         "timedOut": False,
-        "stdout": stdout,
-        "stderr": stderr,
+        "stdout": stdout[:_MAX_OUTPUT_BYTES].decode(errors="replace"),
+        "stderr": stderr[:_MAX_OUTPUT_BYTES].decode(errors="replace"),
+        "outputIncomplete": output_incomplete,
         "elapsed_ms": elapsed_ms,
     }
