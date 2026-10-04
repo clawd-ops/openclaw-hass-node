@@ -34,11 +34,11 @@ def _turn(is_admin: bool, user_id: str = "u", identity: IdentityConfig | None = 
 
 
 def _allowed_services() -> list[str]:
-    """Every service the table allows (open domains probed with ordinary names)."""
+    """Every service the table allows."""
     return [
         f"{domain}.{name}"
         for domain, names in HOUSEHOLD_ALLOWED_SERVICES.items()
-        for name in (names or ("turn_on", "turn_off", "toggle", "set_value", "x_y"))
+        for name in sorted(names)
     ]
 
 
@@ -107,6 +107,10 @@ def test_user_allowed_light_calls_and_wrappers(service: tuple[str, str]) -> None
         ("script", "reload"),
         ("script", "turn_off"),
         ("light", "reload"),
+        ("input_select", "set_options"),
+        ("input_number", "reload"),
+        ("scene", "create"),
+        ("light", "brand_new_service"),
         ("lock", "set_usercode"),
         ("alarm_control_panel", "alarm_trigger"),
         ("automation", "trigger"),
@@ -204,7 +208,7 @@ def test_policy_agrees_with_printed_rule_under_config_patch() -> None:
     authz = resolve_turn_authz(relaxed, Actor("u", is_admin=False))
     rel = Caller.from_turn(authz)
     assert "ha.call_service:*" in authz.forbidden
-    assert "light.*, switch.*" in authz.disclaimer
+    assert "light.turn_on" in authz.disclaimer
     assert (
         _code(check(rel, "ha.call_service", _call("automation", "trigger"))) == "PERMISSION_DENIED"
     )
@@ -239,3 +243,72 @@ def test_removed_user_forbidden_command_stays_in_disclaimer_and_refused() -> Non
     for command in ("ha.addon_update", "ha.get_state"):
         assert f"  - {command}" in authz.disclaimer
         assert _code(check(caller, command, {})) == "PERMISSION_DENIED"
+
+
+def _patched(add: dict[str, frozenset[str]]) -> IdentityConfig:
+    return IdentityConfig(
+        forbidden_commands={role: ForbiddenCommandPatch(add=a) for role, a in add.items()}
+    )
+
+
+def _with_super(identity: IdentityConfig, user_id: str) -> IdentityConfig:
+    return IdentityConfig(
+        forbidden_commands=identity.forbidden_commands, super_admins=frozenset({user_id})
+    )
+
+
+_PATCHES: list[dict[str, frozenset[str]]] = [
+    {},
+    {"admin": frozenset({"ha.call_service:lock.unlock"})},
+    {"super_admin": frozenset({"ha.call_service:cover.*"})},
+    {"user": frozenset({"ha.call_service:l*.turn_on"})},
+    {"admin": frozenset({"ha.call_service:light.*"}), "user": frozenset({"ha.call_service:fan.*"})},
+]
+
+
+@pytest.mark.parametrize("patch", _PATCHES)
+def test_admin_is_never_stricter_than_user_under_patches(patch: dict[str, frozenset[str]]) -> None:
+    identity = _patched(patch)
+    for service in _allowed_services():
+        domain, _, name = service.partition(".")
+        admin = check(_turn(True, identity=identity), "ha.call_service", _call(domain, name))
+        sup = check(
+            _turn(True, user_id="root", identity=_with_super(identity, "root")),
+            "ha.call_service",
+            _call(domain, name),
+        )
+        assert admin is not None or sup is None, service  # admin allowed => super allowed
+        user = check(_turn(False, identity=identity), "ha.call_service", _call(domain, name))
+        assert user is not None or admin is None, service  # user allowed => admin allowed
+
+
+def test_admin_only_prohibition_also_binds_user_and_admin() -> None:
+    identity = _patched({"admin": frozenset({"ha.call_service:lock.unlock"})})
+
+    for is_admin in (False, True):
+        refusal = check(
+            _turn(is_admin, identity=identity), "ha.call_service", _call("lock", "unlock")
+        )
+        assert _code(refusal) == "PERMISSION_DENIED"
+        assert (
+            check(_turn(is_admin, identity=identity), "ha.call_service", _call("lock", "lock"))
+            is None
+        )
+
+
+@pytest.mark.parametrize(
+    "service",
+    [
+        ("input_select", "set_options"),
+        ("input_select", "reload"),
+        ("zone", "reload"),
+        ("light", "x"),
+    ],
+)
+def test_user_unlisted_service_in_allowlisted_domain_is_refused(service: tuple[str, str]) -> None:
+    user = _turn(False)
+
+    assert _code(check(user, "ha.call_service", _call(*service))) in {
+        "PERMISSION_DENIED",
+        "SERVICE_DENIED",
+    }

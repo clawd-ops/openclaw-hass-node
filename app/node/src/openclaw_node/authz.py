@@ -25,36 +25,74 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 Role = Literal["user", "admin", "super_admin"]
 
-# The only services household and HA-admin principals may call. domain ->
-# allowed services; ``None`` means every ordinary control service of that domain
-# (anything but ``reload``/``reload_*``). One table: `is_forbidden` defines
-# `ha.call_service:*` as "every service outside this table", the effect policy
-# classifies from it, and the disclaimer prints it, so the printed rule and
-# enforcement cannot disagree. No toggle. The deny-class list in
-# ``commands.ha`` still refuses first, for every caller.
+# The only services household and HA-admin principals may call: an explicit,
+# finite list of everyday-control services per domain, checked against Home
+# Assistant's own service definitions. There are no open domains, so a service
+# HA adds later, or one that edits configuration (``input_select.set_options``,
+# ``scene.create``, any ``reload``), is refused until someone lists it here.
+# One table: `is_forbidden` defines `ha.call_service:*` as "every service
+# outside this table", the effect policy classifies from it, and the disclaimer
+# prints it, so the printed rule and enforcement cannot disagree. No toggle.
+# The deny-class list in ``commands.ha`` still refuses first, for every caller.
 #
 # Security devices follow Home Assistant's own model: HA validates the ``code``
 # a lock or alarm requires. The node adds no block and never stores, logs, or
-# echoes a code (see ``redact_code``).
-HOUSEHOLD_ALLOWED_SERVICES: Final[dict[str, frozenset[str] | None]] = {
-    **dict.fromkeys(
-        (
-            "light",
-            "switch",
-            "media_player",
-            "scene",
-            "cover",
-            "climate",
-            "fan",
-            "input_boolean",
-            "input_select",
-            "input_number",
-            "vacuum",
-            "humidifier",
-            "water_heater",
-            "remote",
-        )
+# echoes a code (see ``redact_code`` and ``scrub_code``).
+_ON_OFF_TOGGLE: Final[frozenset[str]] = frozenset({"turn_on", "turn_off", "toggle"})
+HOUSEHOLD_ALLOWED_SERVICES: Final[dict[str, frozenset[str]]] = {
+    "light": _ON_OFF_TOGGLE,
+    "switch": _ON_OFF_TOGGLE,
+    "input_boolean": _ON_OFF_TOGGLE,
+    "media_player": _ON_OFF_TOGGLE
+    | {
+        "media_play",
+        "media_pause",
+        "media_play_pause",
+        "media_stop",
+        "media_next_track",
+        "media_previous_track",
+        "volume_up",
+        "volume_down",
+        "volume_mute",
+        "volume_set",
+        "select_source",
+        "select_sound_mode",
+    },
+    "cover": frozenset(
+        {
+            "open_cover",
+            "close_cover",
+            "stop_cover",
+            "toggle",
+            "set_cover_position",
+            "open_cover_tilt",
+            "close_cover_tilt",
+            "stop_cover_tilt",
+            "toggle_cover_tilt",
+            "set_cover_tilt_position",
+        }
     ),
+    "climate": frozenset(
+        {
+            "turn_on",
+            "turn_off",
+            "set_temperature",
+            "set_hvac_mode",
+            "set_fan_mode",
+            "set_preset_mode",
+            "set_humidity",
+        }
+    ),
+    "fan": _ON_OFF_TOGGLE | {"set_percentage", "set_preset_mode", "oscillate", "set_direction"},
+    "input_select": frozenset(
+        {"select_option", "select_next", "select_previous", "select_first", "select_last"}
+    ),
+    "input_number": frozenset({"set_value", "increment", "decrement"}),
+    "vacuum": frozenset({"start", "pause", "stop", "return_to_base", "locate", "clean_spot"}),
+    "humidifier": _ON_OFF_TOGGLE | {"set_humidity", "set_mode"},
+    "water_heater": frozenset({"turn_on", "turn_off", "set_temperature", "set_operation_mode"}),
+    "remote": _ON_OFF_TOGGLE | {"send_command"},
+    "scene": frozenset({"turn_on"}),
     "script": frozenset({"turn_on"}),
     "button": frozenset({"press"}),
     "lock": frozenset({"lock", "unlock", "open"}),
@@ -74,12 +112,7 @@ HOUSEHOLD_ALLOWED_SERVICES: Final[dict[str, frozenset[str] | None]] = {
 def service_allowed(service: str) -> bool:
     """Whether a canonical ``domain.service`` is in ``HOUSEHOLD_ALLOWED_SERVICES``."""
     domain, _, name = service.partition(".")
-    if domain not in HOUSEHOLD_ALLOWED_SERVICES:
-        return False
-    allowed = HOUSEHOLD_ALLOWED_SERVICES[domain]
-    if allowed is None:
-        return name != "reload" and not name.startswith("reload_")
-    return name in allowed
+    return name in HOUSEHOLD_ALLOWED_SERVICES.get(domain, frozenset())
 
 
 def redact_code(params: dict[str, Any]) -> dict[str, Any]:
@@ -90,6 +123,38 @@ def redact_code(params: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, dict) and "code" in value:
             out[key] = {**value, "code": "***"}
     return out
+
+
+_REDACTED: Final[str] = "[redacted]"
+
+
+def scrub_code(value: Any, code: object) -> Any:
+    """Return ``value`` with every occurrence of a supplied ``code`` masked.
+
+    Recurses through dicts (keys and values), lists, and strings, replacing
+    each literal occurrence (plain substring, no word boundaries, so ``x482913x``
+    is masked too) and its JSON-escaped form. Fails safe: a short code such as
+    ``12`` masks that text wherever it appears, which over-redacts ordinary
+    text rather than ever leaking the code. An absent or empty code is a no-op.
+    """
+    if code is None or code == "":
+        return value
+    raw = str(code)
+    escaped = json.dumps(raw)[1:-1]
+    needles = sorted({raw, escaped}, key=len, reverse=True)
+
+    def walk(item: Any) -> Any:
+        if isinstance(item, str):
+            for needle in needles:
+                item = item.replace(needle, _REDACTED)
+            return item
+        if isinstance(item, dict):
+            return {walk(k): walk(v) for k, v in item.items()}
+        if isinstance(item, list):
+            return [walk(v) for v in item]
+        return item
+
+    return walk(value)
 
 
 # Light wrappers share the generic service decision (one policy, no second path).
@@ -361,7 +426,32 @@ def forbidden_for_role(identity: IdentityConfig, role: Role) -> tuple[str, ...]:
                 )
             removable = patch.remove - _USER_NON_REMOVABLE
         forbidden.difference_update(removable)
+    if role != "super_admin":
+        forbidden.update(_inherited_service_prohibitions(identity, role))
     return tuple(sorted(forbidden))
+
+
+_WARNED_INHERITED: Final[set[str]] = set()
+
+
+def _inherited_service_prohibitions(identity: IdentityConfig, role: Role) -> frozenset[str]:
+    """HA-service prohibitions a more privileged role's patch passes down.
+
+    Privilege never inverts: a service prohibition added for ``super_admin``
+    also binds ``admin`` and ``user``, and one added for ``admin`` also binds
+    ``user`` (fail closed), so a more privileged role is never stricter than a
+    less privileged one. Each inherited entry is logged once per process.
+    """
+    inherited: set[str] = set()
+    for admin_role in ("admin", "super_admin") if role == "user" else ("super_admin",):
+        patch = identity.forbidden_commands.get(admin_role)
+        if patch is None:
+            continue
+        inherited.update(e for e in patch.add if e.startswith(_CALL_SERVICE_PREFIX))
+    for entry in sorted(inherited - _WARNED_INHERITED):
+        _WARNED_INHERITED.add(entry)
+        _LOG.warning("[authz] admin prohibition %s also applied to the user role", entry)
+    return frozenset(inherited)
 
 
 def service_for_command(command: str, params: dict[str, object]) -> str | None:
@@ -465,42 +555,25 @@ def build_disclaimer(
     )
 
 
-_PATTERN_ALL: Final[str] = "*"
-
-
 def _service_exception(forbidden: tuple[str, ...]) -> str:
     """Render which services stay callable under ``ha.call_service:*``.
 
-    Computed from the same table and ``is_forbidden``, so a patched specific
-    entry is reflected: a fully forbidden domain disappears, a forbidden
-    service in an open domain is listed as an exclusion.
+    Each table entry is evaluated with ``is_forbidden`` itself, so any patched
+    entry (including a glob such as ``l*.turn_on``) is reflected exactly as it
+    is enforced; nothing is derived from pattern prefixes.
     """
     if f"{_CALL_SERVICE_PREFIX}*" not in forbidden:
         return ""
-    patterns = [
-        e[len(_CALL_SERVICE_PREFIX) :]
-        for e in forbidden
-        if e.startswith(_CALL_SERVICE_PREFIX) and e != f"{_CALL_SERVICE_PREFIX}*"
+    parts = [
+        f"{domain}.{name}"
+        for domain, names in HOUSEHOLD_ALLOWED_SERVICES.items()
+        for name in sorted(names)
+        if not is_forbidden(forbidden, "ha.call_service", {"domain": domain, "service": name})
     ]
-    parts: list[str] = []
-    for domain, names in HOUSEHOLD_ALLOWED_SERVICES.items():
-        if names is None:
-            relevant = [p for p in patterns if p.startswith((f"{domain}.", "*"))]
-            if f"{domain}.*" in relevant:
-                continue
-            note = f" (except {', '.join(relevant)})" if relevant else ""
-            parts.append(f"{domain}.*{note}")
-            continue
-        parts.extend(
-            f"{domain}.{n}"
-            for n in sorted(names)
-            if not is_forbidden(forbidden, "ha.call_service", {"domain": domain, "service": n})
-        )
     listed = ", ".join(parts) if parts else "none"
     return (
         "Exception: because the forbidden list includes ha.call_service:*, the only "
-        f"services that may still be called are: {listed}. In the domains written "
-        "with .* that means ordinary control services only, never reload. Locks and "
+        f"services that may still be called are: {listed}. Locks and "
         "alarms may require a code: pass along only a code the user actually "
         "supplied, and never guess or invent one.\n\n"
     )

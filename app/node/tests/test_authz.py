@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 
 import pytest
 from _pytest.logging import LogCaptureFixture
 
+from openclaw_node import authz as authz_mod
 from openclaw_node.authz import (
     HOUSEHOLD_ALLOWED_SERVICES,
     Actor,
@@ -17,6 +19,7 @@ from openclaw_node.authz import (
     is_forbidden,
     redact_code,
     resolve_turn_authz,
+    scrub_code,
     service_allowed,
     service_for_command,
     sign_actor,
@@ -322,14 +325,10 @@ def _call(domain: str, service: str) -> dict[str, object]:
 
 def test_disclaimer_prints_the_allowed_table() -> None:
     authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
-    exception = authz.disclaimer.split("may still be called are: ")[1].split(". In the domains")[0]
+    exception = authz.disclaimer.split("may still be called are: ")[1].split(". Locks")[0]
     printed = set(exception.split(", "))
 
-    expected = {
-        f"{d}.*" if names is None else f"{d}.{n}"
-        for d, names in HOUSEHOLD_ALLOWED_SERVICES.items()
-        for n in (names or {"*"})
-    }
+    expected = {f"{d}.{n}" for d, names in HOUSEHOLD_ALLOWED_SERVICES.items() for n in names}
     assert printed == expected
     assert "shell_command" not in exception
     assert "never guess or invent" in authz.disclaimer
@@ -351,6 +350,9 @@ def test_disclaimer_prints_the_allowed_table() -> None:
         ("button", "press", False),
         ("button", "reload", True),
         ("light", "reload", True),
+        ("input_select", "set_options", True),
+        ("input_select", "select_option", False),
+        ("light", "future_service", True),
         ("lock", "unlock", False),
         ("lock", "set_code", True),
         ("alarm_control_panel", "alarm_disarm", False),
@@ -367,6 +369,26 @@ def test_default_user_policy_matches_printed_rule(
 
     assert is_forbidden(authz.forbidden, "ha.call_service", _call(domain, service)) is forbidden
     assert service_allowed(f"{domain}.{service}") is (not forbidden) or domain == "shell_command"
+
+
+def _patched(add: dict[str, frozenset[str]]) -> IdentityConfig:
+    return IdentityConfig(
+        forbidden_commands={role: ForbiddenCommandPatch(add=a) for role, a in add.items()}
+    )
+
+
+def test_admin_prohibition_is_inherited_by_user_and_logged_once(caplog: LogCaptureFixture) -> None:
+    entry = "ha.call_service:cover.open_cover"
+    identity = _patched({"admin": frozenset({entry}), "super_admin": frozenset({"fs.read"})})
+    authz_mod._WARNED_INHERITED.clear()
+
+    with caplog.at_level("WARNING"):
+        first = resolve_turn_authz(identity, Actor("kid", is_admin=False))
+        resolve_turn_authz(identity, Actor("kid", is_admin=False))
+
+    assert entry in first.forbidden
+    assert "fs.read" not in first.forbidden  # only service prohibitions are inherited
+    assert sum(entry in r.getMessage() for r in caplog.records) == 1
 
 
 def test_redact_code_masks_code_without_mutating_input() -> None:
@@ -453,6 +475,10 @@ def _patched_identity(add: frozenset[str]) -> IdentityConfig:
     return IdentityConfig(forbidden_commands={"user": ForbiddenCommandPatch(add=add)})
 
 
+def _printed(disclaimer: str) -> set[str]:
+    return set(disclaimer.split("may still be called are: ")[1].split(". Locks")[0].split(", "))
+
+
 def test_disclaimer_exception_reflects_patched_prohibitions() -> None:
     kid = Actor("kid", is_admin=False)
     one = resolve_turn_authz(_patched_identity(frozenset({"ha.call_service:light.turn_off"})), kid)
@@ -461,28 +487,43 @@ def test_disclaimer_exception_reflects_patched_prohibitions() -> None:
         kid,
     )
 
-    assert "light.* (except light.turn_off)" in one.disclaimer
-    assert "lock.unlock" in one.disclaimer
-    assert "lock." not in domain.disclaimer.split("may still be called are: ")[1].split(". In")[0]
-    assert "button.press" not in domain.disclaimer.split("may still be called are: ")[1]
-    assert "light.*," in domain.disclaimer
+    assert "light.turn_off" not in _printed(one.disclaimer)
+    assert "light.turn_on" in _printed(one.disclaimer)
+    assert not {s for s in _printed(domain.disclaimer) if s.startswith("lock.")}
+    assert "button.press" not in _printed(domain.disclaimer)
 
 
-def test_user_forbidden_commands_are_non_removable(caplog: LogCaptureFixture) -> None:
-    identity = IdentityConfig(
-        forbidden_commands={
-            "user": ForbiddenCommandPatch(
-                add=frozenset({"ha.get_state"}),
-                remove=frozenset({"ha.addon_update"}),
-            )
-        }
-    )
+def test_disclaimer_matches_enforcement_for_glob_patch() -> None:
+    kid = Actor("kid", is_admin=False)
+    authz = resolve_turn_authz(_patched_identity(frozenset({"ha.call_service:l*.turn_on"})), kid)
+    printed = _printed(authz.disclaimer)
 
-    with caplog.at_level("WARNING"):
-        authz = resolve_turn_authz(identity, None)
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call("light", "turn_on"))
+    assert "light.turn_on" not in printed
+    assert "light.turn_off" in printed
+    for entry in (f"{d}.{n}" for d, ns in HOUSEHOLD_ALLOWED_SERVICES.items() for n in ns):
+        d, _, n = entry.partition(".")
+        enforced = not is_forbidden(authz.forbidden, "ha.call_service", _call(d, n))
+        assert (entry in printed) is enforced, entry
 
-    assert "ha.addon_update" in authz.forbidden
-    assert "ha.addon_update" in authz.disclaimer
-    assert "ha.get_state" in authz.forbidden
-    assert "ha.get_state" in authz.disclaimer
-    assert sum("ha.addon_update" in r.getMessage() for r in caplog.records) == 1
+
+def test_scrub_code_masks_embedded_escaped_and_nested_occurrences() -> None:
+    value = {
+        "a": "x482913x",
+        "b": ["pin 482913 ok", {"c": 'q"z'}],
+        "n": 5,
+        "482913": "k",
+    }
+
+    out = scrub_code(value, "482913")
+    assert "482913" not in json.dumps(out)
+    assert out["a"] == "x[redacted]x"
+    assert out["n"] == 5
+    # A code with a quote also appears JSON-escaped inside serialized text.
+    code = 'q"z'
+    escaped = json.dumps(code)[1:-1]
+    out = scrub_code({"s": f"raw {code} esc {escaped}"}, code)
+    assert out == {"s": "raw [redacted] esc [redacted]"}
+    assert scrub_code(value, None) is value
+    assert scrub_code(value, "") is value
+    assert scrub_code("12 apples", "12") == "[redacted] apples"

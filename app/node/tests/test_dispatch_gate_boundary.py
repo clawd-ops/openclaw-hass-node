@@ -210,6 +210,7 @@ class _Stub:
         self.calls: list[tuple[str, Any]] = []
         self.status = 200
         self.reply: Any = []
+        self.get_reply: Any = None  # when set, GETs (state snapshots) answer with this
 
 
 @pytest_asyncio.fixture
@@ -219,15 +220,18 @@ async def ha_stub(monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[_Stub]:
     async def _record(request: web.Request) -> web.Response:
         body = await request.json() if request.can_read_body else None
         stub.calls.append((request.path, body))
-        return web.json_response(stub.reply, status=stub.status)
+        reply = (
+            stub.get_reply if request.method == "GET" and stub.get_reply is not None else stub.reply
+        )
+        return web.json_response(reply, status=stub.status)
 
     app = web.Application()
     app.router.add_route("*", "/{tail:.*}", _record)
     server = TestServer(app)
     await server.start_server()
     monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
-    monkeypatch.setenv("HASS_URL", str(server.make_url("")))
     monkeypatch.setenv("HASS_TOKEN", "stub-token")
+    monkeypatch.setenv("HASS_URL", str(server.make_url("")))
     try:
         yield stub
     finally:
@@ -397,3 +401,96 @@ async def test_http_non_allowlisted_command_keeps_allowlist_refusal(
     assert response.status == 404
     assert (await response.json())["error"] == "UNKNOWN_COMMAND"
     assert ha_requests == []
+
+
+@pytest.mark.parametrize(
+    ("domain", "service"),
+    [("input_select", "set_options"), ("input_select", "reload"), ("light", "brand_new_service")],
+)
+async def test_ws_user_unlisted_service_in_allowlisted_domain_makes_zero_ha_requests(
+    domain: str, service: str, monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
+) -> None:
+    _as_role(monkeypatch, False)
+
+    sent = await _invoke(
+        tmp_path,
+        "ha.call_service",
+        {"domain": domain, "service": service, "target": {"entity_id": f"{domain}.x"}},
+    )
+
+    assert sent["ok"] is False
+    assert ha_stub.calls == []
+
+
+_ECHO_STATE = {
+    "entity_id": "lock.front",
+    "state": "unlocked",
+    "attributes": {"note": "last code x482913x", "codes": ["482913", {"deep": "pin=482913"}]},
+}
+
+
+async def test_ws_code_echoed_in_changed_states_is_redacted(
+    monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
+) -> None:
+    _as_role(monkeypatch, False)
+    ha_stub.reply = [_ECHO_STATE]
+
+    sent = await _invoke(
+        tmp_path,
+        "ha.call_service",
+        {
+            "domain": "lock",
+            "service": "unlock",
+            "target": {"entity_id": "lock.front"},
+            "data": {"code": "482913"},
+        },
+    )
+
+    assert sent["ok"] is True
+    assert "482913" not in json.dumps(sent)
+    assert "unlocked" in json.dumps(sent)
+
+
+async def test_ws_code_echoed_in_fetched_snapshot_is_redacted(
+    monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
+) -> None:
+    _as_role(monkeypatch, True)
+    ha_stub.reply = []
+    ha_stub.get_reply = _ECHO_STATE
+
+    sent = await _invoke(
+        tmp_path,
+        "ha.call_service",
+        {
+            "domain": "lock",
+            "service": "unlock",
+            "target": {"entity_id": "lock.front"},
+            "data": {"code": "482913"},
+        },
+    )
+
+    assert sent["ok"] is True
+    assert "unlocked" in json.dumps(sent)
+    assert "482913" not in json.dumps(sent)
+
+
+async def test_ws_embedded_code_in_error_is_redacted(
+    monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
+) -> None:
+    _as_role(monkeypatch, False)
+    ha_stub.status = 400
+    ha_stub.reply = {"message": "Invalid code x482913x for lock.front"}
+
+    sent = await _invoke(
+        tmp_path,
+        "ha.call_service",
+        {
+            "domain": "lock",
+            "service": "unlock",
+            "target": {"entity_id": "lock.front"},
+            "data": {"code": "482913"},
+        },
+    )
+
+    assert "Invalid code" in sent["error"]["message"]
+    assert "482913" not in json.dumps(sent)

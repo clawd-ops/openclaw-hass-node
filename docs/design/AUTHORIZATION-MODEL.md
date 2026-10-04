@@ -242,13 +242,37 @@ household member is an adult, so the user tier allows what an adult in the house
 reasonably does; the block list is for system-level things only. Admin is never
 stricter than user for any service.
 
+There are no open domains: every allowed service is listed by name, taken from
+Home Assistant's own service definitions, so a service HA adds later, and any
+service that edits configuration (`input_select.set_options`, `scene.create`,
+every `reload`), is refused until it is reviewed and listed.
+
 | Domain | Allowed services |
 | --- | --- |
-| light, switch, media_player, scene, cover (incl. garage and gate), climate, fan, input_boolean, input_select, input_number, vacuum, humidifier, water_heater, remote | every ordinary control service except `reload` / `reload_*` |
-| script | `turn_on` only |
+| light, switch, input_boolean | `turn_on`, `turn_off`, `toggle` |
+| media_player | `turn_on`, `turn_off`, `toggle`, `media_play`, `media_pause`, `media_play_pause`, `media_stop`, `media_next_track`, `media_previous_track`, `volume_up`, `volume_down`, `volume_mute`, `volume_set`, `select_source`, `select_sound_mode` |
+| cover (incl. garage and gate) | `open_cover`, `close_cover`, `stop_cover`, `toggle`, `set_cover_position`, and the tilt variants |
+| climate | `turn_on`, `turn_off`, `set_temperature`, `set_hvac_mode`, `set_fan_mode`, `set_preset_mode`, `set_humidity` |
+| fan | `turn_on`, `turn_off`, `toggle`, `set_percentage`, `set_preset_mode`, `oscillate`, `set_direction` |
+| input_select | `select_option`, `select_next`, `select_previous`, `select_first`, `select_last` |
+| input_number | `set_value`, `increment`, `decrement` |
+| vacuum | `start`, `pause`, `stop`, `return_to_base`, `locate`, `clean_spot` |
+| humidifier | `turn_on`, `turn_off`, `toggle`, `set_humidity`, `set_mode` |
+| water_heater | `turn_on`, `turn_off`, `set_temperature`, `set_operation_mode` |
+| remote | `turn_on`, `turn_off`, `toggle`, `send_command` |
+| scene, script | `turn_on` only |
 | button | `press` only |
 | lock | `lock`, `unlock`, `open` |
 | alarm_control_panel | `alarm_arm_away`, `alarm_arm_home`, `alarm_arm_night`, `alarm_arm_vacation`, `alarm_arm_custom_bypass`, `alarm_disarm` |
+
+The printed exception lists exactly the `domain.service` entries that the real
+`is_forbidden` check allows for that turn, so a config patch (even a glob such
+as `ha.call_service:l*.turn_on`) is reflected as enforced.
+
+Privilege never inverts. A service prohibition added to the `admin` role's
+patch also binds `user`, and one added to `super_admin` also binds `admin` and
+`user` (fail closed, logged once), so a more privileged role is never stricter
+than a less privileged one.
 
 Security devices follow Home Assistant's own model, with no node-side block: a
 lock or alarm that has a code requires it in the service call and HA validates
