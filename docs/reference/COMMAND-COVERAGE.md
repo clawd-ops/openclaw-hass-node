@@ -53,6 +53,8 @@ _(no unreleased command additions)_
 - **partial:** Some caller or contract behavior passed while material gaps remain.
 - **unverified:** No behavioral outcome is claimed.
 
+A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchanged dated evidence about the recorded build; a fix has since merged and no later live pass exists. It clears when a later PRODUCTION-LIVE pass is recorded for the same caller.
+
 ## Coverage rows
 
 | Command / action | Advertised | Direct caller | Handler/dispatch | Assist wrapper | Authorization | Method | **Outcome** |
@@ -580,7 +582,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: On the deployed build, fs.restore accepted version=0 and clamped it to entry 0 instead of rejecting it. version=1 returning entry 0 and version=4 returning entry 3 is the documented 1-indexed selection over the 0-indexed history array, not a defect. Current source rejects version=0 as out of range and adds a version_id selector (the sha256 fs.history returns); this observation predates that fix. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: On the deployed build, fs.restore accepted version=0 and clamped it to entry 0 instead of rejecting it. version=1 returning entry 0 and version=4 returning entry 3 is the documented 1-indexed selection over the 0-indexed history array, not a defect. Current source rejects version=0 as out of range and adds a version_id selector (the sha256 fs.history returns); this observation predates that fix. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13; **FIX MERGED IN PR #358, RE-PROBE OWED**]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no filesystem restore wrapper. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -883,7 +885,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13; **FIX MERGED IN PR #375, RE-PROBE OWED**]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -2119,7 +2121,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13; **FIX MERGED IN PR #362, RE-PROBE OWED**]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist voice turns intentionally do not expose HA-native configuration commands. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
@@ -3273,7 +3275,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result. (source: `docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding`) [node_version=2026.7.23b1; plugin_version=not recorded; observed_at=2026-09-11; **STALE**]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result. (source: `docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding`) [node_version=2026.7.23b1; plugin_version=not recorded; observed_at=2026-09-11; **STALE**; **FIX MERGED IN PR #373, RE-PROBE OWED**]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `assist_wrapper` / `PRODUCTION-LIVE` / **`pass`**: ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (§2.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
@@ -3690,7 +3692,7 @@ _(no unreleased command additions)_
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
-  - `assist_wrapper` / `PRODUCTION-LIVE` / **`fail`**: COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
+  - `assist_wrapper` / `PRODUCTION-LIVE` / **`fail`**: COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13; **FIX MERGED IN PR #362, RE-PROBE OWED**]
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
@@ -3815,7 +3817,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set. (source: `docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13; **FIX MERGED IN PR #373, RE-PROBE OWED**]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `assist_wrapper` / `PRODUCTION-LIVE` / **`pass`**: ha.list_states with entity_filter returned 1 of 7,217 entities. No errors. (source: `docs/evidence/sweep-2026-09-13.md`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)

@@ -174,6 +174,9 @@ pending the effect policy.
 This inventory does not enable commands or resolve the other defects it
 records.
 
+A failing live observation whose fix has since merged is marked "fix merged, re-probe owed"
+in the ledger (derived from `fixed_in_pr`, advances issue 365); its recorded outcome is unchanged.
+
 **Additional repair shipped in `2026.9.13b1` (#266):** generic service calls normalize
 `service_data` to canonical `data` without dropping payloads and reject alias
 conflicts before HA I/O. Inner handler failures now fail the gateway invoke;

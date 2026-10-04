@@ -231,7 +231,8 @@
             "observation": "On the deployed build, fs.restore accepted version=0 and clamped it to entry 0 instead of rejecting it. version=1 returning entry 0 and version=4 returning entry 3 is the documented 1-indexed selection over the 0-indexed history array, not a defect. Current source rejects version=0 as out of range and adds a version_id selector (the sha256 fs.history returns); this observation predates that fix.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "not recorded"
+            "plugin_version": "not recorded",
+            "fixed_in_pr": 358
           }
         ]
       }
@@ -478,7 +479,8 @@
             "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "not recorded"
+            "plugin_version": "not recorded",
+            "fixed_in_pr": 373
           }
         ]
       }
@@ -851,7 +853,8 @@
             "observation": "COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "not recorded"
+            "plugin_version": "not recorded",
+            "fixed_in_pr": 362
           }
         ]
       }
@@ -917,7 +920,8 @@
             "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
             "observed_at": "2026-09-11",
             "node_version": "2026.7.23b1",
-            "plugin_version": "not recorded"
+            "plugin_version": "not recorded",
+            "fixed_in_pr": 373
           }
         ],
         "assist_wrapper": [
@@ -1294,7 +1298,8 @@
             "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "not recorded"
+            "plugin_version": "not recorded",
+            "fixed_in_pr": 375
           }
         ]
       }
@@ -1869,7 +1874,8 @@
                 "observation": "ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation.",
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
-                "plugin_version": "not recorded"
+                "plugin_version": "not recorded",
+                "fixed_in_pr": 362
               }
             ]
           }

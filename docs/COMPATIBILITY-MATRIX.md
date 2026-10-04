@@ -28,6 +28,12 @@ what a running system had installed.
 - Every PRODUCTION-LIVE observation in the coverage ledger carries the same
   `plugin_version` field (`observed_at`, `node_version`, `plugin_version`), with
   `not recorded` as the only non-version value.
+- A failing or partial PRODUCTION-LIVE observation may carry `fixed_in_pr`, the
+  number of the merged PR that fixed it. The generator derives `reprobe_owed`
+  from it (true until a later PRODUCTION-LIVE pass exists for the same caller)
+  and renders "fix merged, re-probe owed". The recorded outcome never changes:
+  the observation stays dated evidence about the recorded build. The reference
+  is validated for shape only; the generator stays offline.
 - Architecture means the architecture the verified artifact actually ran on, not
   the set of architectures the add-on advertises support for.
 - Record the advertised command count observed from the running node alongside

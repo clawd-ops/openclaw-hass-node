@@ -1117,6 +1117,91 @@ def test_plugin_version_is_recorded_and_rendered(
         assert f"plugin_version={value}" in generator.render_markdown(ledger)
 
 
+def _manual_with_fix_reference(generator: Any, later_pass: str | None = None, **fix: Any) -> Any:
+    manual = _manual_with_observation(generator, outcome="fail", **fix)
+    if later_pass is not None:
+        later = copy.deepcopy(manual["commands"]["ha.get_config"]["caller_observations"])
+        later["assist_wrapper"][0].update(
+            outcome="pass", observed_at=later_pass, node_version="2026.9.13b1"
+        )
+        later["assist_wrapper"][0].pop("fixed_in_pr", None)
+        manual["commands"]["ha.get_config"]["caller_observations"]["assist_wrapper"] += later[
+            "assist_wrapper"
+        ]
+    return manual
+
+
+def _ha_get_config_evidence(generator: Any) -> list[dict[str, Any]]:
+    ledger = generator.build_ledger()
+    row = next(r for r in ledger["rows"] if r["command"] == "ha.get_config")
+    evidence = [
+        e for e in row["callers"]["assist_wrapper"]["evidence"] if e["method"] == "PRODUCTION-LIVE"
+    ]
+    assert generator.render_markdown(ledger)
+    return evidence
+
+
+def test_fix_merged_failing_observation_renders_reprobe_owed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generator = _load_generator()
+    manual = _manual_with_fix_reference(generator, fixed_in_pr=358)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    [item] = _ha_get_config_evidence(generator)
+    assert item["outcome"] == "fail"
+    assert item["fixed_in_pr"] == 358
+    assert item["reprobe_owed"] is True
+    assert "**FIX MERGED IN PR #358, RE-PROBE OWED**" in generator.render_markdown(
+        generator.build_ledger()
+    )
+
+
+def test_later_passing_observation_clears_reprobe_owed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generator = _load_generator()
+    for later_pass, owed in (("2026-09-14", False), ("2026-09-13", True)):
+        manual = _manual_with_fix_reference(generator, later_pass=later_pass, fixed_in_pr=999)
+        monkeypatch.setattr(generator, "_load_manual", lambda manual=manual: manual)
+        failing = _ha_get_config_evidence(generator)[0]
+        assert failing["outcome"] == "fail"
+        assert failing["reprobe_owed"] is owed
+        markdown = generator.render_markdown(generator.build_ledger())
+        assert ("FIX MERGED IN PR #999, RE-PROBE OWED" in markdown) is owed
+        assert "fix merged in pr #999" in markdown.lower()
+
+
+@pytest.mark.parametrize("value", [0, -1, True, "358", 3.5, None])
+def test_malformed_fixed_in_pr_is_refused(monkeypatch: pytest.MonkeyPatch, value: object) -> None:
+    generator = _load_generator()
+    manual = _manual_with_fix_reference(generator, fixed_in_pr=value)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(generator.LedgerError, match=r"fixed_in_pr .* positive PR number"):
+        generator.build_ledger()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"outcome": "pass"}, {"outcome": "refused-as-designed"}, {"method": "CODE-PROVEN"}],
+)
+def test_fixed_in_pr_on_a_non_failing_live_observation_is_refused(
+    monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str]
+) -> None:
+    generator = _load_generator()
+    manual = _manual_with_observation(generator, fixed_in_pr=358, **overrides)
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(generator.LedgerError, match=r"fixed_in_pr .* only valid on"):
+        generator.build_ledger()
+
+
+def test_committed_ledger_marks_fs_restore_reprobe_owed() -> None:
+    generator = _load_generator()
+    row = next(r for r in generator.build_ledger()["rows"] if r["id"] == "fs.restore")
+    marked = [e for e in row["callers"]["direct_nodes_invoke"]["evidence"] if e.get("reprobe_owed")]
+    assert [e["fixed_in_pr"] for e in marked] == [358]
+    assert marked[0]["outcome"] == "fail"
+
+
 def test_every_committed_live_observation_carries_plugin_version() -> None:
     generator = _load_generator()
     live = [

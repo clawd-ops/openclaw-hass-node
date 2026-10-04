@@ -913,6 +913,37 @@ def _evidence(
     return item
 
 
+def _validate_fixed_in_pr(label: str, item: dict[str, Any], value: object) -> None:
+    """Refuse a fix reference that cannot mean "a PR fixed this failing observation"."""
+    # bool is an int subclass; `true` must not be accepted as PR number 1.
+    if type(value) is not int or value < 1:
+        raise LedgerError(f"fixed_in_pr for {label} must be a positive PR number (got {value!r})")
+    if item["method"] != "PRODUCTION-LIVE" or item["outcome"] not in ("fail", "partial"):
+        raise LedgerError(
+            f"fixed_in_pr for {label} is only valid on a PRODUCTION-LIVE fail or partial "
+            f"observation (got {item['method']}/{item['outcome']})"
+        )
+
+
+def _derive_reprobe_owed(items: list[dict[str, Any]]) -> None:
+    """Mark a fix-referenced failing observation `reprobe_owed` until a later live pass.
+
+    Derived, never hand-set: the observation keeps its recorded outcome (a dated fact
+    about a build), and the marker clears only when a later PRODUCTION-LIVE pass exists
+    for the same caller. Observation dates are day-granular, so a pass on the same day
+    does not clear it.
+    """
+    for item in items:
+        if "fixed_in_pr" not in item:
+            continue
+        item["reprobe_owed"] = not any(
+            other["method"] == "PRODUCTION-LIVE"
+            and other["outcome"] == "pass"
+            and other["observed_at"] > item["observed_at"]
+            for other in items
+        )
+
+
 def _caller(
     status: str,
     source: str,
@@ -1417,6 +1448,7 @@ def build_ledger() -> dict[str, Any]:
             for caller_name, observations in caller_observations.items():
                 if caller_name not in row_callers or not isinstance(observations, list):
                     raise LedgerError(f"invalid caller observations for {row_id}/{caller_name}")
+                caller_items: list[dict[str, Any]] = []
                 for observation in observations:
                     if not isinstance(observation, dict):
                         raise LedgerError(f"caller observation for {row_id} must be an object")
@@ -1456,18 +1488,24 @@ def build_ledger() -> dict[str, Any]:
                                 f"(a version or 'not recorded'; got {obs_plugin_version!r})"
                             )
                         obs_stale = obs_node_version != current_release
-                    row_callers[caller_name]["evidence"].append(
-                        _evidence(
-                            observation["method"],
-                            observation["outcome"],
-                            observation["source"],
-                            observation["observation"],
-                            observed_at=obs_observed_at,
-                            node_version=obs_node_version,
-                            plugin_version=obs_plugin_version,
-                            stale=obs_stale,
-                        )
+                    item = _evidence(
+                        observation["method"],
+                        observation["outcome"],
+                        observation["source"],
+                        observation["observation"],
+                        observed_at=obs_observed_at,
+                        node_version=obs_node_version,
+                        plugin_version=obs_plugin_version,
+                        stale=obs_stale,
                     )
+                    if "fixed_in_pr" in observation:
+                        _validate_fixed_in_pr(
+                            f"{row_id}/{caller_name}", item, observation["fixed_in_pr"]
+                        )
+                        item["fixed_in_pr"] = observation["fixed_in_pr"]
+                    caller_items.append(item)
+                _derive_reprobe_owed(caller_items)
+                row_callers[caller_name]["evidence"].extend(caller_items)
             # Only a genuinely absent key defaults. `or []` used to run before the
             # type check, so an explicit "", 0, false or {} was silently accepted
             # as "no citations" instead of being rejected as malformed, and an
@@ -1693,6 +1731,15 @@ def render_markdown(ledger: dict[str, Any]) -> str:
     lines.extend(["", "## Outcomes", ""])
     for outcome, meaning in ledger["outcomes"].items():
         lines.append(f"- **{outcome}:** {meaning}")
+    lines.extend(
+        [
+            "",
+            "A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is "
+            "unchanged dated evidence about the recorded build; a fix has since merged "
+            "and no later live pass exists. It clears when a later PRODUCTION-LIVE pass "
+            "is recorded for the same caller.",
+        ]
+    )
     _assert_unique_anchors(ledger["rows"])
     lines.extend(
         [
@@ -1797,6 +1844,11 @@ def render_markdown(ledger: dict[str, Any]) -> str:
                         prov_parts.append(f"observed_at={observation['observed_at']}")
                     if observation.get("stale"):
                         prov_parts.append("**STALE**")
+                    if observation.get("fixed_in_pr"):
+                        fix = f"fix merged in PR #{observation['fixed_in_pr']}"
+                        if observation["reprobe_owed"]:
+                            fix = f"**{fix.upper()}, RE-PROBE OWED**"
+                        prov_parts.append(fix)
                     provenance = " [" + "; ".join(prov_parts) + "]"
                 lines.append(
                     f"  - `{caller_name}` / `{observation['method']}` / "

@@ -201,6 +201,8 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   when the operator decides, perform the Tier B install, run the
   [UAT plan](operations/UAT-PLAN.md) against it, and record the result in the
   [compatibility matrix](COMPATIBILITY-MATRIX.md).
+- Re-probes owed: every ledger row marked "fix merged, re-probe owed" needs a fresh
+  live probe against the beta; the marker clears when that pass is recorded.
 - Deferred and not part of this item: the executable command contract and
   strict unknown-key refusal ([#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)),
   and moving `ha.reload_config` / `ha.update_install` off the admin token
