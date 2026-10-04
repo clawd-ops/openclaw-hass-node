@@ -530,6 +530,25 @@ def test_scrub_codes_masks_embedded_escaped_and_nested_occurrences() -> None:
     assert scrub_codes("keep", [""]) == "keep"
 
 
+def test_scrub_codes_output_is_code_free_across_replacement_boundaries() -> None:
+    colliding: list[str | int | float] = ["redacted", "*", "<masked>", "1234"]
+    assert "a[" not in scrub_codes("aa[", ["a["])
+    assert "1234" not in scrub_codes("12*34", colliding)
+    assert scrub_codes("keep 99", ["1234"]) == "keep 99"
+    assert scrub_codes("pin 1234", ["1234"]) == "pin [redacted]"
+    cases: list[tuple[str, list[str | int | float]]] = [
+        ("aa[", ["a["]),
+        ("12*34", colliding),
+        ("1[red[redacted]acted]2", ["12", "[redacted]"]),
+        ("xxyy", ["xy", "xxyy"]),
+        ("a" * 40 + "b", ["ab", "a"]),
+    ]
+    for text, forms in cases:
+        res = scrub_codes({text: text}, forms)
+        all_forms = set(forms) | {json.dumps(f)[1:-1] for f in forms}
+        assert not any(f in k or f in v for k, v in res.items() for f in all_forms)
+
+
 def test_scrub_codes_masks_numbers_equal_to_a_numeric_code() -> None:
     value = {"pin": 1234, "ratio": 1234.0, "bool": True, "other": 12, "k": [1234]}
 

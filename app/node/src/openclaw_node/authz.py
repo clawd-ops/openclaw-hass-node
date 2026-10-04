@@ -163,6 +163,25 @@ def collect_codes(value: Any) -> list[str | int | float]:
     return found
 
 
+_MASK_PASSES: Final[int] = 8
+
+
+def _mask_text(text: str, forms: list[str], pattern: re.Pattern[str] | None, mask: str) -> str:
+    """Mask ``forms`` in ``text``; the result never contains any of ``forms``.
+
+    Re-applies the masking pass (a replacement can join its neighbours into a
+    new occurrence) up to ``_MASK_PASSES`` times; if any form still occurs the
+    whole value is dropped (empty string) rather than risk a leak.
+    """
+    if pattern is None:
+        return text
+    for _ in range(_MASK_PASSES):
+        text = pattern.sub(lambda _m: mask, text)
+        if not any(form in text for form in forms):
+            return text
+    return ""
+
+
 def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
     """Mask every recognisable form of the supplied ``codes`` in ``value``.
 
@@ -172,7 +191,10 @@ def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
     short code over-redacts rather than leaks. The replacement is the first of
     ``_MASK_CANDIDATES`` containing none of those forms (else empty), so the
     output can never contain a supplied code through its own marker. A number
-    equal to a numeric code (``==``, never a bool) is masked too. A transformed
+    equal to a numeric code (``==``, never a bool) is masked too. Masking repeats
+    until no form remains (a replacement can join its neighbours into a new
+    occurrence); a string that still carries one after a fixed number of passes
+    is dropped entirely (empty string). A transformed
     code (hash, re-encoding) is outside this guarantee.
     """
     needles: set[str] = set()
@@ -189,7 +211,7 @@ def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
 
     def walk(item: Any) -> Any:
         if isinstance(item, str):
-            return pattern.sub(lambda _m: mask, item) if pattern else item
+            return _mask_text(item, ordered, pattern, mask)
         if isinstance(item, int | float) and not isinstance(item, bool):
             return mask if any(item == n for n in numbers) else item
         if isinstance(item, dict):
