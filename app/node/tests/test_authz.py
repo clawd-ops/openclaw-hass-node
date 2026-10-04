@@ -9,11 +9,14 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 
 from openclaw_node.authz import (
+    HOUSEHOLD_AUTO_ALLOW_SERVICES,
     Actor,
     actor_from_payload,
     actor_from_signed_body,
     derive_actor_signing_secret,
+    is_forbidden,
     resolve_turn_authz,
+    service_for_command,
     sign_actor,
 )
 from openclaw_node.config import ForbiddenCommandPatch, IdentityConfig
@@ -310,3 +313,112 @@ def test_mapped_user_resolves_an_agent_on_the_broken_topology() -> None:
     assert resolve_agent_id(identity, Actor("ash", is_admin=False)) == "household"
     assert resolve_agent_id(identity, Actor("nobody", is_admin=False)) == ""
     assert resolve_agent_id(identity, None) == ""
+
+
+def _call(domain: str, service: str) -> dict[str, object]:
+    return {"domain": domain, "service": service}
+
+
+def test_light_exception_is_one_constant_in_disclaimer() -> None:
+    authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
+
+    assert ", ".join(HOUSEHOLD_AUTO_ALLOW_SERVICES) in authz.disclaimer
+    assert "input_*" not in authz.disclaimer
+    assert "switch" not in authz.disclaimer
+
+
+@pytest.mark.parametrize(
+    ("domain", "service", "forbidden"),
+    [
+        ("light", "turn_on", False),
+        ("light", "turn_off", False),
+        ("light", "toggle", True),
+        ("lock", "unlock", True),
+        ("switch", "turn_on", True),
+        ("shell_command", "x", True),
+    ],
+)
+def test_default_user_policy_matches_printed_rule(
+    domain: str, service: str, forbidden: bool
+) -> None:
+    authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
+    printed = f"{domain}.{service}" in HOUSEHOLD_AUTO_ALLOW_SERVICES
+
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call(domain, service)) is forbidden
+    assert printed is (not forbidden) or domain == "shell_command"
+
+
+@pytest.mark.parametrize("role_admin", [False, True])
+def test_every_printed_forbidden_entry_is_enforced_and_vice_versa(role_admin: bool) -> None:
+    identity = IdentityConfig(
+        forbidden_commands={
+            "user": ForbiddenCommandPatch(
+                add=frozenset(
+                    {
+                        "ha.call_service:lock.*",
+                    }
+                ),
+                remove=frozenset(),
+            ),
+            "admin": ForbiddenCommandPatch(
+                add=frozenset(
+                    {
+                        "ha.call_service:lock.*",
+                    }
+                ),
+                remove=frozenset(),
+            ),
+        }
+    )
+    authz = resolve_turn_authz(identity, Actor("a", is_admin=role_admin))
+
+    for entry in authz.forbidden:
+        assert f"  - {entry}" in authz.disclaimer
+        if entry.startswith("ha.call_service:"):
+            glob = entry.split(":", 1)[1]
+            sample = _call("lock", "unlock") if glob != "*" else _call("cover", "open_cover")
+            if glob.startswith("shell_command"):
+                sample = _call("shell_command", "run")
+            elif glob.startswith("python_script"):
+                sample = _call("python_script", "run")
+            elif glob.startswith("command_line"):
+                sample = _call("command_line", "run")
+            elif glob == "homeassistant.stop":
+                sample = _call("homeassistant", "stop")
+            assert is_forbidden(authz.forbidden, "ha.call_service", sample)
+        else:
+            assert is_forbidden(authz.forbidden, entry, {})
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call("lock", "unlock"))
+
+
+def test_removing_wildcard_removes_rule_and_exception_text() -> None:
+    identity = IdentityConfig(
+        forbidden_commands={
+            "user": ForbiddenCommandPatch(
+                add=frozenset(),
+                remove=frozenset(
+                    {
+                        "ha.call_service:*",
+                    }
+                ),
+            )
+        }
+    )
+    authz = resolve_turn_authz(identity, Actor("kid", is_admin=False))
+
+    assert "ha.call_service:*" not in authz.forbidden
+    assert not is_forbidden(authz.forbidden, "ha.call_service", _call("switch", "turn_on"))
+
+
+def test_is_forbidden_wrappers_follow_service_entries_and_fail_closed() -> None:
+    wildcard = ("ha.call_service:*",)
+
+    assert not is_forbidden(wildcard, "ha.light_turn_on", {})
+    assert not is_forbidden(wildcard, "ha.light_turn_off", {})
+    assert is_forbidden(("ha.call_service:light.*",), "ha.light_turn_on", {})
+    assert is_forbidden(("ha.light_turn_on",), "ha.light_turn_on", {})
+    assert is_forbidden(wildcard, "ha.call_service", {"domain": "Light", "service": "turn_on"})
+    assert is_forbidden(wildcard, "ha.call_service", {"domain": 1})
+    assert not is_forbidden(("fs.write",), "ha.call_service", {"domain": 1})
+    assert not is_forbidden(wildcard, "ha.get_state", {})
+    assert service_for_command("ha.get_state", {}) is None

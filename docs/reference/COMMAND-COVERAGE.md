@@ -673,6 +673,7 @@ _(no unreleased command additions)_
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `ha.addon_changelog` {#row-ha-addon-changelog}
@@ -883,6 +884,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
@@ -1176,6 +1178,8 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::accepts equal aliases but rejects conflicts before any gateway or HA call` / `assist_wrapper` / `pass`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::denies representative privileged services through the real Assist and node path` / `assist_wrapper` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
@@ -3133,7 +3137,9 @@ _(no unreleased command additions)_
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_active_docs_schema_gate.py`
+  - `app/node/tests/test_authz.py`
   - `app/node/tests/test_chat_relay.py`
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-get-state-tool.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
@@ -3258,6 +3264,8 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
@@ -3334,6 +3342,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_authz.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
@@ -3799,6 +3808,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
@@ -4097,6 +4107,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_system_run_gateway_contract.py::test_subprocess_timeout_returns_timed_out_payload` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
   - `app/node/tests/test_system_run_gateway_contract.py`
