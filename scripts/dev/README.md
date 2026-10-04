@@ -158,6 +158,15 @@ variant, which defeats the purpose of pinning a verdict to a reviewer. There is
 no fallback sign-off: if the model cannot be resolved, the review is not
 published.
 
+The reviewer never discovers the model. `session_status` is not in the subagent
+tool surface, so a reviewer asked to self-identify cannot comply: it will either
+guess a family name or abort without posting, and both have happened. The
+spawning agent chose the model, so it already holds the answer. Substitute it
+into `<REVIEWER_MODEL>` in the brief at spawn time and the reviewer stamps that
+value verbatim. `sessions_spawn` also returns the resolved id as `resolvedModel`
+in its receipt before the review runs, which is the value to use when the
+requested and resolved models could differ.
+
 ---
 
 ### `apply-patch [patch-file]`
