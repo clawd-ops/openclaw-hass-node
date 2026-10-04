@@ -25,6 +25,7 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
 from openclaw_node.authz import actor_from_signed_body, resolve_turn_authz
+from openclaw_node.caller import Caller
 from openclaw_node.chat_relay import (
     ChatRelay,
     ChatRelayError,
@@ -38,6 +39,9 @@ from openclaw_node.pairing import PairingState
 from openclaw_node.token_store import rotate_local_api_token
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
+
+# The bearer token authenticates an operator; the body never supplies a caller.
+_HTTP_CALLER: Final[Caller] = Caller.operator("http-api")
 _JSON_HEADERS: Final[dict[str, str]] = {"Cache-Control": "no-store"}
 
 # Paths reachable without an Authorization header. They never return secret
@@ -297,7 +301,9 @@ async def command_ping(request: web.Request) -> web.Response:
         JSON pong payload.
     """
     params = await _json_body(request)
-    return web.json_response(await dispatch_async("ping", params), headers=_JSON_HEADERS)
+    return web.json_response(
+        await dispatch_async("ping", params, caller=_HTTP_CALLER), headers=_JSON_HEADERS
+    )
 
 
 async def command_dispatch(request: web.Request) -> web.Response:
@@ -325,7 +331,7 @@ async def command_dispatch(request: web.Request) -> web.Response:
         )
     params = await _json_body(request)
     try:
-        result = await dispatch_async(command, params)
+        result = await dispatch_async(command, params, caller=_HTTP_CALLER)
     except UnknownCommandError as exc:
         return web.json_response(
             {"ok": False, "error": "UNKNOWN_COMMAND", "command": exc.command},

@@ -50,18 +50,24 @@ def _refusal(code: str, message: str) -> dict[str, Any]:
 
 
 def check(caller: Caller, command: str, params: dict[str, Any]) -> dict[str, Any] | None:
-    """Return a refusal for this call, or ``None`` when it may proceed."""
+    """Return a refusal for this call, or ``None`` when it may proceed.
+
+    Deny-class services are refused ``SERVICE_DENIED`` for every caller (the
+    handler's documented code); ``PERMISSION_DENIED`` is a role-based refusal.
+    """
     operator = caller.role == "operator"
-    if not operator and is_forbidden(caller.forbidden, command, params):
-        return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
-    if command != "ha.call_service" and service_for_command(command, params) is None:
-        return None
     service = service_for_command(command, params)
     effect = classify(service)
-    if effect == "deny":
-        if operator and service is None:
+    if service is not None and effect == "deny":
+        return _refusal("SERVICE_DENIED", f"{command} denies {service}")
+    if not operator and is_forbidden(caller.forbidden, command, params):
+        return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
+    if command != "ha.call_service" and service is None:
+        return None
+    if service is None:
+        if operator:
             return None  # the handler reports its own validation error
-        return _refusal("PERMISSION_DENIED", f"service {service or 'is malformed'} is denied")
+        return _refusal("PERMISSION_DENIED", "service is malformed")
     if effect == "auto_allow":
         return None
     if operator:

@@ -11,6 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
+from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.exec_approvals import (
     handle_system_exec_approvals_get,
     handle_system_exec_approvals_set,
@@ -83,6 +84,7 @@ from openclaw_node.commands.ha_config_script import handle_ha_config_script
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
 from openclaw_node.commands.system_run import handle_system_run
+from openclaw_node.effect_policy import check
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -189,16 +191,19 @@ class UnknownCommandError(Exception):
         self.command = command
 
 
-def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
+def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED) -> dict[str, Any]:
     """Dispatch *command* to its handler and return the result payload.
 
     Args:
         command: The command name from the ``node.invoke.request`` event.
         params: The params dict from the invoke event payload.
+        caller: Principal making the call. Defaults to the untrusted household
+            user, so a call site that forgets it is restricted.
 
     Returns:
-        The raw result dict produced by the command handler.  This becomes
-        the ``payload`` field in the ``node.invoke.result`` request.
+        The raw result dict produced by the command handler, or the structured
+        refusal when the policy gate refuses the call (the handler never runs).
+        This becomes the ``payload`` field in the ``node.invoke.result`` request.
 
     Raises:
         UnknownCommandError: If *command* has no registered handler.
@@ -213,6 +218,11 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
         _LOG.warning("Received unknown command: %r", command)
         raise UnknownCommandError(command)
 
+    refusal = check(caller, command, params)
+    if refusal is not None:
+        _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
+        return refusal
+
     _LOG.debug("Dispatching command=%r params=%r", command, params)
     result = handler(params)
     if inspect.iscoroutine(result):
@@ -221,15 +231,20 @@ def dispatch(command: str, params: dict[str, Any]) -> dict[str, Any]:
     return result  # type: ignore[return-value]
 
 
-async def dispatch_async(command: str, params: dict[str, Any]) -> dict[str, Any]:
+async def dispatch_async(
+    command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED
+) -> dict[str, Any]:
     """Async-aware dispatch: awaits handlers that return a coroutine.
 
     Args:
         command: The command name from the ``node.invoke.request`` event.
         params: The params dict from the invoke event payload.
+        caller: Principal making the call. Defaults to the untrusted household
+            user, so a call site that forgets it is restricted.
 
     Returns:
-        The raw result dict produced by the command handler.
+        The raw result dict produced by the command handler, or the structured
+        refusal when the policy gate refuses the call (the handler never runs).
 
     Raises:
         UnknownCommandError: If *command* has no registered handler.
@@ -238,6 +253,11 @@ async def dispatch_async(command: str, params: dict[str, Any]) -> dict[str, Any]
     if handler is None:
         _LOG.warning("Received unknown command: %r", command)
         raise UnknownCommandError(command)
+
+    refusal = check(caller, command, params)
+    if refusal is not None:
+        _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
+        return refusal
 
     _LOG.debug("Dispatching (async) command=%r params=%r", command, params)
     result = handler(params)

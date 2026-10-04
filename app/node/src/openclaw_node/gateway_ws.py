@@ -42,6 +42,7 @@ import websockets
 import websockets.asyncio.client
 
 from openclaw_node import __version__
+from openclaw_node.caller import Caller
 from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.commands.dispatcher import UnknownCommandError, dispatch_async
 from openclaw_node.config import NodeConfig
@@ -52,6 +53,9 @@ if TYPE_CHECKING:
     from openclaw_node.http_api import NodeRuntime
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
+
+# Every gateway invoke is operator until WP2c-2 carries the Assist principal.
+_INVOKE_CALLER: Final[Caller] = Caller.operator("gateway-invoke")
 
 
 def _log_background_task_error(task: asyncio.Task[Any]) -> None:
@@ -1193,7 +1197,7 @@ class GatewayClient:
             await ws.send(json.dumps(resp))
             return
         try:
-            result = await dispatch_async(command, params)
+            result = await dispatch_async(command, params, caller=_INVOKE_CALLER)
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
             succeeded = result.get("ok", True) is True
             response: dict[str, Any] = {**base, "ok": succeeded, "payload": result}

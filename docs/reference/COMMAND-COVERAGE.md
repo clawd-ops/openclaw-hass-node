@@ -884,6 +884,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
@@ -1179,6 +1180,7 @@ _(no unreleased command additions)_
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::denies representative privileged services through the real Assist and node path` / `assist_wrapper` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts`
@@ -3325,6 +3327,7 @@ _(no unreleased command additions)_
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
@@ -3403,6 +3406,7 @@ _(no unreleased command additions)_
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
@@ -3904,6 +3908,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
@@ -4203,6 +4208,7 @@ _(no unreleased command additions)_
   - `app/node/tests/test_system_run_gateway_contract.py::test_subprocess_timeout_returns_timed_out_payload` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
