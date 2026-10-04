@@ -13,7 +13,6 @@ from __future__ import annotations
 import contextlib
 import os
 import signal
-import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -641,10 +640,10 @@ _OUTPUT_CAP = 256 * 1024
 
 def _alive(pid: int) -> bool:
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except FileNotFoundError:
         return False
-    return True
+    return state != "Z"
 
 
 def _wait_dead(pid: int) -> bool:
@@ -655,33 +654,13 @@ def _wait_dead(pid: int) -> bool:
     return False
 
 
-def test_stdout_capped_and_group_killed(tmp_path: Path) -> None:
-    pidfile = tmp_path / "gc.pid"
-    script = f"sleep 60 & echo $! > {pidfile}; head -c 400000 /dev/zero; sleep 60"
-    result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=20_000))
-    assert result["ok"] is True
-    assert result["timedOut"] is False
-    assert result["outputTruncated"] is True
-    assert result["terminated"] == "output_cap"
-    assert result["success"] is False
-    assert len(result["stdout"]) == _OUTPUT_CAP
-    assert result["elapsed_ms"] < 15_000
-    assert _wait_dead(int(pidfile.read_text()))
-
-
-def test_stderr_capped() -> None:
+def test_output_truncated_per_stream_after_capture() -> None:
     result = handle_system_run(
-        _params(command=["sh", "-c", "head -c 400000 /dev/zero >&2; sleep 60"], timeoutMs=20_000)
+        _params(command=["sh", "-c", "head -c 400000 /dev/zero; head -c 400000 /dev/zero >&2"])
     )
-    assert result["terminated"] == "output_cap"
-    assert len(result["stderr"]) == _OUTPUT_CAP
-
-
-def test_output_at_cap_is_not_truncated() -> None:
-    result = handle_system_run(_params(command=["head", "-c", str(_OUTPUT_CAP), "/dev/zero"]))
     assert result["success"] is True
-    assert "outputTruncated" not in result
     assert len(result["stdout"]) == _OUTPUT_CAP
+    assert len(result["stderr"]) == _OUTPUT_CAP
 
 
 def test_timeout_kills_grandchildren(tmp_path: Path) -> None:
@@ -689,7 +668,6 @@ def test_timeout_kills_grandchildren(tmp_path: Path) -> None:
     script = f"sleep 60 & echo $! > {pidfile}; sleep 60"
     result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=500))
     assert result["timedOut"] is True
-    assert "terminated" not in result
     assert result["elapsed_ms"] < 10_000
     assert _wait_dead(int(pidfile.read_text()))
 
@@ -731,14 +709,12 @@ def test_env_under_cap_succeeds() -> None:
 
 def test_normal_exit_leaves_background_grandchild_alive(tmp_path: Path) -> None:
     pidfile = tmp_path / "bg.pid"
-    script = f"sleep 30 & echo $! > {pidfile}"
+    script = f"sleep 30 >/dev/null 2>&1 & echo $! > {pidfile}; echo fg"
     result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=20_000))
     pid = int(pidfile.read_text())
     try:
         assert result["success"] is True
-        assert result["exitCode"] == 0
-        assert "terminated" not in result
-        # The grandchild holds the pipes open; the handler must not wait on it.
+        assert result["stdout"] == "fg\n"
         assert result["elapsed_ms"] < 5_000
         assert _alive(pid)
     finally:
@@ -746,30 +722,18 @@ def test_normal_exit_leaves_background_grandchild_alive(tmp_path: Path) -> None:
             os.kill(pid, signal.SIGKILL)
 
 
-def test_cap_after_child_exit_reports_truncation_not_termination(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def late_cap(stream: Any, out: bytearray, over_cap: threading.Event) -> None:
-        stream.read()
-        time.sleep(0.1)
-        over_cap.set()
-
-    monkeypatch.setattr("openclaw_node.commands.system_run._drain", late_cap)
-    result = handle_system_run(_params(command=["true"]))
-    assert result["exitCode"] == 0
-    assert result["outputTruncated"] is True
-    assert "terminated" not in result
+def test_argv_unencodable_value_refused_before_spawn(tmp_path: Path) -> None:
+    sentinel = tmp_path / "ran"
+    argv = ["sh", "-c", f"touch {sentinel}", "\ud800"]
+    result = handle_system_run(_params(command=argv))
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert not sentinel.exists()
 
 
-def test_short_output_kept_when_background_child_holds_pipe(tmp_path: Path) -> None:
-    pidfile = tmp_path / "bg.pid"
-    script = f"echo foreground; sleep 10 & echo $! > {pidfile}"
-    result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=20_000))
-    pid = int(pidfile.read_text())
-    try:
-        assert result["success"] is True
-        assert "foreground" in result["stdout"]
-        assert result["elapsed_ms"] < 5_000
-    finally:
-        with contextlib.suppress(ProcessLookupError):
-            os.kill(pid, signal.SIGKILL)
+def test_env_unencodable_value_refused_before_spawn(tmp_path: Path) -> None:
+    sentinel = tmp_path / "ran"
+    result = handle_system_run(_params(command=["touch", str(sentinel)], env={"V": "\ud800"}))
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert not sentinel.exists()

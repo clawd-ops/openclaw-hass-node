@@ -51,7 +51,6 @@ import logging
 import os
 import signal
 import subprocess
-import threading
 import time
 from typing import Any, Final
 
@@ -69,9 +68,6 @@ _DEFAULT_MAX_TIMEOUT_MS: Final[int] = 60_000
 _MAX_OUTPUT_BYTES: Final[int] = 256 * 1024  # 256 KiB per stream
 _MAX_ARGV_BYTES: Final[int] = 128 * 1024  # total argv bytes, NUL-terminated
 _MAX_ENV_BYTES: Final[int] = 128 * 1024  # merged env, KEY=VALUE NUL-terminated
-_READ_CHUNK: Final[int] = 64 * 1024
-_POLL_S: Final[float] = 0.01
-_READER_GRACE_S: Final[float] = 0.25
 
 _SAFE_ENV_KEYS: Final[frozenset[str]] = frozenset(
     ["PATH", "HOME", "LANG", "TZ", "USER", "TERM", "LOGNAME"]
@@ -114,23 +110,16 @@ def _merge_env(caller_env: dict[str, str]) -> dict[str, str] | None:
 
 
 def _encoded_size(items: list[str]) -> int:
-    return sum(len(item.encode(errors="surrogateescape")) + 1 for item in items)
+    return sum(len(item.encode()) + 1 for item in items)
 
 
-def _drain(stream: Any, out: bytearray, over_cap: threading.Event) -> None:
-    """Read ``stream`` into ``out``, flagging ``over_cap`` past the byte cap.
-
-    ``os.read`` returns whatever is available, so short output is captured
-    even while a background descendant keeps the pipe open (a buffered
-    ``stream.read(n)`` would wait for ``n`` bytes or EOF).
-    """
-    fd = stream.fileno()
-    while chunk := os.read(fd, _READ_CHUNK):
-        room = _MAX_OUTPUT_BYTES - len(out)
-        out += chunk[:room]
-        if len(chunk) > room:
-            over_cap.set()
-            return
+def _is_utf8_encodable(items: list[str]) -> bool:
+    try:
+        for item in items:
+            item.encode()
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
@@ -365,6 +354,8 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     if raw_env is not None:
         caller_env = dict(raw_env)
 
+    if not _is_utf8_encodable(argv):
+        return _error("INVALID_PARAM", "command contains a value that cannot be UTF-8 encoded")
     if _encoded_size(argv) > _MAX_ARGV_BYTES:
         return _error("ARGV_TOO_LARGE", f"command exceeds {_MAX_ARGV_BYTES} total argv bytes")
 
@@ -376,7 +367,10 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "(TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, PWD)",
         )
 
-    if _encoded_size([f"{k}={v}" for k, v in merged_env.items()]) > _MAX_ENV_BYTES:
+    env_items = [f"{k}={v}" for k, v in merged_env.items()]
+    if not _is_utf8_encodable(env_items):
+        return _error("INVALID_PARAM", "env contains a value that cannot be UTF-8 encoded")
+    if _encoded_size(env_items) > _MAX_ENV_BYTES:
         return _error("ENV_TOO_LARGE", f"env exceeds {_MAX_ENV_BYTES} total bytes")
 
     timeout_ms, timeout_error = _resolve_timeout_ms(params)
@@ -409,43 +403,16 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     except OSError as exc:
         return _error("EXEC_ERROR", f"Execution failed: {exc}")
 
-    assert proc.stdout is not None
-    assert proc.stderr is not None
-    out, err = bytearray(), bytearray()
-    over_cap = threading.Event()
-    readers = [
-        threading.Thread(target=_drain, args=(proc.stdout, out, over_cap), daemon=True),
-        threading.Thread(target=_drain, args=(proc.stderr, err, over_cap), daemon=True),
-    ]
-    for reader in readers:
-        reader.start()
-
-    deadline = t0 + timeout_s
     timed_out = False
-    while proc.poll() is None and not over_cap.is_set():
-        if time.monotonic() >= deadline:
-            timed_out = True
-            break
-        over_cap.wait(_POLL_S)
-    # Group termination is reserved for enforcement: a timeout, or the output
-    # cap tripping while the direct child is still running. A normal exit
-    # leaves any backgrounded grandchildren alone.
-    cap_killed = False
-    if timed_out:
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        # Kill the whole session so grandchildren do not outlive the timeout,
+        # then reap. A normal exit leaves backgrounded children alone.
         _kill_group(proc)
-    elif over_cap.is_set() and proc.poll() is None:
-        _kill_group(proc)
-        cap_killed = True
-    returncode = proc.wait()
-    # A surviving grandchild may hold the pipes open; bound the total wait.
-    join_deadline = time.monotonic() + _READER_GRACE_S
-    for reader in readers:
-        reader.join(max(0.0, join_deadline - time.monotonic()))
-    # Closing a stream a reader is still blocked on would block; leave it to
-    # the daemon reader, which ends when the last pipe holder exits.
-    for reader, stream in zip(readers, (proc.stdout, proc.stderr), strict=True):
-        if not reader.is_alive():
-            stream.close()
+        proc.communicate()
+    returncode = proc.returncode
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     if timed_out:
@@ -467,19 +434,12 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
         returncode,
         elapsed_ms,
     )
-    payload: dict[str, Any] = {
+    return {
         "ok": True,
         "success": returncode == 0,
         "exitCode": returncode,
         "timedOut": False,
-        "stdout": out.decode(errors="replace"),
-        "stderr": err.decode(errors="replace"),
+        "stdout": stdout[:_MAX_OUTPUT_BYTES].decode(errors="replace"),
+        "stderr": stderr[:_MAX_OUTPUT_BYTES].decode(errors="replace"),
         "elapsed_ms": elapsed_ms,
     }
-    if over_cap.is_set():
-        _LOG.warning("system.run output cap exceeded argv=%r", argv)
-        payload["success"] = False
-        payload["outputTruncated"] = True
-        if cap_killed:
-            payload["terminated"] = "output_cap"
-    return payload

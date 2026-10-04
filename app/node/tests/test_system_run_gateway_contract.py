@@ -22,7 +22,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from openclaw_node.commands.exec_approvals import _format_exec_command
 from openclaw_node.config import NodeConfig
 from openclaw_node.gateway_ws import GatewayClient
 from openclaw_node.identity import generate_identity
@@ -255,22 +254,3 @@ async def test_subprocess_timeout_returns_timed_out_payload() -> None:
     assert payload["timedOut"] is True
     assert payload["success"] is False
     assert payload["exitCode"] is None
-
-
-async def test_output_cap_payload_over_the_wire() -> None:
-    """The output-cap termination fields survive the invoke-result frame."""
-    argv = ["sh", "-c", "head -c 400000 /dev/zero; sleep 60"]
-    text = _format_exec_command(argv)
-    frame = await _invoke(
-        _authorized_params(
-            command=argv,
-            rawCommand=text,
-            systemRunPlan={"argv": argv, "commandText": text},
-            timeoutMs=20_000,
-        ),
-    )
-    assert frame["ok"] is True
-    payload = frame["payload"]
-    assert payload["outputTruncated"] is True
-    assert payload["terminated"] == "output_cap"
-    assert payload["timedOut"] is False

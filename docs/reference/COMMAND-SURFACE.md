@@ -76,6 +76,19 @@ in standalone mode). Path traversal and symlink escape are blocked by
 | `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. Same reachability contract as `system.execApprovals.get`. |
 | `system.which` | `binary`                            | Lookup only, basename-only |
 
+`system.run` bounds, all enforced before the process is spawned: the total
+`command` argv is limited to 128 KiB (each argument counted as its UTF-8 bytes
+plus a NUL terminator; refused with `ARGV_TOO_LARGE`), and the merged
+environment (node base environment plus caller `env`, counted as `KEY=VALUE`
+plus a NUL terminator) is limited to 128 KiB (refused with `ENV_TOO_LARGE`).
+An argv or env value that cannot be UTF-8 encoded (for example an unpaired
+surrogate) is refused with `INVALID_PARAM`. Captured output is truncated to
+256 KiB per stream (`stdout` and `stderr`) after the command finishes. When a
+command exceeds `timeoutMs`, the node kills its whole process group, so
+background descendants do not outlive the timeout, and returns the
+`timedOut` payload. A command that exits normally leaves any background
+descendants it started running.
+
 ### Advertised commands that are not reachable through `nodes.invoke`
 
 `system.run`, `system.execApprovals.get`, and `system.execApprovals.set` are
