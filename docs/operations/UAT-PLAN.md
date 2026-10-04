@@ -315,8 +315,12 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
 
 ### G8. `fs` history, restore, and diff by `version_id`.
 
-- Write a file, apply an `fs.patch`, then call `fs.history`. Expect an entry per
-  version, each with a `version_id`, and the patch recorded as an operation.
+- Write a new file in an allowed, unprotected root, then apply two successive
+  `fs.patch` calls that each change the content, then call `fs.history`. A
+  write to a file that does not yet exist captures no snapshot; each patch
+  captures the bytes it replaces. Expect two entries with distinct `version_id`
+  values (the written bytes, then the first patch's result), and each patch
+  recorded as an operation.
 - `fs.diff` between two `version_id` values, then `fs.diff` from one
   `version_id` against live bytes. Expect the expected changes.
 - `fs.restore` by `version_id`. Expect the file to equal the chosen version.
