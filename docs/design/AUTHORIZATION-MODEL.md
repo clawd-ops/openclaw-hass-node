@@ -439,6 +439,48 @@ Consequences:
 - Content returned by tools, entities, web pages or memory is data, not
   instructions. The block says so, but this too is a prompt-level statement.
 
+## Native approvals for node mutations
+
+Prototype scope: `ha.config.automation` action `save`. Every other mutation still
+returns `PROPOSAL_REQUIRED`.
+
+Flow:
+
+1. The agent calls the core `nodes` tool (`action: "invoke"`, `invokeCommand`,
+   `invokeParamsJson`). The plugin's `before_tool_call` hook matches
+   `ha.config.automation` with inner action `save` and returns a
+   `requireApproval` request (`allow-once` or `deny`, ten-minute timeout) plus a
+   params override.
+2. OpenClaw asks the operator and applies the override only if the approval
+   succeeds. The override adds the reserved field `_openclaw_approval`:
+   `{id, exp, bind}`, where `id` is a random UUID, `exp` is epoch seconds (five
+   minutes ahead), and `bind` is the sha256 hex of the canonical JSON (sorted
+   keys, no whitespace, UTF-8) of `{command, action, params}` with reserved
+   fields removed. Denial and timeout never reach the node.
+3. The node strips the field and runs the save only if the marker is
+   well-formed, unexpired, bound to exactly this command, action and params, and
+   its id has not been used. Anything else is refused with `APPROVAL_INVALID`
+   and no HA request; a missing marker is `PROPOSAL_REQUIRED` as before. Used ids
+   are kept in memory until they expire.
+
+On every `nodes` invoke the hook also strips any marker the model supplied.
+
+The requester never approves its own call. Where approval prompts are delivered
+is gateway configuration (`approvals.plugin`) and belongs to the operator; this
+repository does not change it. The digest is implemented identically in
+TypeScript and Python and checked against one shared fixture
+(`contracts/approval-bind-fixture.json`).
+
+**Known gap.** The marker is not a secret. An operator-level caller that skips
+the tool hook, for example a shell `openclaw nodes invoke`, can compute a valid
+marker itself. This is the same trust model as
+[#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275): operator
+access is not defended against here.
+
+Future work: (A) a shared secret kept in a protected store so only the gateway
+can mint markers; (B) an out-of-band approval code delivered by a Home Assistant
+actionable notification.
+
 ## Open validation
 
 The gateway approval APIs are confirmed to exist and to be in live production

@@ -120,7 +120,8 @@ def test_fixture_inventory_matches_handlers() -> None:
         for action, params in actions.items():
             # The helpers item id key is named after the helper type, added at call time.
             fixed = {k for k in params if k != "input_boolean_id"}
-            assert {"action", *fixed} == module._ACTION_KEYS[action]
+            reserved = {"_openclaw_approval"}  # approval marker, not a caller-visible param
+            assert {"action", *fixed} == module._ACTION_KEYS[action] - reserved
             assert (action in MUTATING.get(domain, set())) == (
                 action not in {"get", "list", "dashboards_list", "resources_list"}
             )

@@ -63,7 +63,8 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 20. Native approval-gated write path
 - Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; native OpenClaw
-  plugin approvals are not yet wired to structured HA and filesystem mutations.
+  plugin approvals are wired only to the `ha.config.automation` `save`
+  prototype. Extend to the other mutations after the prototype is reviewed.
 - Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `fs.restore`,
   `ha.config.*`, and effect-policy-gated HA service calls.
 - Goal: consume a Gateway-authenticated, exact-operation-bound, expiring,

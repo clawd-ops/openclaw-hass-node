@@ -4365,6 +4365,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
+            "null",
             "required-or-validated-before-access"
           ],
           "name": "proposal_id",
@@ -4804,7 +4805,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -4815,7 +4816,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED) until a trusted approval verifier exists; with a valid native approval marker the save runs once.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -8464,6 +8465,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
       ]
     },
@@ -8613,6 +8615,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
       ]
     },
@@ -8739,6 +8742,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
       ]
     },
@@ -8912,6 +8916,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
       ]
     },

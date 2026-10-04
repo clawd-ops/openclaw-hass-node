@@ -1,0 +1,77 @@
+{
+  "comment": "Shared cross-language fixture: sha256 hex of canonical JSON (sorted keys, no whitespace, UTF-8) of {command, action, params} with reserved fields (_openclaw_approval, _openclaw_caller) removed from params. Read by the Python node tests and the TypeScript plugin tests.",
+  "cases": [
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "morning",
+        "config": {
+          "alias": "Morning",
+          "trigger": [
+            {
+              "platform": "time",
+              "at": "07:00:00"
+            }
+          ],
+          "mode": "single"
+        }
+      },
+      "bind": "c224dc67c524739fec2428d5e5c1f4e71fe49a0019f1faa60f1e2cb8fc498a09"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "config": {
+          "z": 1,
+          "a": [
+            1,
+            2,
+            {
+              "b": null,
+              "a": true
+            }
+          ],
+          "n": 0.5
+        },
+        "id": "x_1",
+        "action": "save"
+      },
+      "bind": "18c8982a16c36d1d3ef659330762a6175a66706ac20924f70f045905f6c42276"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "u",
+        "config": {
+          "alias": "Café ☃ \"quoted\" \\ slash"
+        }
+      },
+      "bind": "70b0ffeb05aeea7e48164c62c8e33e875f4b0bf49fd4dc1e822480a2131500b4"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "morning",
+        "config": {
+          "alias": "Morning"
+        },
+        "_openclaw_approval": {
+          "id": "i",
+          "exp": 1,
+          "bind": "b"
+        },
+        "_openclaw_caller": {
+          "sessionKey": "s"
+        }
+      },
+      "bind": "a99787d648949a8bd59e12f86eb00a61aae6cd8dd769d432349e6d9b8045a469"
+    }
+  ]
+}

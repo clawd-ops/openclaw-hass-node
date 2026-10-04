@@ -1512,7 +1512,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null", "required-or-validated-before-access"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1617,7 +1617,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, id, config, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED) until a trusted approval verifier exists; with a valid native approval marker the save runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1646,7 +1646,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2790,6 +2790,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.scene#delete` {#row-ha-config-scene-delete}
@@ -2835,6 +2836,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.scene#get` {#row-ha-config-scene-get}
@@ -2873,6 +2875,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.scene#save` {#row-ha-config-scene-save}
@@ -2924,6 +2927,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.script` {#row-ha-config-script}

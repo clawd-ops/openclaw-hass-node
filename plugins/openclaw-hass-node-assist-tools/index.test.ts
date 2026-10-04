@@ -15,6 +15,7 @@ describe("plugin entrypoint registration", () => {
   it("registers every executable Assist contract row and its invoke policy", () => {
     const registerTool = vi.fn();
     const registerNodeInvokePolicy = vi.fn();
+    const on = vi.fn();
     const plugin = entry as unknown as {
       register(api: {
         registerTool: typeof registerTool;
@@ -22,7 +23,10 @@ describe("plugin entrypoint registration", () => {
       }): void;
     };
 
-    plugin.register({ registerTool, registerNodeInvokePolicy });
+    plugin.register({ registerTool, registerNodeInvokePolicy, on } as never);
+    expect(on).toHaveBeenCalledWith("before_tool_call", expect.any(Function), {
+      matcher: ["nodes"],
+    });
 
     expect(registerTool).toHaveBeenCalledTimes(assistCommandContract.registrations.length);
     expect(registerTool.mock.calls.map(([, opts]) => opts.name)).toEqual(
@@ -55,6 +59,7 @@ describe("plugin entrypoint registration", () => {
     (entry as unknown as { register(api: unknown): void }).register({
       registerTool,
       registerNodeInvokePolicy: vi.fn(),
+      on: vi.fn(),
     });
     spy.mockRestore();
 

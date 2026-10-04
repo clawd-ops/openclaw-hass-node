@@ -251,8 +251,9 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
     fail-closed in this source revision: every mutation returns
-    `PROPOSAL_REQUIRED` without an HA request. A caller-supplied proposal ID
-    cannot authorize it; the trusted verifier and human round-trip are absent.
+    `PROPOSAL_REQUIRED` without an HA request, except `ha.config.automation`
+    `save` (prototype), which runs only with a native OpenClaw approval marker.
+    A caller-supplied proposal ID cannot authorize anything.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
   - `system.*` (5): `system.run` (bound in #258 to the Gateway-forwarded
@@ -291,9 +292,10 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
 
 Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
 
-- **Protected filesystem and all native config mutations are unavailable** with
-  `PROPOSAL_REQUIRED` in this source revision; native plugin approvals are not
-  yet wired to those protected mutations. See TODO item #20 and
+- **Protected filesystem and native config mutations are unavailable** with
+  `PROPOSAL_REQUIRED` in this source revision; native plugin approvals are wired
+  only to the `ha.config.automation` `save` prototype, which an operator-level
+  caller bypassing the tool hook can forge (see the authorization model). See TODO item #20 and
   [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289).
 - **Assist-principal propagation** follows the selected D4 default: one agent
   plus a soft prompt-level block, with a separate agent configurable per user.

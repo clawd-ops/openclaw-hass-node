@@ -1463,7 +1463,7 @@
         },
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
-          "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+          "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED) until a trusted approval verifier exists; with a valid native approval marker the save runs once.",
           "evidence_method": "TEST-PROVEN",
           "parameters": [
             "action",
