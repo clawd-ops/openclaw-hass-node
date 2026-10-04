@@ -9,15 +9,27 @@ import {
   definePluginEntry,
   type AnyAgentTool,
 } from "openclaw/plugin-sdk/plugin-entry";
+import { runWithCallerContext } from "./src/shared/caller-context.js";
 import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.js";
 import {
   resolvedAssistCommandRegistrations,
   type AssistToolDescriptor,
 } from "./src/tools/assist-command-registration.js";
 
+// The bundled SDK stub in types/ predates per-run factory registration; the
+// real host accepts `registerTool(factory, { name })` and passes the run's
+// tool context (`sessionKey?: string`) to the factory.
+type ToolFactoryApi = {
+  registerTool(
+    factory: (toolContext: { sessionKey?: string }) => AnyAgentTool,
+    opts: { name: string },
+  ): void;
+};
+
 function createLazyTool(
   descriptor: AssistToolDescriptor,
   loadTool: () => Promise<AnyAgentTool>,
+  sessionKey: unknown,
 ): AnyAgentTool {
   let toolPromise: Promise<AnyAgentTool> | undefined;
   const loadOnce = () => {
@@ -28,7 +40,11 @@ function createLazyTool(
     ...descriptor,
     async execute(toolCallId, args, signal, onUpdate) {
       const tool = await loadOnce();
-      return await tool.execute(toolCallId, args, signal, onUpdate);
+      // The host session key for this run reaches invokeHaCommand through the
+      // async caller context (lookup hint only, never identity).
+      return await runWithCallerContext(sessionKey, () =>
+        tool.execute(toolCallId, args, signal, onUpdate),
+      );
     },
   };
 }
@@ -41,7 +57,11 @@ export default definePluginEntry({
   register(api) {
     api.registerNodeInvokePolicy(createLazyAssistToolsNodeInvokePolicy());
     for (const registration of resolvedAssistCommandRegistrations()) {
-      api.registerTool(createLazyTool(registration.descriptor, registration.loadTool));
+      (api as unknown as ToolFactoryApi).registerTool(
+        (toolContext) =>
+          createLazyTool(registration.descriptor, registration.loadTool, toolContext?.sessionKey),
+        { name: registration.descriptor.name },
+      );
     }
   },
 });
