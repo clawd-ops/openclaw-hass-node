@@ -1378,14 +1378,13 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
 
     fs_diff = rows_by_id["fs.diff"]
     assert fs_diff["evidence_method"] == "PRODUCTION-LIVE"
-    assert fs_diff["outcome"] == "partial"
+    assert fs_diff["outcome"] == "pass"
     diff_evidence = [
         item
         for item in fs_diff["callers"]["direct_nodes_invoke"]["evidence"]
         if item.get("method") == "PRODUCTION-LIVE"
     ]
-    assert diff_evidence
-    assert all(item["outcome"] == "partial" for item in diff_evidence)
+    assert sorted(item["outcome"] for item in diff_evidence) == ["partial", "pass"]
     assert all(item.get("stale") is False for item in diff_evidence)
 
     for row_id, expected_outcome in (
