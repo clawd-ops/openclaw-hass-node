@@ -10,7 +10,7 @@ the call-site caller constant.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -22,6 +22,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from openclaw_node import gateway_ws
 from openclaw_node.caller import UNTRUSTED
+from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.config import NodeConfig
 from openclaw_node.gateway_ws import GatewayClient
 from openclaw_node.http_api import NodeRuntime, create_app
@@ -75,6 +76,31 @@ async def _invoke(tmp_path: Path, command: str, params: dict[str, Any]) -> dict[
     return sent
 
 
+async def _invoke_via_event_loop(
+    tmp_path: Path, command: str, params: dict[str, Any]
+) -> dict[str, Any]:
+    """Feed a real ``node.invoke.request`` frame through ``_event_loop``."""
+    client = GatewayClient(config=_config(tmp_path), identity=generate_identity(), device_token="")
+    ws = AsyncMock()
+    ws.send = AsyncMock()
+    frame = json.dumps(
+        {
+            "type": "event",
+            "event": "node.invoke.request",
+            "payload": {"id": "inv", "command": command, "paramsJSON": json.dumps(params)},
+        }
+    )
+
+    async def _frames() -> AsyncIterator[str]:
+        yield frame
+
+    ws.__aiter__ = lambda self: _frames().__aiter__()
+    await client._event_loop(ws, ChatRelay(AsyncMock()))
+    ws.send.assert_called_once()
+    sent: dict[str, Any] = json.loads(ws.send.call_args.args[0])["params"]
+    return sent
+
+
 @pytest.fixture
 def household_user(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(gateway_ws, "_INVOKE_CALLER", UNTRUSTED)
@@ -122,7 +148,8 @@ async def test_ws_household_user_light_reaches_ha(
 ) -> None:
     sent = await _invoke(tmp_path, command, params)
     assert sent["ok"] is True
-    assert len(ha_requests) == 1
+    assert ha_requests[0].startswith("POST /api/services/light/turn_")
+    assert not any("/api/services/" in r for r in ha_requests[1:])
 
 
 async def test_ws_operator_denied_service_refused_with_zero_ha_requests(
@@ -142,6 +169,29 @@ async def test_ws_operator_keeps_non_denied_calls_until_wp2c2(
     sent = await _invoke(tmp_path, "ha.call_service", {"domain": "lock", "service": "unlock"})
     assert sent["ok"] is True
     assert len(ha_requests) == 1
+
+
+async def test_event_loop_frame_denied_service_refused_with_zero_ha_requests(
+    ha_requests: list[str], tmp_path: Path
+) -> None:
+    sent = await _invoke_via_event_loop(
+        tmp_path, "ha.call_service", {"domain": "shell_command", "service": "anything"}
+    )
+    assert sent["ok"] is False
+    assert sent["error"]["code"] == "SERVICE_DENIED"
+    assert ha_requests == []
+
+
+async def test_event_loop_frame_household_user_refused_with_zero_ha_requests(
+    household_user: None, ha_requests: list[str], tmp_path: Path
+) -> None:
+    """Role refusal through real ingress; the caller constant is swapped until WP2c-2."""
+    sent = await _invoke_via_event_loop(
+        tmp_path, "ha.call_service", {"domain": "lock", "service": "unlock"}
+    )
+    assert sent["ok"] is False
+    assert sent["error"]["code"] == "PERMISSION_DENIED"
+    assert ha_requests == []
 
 
 @pytest_asyncio.fixture
