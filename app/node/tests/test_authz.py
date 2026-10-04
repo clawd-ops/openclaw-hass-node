@@ -44,7 +44,7 @@ def test_derive_actor_signing_secret_uses_local_api_token() -> None:
 
 def test_actor_from_signed_body_accepts_derived_token_signature() -> None:
     ts = int(time.time())
-    actor = Actor("rob", is_admin=True)
+    actor = Actor("admin1", is_admin=True)
     signature = sign_actor(
         derive_actor_signing_secret("local-token"),
         actor=actor,
@@ -59,7 +59,7 @@ def test_actor_from_signed_body_accepts_derived_token_signature() -> None:
             "text": "restart addon",
             "conversation_id": "conv-1",
             "language": "en",
-            "actor": {"user_id": "rob", "is_admin": True},
+            "actor": {"user_id": "admin1", "is_admin": True},
             "actor_ts": ts,
             "actor_signature": signature,
         },
@@ -76,7 +76,7 @@ def test_actor_from_signed_body_rejects_unsigned_or_bad_signatures(
         "text": "restart addon",
         "conversation_id": "conv-1",
         "language": "en",
-        "actor": {"user_id": "rob", "is_admin": True},
+        "actor": {"user_id": "admin1", "is_admin": True},
     }
 
     with caplog.at_level(logging.WARNING):
@@ -110,10 +110,10 @@ def test_resolve_user_role_generates_forbidden_disclaimer() -> None:
 
 
 def test_resolve_admin_and_super_admin_roles() -> None:
-    identity = IdentityConfig(super_admins=frozenset({"rob"}))
+    identity = IdentityConfig(super_admins=frozenset({"admin1"}))
 
-    admin = resolve_turn_authz(identity, Actor("ash", is_admin=True))
-    super_admin = resolve_turn_authz(identity, Actor("rob", is_admin=True))
+    admin = resolve_turn_authz(identity, Actor("user1", is_admin=True))
+    super_admin = resolve_turn_authz(identity, Actor("admin1", is_admin=True))
 
     assert admin.role == "admin"
     assert "system.run" in admin.forbidden
@@ -128,11 +128,11 @@ def test_resolve_non_admin_actor_is_user() -> None:
 
 def test_user_agent_map_wins_over_default() -> None:
     identity = IdentityConfig(
-        user_agent_map={"ash": "my-agent-household"},
+        user_agent_map={"user1": "my-agent-household"},
         default_agent_id="my-agent",
     )
 
-    authz = resolve_turn_authz(identity, Actor("ash", is_admin=True))
+    authz = resolve_turn_authz(identity, Actor("user1", is_admin=True))
 
     assert authz.agent_id == "my-agent-household"
 
@@ -156,7 +156,7 @@ def test_log_agent_inventory_reports_misconfig(caplog: LogCaptureFixture) -> Non
     from openclaw_node.authz import log_agent_inventory
 
     identity = IdentityConfig(
-        user_agent_map={"ash": "missing-agent"},
+        user_agent_map={"user1": "missing-agent"},
         default_agent_id="bad-default",
     )
 
@@ -173,7 +173,7 @@ def test_log_agent_inventory_accepts_valid_mapping(caplog: LogCaptureFixture) ->
     from openclaw_node.authz import log_agent_inventory
 
     identity = IdentityConfig(
-        user_agent_map={"ash": "my-agent-household"},
+        user_agent_map={"user1": "my-agent-household"},
         default_agent_id="my-agent",
     )
 
@@ -181,7 +181,7 @@ def test_log_agent_inventory_accepts_valid_mapping(caplog: LogCaptureFixture) ->
         log_agent_inventory(identity, ("my-agent", "my-agent-household"))
 
     text = caplog.text
-    assert "user_agent_map[ash] -> my-agent-household" in text
+    assert "user_agent_map[user1] -> my-agent-household" in text
     assert "no such agent" not in text
 
 
@@ -315,8 +315,8 @@ def test_mapped_user_resolves_an_agent_on_the_broken_topology() -> None:
     """The claim above, asserted against the resolver rather than the prose."""
     from openclaw_node.authz import Actor, resolve_agent_id
 
-    identity = IdentityConfig(user_agent_map={"ash": "household"}, default_agent_id="")
-    assert resolve_agent_id(identity, Actor("ash", is_admin=False)) == "household"
+    identity = IdentityConfig(user_agent_map={"user1": "household"}, default_agent_id="")
+    assert resolve_agent_id(identity, Actor("user1", is_admin=False)) == "household"
     assert resolve_agent_id(identity, Actor("nobody", is_admin=False)) == ""
     assert resolve_agent_id(identity, None) == ""
 
