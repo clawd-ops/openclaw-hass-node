@@ -66,6 +66,10 @@ _MAX_INVOKE_RESULT_BYTES: Final[int] = 24 * 1024 * 1024
 # Every gateway invoke is operator until WP2c-2 carries the Assist principal.
 _INVOKE_CALLER: Final[Caller] = Caller.operator("gateway-invoke")
 
+# Reserved node.invoke param set by the plugin wrappers (WP2c-1). A lookup hint
+# naming an Assist session, never an identity claim; always stripped here.
+_CALLER_PARAM: Final[str] = "_openclaw_caller"
+
 
 def _log_background_task_error(task: asyncio.Task[Any]) -> None:
     """Log unexpected failures from best-effort startup diagnostics."""
@@ -304,6 +308,34 @@ def _decode_invoke_params(payload: dict[str, Any]) -> dict[str, Any]:
         )
     _check_params_shape(decoded)
     return dict(decoded)
+
+
+class CallerRefusedError(Exception):
+    """The reserved caller hint was malformed or names no active Assist turn."""
+
+    def __init__(self, code: str, message: str) -> None:
+        """Carry the gateway error ``code`` and ``message`` to report."""
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+def _pop_caller_hint(params: dict[str, Any]) -> str | None:
+    """Remove the reserved caller field from ``params`` and return its session key.
+
+    Returns ``None`` when the field is absent. Handlers never see the field.
+
+    Raises:
+        CallerRefusedError: When the field is present but is not an object
+            carrying a non-empty string ``sessionKey``.
+    """
+    if _CALLER_PARAM not in params:
+        return None
+    hint = params.pop(_CALLER_PARAM)
+    session_key = hint.get("sessionKey") if isinstance(hint, dict) else None
+    if not isinstance(session_key, str) or not session_key.strip():
+        raise CallerRefusedError("INVALID_PARAMS", "Malformed invoke params")
+    return session_key
 
 
 def _make_req(method: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -1246,7 +1278,17 @@ class GatewayClient:
             await self._send_invoke_result(ws, resp, base)
             return
         try:
-            result = await dispatch_async(command, params, caller=_INVOKE_CALLER)
+            caller = self._resolve_invoke_caller(params)
+        except CallerRefusedError as exc:
+            _LOG.warning("invoke ◀ %s %s id=%s", command, exc.code, invoke_id[:8])
+            resp = _make_req(
+                "node.invoke.result",
+                {**base, "ok": False, "error": {"code": exc.code, "message": exc.message}},
+            )
+            await ws.send(json.dumps(resp))
+            return
+        try:
+            result = await dispatch_async(command, params, caller=caller)
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
             succeeded = result.get("ok", True) is True
             response: dict[str, Any] = {**base, "ok": succeeded, "payload": result}
@@ -1331,6 +1373,22 @@ class GatewayClient:
                 )
             )
         await ws.send(encoded)
+
+    def _resolve_invoke_caller(self, params: dict[str, Any]) -> Caller:
+        """Strip the reserved hint from ``params`` and resolve the invoking principal.
+
+        Absent hint: operator (direct ``node.invoke`` stays operator-default).
+        Present hint: only an in-flight Assist turn in the node-owned relay
+        registry yields a caller; anything else is refused before dispatch.
+        """
+        session_key = _pop_caller_hint(params)
+        if session_key is None:
+            return _INVOKE_CALLER
+        relay = self._runtime.chat_relay if self._runtime is not None else None
+        caller = relay.active_caller(session_key) if relay is not None else None
+        if caller is None:
+            raise CallerRefusedError("PERMISSION_DENIED", "No active Assist turn for caller")
+        return caller
 
     def _notify_pairing_state(self) -> None:
         """Notify the optional callback of the current pairing state."""

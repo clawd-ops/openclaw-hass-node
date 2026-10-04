@@ -337,6 +337,24 @@ Two options exist, and the choice is the operator's:
 This document does not claim the cross-surface ceiling is solved. The gap is
 recorded so it is not mistaken for a delivered property.
 
+### Assist caller resolution and the host session key hint
+
+The plugin carries the host session key of the running turn in the reserved
+`_openclaw_caller` field of `node.invoke` params. The node pops that field
+before dispatch and uses it only as a lookup hint into its own registry of
+in-flight Assist turns; the role always comes from the registry entry, never
+from the field.
+
+The hint is not authenticated. A caller who can call `node.invoke` directly
+(operator level) could supply a guessed host session key and be resolved as
+whichever active turn owns it. This is an **accepted limitation for now**,
+tracked on [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275).
+It does not widen access beyond what operator-level callers already have:
+a direct `node.invoke` without the field is already an operator call.
+
+The default is one agent plus a prompt-level block, with a separate agent
+configurable per user (option 1 above).
+
 ## Implementation gap
 
 The gap is entirely within this repository.

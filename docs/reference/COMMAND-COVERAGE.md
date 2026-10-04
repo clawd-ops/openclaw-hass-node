@@ -1200,6 +1200,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts::denies representative privileged services through the real Assist and node path` / `assist_wrapper` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_caller_extraction.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_effect_policy.py`
@@ -3354,6 +3355,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_caller_extraction.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
@@ -3434,6 +3436,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
+  - `app/node/tests/test_caller_extraction.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
@@ -4344,4 +4347,5 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_caller_extraction.py`
   - `app/node/tests/test_gateway_ws.py`

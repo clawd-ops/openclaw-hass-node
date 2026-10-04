@@ -84,6 +84,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   propagation to the dispatcher is pending a design decision. The cross-surface
   ceiling choice is the operator's. Native approval consumption, operation
   binding, replay protection, and the protected write path do not exist.
+- Accepted limitation for now: the session-key caller hint is unauthenticated, so a
+  direct operator-level `node.invoke` caller could supply a guessed key. This does
+  not widen access beyond operator callers. Tracked on #275.
 - The Gateway remains the approval authority. Any add-on view is
   presentation-only and cannot maintain or resolve an independent approval
   lifecycle. Implementation is tracked in

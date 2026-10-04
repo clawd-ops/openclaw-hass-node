@@ -3638,3 +3638,97 @@ def test_remedy_defaults_to_absent() -> None:
     carries none and emits only its code.
     """
     assert ChatRelayError("INVALID_REQUEST", "malformed payload").remedy is None
+
+
+async def _start_turn_in_flight(
+    relay: ChatRelay,
+    sender: FakeSender,
+    conv_id: str,
+    *,
+    subscribe_key: str | None = None,
+    authz: Any = None,
+    first_frame: int = 0,
+) -> asyncio.Task[str]:
+    """Start a relay turn and answer create/subscribe so chat.send is awaiting its ack."""
+    turn = asyncio.create_task(relay.relay_turn(conv_id, "hi", authz=authz))
+    for index, payload in enumerate([None, {"key": subscribe_key} if subscribe_key else None]):
+        while len(sender.frames) <= first_frame + index:
+            await asyncio.sleep(0.001)
+        relay.handle_response(_ok_response(sender.frames[first_frame + index]["id"], payload))
+    while len(sender.frames) <= first_frame + 2:
+        await asyncio.sleep(0.001)
+    return turn
+
+
+@pytest.mark.asyncio
+async def test_active_caller_registered_during_turn_and_removed_after_success() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    session_key = f"{_SESSION_KEY_PREFIX}conv-reg"
+    turn = await _start_turn_in_flight(relay, sender, "conv-reg")
+
+    caller = relay.active_caller(session_key)
+    assert caller is not None
+    assert caller.role == "user"
+
+    relay.handle_response(_ok_response(sender.frames[2]["id"]))
+    relay.handle_event(_session_message_event(session_key, "assistant", "done"))
+    assert await turn == "done"
+    assert relay.active_caller(session_key) is None
+
+
+@pytest.mark.asyncio
+async def test_active_caller_removed_after_error_and_cancel() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    session_key = f"{_SESSION_KEY_PREFIX}conv-err"
+    turn = await _start_turn_in_flight(relay, sender, "conv-err")
+    assert relay.active_caller(session_key) is not None
+    relay.handle_response(_error_response(sender.frames[2]["id"], "BOOM"))
+    with pytest.raises(ChatRelayError):
+        await turn
+    assert relay.active_caller(session_key) is None
+
+    cancel_key = f"{_SESSION_KEY_PREFIX}conv-cancel2"
+    turn = await _start_turn_in_flight(relay, sender, "conv-cancel2", first_frame=3)
+    assert relay.active_caller(cancel_key) is not None
+    turn.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await turn
+    assert relay.active_caller(cancel_key) is None
+
+
+@pytest.mark.asyncio
+async def test_active_caller_carries_turn_role_and_isolates_sessions() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    admin = resolve_turn_authz(IdentityConfig(), Actor("u-admin", is_admin=True))
+    turn_a = await _start_turn_in_flight(relay, sender, "conv-a", authz=admin)
+    turn_b = await _start_turn_in_flight(relay, sender, "conv-b", first_frame=3)
+
+    a = relay.active_caller(f"{_SESSION_KEY_PREFIX}conv-a")
+    b = relay.active_caller(f"{_SESSION_KEY_PREFIX}conv-b")
+    assert a is not None
+    assert a.role == "admin"
+    assert a.actor_id == "u-admin"
+    assert b is not None
+    assert b.role == "user"
+    assert relay.active_caller(f"{_SESSION_KEY_PREFIX}conv-c") is None
+    for task in (turn_a, turn_b):
+        task.cancel()
+    await asyncio.gather(turn_a, turn_b, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_active_caller_resolves_canonical_key_case_insensitively() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}conv-canon"
+    turn = await _start_turn_in_flight(relay, sender, "CONV-CANON", subscribe_key=canonical)
+
+    assert relay.active_caller(canonical) is not None
+    assert relay.active_caller(f"  {canonical.upper()}  ") is not None
+    assert relay.active_caller(f"{_SESSION_KEY_PREFIX}other") is None
+    turn.cancel()
+    await asyncio.gather(turn, return_exceptions=True)
+    assert relay.active_caller(canonical) is None

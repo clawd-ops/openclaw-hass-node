@@ -9,14 +9,17 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.config import NodeConfig
 from openclaw_node.gateway_ws import GatewayClient
 from openclaw_node.ha_client import HAClientError
+from openclaw_node.http_api import NodeRuntime
 from openclaw_node.identity import generate_identity
 
 
@@ -32,7 +35,15 @@ async def invoke(request: dict[str, Any]) -> dict[str, Any]:
             supervisor_token="",
             data_dir=Path(directory),
         )
-        client = GatewayClient(config=config, identity=generate_identity(), device_token="")
+        # `active_turn` (optional) is the session key of a household-user Assist
+        # turn held in flight in the node-owned relay registry; the request's
+        # params may carry the reserved `_openclaw_caller` hint naming it.
+        runtime = NodeRuntime(config)
+        relay = ChatRelay(AsyncMock())
+        runtime.chat_relay = relay
+        client = GatewayClient(
+            config=config, identity=generate_identity(), device_token="", runtime=runtime
+        )
         socket = AsyncMock()
         post = AsyncMock(
             return_value=[
@@ -57,15 +68,17 @@ async def invoke(request: dict[str, Any]) -> dict[str, Any]:
             patch("openclaw_node.commands.ha_config_automation.ha_get", post),
             patch("openclaw_node.commands.ha_config_automation.ha_delete", post),
         ):
-            await client._handle_invoke(
-                socket,
-                {
-                    "id": "contract-test",
-                    "nodeId": request["nodeId"],
-                    "command": request["command"],
-                    "paramsJSON": json.dumps(request["params"]),
-                },
-            )
+            active = request.get("active_turn")
+            async with relay._active_turn(active, None) if active else nullcontext():
+                await client._handle_invoke(
+                    socket,
+                    {
+                        "id": "contract-test",
+                        "nodeId": request["nodeId"],
+                        "command": request["command"],
+                        "paramsJSON": json.dumps(request["params"]),
+                    },
+                )
         return {
             "response": json.loads(socket.send.call_args.args[0])["params"],
             "ha_calls": [list(call.args) for call in post.call_args_list],
