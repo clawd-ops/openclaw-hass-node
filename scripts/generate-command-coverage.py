@@ -1256,7 +1256,7 @@ def build_ledger() -> dict[str, Any]:
             # validates input and returns a plan without it.
             direct_path = _caller(
                 "advertised-unverified",
-                "app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare",
+                "app/node/src/openclaw_node/commands/exec_approvals.py::handle_system_run_prepare",
                 (
                     "system.run.prepare validates its input and returns a plan; it executes "
                     "nothing. The node does not itself refuse a direct call, and no in-repo "

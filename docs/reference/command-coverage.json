@@ -13011,11 +13011,11 @@
               "method": "UNVERIFIED",
               "observation": "system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified.",
               "outcome": "unverified",
-              "source": "app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare"
+              "source": "app/node/src/openclaw_node/commands/exec_approvals.py::handle_system_run_prepare"
             }
           ],
           "reason": "system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified.",
-          "source": "app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare",
+          "source": "app/node/src/openclaw_node/commands/exec_approvals.py::handle_system_run_prepare",
           "status": "advertised-unverified"
         },
         "handler_dispatch": {

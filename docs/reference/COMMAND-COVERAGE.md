@@ -4282,7 +4282,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
-  - `direct_nodes_invoke` / `UNVERIFIED` / **`unverified`**: system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified. (source: `app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare`)
+  - `direct_nodes_invoke` / `UNVERIFIED` / **`unverified`**: system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified. (source: `app/node/src/openclaw_node/commands/exec_approvals.py::handle_system_run_prepare`)
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose host shell preparation; exec approvals are an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
