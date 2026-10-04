@@ -338,6 +338,11 @@ async def test_call_service_denies_privileged_effects_before_ha(domain: str, ser
         {"domain": True, "service": "turn_on"},
         {"domain": "light", "service": 1},
         {"domain": "light", "service": "x" * 65},
+        {"domain": "light", "service": "turn_on", "target": None},
+        {"domain": "light", "service": "turn_on", "data": None},
+        {"domain": "light", "service": "turn_on", "service_data": None},
+        {"domain": "light", "service": "turn_on", "target": {"entity_id": None}},
+        {"domain": "light", "service": "turn_on", "target": {"area_id": "a", "device_id": None}},
     ],
 )
 async def test_call_service_rejects_noncanonical_or_unknown_params_before_ha(
@@ -675,7 +680,7 @@ async def test_calendar_get_events_rejects_null_start_date_time() -> None:
             "end_date_time": "2026-06-29T00:00:00Z",
         }
     )
-    assert result["error"] == "MISSING_PARAM"
+    assert result["error"] == "INVALID_PARAM"
 
 
 async def test_calendar_get_events_rejects_null_end_date_time() -> None:
@@ -686,7 +691,7 @@ async def test_calendar_get_events_rejects_null_end_date_time() -> None:
             "end_date_time": None,
         }
     )
-    assert result["error"] == "MISSING_PARAM"
+    assert result["error"] == "INVALID_PARAM"
 
 
 async def test_calendar_get_events_ha_error() -> None:
@@ -1694,7 +1699,7 @@ async def test_list_automations_rejects_unknown_param() -> None:
     result = await handle_ha_list_automations({"bogus": 1})
     assert result["ok"] is False
     assert result["error"] == "INVALID_PARAM"
-    assert "unknown params" in result["message"]
+    assert "unknown parameter(s)" in result["message"]
 
 
 async def test_list_automations_rejects_non_bool_include_traces() -> None:

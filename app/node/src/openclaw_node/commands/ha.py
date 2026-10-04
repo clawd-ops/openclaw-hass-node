@@ -54,6 +54,7 @@ from typing import Any, Final
 from urllib.parse import quote
 
 from openclaw_node.authz import normalise_service_code
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
     HAClientError,
@@ -118,6 +119,27 @@ _INTERIM_DENIED_SERVICE_PATTERNS: Final[dict[str, str]] = {
 # retargets the request: "/api/states/.." becomes "/api/". Percent-encoding does
 # not help, because "%2E%2E" is normalized too. These values must be rejected.
 _DOT_SEGMENTS: Final[frozenset[str]] = frozenset({".", ".."})
+
+
+_NO_KEYS: Final[frozenset[str]] = frozenset()
+_SLUG_KEYS: Final[frozenset[str]] = frozenset({"slug"})
+_GET_STATE_KEYS: Final[frozenset[str]] = frozenset({"entity_id"})
+_CORE_LOGS_KEYS: Final[frozenset[str]] = frozenset({"lines"})
+_ADDON_LOGS_KEYS: Final[frozenset[str]] = frozenset({"slug", "lines"})
+_CALENDAR_KEYS: Final[frozenset[str]] = frozenset({"entity_id", "start_date_time", "end_date_time"})
+_LIGHT_TARGET_KEYS: Final[frozenset[str]] = frozenset({"entity_id", "area_id", "device_id"})
+_LIGHT_ON_KEYS: Final[frozenset[str]] = _LIGHT_TARGET_KEYS | {
+    "brightness",
+    "brightness_pct",
+    "color_temp_kelvin",
+    "rgb_color",
+    "transition",
+}
+_LIGHT_OFF_KEYS: Final[frozenset[str]] = _LIGHT_TARGET_KEYS | {"transition"}
+_RELOAD_CONFIG_KEYS: Final[frozenset[str]] = frozenset({"domain", "admin_token"})
+_UPDATE_INSTALL_KEYS: Final[frozenset[str]] = frozenset(
+    {"entity_id", "backup", "version", "admin_token"}
+)
 
 
 def _encode_path_segment(value: str) -> str | None:
@@ -420,6 +442,9 @@ async def handle_ha_get_state(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True, state}`` or an error dict.
     """
+    invalid = strict_keys_error(params, _GET_STATE_KEYS)
+    if invalid is not None:
+        return invalid
     entity_id = str(params.get("entity_id", ""))
     if not entity_id:
         return _error("MISSING_PARAM", "entity_id is required")
@@ -457,9 +482,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         ``changed_states_complete`` (``True`` only if every targeted ID returned
         a state) and ``targeted_entity_count``.
     """
-    unknown = sorted(set(params) - _CALL_SERVICE_PARAMS)
-    if unknown:
-        return _error("INVALID_PARAM", f"unknown parameter(s): {', '.join(unknown)}")
+    invalid = strict_keys_error(params, _CALL_SERVICE_PARAMS)
+    if invalid is not None:
+        return invalid
 
     domain = _canonical_service_component(params, "domain")
     service = _canonical_service_component(params, "service")
@@ -485,6 +510,12 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         if unknown_target:
             rendered = ", ".join(str(key) for key in unknown_target)
             return _error("INVALID_PARAM", f"unknown target parameter(s): {rendered}")
+        null_target = sorted(key for key, value in target.items() if value is None)
+        if null_target:
+            return _error(
+                "INVALID_PARAM",
+                f"target parameter(s) must not be null; omit instead: {', '.join(null_target)}",
+            )
         entity_id_t = target.get("entity_id")
         if isinstance(entity_id_t, list) and not all(isinstance(e, str) and e for e in entity_id_t):
             return _error("INVALID_PARAM", "entity_id list members must be non-empty strings")
@@ -528,13 +559,16 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
     return await _with_observed_states(result, target)
 
 
-async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:
+async def handle_ha_list_areas(params: dict[str, Any]) -> dict[str, Any]:
     """Return all area-registry entries from Home Assistant.
 
     Returns:
         ``{ok: True, count, areas}`` where each area is a dict with at least
         ``area_id`` and ``name``, or an error dict.
     """
+    invalid = strict_keys_error(params, _NO_KEYS)
+    if invalid is not None:
+        return invalid
     try:
         result = await ha_ws_call("config/area_registry/list")
     except HAClientError as exc:
@@ -599,8 +633,11 @@ async def handle_ha_list_services(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "count": len(services), "services": services}
 
 
-async def handle_ha_get_config(_params: dict[str, Any]) -> dict[str, Any]:
+async def handle_ha_get_config(params: dict[str, Any]) -> dict[str, Any]:
     """Return Home Assistant core config from ``/api/config``."""
+    invalid = strict_keys_error(params, _NO_KEYS)
+    if invalid is not None:
+        return invalid
     try:
         raw = await ha_get("/api/config")
     except HAClientError as exc:
@@ -610,8 +647,11 @@ async def handle_ha_get_config(_params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "config": raw}
 
 
-async def handle_ha_list_events(_params: dict[str, Any]) -> dict[str, Any]:
+async def handle_ha_list_events(params: dict[str, Any]) -> dict[str, Any]:
     """Return Home Assistant event bus listener summary from ``/api/events``."""
+    invalid = strict_keys_error(params, _NO_KEYS)
+    if invalid is not None:
+        return invalid
     try:
         raw = await ha_get("/api/events")
     except HAClientError as exc:
@@ -647,6 +687,9 @@ async def handle_ha_list_config_entries(params: dict[str, Any]) -> dict[str, Any
 
 async def handle_ha_core_logs(params: dict[str, Any]) -> dict[str, Any]:
     """Return Home Assistant core logs via the Supervisor API."""
+    invalid = strict_keys_error(params, _CORE_LOGS_KEYS)
+    if invalid is not None:
+        return invalid
     lines_raw = params.get("lines", 200)
     if not isinstance(lines_raw, int) or isinstance(lines_raw, bool):
         return _error("INVALID_PARAM", "lines must be an integer")
@@ -661,6 +704,9 @@ async def handle_ha_core_logs(params: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_ha_calendar_get_events(params: dict[str, Any]) -> dict[str, Any]:
     """Call ``calendar.get_events`` and return HA's ``return_response`` payload."""
+    invalid = strict_keys_error(params, _CALENDAR_KEYS)
+    if invalid is not None:
+        return invalid
     entity_id = params.get("entity_id")
     if isinstance(entity_id, str):
         if not entity_id:
@@ -911,6 +957,9 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     denied = _admin_token_ok(params, "ha.reload_config")
     if denied is not None:
         return denied
+    invalid = strict_keys_error(params, _RELOAD_CONFIG_KEYS)
+    if invalid is not None:
+        return invalid
 
     raw_domain = params.get("domain")
     if raw_domain is not None:
@@ -1052,6 +1101,9 @@ async def handle_ha_light_turn_on(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True, changed_states}`` or an error dict.
     """
+    invalid = strict_keys_error(params, _LIGHT_ON_KEYS)
+    if invalid is not None:
+        return invalid
     target, err = _build_light_target(params)
     if err is not None:
         return _error("MISSING_PARAM", err)
@@ -1091,6 +1143,9 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True, changed_states}`` or an error dict.
     """
+    invalid = strict_keys_error(params, _LIGHT_OFF_KEYS)
+    if invalid is not None:
+        return invalid
     target, err = _build_light_target(params)
     if err is not None:
         return _error("MISSING_PARAM", err)
@@ -1130,20 +1185,17 @@ async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
         state_filter (str, optional): Exact match against the entity ``state``
             (typically ``"on"`` or ``"off"``); maximum 256 characters.
 
-    Unknown params are rejected with ``INVALID_PARAM``; narrowing is applied
+    Unknown params and explicit ``null`` values are rejected with
+    ``INVALID_PARAM``; narrowing is applied
     before any trace lookup so traces are fetched only for selected automations.
 
     Returns:
         ``{ok: True, count, automations}`` where each automation has
         ``entity_id``, ``state``, ``attributes`` and optionally ``traces``.
     """
-    unknown = set(params) - _LIST_AUTOMATIONS_ALLOWED_PARAMS
-    if unknown:
-        allowed = sorted(_LIST_AUTOMATIONS_ALLOWED_PARAMS)
-        return _error(
-            "INVALID_PARAM",
-            f"unknown params {sorted(unknown)!r}; allowed: {allowed!r}",
-        )
+    invalid = strict_keys_error(params, _LIST_AUTOMATIONS_ALLOWED_PARAMS)
+    if invalid is not None:
+        return invalid
 
     include_traces = params.get("include_traces", False)
     if not isinstance(include_traces, bool):
@@ -1212,7 +1264,7 @@ async def handle_ha_list_automations(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "count": len(automations), "automations": automations}
 
 
-async def handle_ha_check_config(_params: dict[str, Any]) -> dict[str, Any]:
+async def handle_ha_check_config(params: dict[str, Any]) -> dict[str, Any]:
     """Validate the Home Assistant ``configuration.yaml``.
 
     Hits ``POST /api/config/core/check_config``.  Should be called before any
@@ -1222,6 +1274,9 @@ async def handle_ha_check_config(_params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, result, errors, warnings}`` where ``result`` is
         ``"valid"`` or ``"invalid"`` as reported by HA, or an error dict.
     """
+    invalid = strict_keys_error(params, _NO_KEYS)
+    if invalid is not None:
+        return invalid
     try:
         raw = await ha_post("/api/config/core/check_config")
     except HAClientError as exc:
@@ -1326,6 +1381,9 @@ async def _handle_addon_lifecycle(
     policy_error = _addon_lifecycle_policy_error(slug)
     if policy_error is not None:
         return policy_error
+    invalid = strict_keys_error(params, _SLUG_KEYS)
+    if invalid is not None:
+        return invalid
 
     try:
         before = await _addon_state(slug)
@@ -1371,6 +1429,9 @@ async def handle_ha_addon_logs(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, slug, lines, log}`` where ``log`` is trimmed from a
         bounded trailing byte window, or an error dict.
     """
+    invalid = strict_keys_error(params, _ADDON_LOGS_KEYS)
+    if invalid is not None:
+        return invalid
     slug = str(params.get("slug", "")).strip()
     if not slug:
         return _error("MISSING_PARAM", "slug is required")
@@ -1413,7 +1474,7 @@ _ADDON_FIELDS: Final[tuple[str, ...]] = (
 # truly needs source attribution, normalise to a label first.
 
 
-async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
+async def handle_ha_list_addons(params: dict[str, Any]) -> dict[str, Any]:
     """Return the list of Supervisor-managed add-ons (slug + state + version).
 
     Hits ``GET http://supervisor/addons``. Read-only by construction. Required
@@ -1428,6 +1489,9 @@ async def handle_ha_list_addons(_params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, count, addons}`` with ``addons`` as a list of dicts, or an
         error dict.
     """
+    invalid = strict_keys_error(params, _NO_KEYS)
+    if invalid is not None:
+        return invalid
     try:
         raw = await supervisor_get_json("/addons")
     except HAClientError as exc:
@@ -1524,6 +1588,9 @@ async def handle_ha_addon_info(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, slug, info}`` where ``info`` is a dict of the allowlisted
         fields (missing source fields surface as ``None``), or an error dict.
     """
+    invalid = strict_keys_error(params, _SLUG_KEYS)
+    if invalid is not None:
+        return invalid
     slug = str(params.get("slug", "")).strip()
     if not slug:
         return _error("MISSING_PARAM", "slug is required")
@@ -1578,6 +1645,9 @@ async def handle_ha_addon_stats(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, slug, stats}`` with the allowlisted metric fields, or an
         error dict.
     """
+    invalid = strict_keys_error(params, _SLUG_KEYS)
+    if invalid is not None:
+        return invalid
     slug = str(params.get("slug", "")).strip()
     if not slug:
         return _error("MISSING_PARAM", "slug is required")
@@ -1650,7 +1720,7 @@ def _supervisor_info_value(value: Any) -> str | None:
     return value if len(value) <= _SUPERVISOR_INFO_MAX_VALUE_LEN else None
 
 
-async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
+async def handle_ha_supervisor_info(params: dict[str, Any]) -> dict[str, Any]:
     """Return allowlisted host-level runtime info from the Supervisor.
 
     Hits ``GET http://supervisor/info``. Read-only by construction. Both the key
@@ -1667,6 +1737,9 @@ async def handle_ha_supervisor_info(_params: dict[str, Any]) -> dict[str, Any]:
         or an error dict whose message is fixed text rather than upstream
         content.
     """
+    invalid = strict_keys_error(params, _NO_KEYS)
+    if invalid is not None:
+        return invalid
     try:
         raw = await supervisor_get_json("/info")
     except HAClientError as exc:
@@ -1710,6 +1783,9 @@ async def handle_ha_addon_changelog(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, slug, changelog}`` with the markdown body as text, or an
         error dict. ``HA_NOT_FOUND`` if the addon doesn't publish a changelog.
     """
+    invalid = strict_keys_error(params, _SLUG_KEYS)
+    if invalid is not None:
+        return invalid
     slug = str(params.get("slug", "")).strip()
     if not slug:
         return _error("MISSING_PARAM", "slug is required")
@@ -1741,6 +1817,9 @@ async def handle_ha_addon_documentation(params: dict[str, Any]) -> dict[str, Any
         or an error dict. ``HA_NOT_FOUND`` if the addon doesn't publish
         documentation.
     """
+    invalid = strict_keys_error(params, _SLUG_KEYS)
+    if invalid is not None:
+        return invalid
     slug = str(params.get("slug", "")).strip()
     if not slug:
         return _error("MISSING_PARAM", "slug is required")
@@ -1828,6 +1907,9 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
     denied = _admin_token_ok(params, "ha.update_install")
     if denied is not None:
         return denied
+    invalid = strict_keys_error(params, _UPDATE_INSTALL_KEYS)
+    if invalid is not None:
+        return invalid
 
     entity_id = str(params.get("entity_id", "")).strip()
     if not entity_id:
