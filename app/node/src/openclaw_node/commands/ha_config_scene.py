@@ -26,11 +26,19 @@ import re
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _ACTIONS: Final[frozenset[str]] = frozenset({"get", "save", "delete"})
+
+
+_ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
+    "get": frozenset({"action", "id"}),
+    "save": frozenset({"action", "id", "config", "proposal_id"}),
+    "delete": frozenset({"action", "id", "proposal_id"}),
+}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -159,6 +167,9 @@ async def handle_ha_config_scene(params: dict[str, Any]) -> dict[str, Any]:
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
+    invalid = strict_keys_error(params, _ACTION_KEYS[action])
+    if invalid is not None:
+        return invalid
     if action == "get":
         return await _action_get(params)
     if action == "save":

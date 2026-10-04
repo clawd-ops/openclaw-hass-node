@@ -140,7 +140,7 @@ describe("wrapper/node command contract", () => {
 
   it.each([
     ["ha.call_service", { domain: "light", service: "turn_on", data: { brightness: 10 }, service_data: { brightness: 20 } }, "INVALID_PARAM"],
-    ["ha.config.automation", { action: "save", automation_id: "test", config: { alias: "test", trigger: [], action: [] }, proposal_id: "fake" }, "PROPOSAL_REQUIRED"],
+    ["ha.config.automation", { action: "save", id: "test", config: { alias: "test", trigger: [], action: [] }, proposal_id: "fake" }, "PROPOSAL_REQUIRED"],
   ] as const)("preserves real Python refusal from %s without HA calls", async (command, commandParams, code) => {
     await expect(invokeHaCommand({ nodeId: "test-node", command, commandParams, gatewayOpts: {} })).rejects.toMatchObject({ code, source: "node" });
     expect(exchanges[0].ha_calls).toEqual([]);

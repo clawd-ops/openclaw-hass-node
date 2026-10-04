@@ -93,7 +93,10 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288).
   All eleven `fs.*` commands also refuse unknown keys and null optional keys
   with `INVALID_PARAM` before any filesystem or backup-store access (source,
-  unreleased; `fs.diff` `to_version` accepts `null`).
+  unreleased; `fs.diff` `to_version` accepts `null`). The nine `ha.config.*`
+  commands (per action), `system.which` and `ping` do the same before any HA
+  request or approval-gate evaluation (source, unreleased; `lovelace` `url_path`
+  accepts `null`).
   `ha.history` reports an unknown entity as `HA_NOT_FOUND` instead of an empty
   history.
 - A timeout on the Supervisor lifecycle POST (`ha.addon_start`, `ha.addon_stop`,

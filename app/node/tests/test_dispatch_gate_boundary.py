@@ -212,13 +212,23 @@ async def test_http_allowed_command_runs_and_body_cannot_supply_caller(
 ) -> None:
     response = await http_client.post(
         "/v1/commands/system.which",
-        json={"name": "sh", "_openclaw_caller": {"role": "operator"}, "role": "admin"},
+        json={"name": "sh"},
         headers={"Authorization": "Bearer s3cret"},
     )
     data = await response.json()
     assert response.status == 200
     assert data["ok"] is True
     assert data["result"].get("ok") is not False
+
+    # Caller claims in the body are unknown parameters, refused rather than honoured.
+    response = await http_client.post(
+        "/v1/commands/system.which",
+        json={"name": "sh", "_openclaw_caller": {"role": "operator"}, "role": "admin"},
+        headers={"Authorization": "Bearer s3cret"},
+    )
+    refused = (await response.json())["result"]
+    assert refused["error"] == "INVALID_PARAM"
+    assert "_openclaw_caller" in refused["message"]
 
 
 async def test_http_non_allowlisted_command_keeps_allowlist_refusal(

@@ -42,7 +42,7 @@ is prompt-instructed via SKILL.md, not hardware-blocked.
 
 | Command | Args        | Notes  |
 |---------|-------------|--------|
-| `ping`  | `message?`  | Always available |
+| `ping`  | `message?`  | Always available. Any other key, or a null `message`, returns `INVALID_PARAM` |
 
 ## `fs.*` — filesystem (11 commands)
 
@@ -80,7 +80,7 @@ exception is `fs.diff` `to_version`, where `null` is a documented value.
 | `system.run.prepare` | `command` (argv list), `cwd?`, `rawCommand?`, `env?`, `agentId?`, `sessionKey?` | Prepares the canonical `systemRunPlan` an operator will see; executes nothing. See [Authorization model](../design/AUTHORIZATION-MODEL.md). |
 | `system.execApprovals.get` | (none) | Returns the node's persisted exec-approval snapshot (`path`, `exists`, `hash`, redacted `file`). Like `system.run`, **not reachable through direct `nodes.invoke`**: the Gateway refuses `system.execApprovals.*` on that path with `INVALID_REQUEST` and directs callers to `exec.approvals.node.*`. See the reachability note below. |
 | `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. Same reachability contract as `system.execApprovals.get`. |
-| `system.which` | `binary`                            | Lookup only, basename-only |
+| `system.which` | `name`                              | Lookup only, basename-only. Any other key (including `bins` or `binary`), or a null `name`, returns `INVALID_PARAM` |
 
 `system.run` bounds, all enforced before the process is spawned: the total
 `command` argv is limited to 128 KiB (each argument counted as its UTF-8 bytes
@@ -264,6 +264,12 @@ a rejected operation. These changes are source-only until this PR is released.
 approval verifier and human approval round-trip are not implemented.
 A `proposal_id`, even one described as approved by the caller, is not
 authorization. There is no caller flag or admin-token override.
+
+Every `ha.config.*` action accepts only the keys in its table row (plus
+`action`). An unknown key, or a null value for an accepted key, returns
+`INVALID_PARAM` before the mutation refusal and before any HA request;
+only `lovelace` `url_path` accepts `null`. Approval-shaped keys such as
+`approved` or `role` are unknown keys.
 
 The mutation rows below retain the dormant API-adapter inputs for future
 implementation; they do not advertise currently executable mutations.

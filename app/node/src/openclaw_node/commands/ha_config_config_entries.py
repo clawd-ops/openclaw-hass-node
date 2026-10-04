@@ -25,12 +25,20 @@ import logging
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _ACTIONS: Final[frozenset[str]] = frozenset({"get", "disable", "enable"})
 _MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"disable", "enable"})
+
+
+_ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
+    "get": frozenset({"action", "entry_id"}),
+    "disable": frozenset({"action", "entry_id", "proposal_id"}),
+    "enable": frozenset({"action", "entry_id", "proposal_id"}),
+}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -62,6 +70,9 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
+    invalid = strict_keys_error(params, _ACTION_KEYS[action])
+    if invalid is not None:
+        return invalid
 
     if action in _MUTATING_ACTIONS:
         denied = require_config_mutation_approval("ha.config.config_entries", action)

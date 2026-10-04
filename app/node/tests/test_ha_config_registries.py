@@ -70,12 +70,12 @@ async def test_area_list_ha_error() -> None:
 
 @pytest.mark.parametrize("action", ["create", "update", "delete"])
 async def test_area_mutating_needs_proposal(action: str) -> None:
-    params: dict[str, Any] = {
-        "action": action,
-        "name": "x",
-        "area_id": "a1",
-        "attrs": {"name": "y"},
+    keys: dict[str, dict[str, Any]] = {
+        "create": {"name": "x", "attrs": {"name": "y"}},
+        "update": {"area_id": "a1", "attrs": {"name": "y"}},
+        "delete": {"area_id": "a1"},
     }
+    params: dict[str, Any] = {"action": action, **keys[action]}
     assert (await handle_ha_config_area_registry(params))["error"] == "PROPOSAL_REQUIRED"
 
 
@@ -586,11 +586,13 @@ async def test_registry_list_refuses_unknown_or_null_keys_before_ha(
     mock.assert_not_awaited()
 
 
-async def test_entity_get_ignores_registry_filters() -> None:
-    """Filters are a list-action concern; action=get is unaffected by them."""
+async def test_entity_get_refuses_registry_filters() -> None:
+    """Filters are a list-action concern; action=get refuses them rather than ignoring them."""
     mock = AsyncMock(return_value={"entity_id": "sensor.a"})
     with patch("openclaw_node.commands.ha_config_entity_registry.ha_ws_call", mock):
         result = await handle_ha_config_entity_registry(
             {"action": "get", "entity_id": "sensor.a", "domain": 12345}
         )
-    assert result["ok"] is True
+    assert result["error"] == "INVALID_PARAM"
+    assert "domain" in result["message"]
+    mock.assert_not_awaited()

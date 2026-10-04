@@ -34,7 +34,6 @@ MUTATIONS = [
 ]
 UNTRUSTED_AUTHORIZATION = [
     {},
-    {"proposal_id": None},
     {"proposal_id": ""},
     {"proposal_id": " "},
     {"proposal_id": "direct"},
@@ -42,15 +41,17 @@ UNTRUSTED_AUTHORIZATION = [
     {"proposal_id": {"status": "approved"}},
     {"proposal_id": "p1"},
     {"proposal_id": "d77abef3-a3b8-449d-8fd6-36aa411349dc"},
-    {
-        "proposal_id": "approved-proposal",
-        "approved": True,
-        "actor": "operator",
-        "role": "admin",
-        "admin_token": "untrusted-caller-token",
-        "agent_bridge": False,
-        "dry_run": False,
-    },
+]
+# Approval-shaped fields are not parameters of any config action: they are
+# refused as unknown keys before the fail-closed gate is even consulted.
+FORGED_AUTHORIZATION = [
+    {"proposal_id": None},
+    {"approved": True},
+    {"actor": "operator"},
+    {"role": "admin"},
+    {"admin_token": "untrusted-caller-token"},
+    {"agent_bridge": False},
+    {"dry_run": False},
 ]
 
 
@@ -74,24 +75,39 @@ def no_ha_requests(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[AsyncMock]]
         mock.assert_not_awaited()
 
 
-def mutation_params(action: str) -> dict[str, Any]:
-    """Supply valid target and payload fields for every config command."""
-    return {
-        "action": action,
-        "id": "example",
-        "config": {"alias": "Example", "views": []},
-        "url_path": "example",
-        "url": "/local/example.js",
-        "res_type": "module",
-        "helper_type": "input_boolean",
-        "input_boolean_id": "example",
-        "name": "Example",
-        "attrs": {"name": "Updated"},
-        "area_id": "example",
-        "device_id": "example",
-        "entity_id": "input_boolean.example",
-        "entry_id": "example",
-    }
+_TARGETS: dict[str, dict[str, Any]] = {
+    "automation": {"id": "example"},
+    "script": {"id": "example"},
+    "scene": {"id": "example"},
+    "area_registry": {"area_id": "example"},
+    "device_registry": {"device_id": "example"},
+    "entity_registry": {"entity_id": "input_boolean.example"},
+    "config_entries": {"entry_id": "example"},
+    "helpers": {"helper_type": "input_boolean", "input_boolean_id": "example"},
+}
+_NO_TARGET = {("helpers", "create"), ("area_registry", "create")}
+_PAYLOADS: dict[tuple[str, str], dict[str, Any]] = {
+    ("automation", "save"): {"config": {"alias": "Example"}},
+    ("script", "save"): {"config": {"alias": "Example"}},
+    ("scene", "save"): {"config": {"name": "Example"}},
+    ("lovelace", "save"): {"url_path": "example", "config": {"views": []}},
+    ("lovelace", "resources_create"): {"url": "/local/example.js", "res_type": "module"},
+    ("helpers", "create"): {"helper_type": "input_boolean", "attrs": {"name": "Example"}},
+    ("helpers", "update"): {"attrs": {"name": "Updated"}},
+    ("area_registry", "create"): {"name": "Example", "attrs": {"name": "Updated"}},
+    ("area_registry", "update"): {"attrs": {"name": "Updated"}},
+    ("device_registry", "update"): {"attrs": {"name": "Updated"}},
+    ("entity_registry", "update"): {"attrs": {"name": "Updated"}},
+}
+
+
+def mutation_params(domain: str, action: str) -> dict[str, Any]:
+    """Supply exactly the keys the action accepts, so refusal is the gate's."""
+    params: dict[str, Any] = {"action": action}
+    if (domain, action) not in _NO_TARGET:
+        params.update(_TARGETS.get(domain, {}))
+    params.update(_PAYLOADS.get((domain, action), {}))
+    return params
 
 
 def test_mutation_inventory_covers_every_config_command_and_action() -> None:
@@ -119,7 +135,7 @@ async def test_config_mutations_never_contact_ha(
     no_ha_requests: list[AsyncMock],
 ) -> None:
     command = f"ha.config.{domain}"
-    params = {**mutation_params(action), **authorization}
+    params = {**mutation_params(domain, action), **authorization}
     if route == "dispatcher":
         result = await dispatch_async(command, params, caller=_OPERATOR)
     else:
@@ -153,11 +169,33 @@ async def test_all_helper_namespaces_fail_closed(
     result = await dispatch_async(
         "ha.config.helpers",
         {
-            **mutation_params(action),
+            "action": action,
             "helper_type": helper_type,
-            f"{helper_type}_id": "example",
+            **({} if action == "create" else {f"{helper_type}_id": "example"}),
+            **({} if action == "delete" else {"attrs": {"name": "Example"}}),
             "proposal_id": "p1",
         },
         caller=_OPERATOR,
     )
     assert result["error"] == "PROPOSAL_REQUIRED"
+
+
+@pytest.mark.parametrize(("domain", "action"), MUTATIONS)
+@pytest.mark.parametrize("forged", FORGED_AUTHORIZATION)
+@pytest.mark.parametrize("route", ["handler", "dispatcher"])
+async def test_forged_authorization_keys_are_refused_before_the_gate(
+    domain: str,
+    action: str,
+    forged: dict[str, Any],
+    route: str,
+    no_ha_requests: list[AsyncMock],
+) -> None:
+    command = f"ha.config.{domain}"
+    params = {**mutation_params(domain, action), **forged}
+    if route == "dispatcher":
+        result = await dispatch_async(command, params, caller=_OPERATOR)
+    else:
+        module = importlib.import_module(f"openclaw_node.commands.ha_config_{domain}")
+        result = await getattr(module, f"handle_ha_config_{domain}")(params)
+    assert result["error"] == "INVALID_PARAM"
+    assert next(iter(forged)) in result["message"]
