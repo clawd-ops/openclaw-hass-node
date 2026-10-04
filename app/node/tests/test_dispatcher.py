@@ -2,22 +2,32 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
 
-from openclaw_node.authz import USER_ALLOWED_COMMANDS, USER_FORBIDDEN_COMMANDS, forbidden_for_role
+from openclaw_node.authz import (
+    USER_ALLOWED_COMMANDS,
+    USER_FORBIDDEN_COMMANDS,
+    Actor,
+    forbidden_for_role,
+    resolve_turn_authz,
+)
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.dispatcher import (
     _REGISTRY,
     AsyncHandlerError,
+    HandlerFailedError,
     UnknownCommandError,
     dispatch,
     dispatch_async,
 )
+from openclaw_node.commands.ha import handle_ha_call_service
 from openclaw_node.config import IdentityConfig
 
 _OP = Caller.operator("t")
+_ADMIN = Caller.from_turn(resolve_turn_authz(IdentityConfig(), Actor("u", is_admin=True)))
 
 
 def test_dispatch_unknown_command() -> None:
@@ -155,3 +165,106 @@ async def test_dispatch_async_user_cannot_reach_review_probe_mutations(
         result = await dispatch_async(command, params, caller=caller)
         assert result["error"] == "PERMISSION_DENIED"
     assert calls == []
+
+
+_SECRET = "482913"
+
+
+async def test_dispatch_async_scrubs_a_pre_handler_refusal() -> None:
+    result = await dispatch_async(
+        "ha.call_service",
+        {"domain": "automation", "service": "trigger", "data": {"code": "automation"}},
+        caller=_ADMIN,
+    )
+    assert result["error"] == "APPROVAL_REQUIRED"
+    assert "automation" not in result["message"]
+
+
+async def test_dispatch_async_scrubs_every_result_and_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _echo(params: dict[str, Any]) -> dict[str, Any]:
+        return {"ok": False, "message": f"bad value {_SECRET}", _SECRET: 1}
+
+    monkeypatch.setitem(_REGISTRY, "ping", _echo)
+    result = await dispatch_async("ping", {"data": {"code": _SECRET}}, caller=_OP)
+    assert _SECRET not in json.dumps(result)
+
+
+def test_dispatch_scrubs_sync_result_and_unknown_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(_REGISTRY, "ping", lambda params: {"echo": _SECRET})
+    assert _SECRET not in json.dumps(dispatch("ping", {"code": _SECRET}, caller=_OP))
+    with pytest.raises(UnknownCommandError) as info:
+        dispatch(_SECRET, {"code": _SECRET}, caller=_OP)
+    assert _SECRET not in str(info.value)
+    assert _SECRET not in info.value.command
+
+
+async def test_handler_alone_does_not_scrub_the_dispatcher_does() -> None:
+    raw = await handle_ha_call_service(
+        {"domain": "lock", "service": "unlock", "target": {_SECRET: 1}, "data": {"code": _SECRET}}
+    )
+    assert _SECRET in json.dumps(raw)
+    scrubbed = await dispatch_async(
+        "ha.call_service",
+        {"domain": "lock", "service": "unlock", "target": {_SECRET: 1}, "data": {"code": _SECRET}},
+        caller=_OP,
+    )
+    assert _SECRET not in json.dumps(scrubbed)
+
+
+async def test_refusal_log_never_contains_a_supplied_code(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    params = {"domain": "automation", "service": "trigger", "data": {"code": "automation"}}
+    with caplog.at_level("DEBUG"):
+        result = await dispatch_async("ha.call_service", params, caller=_ADMIN)
+        sync_result = dispatch("ha.call_service", params, caller=_ADMIN)
+    assert result["error"] == sync_result["error"] == "APPROVAL_REQUIRED"
+    refusals = [r.getMessage() for r in caplog.records if "Refused" in r.getMessage()]
+    assert len(refusals) == 2
+    assert all("automation" not in m for m in refusals)
+    other = {"domain": "automation", "service": "trigger", "data": {"code": _SECRET}}
+    with caplog.at_level("DEBUG"):
+        await dispatch_async("ha.call_service", other, caller=_ADMIN)
+    assert _SECRET not in caplog.text
+
+
+def _boom(params: dict[str, Any]) -> dict[str, Any]:
+    raise ValueError(f"lock rejected {_SECRET} secret detail")
+
+
+async def _aboom(params: dict[str, Any]) -> dict[str, Any]:
+    return _boom(params)
+
+
+async def test_handler_exception_with_a_code_is_masked_and_unchained(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setitem(_REGISTRY, "ping", _boom)
+    monkeypatch.setitem(_REGISTRY, "pong", _aboom)
+    with caplog.at_level("DEBUG"):
+        with pytest.raises(HandlerFailedError) as sync_info:
+            dispatch("ping", {"code": _SECRET}, caller=_OP)
+        with pytest.raises(HandlerFailedError) as async_info:
+            await dispatch_async("pong", {"code": _SECRET}, caller=_OP)
+    for info in (sync_info, async_info):
+        assert _SECRET not in str(info.value)
+        assert info.value.__cause__ is None
+        assert info.value.__suppress_context__ is True
+    assert _SECRET not in caplog.text
+    assert "secret detail" not in caplog.text
+    assert "ValueError" in caplog.text
+
+
+async def test_handler_exception_without_a_code_is_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(_REGISTRY, "ping", _boom)
+    monkeypatch.setitem(_REGISTRY, "pong", _aboom)
+    with pytest.raises(ValueError, match="secret detail"):
+        dispatch("ping", {}, caller=_OP)
+    with pytest.raises(ValueError, match="secret detail"):
+        await dispatch_async("pong", {}, caller=_OP)

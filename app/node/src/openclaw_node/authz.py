@@ -13,6 +13,7 @@ import fnmatch
 import hmac
 import json
 import logging
+import math
 import re
 import time
 from collections.abc import Iterable
@@ -25,11 +26,225 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 Role = Literal["user", "admin", "super_admin"]
 
-# The only services household and HA-admin principals may call without an
-# approval path. One constant: `is_forbidden` defines `ha.call_service:*` as
-# "every service except these", and the disclaimer prints the same tuple, so the
-# printed rule and enforcement cannot disagree. No toggle.
-HOUSEHOLD_AUTO_ALLOW_SERVICES: Final[tuple[str, ...]] = ("light.turn_on", "light.turn_off")
+# The only services household and HA-admin principals may call: an explicit,
+# finite list of everyday-control services per domain, checked against Home
+# Assistant's own service definitions. There are no open domains, so a service
+# HA adds later, or one that edits configuration (``input_select.set_options``,
+# ``scene.create``, any ``reload``), is refused until someone lists it here.
+# One table: `is_forbidden` defines `ha.call_service:*` as "every service
+# outside this table", the effect policy classifies from it, and the disclaimer
+# prints it, so the printed rule and enforcement cannot disagree. No toggle.
+# The deny-class list in ``commands.ha`` still refuses first, for every caller.
+#
+# Security devices follow Home Assistant's own model: HA validates the ``code``
+# a lock or alarm requires. The node adds no block and does not log or return a
+# code it can recognise (see ``redact_code`` and ``scrub_codes``).
+_ON_OFF_TOGGLE: Final[frozenset[str]] = frozenset({"turn_on", "turn_off", "toggle"})
+HOUSEHOLD_ALLOWED_SERVICES: Final[dict[str, frozenset[str]]] = {
+    "light": _ON_OFF_TOGGLE,
+    "switch": _ON_OFF_TOGGLE,
+    "input_boolean": _ON_OFF_TOGGLE,
+    "media_player": _ON_OFF_TOGGLE
+    | {
+        "media_play",
+        "media_pause",
+        "media_play_pause",
+        "media_stop",
+        "media_next_track",
+        "media_previous_track",
+        "volume_up",
+        "volume_down",
+        "volume_mute",
+        "volume_set",
+        "select_source",
+        "select_sound_mode",
+    },
+    "cover": frozenset(
+        {
+            "open_cover",
+            "close_cover",
+            "stop_cover",
+            "toggle",
+            "set_cover_position",
+            "open_cover_tilt",
+            "close_cover_tilt",
+            "stop_cover_tilt",
+            "toggle_cover_tilt",
+            "set_cover_tilt_position",
+        }
+    ),
+    "climate": frozenset(
+        {
+            "turn_on",
+            "turn_off",
+            "set_temperature",
+            "set_hvac_mode",
+            "set_fan_mode",
+            "set_preset_mode",
+            "set_humidity",
+        }
+    ),
+    "fan": _ON_OFF_TOGGLE | {"set_percentage", "set_preset_mode", "oscillate", "set_direction"},
+    "input_select": frozenset(
+        {"select_option", "select_next", "select_previous", "select_first", "select_last"}
+    ),
+    "input_number": frozenset({"set_value", "increment", "decrement"}),
+    "vacuum": frozenset({"start", "pause", "stop", "return_to_base", "locate", "clean_spot"}),
+    "humidifier": _ON_OFF_TOGGLE | {"set_humidity", "set_mode"},
+    "water_heater": frozenset({"turn_on", "turn_off", "set_temperature", "set_operation_mode"}),
+    "remote": _ON_OFF_TOGGLE | {"send_command"},
+    "scene": frozenset({"turn_on"}),
+    "script": frozenset({"turn_on"}),
+    "button": frozenset({"press"}),
+    "lock": frozenset({"lock", "unlock", "open"}),
+    "alarm_control_panel": frozenset(
+        {
+            "alarm_arm_away",
+            "alarm_arm_home",
+            "alarm_arm_night",
+            "alarm_arm_vacation",
+            "alarm_arm_custom_bypass",
+            "alarm_disarm",
+        }
+    ),
+}
+
+
+def service_allowed(service: str) -> bool:
+    """Whether a canonical ``domain.service`` is in ``HOUSEHOLD_ALLOWED_SERVICES``."""
+    domain, _, name = service.partition(".")
+    return name in HOUSEHOLD_ALLOWED_SERVICES.get(domain, frozenset())
+
+
+_MASK_CANDIDATES: Final[tuple[str, ...]] = ("[redacted]", "***", "<masked>")
+
+
+_CODE_DOMAINS: Final[frozenset[str]] = frozenset({"lock", "alarm_control_panel"})
+
+
+def normalise_service_code(domain: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Copy of a service body with the service's own top-level ``code`` as text.
+
+    Only ``lock`` and ``alarm_control_panel`` define a ``code`` field, and HA
+    coerces it with ``cv.string``: an int or finite float becomes its text.
+    A boolean, non-finite float, list or dict raises ``ValueError``, as it
+    does in HA. A nested ``code`` (script variables) is left exactly as supplied.
+    """
+    code = body.get("code")
+    if domain not in _CODE_DOMAINS or "code" not in body:
+        return body
+    if isinstance(code, bool | list | dict) or (
+        isinstance(code, float) and not math.isfinite(code)
+    ):
+        msg = "code must be a string or a finite number"
+        raise ValueError(msg)
+    if isinstance(code, int | float):
+        return {**body, "code": str(code)}
+    return body
+
+
+def collect_codes(value: Any) -> list[str | int | float]:
+    """Every supplied ``code`` at any depth: strings and finite numbers, never booleans."""
+    found: list[str | int | float] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if (
+                key == "code"
+                and not isinstance(item, bool)
+                and (
+                    (isinstance(item, str) and item != "")
+                    or (isinstance(item, int | float) and math.isfinite(item))
+                )
+            ):
+                found.append(item)
+            else:
+                found.extend(collect_codes(item))
+    elif isinstance(value, list):
+        for item in value:
+            found.extend(collect_codes(item))
+    return found
+
+
+_MASK_PASSES: Final[int] = 8
+
+
+def _mask_text(text: str, forms: list[str], pattern: re.Pattern[str] | None, mask: str) -> str:
+    """Mask ``forms`` in ``text``; the result never contains any of ``forms``.
+
+    Re-applies the masking pass (a replacement can join its neighbours into a
+    new occurrence) up to ``_MASK_PASSES`` times; if any form still occurs the
+    whole value is dropped (empty string) rather than risk a leak.
+    """
+    if pattern is None:
+        return text
+    for _ in range(_MASK_PASSES):
+        text = pattern.sub(lambda _m: mask, text)
+        if not any(form in text for form in forms):
+            return text
+    return ""
+
+
+def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
+    """Mask every recognisable form of the supplied ``codes`` in ``value``.
+
+    One helper for logs, error text and results. In strings (and dict keys) it
+    masks each code's ``str``, ``json.dumps`` and ``repr`` forms, plus the
+    JSON-escaped inner text of a string code: a plain substring match, so a
+    short code over-redacts rather than leaks. The replacement is the first of
+    ``_MASK_CANDIDATES`` containing none of those forms (else empty), so the
+    output can never contain a supplied code through its own marker. A number
+    equal to a numeric code (``==``, never a bool) is masked too. Masking repeats
+    until no form remains (a replacement can join its neighbours into a new
+    occurrence); a string that still carries one after a fixed number of passes
+    is dropped entirely (empty string). A transformed
+    code (hash, re-encoding) is outside this guarantee.
+    """
+    needles: set[str] = set()
+    numbers: list[int | float] = []
+    for code in codes:
+        needles.update({str(code), json.dumps(code), repr(code)})
+        if isinstance(code, str):
+            needles.add(json.dumps(code)[1:-1])
+        else:
+            numbers.append(code)
+    ordered = sorted((n for n in needles if n), key=len, reverse=True)
+    mask = next((m for m in _MASK_CANDIDATES if not any(n in m for n in ordered)), "")
+    pattern = re.compile("|".join(re.escape(n) for n in ordered)) if ordered else None
+
+    def walk(item: Any) -> Any:
+        if isinstance(item, str):
+            return _mask_text(item, ordered, pattern, mask)
+        if isinstance(item, int | float) and not isinstance(item, bool):
+            return mask if any(item == n for n in numbers) else item
+        if isinstance(item, dict):
+            return {walk(k): walk(v) for k, v in item.items()}
+        if isinstance(item, list):
+            return [walk(v) for v in item]
+        return item
+
+    return walk(value)
+
+
+def redact_code(params: dict[str, Any]) -> dict[str, Any]:
+    """Copy of call params with every supplied ``code`` masked, for log lines.
+
+    Masks by key as well as by value: the value of any ``code`` key is replaced
+    whatever its type, so a boolean, non-finite or container value (which
+    ``collect_codes`` skips) never reaches a log line either.
+    """
+    out: dict[str, Any] = scrub_codes(_mask_code_keys(params), collect_codes(params))
+    return out
+
+
+def _mask_code_keys(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            k: _MASK_CANDIDATES[0] if k == "code" else _mask_code_keys(v) for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_mask_code_keys(v) for v in value]
+    return value
+
 
 # Light wrappers share the generic service decision (one policy, no second path).
 _WRAPPER_SERVICES: Final[dict[str, str]] = {
@@ -300,7 +515,32 @@ def forbidden_for_role(identity: IdentityConfig, role: Role) -> tuple[str, ...]:
                 )
             removable = patch.remove - _USER_NON_REMOVABLE
         forbidden.difference_update(removable)
+    if role != "super_admin":
+        forbidden.update(_inherited_service_prohibitions(identity, role))
     return tuple(sorted(forbidden))
+
+
+_WARNED_INHERITED: Final[set[str]] = set()
+
+
+def _inherited_service_prohibitions(identity: IdentityConfig, role: Role) -> frozenset[str]:
+    """HA-service prohibitions a more privileged role's patch passes down.
+
+    Privilege never inverts: a service prohibition added for ``super_admin``
+    also binds ``admin`` and ``user``, and one added for ``admin`` also binds
+    ``user`` (fail closed), so a more privileged role is never stricter than a
+    less privileged one. Each inherited entry is logged once per process.
+    """
+    inherited: set[str] = set()
+    for admin_role in ("admin", "super_admin") if role == "user" else ("super_admin",):
+        patch = identity.forbidden_commands.get(admin_role)
+        if patch is None:
+            continue
+        inherited.update(e for e in patch.add if e.startswith(_CALL_SERVICE_PREFIX))
+    for entry in sorted(inherited - _WARNED_INHERITED):
+        _WARNED_INHERITED.add(entry)
+        _LOG.warning("[authz] admin prohibition %s also applied to the user role", entry)
+    return frozenset(inherited)
 
 
 def service_for_command(command: str, params: dict[str, object]) -> str | None:
@@ -328,7 +568,7 @@ def is_forbidden(forbidden: Iterable[str], command: str, params: dict[str, objec
 
     Entries are exact command names or ``ha.call_service:<glob>`` over the
     canonical ``domain.service``. ``ha.call_service:*`` means every service
-    except ``HOUSEHOLD_AUTO_ALLOW_SERVICES``. Light wrappers are matched as the
+    outside ``HOUSEHOLD_ALLOWED_SERVICES``. Light wrappers are matched as the
     service they call. A malformed service name is forbidden whenever any
     service entry exists (fail closed).
     """
@@ -347,7 +587,7 @@ def is_forbidden(forbidden: Iterable[str], command: str, params: dict[str, objec
         return True
     for pattern in patterns:
         if pattern == "*":
-            if service not in HOUSEHOLD_AUTO_ALLOW_SERVICES:
+            if not service_allowed(service):
                 return True
         elif fnmatch.fnmatchcase(service, pattern):
             return True
@@ -404,27 +644,27 @@ def build_disclaimer(
     )
 
 
-def _params_for(service: str) -> dict[str, object]:
-    domain, _, name = service.partition(".")
-    return {"domain": domain, "service": name}
-
-
 def _service_exception(forbidden: tuple[str, ...]) -> str:
     """Render which services stay callable under ``ha.call_service:*``.
 
-    Computed from ``is_forbidden`` so a patched specific entry is reflected.
+    Each table entry is evaluated with ``is_forbidden`` itself, so any patched
+    entry (including a glob such as ``l*.turn_on``) is reflected exactly as it
+    is enforced; nothing is derived from pattern prefixes.
     """
     if f"{_CALL_SERVICE_PREFIX}*" not in forbidden:
         return ""
-    allowed = [
-        service
-        for service in HOUSEHOLD_AUTO_ALLOW_SERVICES
-        if not is_forbidden(forbidden, "ha.call_service", _params_for(service))
+    parts = [
+        f"{domain}.{name}"
+        for domain, names in HOUSEHOLD_ALLOWED_SERVICES.items()
+        for name in sorted(names)
+        if not is_forbidden(forbidden, "ha.call_service", {"domain": domain, "service": name})
     ]
-    listed = ", ".join(allowed) if allowed else "none"
+    listed = ", ".join(parts) if parts else "none"
     return (
         "Exception: because the forbidden list includes ha.call_service:*, the only "
-        f"services that may still be called are: {listed}.\n\n"
+        f"services that may still be called are: {listed}. Locks and "
+        "alarms may require a code: pass along only a code the user actually "
+        "supplied, and never guess or invent one.\n\n"
     )
 
 

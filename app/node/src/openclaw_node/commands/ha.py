@@ -53,6 +53,7 @@ import re
 from typing import Any, Final
 from urllib.parse import quote
 
+from openclaw_node.authz import normalise_service_code
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
     HAClientError,
@@ -514,9 +515,13 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         body.update(target)
 
     try:
+        body = normalise_service_code(domain, body)
+    except ValueError as exc:
+        return _error("INVALID_PARAM", str(exc))
+    try:
         result = await ha_post(f"/api/services/{domain}/{service}", body or None)
     except HAClientError as exc:
-        return _to_error(exc)
+        return _error(exc.code, exc.message)
 
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")

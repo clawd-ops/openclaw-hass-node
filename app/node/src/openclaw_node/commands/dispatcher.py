@@ -11,6 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
+from openclaw_node.authz import collect_codes, redact_code, scrub_codes
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.exec_approvals import (
     handle_system_exec_approvals_get,
@@ -191,6 +192,25 @@ class UnknownCommandError(Exception):
         self.command = command
 
 
+class HandlerFailedError(Exception):
+    """A handler raised while a caller-supplied code was in play; detail withheld."""
+
+
+def _masked_failure(
+    command: str, exc: Exception, codes: list[str | int | float]
+) -> HandlerFailedError:
+    """Log only the exception type and return a generic error carrying no handler text."""
+    name = scrub_codes(command, codes)
+    _LOG.error("Handler failed command=%r: %s", name, type(exc).__name__)
+    return HandlerFailedError(f"Handler failed for command: {name!r}")
+
+
+def _scrubbed(result: dict[str, Any], codes: list[str | int | float]) -> dict[str, Any]:
+    """The single exit: mask every supplied code in a value leaving the dispatcher."""
+    scrubbed: dict[str, Any] = scrub_codes(result, codes)
+    return scrubbed
+
+
 def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED) -> dict[str, Any]:
     """Dispatch *command* to its handler and return the result payload.
 
@@ -213,22 +233,33 @@ def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED
         >>> result["pong"]
         True
     """
+    codes = collect_codes(params)
     handler = _REGISTRY.get(command)
     if handler is None:
-        _LOG.warning("Received unknown command: %r", command)
-        raise UnknownCommandError(command)
+        _LOG.warning("Received unknown command: %r", scrub_codes(command, codes))
+        raise UnknownCommandError(scrub_codes(command, codes))
 
     refusal = check(caller, command, params)
     if refusal is not None:
-        _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
-        return refusal
+        _LOG.warning(
+            "%s",
+            scrub_codes(
+                f"Refused command={command!r} caller={caller.actor_id}: {refusal['error']}", codes
+            ),
+        )
+        return _scrubbed(refusal, codes)
 
-    _LOG.debug("Dispatching command=%r params=%r", command, params)
-    result = handler(params)
+    _LOG.debug("Dispatching command=%r params=%r", command, redact_code(params))
+    try:
+        result = handler(params)
+    except Exception as exc:
+        if not codes:
+            raise
+        raise _masked_failure(command, exc, codes) from None
     if inspect.iscoroutine(result):
         result.close()
         raise AsyncHandlerError(command)
-    return result  # type: ignore[return-value]
+    return _scrubbed(result, codes)  # type: ignore[arg-type]
 
 
 async def dispatch_async(
@@ -249,19 +280,29 @@ async def dispatch_async(
     Raises:
         UnknownCommandError: If *command* has no registered handler.
     """
+    codes = collect_codes(params)
     handler = _REGISTRY.get(command)
     if handler is None:
-        _LOG.warning("Received unknown command: %r", command)
-        raise UnknownCommandError(command)
+        _LOG.warning("Received unknown command: %r", scrub_codes(command, codes))
+        raise UnknownCommandError(scrub_codes(command, codes))
 
     refusal = check(caller, command, params)
     if refusal is not None:
-        _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
-        return refusal
+        _LOG.warning(
+            "%s",
+            scrub_codes(
+                f"Refused command={command!r} caller={caller.actor_id}: {refusal['error']}", codes
+            ),
+        )
+        return _scrubbed(refusal, codes)
 
-    _LOG.debug("Dispatching (async) command=%r params=%r", command, params)
-    result = handler(params)
-    if inspect.iscoroutine(result):
-        awaited: dict[str, Any] = await result
-        return awaited
-    return result  # type: ignore[return-value]
+    _LOG.debug("Dispatching (async) command=%r params=%r", command, redact_code(params))
+    try:
+        result = handler(params)
+        if inspect.iscoroutine(result):
+            result = await result
+    except Exception as exc:
+        if not codes:
+            raise
+        raise _masked_failure(command, exc, codes) from None
+    return _scrubbed(result, codes)  # type: ignore[arg-type]

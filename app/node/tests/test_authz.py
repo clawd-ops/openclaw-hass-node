@@ -2,20 +2,27 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 
 import pytest
 from _pytest.logging import LogCaptureFixture
 
+from openclaw_node import authz as authz_mod
 from openclaw_node.authz import (
-    HOUSEHOLD_AUTO_ALLOW_SERVICES,
+    HOUSEHOLD_ALLOWED_SERVICES,
     Actor,
     actor_from_payload,
     actor_from_signed_body,
+    collect_codes,
     derive_actor_signing_secret,
     is_forbidden,
+    normalise_service_code,
+    redact_code,
     resolve_turn_authz,
+    scrub_codes,
+    service_allowed,
     service_for_command,
     sign_actor,
 )
@@ -37,7 +44,7 @@ def test_derive_actor_signing_secret_uses_local_api_token() -> None:
 
 def test_actor_from_signed_body_accepts_derived_token_signature() -> None:
     ts = int(time.time())
-    actor = Actor("rob", is_admin=True)
+    actor = Actor("admin1", is_admin=True)
     signature = sign_actor(
         derive_actor_signing_secret("local-token"),
         actor=actor,
@@ -52,7 +59,7 @@ def test_actor_from_signed_body_accepts_derived_token_signature() -> None:
             "text": "restart addon",
             "conversation_id": "conv-1",
             "language": "en",
-            "actor": {"user_id": "rob", "is_admin": True},
+            "actor": {"user_id": "admin1", "is_admin": True},
             "actor_ts": ts,
             "actor_signature": signature,
         },
@@ -69,7 +76,7 @@ def test_actor_from_signed_body_rejects_unsigned_or_bad_signatures(
         "text": "restart addon",
         "conversation_id": "conv-1",
         "language": "en",
-        "actor": {"user_id": "rob", "is_admin": True},
+        "actor": {"user_id": "admin1", "is_admin": True},
     }
 
     with caplog.at_level(logging.WARNING):
@@ -103,10 +110,10 @@ def test_resolve_user_role_generates_forbidden_disclaimer() -> None:
 
 
 def test_resolve_admin_and_super_admin_roles() -> None:
-    identity = IdentityConfig(super_admins=frozenset({"rob"}))
+    identity = IdentityConfig(super_admins=frozenset({"admin1"}))
 
-    admin = resolve_turn_authz(identity, Actor("ash", is_admin=True))
-    super_admin = resolve_turn_authz(identity, Actor("rob", is_admin=True))
+    admin = resolve_turn_authz(identity, Actor("user1", is_admin=True))
+    super_admin = resolve_turn_authz(identity, Actor("admin1", is_admin=True))
 
     assert admin.role == "admin"
     assert "system.run" in admin.forbidden
@@ -121,11 +128,11 @@ def test_resolve_non_admin_actor_is_user() -> None:
 
 def test_user_agent_map_wins_over_default() -> None:
     identity = IdentityConfig(
-        user_agent_map={"ash": "my-agent-household"},
+        user_agent_map={"user1": "my-agent-household"},
         default_agent_id="my-agent",
     )
 
-    authz = resolve_turn_authz(identity, Actor("ash", is_admin=True))
+    authz = resolve_turn_authz(identity, Actor("user1", is_admin=True))
 
     assert authz.agent_id == "my-agent-household"
 
@@ -149,7 +156,7 @@ def test_log_agent_inventory_reports_misconfig(caplog: LogCaptureFixture) -> Non
     from openclaw_node.authz import log_agent_inventory
 
     identity = IdentityConfig(
-        user_agent_map={"ash": "missing-agent"},
+        user_agent_map={"user1": "missing-agent"},
         default_agent_id="bad-default",
     )
 
@@ -166,7 +173,7 @@ def test_log_agent_inventory_accepts_valid_mapping(caplog: LogCaptureFixture) ->
     from openclaw_node.authz import log_agent_inventory
 
     identity = IdentityConfig(
-        user_agent_map={"ash": "my-agent-household"},
+        user_agent_map={"user1": "my-agent-household"},
         default_agent_id="my-agent",
     )
 
@@ -174,7 +181,7 @@ def test_log_agent_inventory_accepts_valid_mapping(caplog: LogCaptureFixture) ->
         log_agent_inventory(identity, ("my-agent", "my-agent-household"))
 
     text = caplog.text
-    assert "user_agent_map[ash] -> my-agent-household" in text
+    assert "user_agent_map[user1] -> my-agent-household" in text
     assert "no such agent" not in text
 
 
@@ -308,8 +315,8 @@ def test_mapped_user_resolves_an_agent_on_the_broken_topology() -> None:
     """The claim above, asserted against the resolver rather than the prose."""
     from openclaw_node.authz import Actor, resolve_agent_id
 
-    identity = IdentityConfig(user_agent_map={"ash": "household"}, default_agent_id="")
-    assert resolve_agent_id(identity, Actor("ash", is_admin=False)) == "household"
+    identity = IdentityConfig(user_agent_map={"user1": "household"}, default_agent_id="")
+    assert resolve_agent_id(identity, Actor("user1", is_admin=False)) == "household"
     assert resolve_agent_id(identity, Actor("nobody", is_admin=False)) == ""
     assert resolve_agent_id(identity, None) == ""
 
@@ -318,22 +325,42 @@ def _call(domain: str, service: str) -> dict[str, object]:
     return {"domain": domain, "service": service}
 
 
-def test_light_exception_is_one_constant_in_disclaimer() -> None:
+def test_disclaimer_prints_the_allowed_table() -> None:
     authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
+    exception = authz.disclaimer.split("may still be called are: ")[1].split(". Locks")[0]
+    printed = set(exception.split(", "))
 
-    assert ", ".join(HOUSEHOLD_AUTO_ALLOW_SERVICES) in authz.disclaimer
-    assert "input_*" not in authz.disclaimer
-    assert "switch" not in authz.disclaimer
+    expected = {f"{d}.{n}" for d, names in HOUSEHOLD_ALLOWED_SERVICES.items() for n in names}
+    assert printed == expected
+    assert "shell_command" not in exception
+    assert "never guess or invent" in authz.disclaimer
 
 
 @pytest.mark.parametrize(
     ("domain", "service", "forbidden"),
     [
         ("light", "turn_on", False),
-        ("light", "turn_off", False),
-        ("light", "toggle", True),
-        ("lock", "unlock", True),
-        ("switch", "turn_on", True),
+        ("light", "toggle", False),
+        ("switch", "turn_on", False),
+        ("media_player", "turn_on", False),
+        ("scene", "turn_on", False),
+        ("cover", "open_cover", False),
+        ("climate", "set_temperature", False),
+        ("script", "turn_on", False),
+        ("script", "turn_off", True),
+        ("script", "reload", True),
+        ("button", "press", False),
+        ("button", "reload", True),
+        ("light", "reload", True),
+        ("input_select", "set_options", True),
+        ("input_select", "select_option", False),
+        ("light", "future_service", True),
+        ("lock", "unlock", False),
+        ("lock", "set_code", True),
+        ("alarm_control_panel", "alarm_disarm", False),
+        ("alarm_control_panel", "alarm_trigger", True),
+        ("automation", "trigger", True),
+        ("homeassistant", "turn_off", True),
         ("shell_command", "x", True),
     ],
 )
@@ -341,10 +368,40 @@ def test_default_user_policy_matches_printed_rule(
     domain: str, service: str, forbidden: bool
 ) -> None:
     authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
-    printed = f"{domain}.{service}" in HOUSEHOLD_AUTO_ALLOW_SERVICES
 
     assert is_forbidden(authz.forbidden, "ha.call_service", _call(domain, service)) is forbidden
-    assert printed is (not forbidden) or domain == "shell_command"
+    assert service_allowed(f"{domain}.{service}") is (not forbidden) or domain == "shell_command"
+
+
+def _patched(add: dict[str, frozenset[str]]) -> IdentityConfig:
+    return IdentityConfig(
+        forbidden_commands={role: ForbiddenCommandPatch(add=a) for role, a in add.items()}
+    )
+
+
+def test_admin_prohibition_is_inherited_by_user_and_logged_once(caplog: LogCaptureFixture) -> None:
+    entry = "ha.call_service:cover.open_cover"
+    identity = _patched({"admin": frozenset({entry}), "super_admin": frozenset({"fs.read"})})
+    authz_mod._WARNED_INHERITED.clear()
+
+    with caplog.at_level("WARNING"):
+        first = resolve_turn_authz(identity, Actor("kid", is_admin=False))
+        resolve_turn_authz(identity, Actor("kid", is_admin=False))
+
+    assert entry in first.forbidden
+    assert "fs.read" not in first.forbidden  # only service prohibitions are inherited
+    assert sum(entry in r.getMessage() for r in caplog.records) == 1
+
+
+def test_redact_code_masks_code_without_mutating_input() -> None:
+    params = {"domain": "lock", "data": {"code": "4321", "x": 1}, "service_data": {"code": 9}}
+
+    redacted = redact_code(params)
+
+    assert redacted["data"] == {"code": "[redacted]", "x": 1}
+    assert redacted["service_data"] == {"code": "[redacted]"}
+    assert params["data"] == {"code": "4321", "x": 1}
+    assert redact_code({"data": {"x": 1}}) == {"data": {"x": 1}}
 
 
 @pytest.mark.parametrize("role_admin", [False, True])
@@ -375,7 +432,7 @@ def test_every_printed_forbidden_entry_is_enforced_and_vice_versa(role_admin: bo
         assert f"  - {entry}" in authz.disclaimer
         if entry.startswith("ha.call_service:"):
             glob = entry.split(":", 1)[1]
-            sample = _call("lock", "unlock") if glob != "*" else _call("cover", "open_cover")
+            sample = _call("lock", "unlock") if glob != "*" else _call("automation", "trigger")
             if glob.startswith("shell_command"):
                 sample = _call("shell_command", "run")
             elif glob.startswith("python_script"):
@@ -398,7 +455,7 @@ def test_user_service_wildcard_is_non_removable(caplog: LogCaptureFixture) -> No
         authz = resolve_turn_authz(identity, Actor("kid", is_admin=False))
 
     assert "ha.call_service:*" in authz.forbidden
-    assert is_forbidden(authz.forbidden, "ha.call_service", _call("switch", "turn_on"))
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call("automation", "trigger"))
     assert sum("ha.call_service:*" in r.getMessage() for r in caplog.records) == 1
 
 
@@ -420,45 +477,138 @@ def _patched_identity(add: frozenset[str]) -> IdentityConfig:
     return IdentityConfig(forbidden_commands={"user": ForbiddenCommandPatch(add=add)})
 
 
-def test_disclaimer_exception_reflects_patched_light_prohibitions() -> None:
+def _printed(disclaimer: str) -> set[str]:
+    return set(disclaimer.split("may still be called are: ")[1].split(". Locks")[0].split(", "))
+
+
+def test_disclaimer_exception_reflects_patched_prohibitions() -> None:
     kid = Actor("kid", is_admin=False)
-    one = resolve_turn_authz(
-        _patched_identity(
-            frozenset(
-                {
-                    "ha.call_service:light.turn_off",
-                }
-            )
-        ),
-        kid,
-    )
-    both = resolve_turn_authz(
-        _patched_identity(
-            frozenset({"ha.call_service:light.turn_off", "ha.call_service:light.turn_on"})
-        ),
+    one = resolve_turn_authz(_patched_identity(frozenset({"ha.call_service:light.turn_off"})), kid)
+    domain = resolve_turn_authz(
+        _patched_identity(frozenset({"ha.call_service:lock.*", "ha.call_service:button.press"})),
         kid,
     )
 
-    assert "may still be called are: light.turn_on." in one.disclaimer
-    assert "light.turn_off." not in one.disclaimer
-    assert "may still be called are: none." in both.disclaimer
+    assert "light.turn_off" not in _printed(one.disclaimer)
+    assert "light.turn_on" in _printed(one.disclaimer)
+    assert not {s for s in _printed(domain.disclaimer) if s.startswith("lock.")}
+    assert "button.press" not in _printed(domain.disclaimer)
 
 
-def test_user_forbidden_commands_are_non_removable(caplog: LogCaptureFixture) -> None:
-    identity = IdentityConfig(
-        forbidden_commands={
-            "user": ForbiddenCommandPatch(
-                add=frozenset({"ha.get_state"}),
-                remove=frozenset({"ha.addon_update"}),
-            )
-        }
-    )
+def test_disclaimer_matches_enforcement_for_glob_patch() -> None:
+    kid = Actor("kid", is_admin=False)
+    authz = resolve_turn_authz(_patched_identity(frozenset({"ha.call_service:l*.turn_on"})), kid)
+    printed = _printed(authz.disclaimer)
 
-    with caplog.at_level("WARNING"):
-        authz = resolve_turn_authz(identity, None)
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call("light", "turn_on"))
+    assert "light.turn_on" not in printed
+    assert "light.turn_off" in printed
+    for entry in (f"{d}.{n}" for d, ns in HOUSEHOLD_ALLOWED_SERVICES.items() for n in ns):
+        d, _, n = entry.partition(".")
+        enforced = not is_forbidden(authz.forbidden, "ha.call_service", _call(d, n))
+        assert (entry in printed) is enforced, entry
 
-    assert "ha.addon_update" in authz.forbidden
-    assert "ha.addon_update" in authz.disclaimer
-    assert "ha.get_state" in authz.forbidden
-    assert "ha.get_state" in authz.disclaimer
-    assert sum("ha.addon_update" in r.getMessage() for r in caplog.records) == 1
+
+def test_scrub_codes_masks_embedded_escaped_and_nested_occurrences() -> None:
+    value = {
+        "a": "x482913x",
+        "b": ["pin 482913 ok", {"c": 'q"z'}],
+        "n": 5,
+        "482913": "k",
+    }
+
+    out = scrub_codes(value, ["482913"])
+    assert "482913" not in json.dumps(out)
+    assert out["a"] == "x[redacted]x"
+    assert out["n"] == 5
+    # A code with a quote also appears JSON-escaped inside serialized text.
+    code = 'q"z'
+    escaped = json.dumps(code)[1:-1]
+    out = scrub_codes({"s": f"raw {code} esc {escaped}"}, [code])
+    assert out == {"s": "raw [redacted] esc [redacted]"}
+    assert scrub_codes("12 apples", ["12"]) == "[redacted] apples"
+    assert scrub_codes("keep", [""]) == "keep"
+
+
+def test_scrub_codes_output_is_code_free_across_replacement_boundaries() -> None:
+    colliding: list[str | int | float] = ["redacted", "*", "<masked>", "1234"]
+    assert "a[" not in scrub_codes("aa[", ["a["])
+    assert "1234" not in scrub_codes("12*34", colliding)
+    assert scrub_codes("keep 99", ["1234"]) == "keep 99"
+    assert scrub_codes("pin 1234", ["1234"]) == "pin [redacted]"
+    cases: list[tuple[str, list[str | int | float]]] = [
+        ("aa[", ["a["]),
+        ("12*34", colliding),
+        ("1[red[redacted]acted]2", ["12", "[redacted]"]),
+        ("xxyy", ["xy", "xxyy"]),
+        ("a" * 40 + "b", ["ab", "a"]),
+    ]
+    for text, forms in cases:
+        res = scrub_codes({text: text}, forms)
+        all_forms = set(forms) | {json.dumps(f)[1:-1] for f in forms}
+        assert not any(f in k or f in v for k, v in res.items() for f in all_forms)
+
+
+def test_scrub_codes_masks_numbers_equal_to_a_numeric_code() -> None:
+    value = {"pin": 1234, "ratio": 1234.0, "bool": True, "other": 12, "k": [1234]}
+
+    out = scrub_codes(value, [1234])
+
+    assert out == {
+        "pin": "[redacted]",
+        "ratio": "[redacted]",
+        "bool": True,
+        "other": 12,
+        "k": ["[redacted]"],
+    }
+    assert scrub_codes({"v": 1}, [1]) == {"v": "[redacted]"}
+    assert scrub_codes({"v": True}, [1]) == {"v": True}
+    assert scrub_codes("err 1e+20 / 1e20", [1e20]) == "err [redacted] / 1e20"
+    assert scrub_codes({"1e+20": 0}, [1e20]) == {"[redacted]": 0}
+
+
+def test_normalise_service_code_only_touches_the_services_own_code() -> None:
+    assert normalise_service_code("lock", {"code": 482913}) == {"code": "482913"}
+    assert normalise_service_code("alarm_control_panel", {"code": 1e20}) == {"code": "1e+20"}
+    assert normalise_service_code("lock", {"code": "s", "n": 1}) == {"code": "s", "n": 1}
+    assert normalise_service_code("lock", {"n": 1}) == {"n": 1}
+    script = {"variables": {"code": 1234, "flag": {"code": True}}, "code": 7}
+    assert normalise_service_code("script", script) is script
+    for bad in (True, float("nan"), float("-inf"), ["1"], {"pin": "1"}):
+        with pytest.raises(ValueError, match="code must be"):
+            normalise_service_code("lock", {"code": bad})
+
+
+def test_collect_codes_finds_strings_and_numbers_at_any_depth() -> None:
+    data = {
+        "a": {"code": "1"},
+        "b": [{"code": 2}, {"code": True}, {"code": {"code": 3.5}}, {"code": float("nan")}],
+        "c": {"code": ""},
+    }
+
+    assert collect_codes(data) == ["1", 2, 3.5]
+    assert redact_code({"data": {"variables": {"code": "4321"}}}) == {
+        "data": {"variables": {"code": "[redacted]"}}
+    }
+    assert redact_code({"code": 1e20, "x": "1e+20"}) == {
+        "code": "[redacted]",
+        "x": "[redacted]",
+    }
+
+
+@pytest.mark.parametrize("secret", ["redacted", "*", "[redacted]", "<masked>"])
+def test_scrub_codes_marker_never_contains_the_supplied_code(secret: str) -> None:
+    text = f"prefix {secret} suffix"
+    out = scrub_codes(text, [secret])
+    assert secret not in out
+    assert out.startswith("prefix ")
+    assert out.endswith(" suffix")
+    # Log line: the redacted params carry no trace of the code either.
+    logged = json.dumps(redact_code({"data": {"code": secret, "note": text}}))
+    assert secret not in logged.replace("\\", "")
+
+
+def test_scrub_codes_drops_the_code_when_every_marker_collides() -> None:
+    codes: list[str | int | float] = ["redacted", "*", "<masked>"]
+    assert scrub_codes("a redacted b * c <masked>", codes) == "a  b  c "
+    assert scrub_codes({"n": 7}, [7, *codes]) == {"n": ""}
