@@ -2768,12 +2768,50 @@ def test_filter_param_error_allows_absent_and_valid() -> None:
     """An omitted filter does not constrain, and a real value passes."""
     assert filter_param_error({}, ("domain", "area_id")) is None
     assert filter_param_error({"domain": "sensor"}, ("domain",)) is None
-    assert filter_param_error({"domain": None}, ("domain",)) is None
 
 
-def test_filter_param_error_only_checks_named_filters() -> None:
-    """An unrelated bad-typed key is not this validator's business."""
-    assert filter_param_error({"action": 5, "domain": "sensor"}, ("domain",)) is None
+def test_filter_param_error_rejects_explicit_null() -> None:
+    """A present-but-null filter is refused, not treated as absent."""
+    err = filter_param_error({"domain": None}, ("domain",))
+    assert err is not None
+    assert err["error"] == "INVALID_PARAM"
+    assert "domain" in err["message"]
+
+
+def test_filter_param_error_rejects_unknown_key() -> None:
+    """A misspelled filter is refused and named, never silently ignored."""
+    err = filter_param_error({"domian": "sensor"}, ("domain",))
+    assert err is not None
+    assert err["error"] == "INVALID_PARAM"
+    assert "domian" in err["message"]
+
+
+def test_filter_param_error_allows_declared_extra_keys() -> None:
+    """Non-filter keys the handler accepts (e.g. action) pass when declared."""
+    assert filter_param_error({"action": "list"}, ("domain",), ("action",)) is None
+    assert filter_param_error({"action": "list"}, ("domain",)) is not None
+
+
+_LIST_HANDLER_PATCHES: list[tuple[Any, str]] = [
+    (handle_ha_list_entity_registry, "ha_ws_call"),
+    (handle_ha_list_devices, "ha_ws_call"),
+    (handle_ha_list_services, "ha_get"),
+    (handle_ha_list_config_entries, "ha_get"),
+]
+
+
+@pytest.mark.parametrize("params", [{"domian": "sensor"}, {"domain": None}, {"area_id": None}])
+@pytest.mark.parametrize(("handler", "target"), _LIST_HANDLER_PATCHES)
+async def test_list_handlers_refuse_unknown_or_null_keys_before_ha(
+    handler: Any, target: str, params: dict[str, Any]
+) -> None:
+    """Typo'd or null filters are refused with zero HA requests on every list handler."""
+    mock = AsyncMock(return_value=[])
+    with patch(f"openclaw_node.commands.ha.{target}", mock):
+        result = await handler(params)
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    mock.assert_not_awaited()
 
 
 # --- handler wiring -------------------------------------------------------

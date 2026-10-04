@@ -566,6 +566,26 @@ async def test_device_list_rejects_bad_filter_before_calling_ha() -> None:
     mock.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    ("module", "handler", "params"),
+    [
+        ("entity", handle_ha_config_entity_registry, {"action": "list", "domian": "sensor"}),
+        ("entity", handle_ha_config_entity_registry, {"action": "list", "domain": None}),
+        ("device", handle_ha_config_device_registry, {"action": "list", "area_idd": "k"}),
+        ("device", handle_ha_config_device_registry, {"action": "list", "area_id": None}),
+    ],
+)
+async def test_registry_list_refuses_unknown_or_null_keys_before_ha(
+    module: str, handler: Any, params: dict[str, Any]
+) -> None:
+    mock = AsyncMock()
+    with patch(f"openclaw_node.commands.ha_config_{module}_registry.ha_ws_call", mock):
+        result = await handler(params)
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    mock.assert_not_awaited()
+
+
 async def test_entity_get_ignores_registry_filters() -> None:
     """Filters are a list-action concern; action=get is unaffected by them."""
     mock = AsyncMock(return_value={"entity_id": "sensor.a"})

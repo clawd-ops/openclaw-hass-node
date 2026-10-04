@@ -178,26 +178,40 @@ def _filter_value(value: Any) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def filter_param_error(params: dict[str, Any], names: tuple[str, ...]) -> dict[str, Any] | None:
-    """Return an ``INVALID_PARAM`` error when a supplied filter is unusable.
+def filter_param_error(
+    params: dict[str, Any],
+    names: tuple[str, ...],
+    extra: tuple[str, ...] = (),
+) -> dict[str, Any] | None:
+    """Return an ``INVALID_PARAM`` error when the params are not exactly usable.
 
-    A filter of the wrong type, or an empty string, would otherwise match
-    nothing and return ``count: 0``, which a caller cannot distinguish from a
-    registry that genuinely holds no such record. Rejecting it keeps a caller
-    typo from reading as an authoritative empty answer.
+    The full key set is checked, not just the named filters. A misspelled key
+    (``domian``) would otherwise be ignored and the unfiltered collection
+    returned with ``ok: True``, which reads as a narrowing request that was
+    honoured. A filter that is present but ``null``, the wrong type, or an
+    empty string is refused for the same reason.
 
     Args:
         params: The caller-supplied parameter dict.
-        names: Filter names to validate. Absent names do not constrain.
+        names: Filter names the handler accepts. Absent names do not constrain.
+        extra: Non-filter keys the handler also accepts, e.g. ``action``.
 
     Returns:
-        An error dict for the first unusable filter, or ``None`` when every
-        supplied filter is a non-empty string.
+        An error dict for the first unknown key or unusable filter, or ``None``
+        when every key is allowed and every supplied filter is a non-empty
+        string.
     """
+    unknown = sorted(set(params) - set(names) - set(extra))
+    if unknown:
+        allowed = sorted({*names, *extra})
+        return _error(
+            "INVALID_PARAM",
+            f"unknown parameter(s): {', '.join(unknown)}; allowed: {', '.join(allowed)}",
+        )
     for name in names:
-        value = params.get(name)
-        if value is None:
+        if name not in params:
             continue
+        value = params[name]
         if not isinstance(value, str) or not value.strip():
             return _error("INVALID_PARAM", f"{name} must be a non-empty string when supplied")
     return None

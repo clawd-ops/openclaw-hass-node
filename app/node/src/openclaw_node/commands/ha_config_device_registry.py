@@ -52,7 +52,7 @@ async def handle_ha_config_device_registry(params: dict[str, Any]) -> dict[str, 
         )
 
     if action == "list":
-        invalid = filter_param_error(params, DEVICE_REGISTRY_FILTERS)
+        invalid = filter_param_error(params, DEVICE_REGISTRY_FILTERS, ("action",))
         if invalid is not None:
             return invalid
         # Read each filter through a literal key here rather than forwarding
