@@ -30,7 +30,7 @@ type ToolFactoryApi = {
 type HookApi = {
   on(
     hook: "before_tool_call",
-    handler: typeof beforeToolCall,
+    handler: (event: Parameters<typeof beforeToolCall>[0], ctx?: unknown) => ReturnType<typeof beforeToolCall>,
     opts: { matcher: string[] },
   ): void;
 };
@@ -65,7 +65,8 @@ export default definePluginEntry({
     "Scoped tool wrappers so HA Assist sessions can operate the paired Home Assistant node without the operator-only nodes.invoke tool.",
   register(api) {
     api.registerNodeInvokePolicy(createLazyAssistToolsNodeInvokePolicy());
-    (api as unknown as HookApi).on("before_tool_call", beforeToolCall, {
+    // The host calls handlers as (event, ctx); never let ctx reach the optional clock param.
+    (api as unknown as HookApi).on("before_tool_call", (event) => beforeToolCall(event), {
       matcher: ["nodes", ...Object.keys(ADMIN_TOOL_COMMANDS)],
     });
     for (const registration of resolvedAssistCommandRegistrations()) {
