@@ -50,9 +50,10 @@ must be updated in a specific order.
   `ha.history` validate their inputs (#319, #344, #345, #373).
 
 ### Size and time bounds
-- Gateway frames are capped at 4 MiB, request parameters at 512 KiB (and bounded
-  in nesting depth and size), and results at 24 MiB, with stable error codes
-  such as `REQUEST_TOO_LARGE` and `RESULT_TOO_LARGE` (#376).
+- Incoming frames on the gateway connection are capped at 4 MiB, request
+  parameters at 512 KiB (and bounded in nesting depth and size), and results at
+  24 MiB, with stable error codes such as `REQUEST_TOO_LARGE` and
+  `RESULT_TOO_LARGE` (#376).
 - `fs.write` content is capped at 8 MiB and `fs.patch` text at 1 MiB, refused
   before any file or backup is touched (#368).
 - `system.run` argument and environment sizes are bounded, and a timeout now
@@ -66,8 +67,9 @@ must be updated in a specific order.
   accept, so callers no longer count array positions. Version 0 is rejected.
   `fs.patch` is now recorded as a patch in the backup index (#358).
 - **Registry list commands accept filters** (domain, platform, area, device,
-  config entry) and the WebSocket ceiling is raised to 16 MiB, fixing the failure
-  on installs with thousands of entities (#316, #330, #362).
+  config entry) and the node's Home Assistant WebSocket connection now accepts
+  messages up to 16 MiB (a separate limit from the gateway connection), fixing
+  the failure on installs with thousands of entities (#316, #330, #362).
 - `ha.call_service` now returns the changed states when Home Assistant returns
   none (#359).
 
@@ -76,20 +78,11 @@ must be updated in a specific order.
   longer reach a more permissive entry by naming the node differently (#361).
 - Vulnerable `urllib3` bumped to 2.8.0 (#367).
 
-### Reliability and tooling
+### Reliability
 - A startup warning appears when the add-on lifecycle allowlist is set but the
   gateway gate is not (#332, #363).
-- Command coverage ledger: evidence is linked, issue-cited and flagged when it
-  goes stale, and production evidence records the plugin version (#341, #354,
-  #381, #387, #388, #389).
-- Chat relay timing tests are deterministic (#399), and the release workflow
-  now watches all version sources (#398).
-
-### Documentation
-- Status, roadmap, UAT plan and design docs reconciled with shipped behaviour;
-  authorization model documents the approval flow; install docs cover the
-  `allowAdminOps` migration; docs render task lists and are checked for
-  unrendered syntax (#350, #357, #378, #391).
+- Reliability and documentation improvements, including install docs for the
+  `allowAdminOps` migration and the approval flow in the authorization model.
 
 ### Upgrade notes
 1. **Update the add-on before the gateway plugin.** The new plugin sends a
