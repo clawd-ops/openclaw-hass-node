@@ -202,9 +202,16 @@ import {
 - **`definePluginEntry(descriptor)`** — registers the plugin with the gateway.
   Required fields: `id` (string), `name` (string), `description` (string),
   `register(api)` (function).
-- **`api.registerTool(tool: AnyAgentTool)`** — registers a tool that surfaces
-  in Assist sessions. `AnyAgentTool` requires `label`, `name`, `description`,
-  `parameters` (TypeBox schema), and `execute(toolCallId, args, signal, onUpdate)`.
+- **`api.registerTool(factory, { name })`** — registers a tool that surfaces in
+  Assist sessions. `factory(toolContext)` is called per run and returns an
+  `AnyAgentTool` (`label`, `name`, `description`, `parameters` (TypeBox schema),
+  and `execute(toolCallId, args, signal, onUpdate)`). The host passes
+  `toolContext.sessionKey` to the factory; the plugin binds it to every
+  `execute` call. The bundled SDK type stub predates this signature, so
+  `index.ts` declares it locally. The key is used only as a lookup hint for the
+  node, never as identity. If the key is missing, not a string, or not
+  Assist-shaped (`ha-assist:<id>`), the tool fails closed with
+  `MISSING_ASSIST_CONTEXT` before any gateway call is made.
 - **`api.registerNodeInvokePolicy(policy: OpenClawPluginNodeInvokePolicy)`** —
   registers the security gate for raw `node.invoke` calls. Required shape:
   `{ commands: string[], handle(ctx): Promise<result> }`.
