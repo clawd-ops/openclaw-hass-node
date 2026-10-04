@@ -211,7 +211,7 @@ import {
   `index.ts` declares it locally. The key is used only as a lookup hint for the
   node, never as identity. If the key is missing, not a string, or not
   Assist-shaped (`ha-assist:<id>`), the tool fails closed with
-  `MISSING_ASSIST_CONTEXT` before any gateway call is made.
+  `MISSING_ASSIST_CONTEXT` before `node.invoke` is called.
 - **`api.registerNodeInvokePolicy(policy: OpenClawPluginNodeInvokePolicy)`** —
   registers the security gate for raw `node.invoke` calls. Required shape:
   `{ commands: string[], handle(ctx): Promise<result> }`.
