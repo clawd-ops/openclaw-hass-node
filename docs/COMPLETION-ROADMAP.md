@@ -8,7 +8,7 @@ last observed running app `2026.7.23b1`; live verification dated 2026-09-12.
 Release publication does not advance the installed baseline: a Tier B install
 and fresh UAT evidence are still required.
 
-Source state: reconciled against `main` at `ba05c00`. Changes merged after
+Source state: reconciled against `main` at `8a55f02`. Changes merged after
 `2026.9.13b1` are described as unreleased source behaviour; no beta has been cut
 since, so none of them has release-tied or live evidence.
 
@@ -113,7 +113,7 @@ remains listed when release-tied evidence is still outstanding.
 | Retained gap | Tracker |
 |---|---|
 | Trusted caller propagation. The dispatcher gate is merged at source, but Gateway-forwarded invokes and the local HTTP API are operator calls, so direct `node.invoke` is operator-default. Assist-principal propagation is pending a design decision. The cross-surface ceiling still has two documented alternatives; neither is selected here. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
-| Per-effect service policy is merged at source (the everyday-control table of named services allowed for household users and HA admins, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: classification of services outside the table, target and data constraints, and covering the non-service mutation commands. | [#287](https://github.com/clawd-ops/openclaw-hass-node/issues/287), [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Per-effect service policy is merged at source (the everyday-control table of named services allowed for household users and HA admins, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: classification of services outside the table, target and data constraints, and covering the non-service mutation commands. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289), [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) (the interim denylist tracker #287 is closed) |
 | Complete the executable cross-layer command contract and strict dispatcher validation. Deferred: no complete accepted-key authority exists. Only some read handlers (`ha.list_states`, `ha.history`, `ha.logbook`, the registry/device/service/config-entry/automation lists) refuse unknown keys at source; the rest (for example `ha.list_areas`, `ha.get_config`, `ha.list_events`) still ignore them; all eleven `fs.*` commands, the nine `ha.config.*` commands, `system.which` and `ping` now refuse unknown keys and null optional keys at source (umbrella [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349)). | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
 | Consume native approvals for structured HA and filesystem mutations, and wire accepted decisions to protected writes. Nothing is consumed yet; operator-held approval routing needs a live Gateway. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
 | Enforce protected recovery storage, precondition/version checks, retention, and recovery behavior. | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) |

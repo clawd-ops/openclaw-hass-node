@@ -61,6 +61,10 @@ Defensive coding is required, specifically:
 - **Refuse before the side effect**, not after. Ordering is the correctness property: validation and policy checks must complete before the request body is built and sent.
 - Explicit denylist gates for privileged services.
 - Structured, specific errors when a call is refused, so a caller can tell a refusal from a failure.
+- **A command refuses unknown and null parameters.** A key the command does not accept, or a null where a value is required, returns `INVALID_PARAM` before any request is built; it is never dropped or defaulted.
+- **A parameter that is not applicable on this path is an explicit refusal, never silently ignored.** If a documented parameter has no effect on the path the caller took (for example a time bound that only one input shape honours), refuse it and name the accepted alternative rather than accepting it and doing nothing. A silently dropped filter or bound reads as a successful, unfiltered answer.
+
+These two rules advance [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349); the commands that do not yet follow them are listed in the [status](../STATUS.md).
 
 Authorization envelopes and tier policy earn their complexity here.
 

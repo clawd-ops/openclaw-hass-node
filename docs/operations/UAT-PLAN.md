@@ -65,6 +65,11 @@
      `homeassistant_api: true` in `app/config.yaml`). If running
      standalone Docker, this is expected; the node falls back to a
      `/data` writability check.
+   - "addon_lifecycle.allowlist has N slug(s) configured, which is only half of the
+     Tier B gate" warning → expected when the lifecycle allowlist is populated;
+     it is a reminder that the gateway also needs `allowAdminOps` for this
+     node, keyed by the canonical node ID (see G9). It must appear once at
+     startup, and must not appear when the allowlist is empty.
    - "local_api_token is unset" warning → expected if you skipped the
      option; set it before exposing the API outside the Supervisor
      network.
@@ -229,9 +234,11 @@ profile via `openclaw qr`.
 ## Phase F — Cross-validation evidence
 
 - After every PR merge in this repo, the PR description links to the
-  Codex review verdict comment. Spot-check by opening any merged PR
-  on `clawd-ops/openclaw-hass-node` — there should be a Codex
-  reviewer comment with `LGTM` or `LGTM with notes`.
+  cross-provider review verdict comment. Spot-check by opening any merged PR
+  on `clawd-ops/openclaw-hass-node` — there should be a reviewer comment whose
+  first line is `APPROVE` or `REQUEST CHANGES`, with one
+  `Reviewed head:` line pinning the head and base SHAs and a final
+  `Reviewer model:` stamp. A verdict covers only the head it names.
 - Every PR has all CI gates green (ruff check + format, mypy strict,
   pytest with branch coverage gated at 95%, security, app-smoke).
 
@@ -256,11 +263,18 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
   with no approval prompt, `changed_states` populated, and
   `changed_states_complete: true` when the target named concrete entity IDs.
 
-### G3. Unknown history entity.
+### G3. Unknown history entity and read-input validation.
 
 - Invoke `ha.history` for an entity that does not exist. Expect `HA_NOT_FOUND`,
   not an empty history. A misspelled parameter name is refused with
   `INVALID_PARAM`.
+- Invoke `ha.list_states` with an `entity_filter` glob (for example
+  `light.kitchen*`). Expect a small filtered set, not every entity.
+- Invoke `ha.history` and `ha.logbook` directly with `start` / `end`. Expect
+  `INVALID_PARAM`: the direct-path names are `start_time` / `end_time` (the
+  Assist tool maps `start` / `end` itself).
+- Invoke `ha.history` twice with the same bound, once as `...Z` and once as
+  `...+00:00`. Expect identical results.
 
 ### G4. Oversized request.
 
@@ -288,3 +302,63 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
   (for example an unresolvable session owner). Expect a short remedy sentence in
   the reply on both streaming and non-streaming turns, never the bare error
   code and never node log text.
+
+### G7. Multi-agent gateway remedy.
+
+- On a multi-agent gateway with `identity.default_agent_id` unset, expect one
+  ERROR in the node log at startup naming `default_agent_id`.
+- Send one Assist turn from a user with no per-user agent mapping. Expect the
+  curated remedy sentence naming `default_agent_id` and no session RPC.
+- Set `default_agent_id` to a listed agent and restart. Expect the same turn to
+  succeed, and the node log to show an agent-qualified session key
+  (`agent:<agentId>:ha-assist:<id>`).
+
+### G8. `fs` history, restore, and diff by `version_id`.
+
+- Write a file, apply an `fs.patch`, then call `fs.history`. Expect an entry per
+  version, each with a `version_id`, and the patch recorded as an operation.
+- `fs.diff` between two `version_id` values, then `fs.diff` from one
+  `version_id` against live bytes. Expect the expected changes.
+- `fs.restore` by `version_id`. Expect the file to equal the chosen version.
+- Call `fs.restore` with `version` `0`. Expect an out-of-range refusal, not a
+  silent restore of a different version. Positions are 1-indexed.
+
+### G9. Canonical node ID policy.
+
+- Follow the gateway policy step in [`INSTALL.md`](../INSTALL.md), keying
+  `nodes.<node-id>` by the canonical ID from `openclaw nodes status`. Expect
+  the policy to apply (for example `allowAdminOps` takes effect).
+- Re-key the same block by the friendly `node_name`. Expect no grant: Tier B
+  commands are denied again.
+
+### G10. Entity registry on a large installation.
+
+- On an installation with a large entity registry, invoke
+  `ha.list_entity_registry` and `ha.config.entity_registry` `list`, once with
+  no filter and once with a `domain` filter. Expect both to succeed and the
+  filtered result to be a subset of the unfiltered one, with no transport-size
+  failure. The unfiltered call was a live failure on
+  `2026.9.13b1`.
+
+### G11. Lifecycle timeout *(optional, needs a slow add-on)*.
+
+- Restart an allowlisted add-on whose restart outlasts the Supervisor timeout.
+  Expect `OUTCOME_UNKNOWN`, no automatic retry by the node, and
+  `ha.addon_info` afterwards read as a current snapshot only (it cannot show
+  whether the restart happened).
+
+### G12. Household everyday control (source-only).
+
+- Household everyday control is merged at source and is **not** live-testable:
+  every Gateway-forwarded invoke and every local HTTP API call arrives as an
+  operator call, so the household principal does not reach the dispatcher until
+  Assist-principal propagation is built. Record the household path as
+  unverified; do not report it as passing from operator results.
+- Operator-path checks that are live-testable (no change beyond one harmless
+  entity of your choice):
+  - `ha.call_service` for an everyday-control service (for example
+    `switch.turn_on`) on a known entity succeeds with no approval prompt.
+  - A deny-class service is still refused with `SERVICE_DENIED` (G1).
+  - A service outside the everyday-control table is not refused for the
+    operator; the node log records it as an unclassified operator call.
+  - The node log and the reply contain no `code` value when one is supplied.

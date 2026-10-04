@@ -55,12 +55,11 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 17. Open GitHub issues (not otherwise tracked above)
 - Status: OPEN
-- #1 — Direction (catch-all, leave for the owner).
 - #347 — Assist unqualified session key on multi-agent gateways: code, spec,
   config comment and startup log fixed (#351); tests now pin that the key owner
   equals the `chat.send` agent. Remains open pending the owner's confirmation.
-- Recently closed issues formerly listed here are now recorded in the closed
-  section below so this rollup only names live GitHub issues.
+- Closed issues are recorded in the closed section below; this rollup names
+  only issues that are open on GitHub.
 
 ### 20. Native approval-gated write path
 - Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; native OpenClaw

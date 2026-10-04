@@ -128,7 +128,17 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   `ha-assist:<id>` key is used and the gateway resolves the owner. If the agent
   inventory cannot be read (for example `agents.list` fails), the node also
   sends the bare key; a multi-agent gateway may then reject the turn at
-  `sessions.create` (#347).
+  `sessions.create`.
+- The multi-agent gateway fix for [#347](https://github.com/clawd-ops/openclaw-hass-node/issues/347)
+  is merged at source ([#351](https://github.com/clawd-ops/openclaw-hass-node/pull/351),
+  [#366](https://github.com/clawd-ops/openclaw-hass-node/pull/366),
+  [#380](https://github.com/clawd-ops/openclaw-hass-node/pull/380)). Evidence:
+  the key is qualified in `chat_relay.py` and pinned by
+  `test_session_key_is_qualified_only_when_an_agent_resolves`; the startup
+  error for several agents with no `default_agent_id` is in `authz.py` and
+  pinned by `test_unset_default_is_an_error_only_on_a_multi_agent_gateway`. It
+  is unreleased and has no live evidence yet (UAT G7); the issue stays open
+  until that evidence is recorded.
 
 **Bounds (advances [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291)):**
 

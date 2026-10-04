@@ -42,7 +42,7 @@ No bespoke gateway server, no parallel brain. The node is a standard OpenClaw no
 These are the rules that surprise people. Front-loaded so you don't break them.
 
 - **Dual-role WS pairing.** The node holds two parallel gateway connections: `role: node` (for `node.invoke.*`) and `role: operator` (for `chat.send` + `sessions.messages.subscribe`). Gateway role policy is binary per-method; `chat.send` is operator-scope. There is no `node.chat.send`.
-- **`/config` is proposal-gated.** Mutation handlers (`fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `ha.config.*`) return `PROPOSAL_REQUIRED` today; the agent-bridge round-trip is TODO #20.
+- **`/config` mutations fail closed.** `fs.move`, `fs.delete`, and the `ha.config.*` mutations return `PROPOSAL_REQUIRED` today. The ratified approval model uses the Gateway's native OpenClaw approvals, not agent-bridge; it is not implemented yet (TODO #20, advances #275 and #289). See [`design/AUTHORIZATION-MODEL.md`](design/AUTHORIZATION-MODEL.md).
 - **`.storage/` is read-only to the node.** Hard rule. The command layer refuses writes unconditionally; no caller parameter or proposal overrides it.
 - **HA URL is hard-pinned to `http://supervisor/core`** when `SUPERVISOR_TOKEN` is present, so a user-supplied `HASS_URL` never receives the privileged Supervisor token.
 - **Actor signing is derived from `local_api_token`** via HMAC label `openclaw-hass-node actor-signing v1`. There is no separate `actor_secret`.
@@ -51,6 +51,6 @@ These are the rules that surprise people. Front-loaded so you don't break them.
 
 ## Resume rituals
 
-- Bump version → `scripts/bump-version.py <version>` (touches all 5 sources together; CI fails on drift).
-- Cross-provider review is policy: The agent writes, Codex (gpt-5.5) reviews before merge. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- Bump version → `scripts/bump-version.py <version>` (touches all 7 sources together; CI fails on drift).
+- Cross-provider review is policy: A different provider reviews before merge; the verdict is `APPROVE` or `REQUEST CHANGES` with a pinned head and a `Reviewer model:` stamp. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 - After meaningful work, refresh this file if the diagram or invariants changed; otherwise leave it alone.
