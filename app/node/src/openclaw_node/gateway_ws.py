@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
-# Ingress/egress bounds (#291). Inbound frames over the frame cap make the
+# Ingress/egress bounds (#291). Inbound messages over the size cap make the
 # websockets library close the connection (1009); the paramsJSON and result
 # caps are enforced per invoke with a structured error.
 _MAX_GATEWAY_FRAME_BYTES: Final[int] = 4 * 1024 * 1024
@@ -62,19 +62,24 @@ _MAX_PARAMS_JSON_BYTES: Final[int] = 512 * 1024
 _MAX_PARAMS_DEPTH: Final[int] = 64
 _MAX_PARAMS_MEMBERS: Final[int] = 4096
 _MAX_INVOKE_RESULT_BYTES: Final[int] = 24 * 1024 * 1024
+# Gateway invokes executing at once, and invokes accepted but waiting for a
+# worker slot. An invoke arriving with the waiting bound full is refused with
+# QUEUE_SATURATED and never dispatched.
+_MAX_CONCURRENT_INVOKES: Final[int] = 8
+_MAX_QUEUED_INVOKES: Final[int] = 64
 
 # Every gateway invoke is operator until WP2c-2 carries the Assist principal.
 _INVOKE_CALLER: Final[Caller] = Caller.operator("gateway-invoke")
 
 
 def _log_background_task_error(task: asyncio.Task[Any]) -> None:
-    """Log unexpected failures from best-effort startup diagnostics."""
+    """Log unexpected failures from detached background tasks."""
     try:
         task.result()
     except asyncio.CancelledError:
         return
     except Exception:
-        _LOG.exception("background startup diagnostic failed")
+        _LOG.exception("background task failed")
 
 
 # Default role / scopes / caps / commands for a node-role connection.
@@ -1177,17 +1182,35 @@ class GatewayClient:
             relay: The chat relay bound to this connection, or ``None`` on
                 connections where ``chat_relay_enabled=False``.
         """
-        async for raw in ws:
-            msg: dict[str, Any] = json.loads(raw)
-            msg_type = msg.get("type")
+        slots = asyncio.Semaphore(_MAX_CONCURRENT_INVOKES)
+        invoke_tasks: set[asyncio.Task[None]] = set()
 
-            if msg_type == "res" and relay is not None and relay.handle_response(msg):
-                continue
+        async def _run_invoke(payload: dict[str, Any]) -> None:
+            async with slots:
+                await self._handle_invoke(ws, payload)
 
-            if msg_type == "event":
+        try:
+            async for raw in ws:
+                msg: dict[str, Any] = json.loads(raw)
+                msg_type = msg.get("type")
+
+                if msg_type == "res" and relay is not None and relay.handle_response(msg):
+                    continue
+
+                if msg_type != "event":
+                    continue
                 event = msg.get("event", "")
                 if event == "node.invoke.request" and self._invoke_dispatch_enabled:
-                    await self._handle_invoke(ws, msg.get("payload", {}))
+                    payload = msg.get("payload", {})
+                    # Accepted invokes = running + waiting; counting tasks keeps
+                    # the bound exact however the loop schedules their start.
+                    if len(invoke_tasks) >= _MAX_CONCURRENT_INVOKES + _MAX_QUEUED_INVOKES:
+                        await self._reject_saturated(ws, payload)
+                        continue
+                    task = asyncio.create_task(_run_invoke(payload))
+                    invoke_tasks.add(task)
+                    task.add_done_callback(invoke_tasks.discard)
+                    task.add_done_callback(_log_background_task_error)
                 elif (
                     relay is not None
                     and isinstance(event, str)
@@ -1208,6 +1231,35 @@ class GatewayClient:
                     # ChatRelay.handle_event and the tool-named
                     # slow-turn progress delta never fires.
                     relay.handle_event(msg)
+            await asyncio.gather(*invoke_tasks)
+        finally:
+            for task in invoke_tasks:
+                task.cancel()
+            await asyncio.gather(*invoke_tasks, return_exceptions=True)
+
+    async def _reject_saturated(
+        self,
+        ws: websockets.asyncio.client.ClientConnection,
+        payload: dict[str, Any],
+    ) -> None:
+        """Refuse an invoke that arrived with the waiting queue full.
+
+        The command is not dispatched, so the refusal has no side effects.
+        """
+        base = {"id": str(payload.get("id", "")), "nodeId": str(payload.get("nodeId", ""))}
+        _LOG.warning("invoke ◀ QUEUE_SATURATED id=%s", base["id"][:8])
+        resp = _make_req(
+            "node.invoke.result",
+            {
+                **base,
+                "ok": False,
+                "error": {
+                    "code": "QUEUE_SATURATED",
+                    "message": "Too many invokes queued; command not run",
+                },
+            },
+        )
+        await self._send_invoke_result(ws, resp, base)
 
     async def _handle_invoke(
         self,

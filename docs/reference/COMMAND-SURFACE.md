@@ -176,14 +176,19 @@ constants in `gateway_ws.py`, not yet fields of the executable contract.
 
 | Bound | Limit | Behaviour when exceeded |
 |---|---|---|
-| Inbound gateway frame | 4 MiB | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible |
+| Inbound gateway message | 4 MiB | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible. The `websockets` `max_size` caps a whole incoming message (all fragments), not a single frame |
 | `paramsJSON` length | 512 KiB (UTF-8 bytes) | `REQUEST_TOO_LARGE`; command not dispatched |
 | `paramsJSON` nesting | 64 levels | `REQUEST_TOO_LARGE`; command not dispatched |
 | `paramsJSON` members | 4,096 (object values plus array items, aggregate) | `REQUEST_TOO_LARGE`; command not dispatched |
 | `node.invoke.result` | 24 MiB serialized | `RESULT_TOO_LARGE` replaces the result; the command **has already run** |
+| Concurrently executing gateway invokes | 8 per gateway connection | Further invokes wait for a free slot |
+| Invokes accepted but waiting | 64 per gateway connection | `QUEUE_SATURATED`; command not dispatched (no side effects) |
 
-A limit-sized request or result is accepted. Not yet covered by #291: HTTP/Assist
-ingress, queue depth, concurrency, and the contract fields for these limits.
+A limit-sized request or result is accepted. The concurrency and queue bounds
+apply to `node.invoke.request` events received on the live connection; the
+reconnect `node.pending.pull` drain still runs its items one at a time. Not yet
+covered by #291: HTTP/Assist ingress, HA request concurrency, and the contract
+fields for these limits.
 
 ## Service payload and result contract (unreleased, #266)
 

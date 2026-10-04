@@ -2080,3 +2080,150 @@ async def test_connect_caps_inbound_frame_size() -> None:
     ):
         await client._connect_and_loop()
     assert seen["max_size"] == 4 * 1024 * 1024
+
+
+# ---- invoke saturation (WP10a, #291) ----
+
+
+def _invoke_frame(invoke_id: str, command: str) -> str:
+    return json.dumps(
+        {
+            "type": "event",
+            "event": "node.invoke.request",
+            "payload": {"id": invoke_id, "nodeId": "n", "command": command, "paramsJSON": "{}"},
+        }
+    )
+
+
+async def test_event_loop_bounds_concurrent_and_queued_invokes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from openclaw_node.gateway_ws import _MAX_CONCURRENT_INVOKES, _MAX_QUEUED_INVOKES
+
+    started: list[str] = []
+    release = asyncio.Event()
+
+    async def slow(params: dict[str, Any]) -> dict[str, Any]:
+        started.append("x")
+        await release.wait()
+        return {"ok": True}
+
+    monkeypatch.setitem(_REGISTRY, "test.slow", slow)
+    total = _MAX_CONCURRENT_INVOKES + _MAX_QUEUED_INVOKES + 1
+    client = _make_client()
+    ws = AsyncMock()
+    sent: list[dict[str, Any]] = []
+    all_sent = asyncio.Event()
+    ingress_done = asyncio.Event()
+
+    async def _send(raw: str) -> None:
+        sent.append(json.loads(raw))
+        if len(sent) == 1:
+            all_sent.set()
+
+    ws.send = _send
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        for i in range(total):
+            yield _invoke_frame(f"i{i}", "test.slow")
+        ingress_done.set()
+        await release.wait()
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    loop_task = asyncio.create_task(client._event_loop(ws, None))
+    await asyncio.wait_for(all_sent.wait(), 5)
+    await asyncio.wait_for(ingress_done.wait(), 5)
+    await asyncio.sleep(0.05)
+
+    # Exactly one refusal so far: the invoke past 8 running + 64 waiting.
+    assert len(started) == _MAX_CONCURRENT_INVOKES
+    assert len(sent) == 1
+    refusal = sent[0]["params"]
+    assert refusal["id"] == f"i{total - 1}"
+    assert refusal["ok"] is False
+    assert refusal["error"]["code"] == "QUEUE_SATURATED"
+
+    # Completion frees capacity: everything accepted eventually runs.
+    release.set()
+    await asyncio.wait_for(loop_task, 5)
+    assert len(started) == total - 1
+    assert len(sent) == total
+    assert sum(1 for m in sent if m["params"]["ok"]) == total - 1
+
+
+async def test_event_loop_saturated_invoke_never_dispatches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from openclaw_node.gateway_ws import _MAX_CONCURRENT_INVOKES, _MAX_QUEUED_INVOKES
+
+    ran: list[str] = []
+    release = asyncio.Event()
+
+    async def blocker(params: dict[str, Any]) -> dict[str, Any]:
+        await release.wait()
+        return {"ok": True}
+
+    async def mutator(params: dict[str, Any]) -> dict[str, Any]:
+        ran.append("mutated")
+        return {"ok": True}
+
+    monkeypatch.setitem(_REGISTRY, "test.block", blocker)
+    monkeypatch.setitem(_REGISTRY, "test.mutate", mutator)
+    fill = _MAX_CONCURRENT_INVOKES + _MAX_QUEUED_INVOKES
+    client = _make_client()
+    ws = AsyncMock()
+    sent: list[dict[str, Any]] = []
+    refused = asyncio.Event()
+
+    async def _send(raw: str) -> None:
+        sent.append(json.loads(raw))
+        refused.set()
+
+    ws.send = _send
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        for i in range(fill):
+            yield _invoke_frame(f"b{i}", "test.block")
+        yield _invoke_frame("m", "test.mutate")
+        await release.wait()
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    loop_task = asyncio.create_task(client._event_loop(ws, None))
+    await asyncio.wait_for(refused.wait(), 5)
+    assert sent[0]["params"]["id"] == "m"
+    assert sent[0]["params"]["error"]["code"] == "QUEUE_SATURATED"
+    release.set()
+    await asyncio.wait_for(loop_task, 5)
+    assert ran == []
+
+
+async def test_event_loop_cancels_inflight_invokes_when_loop_is_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cancelled = asyncio.Event()
+    entered = asyncio.Event()
+
+    async def hang(params: dict[str, Any]) -> dict[str, Any]:
+        entered.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+        return {"ok": True}
+
+    monkeypatch.setitem(_REGISTRY, "test.hang", hang)
+    client = _make_client()
+    ws = AsyncMock()
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        yield _invoke_frame("h", "test.hang")
+        await asyncio.Event().wait()
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    loop_task = asyncio.create_task(client._event_loop(ws, None))
+    await asyncio.wait_for(entered.wait(), 5)
+    loop_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await loop_task
+    assert cancelled.is_set()
