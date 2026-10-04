@@ -29,6 +29,31 @@ async function load(name: string) {
 
 const OK_POLICY = { allowAdminOps: true, adminToken: "T0P-S3CR3T" };
 
+describe("refusal guidance names the resolved node id, not the caller alias", () => {
+  const cases = [
+    { name: "lifecycle allowAdminOps", factory: "createHaAddonStartTool", policy: {}, args: { slug: "x" }, key: "allowAdminOps" },
+    { name: "admin allowAdminOps", factory: "createHaReloadConfigTool", policy: {}, args: {}, key: "allowAdminOps" },
+    { name: "admin adminToken", factory: "createHaReloadConfigTool", policy: { allowAdminOps: true }, args: {}, key: "adminToken" },
+  ];
+  for (const c of cases) {
+    it(c.name, async () => {
+      resolveMock.mockResolvedValue({ nodeId: "hass-001", nodeDisplayName: "Hass", policy: c.policy });
+      const tool = await load(c.factory);
+      const r = await tool.execute(
+        "c",
+        { node: "kitchen", ...c.args },
+        new AbortController().signal,
+        () => undefined,
+      );
+      expect(invokeMock).not.toHaveBeenCalled();
+      expect(r.isError).toBe(true);
+      const text = r.content[0].text as string;
+      expect(text).toContain(`nodes.hass-001.${c.key}`);
+      expect(text).not.toContain("nodes.kitchen");
+    });
+  }
+});
+
 describe("ha_reload_config", () => {
   it("refuses when allowAdminOps is not set", async () => {
     resolveMock.mockResolvedValue({

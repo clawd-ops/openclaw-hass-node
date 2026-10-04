@@ -65,7 +65,7 @@ function createLifecycleTool(input: LifecycleInput): AnyAgentTool {
               text:
                 `Refused ${input.command} on ${nodeDisplayName} (${nodeId}): ` +
                 `allowAdminOps is not set. ` +
-                `Set plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowAdminOps = true.`,
+                `Set plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeId}.allowAdminOps = true.`,
             },
           ],
           isError: true,
@@ -143,7 +143,7 @@ function createAdminTool(input: AdminInput): AnyAgentTool {
               text:
                 `Refused ${input.command} on ${nodeDisplayName} (${nodeId}): ` +
                 `allowAdminOps is not set. ` +
-                `Set plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeIdentifier}.allowAdminOps = true.`,
+                `Set plugins.entries.openclaw-hass-node-assist-tools.config.nodes.${nodeId}.allowAdminOps = true.`,
             },
           ],
           isError: true,
@@ -156,7 +156,7 @@ function createAdminTool(input: AdminInput): AnyAgentTool {
               type: "text",
               text:
                 `Refused ${input.command} on ${nodeDisplayName} (${nodeId}): ` +
-                `adminToken is not configured. Set nodes.${nodeIdentifier}.adminToken to the OPENCLAW_ADMIN_TOKEN the addon expects.`,
+                `adminToken is not configured. Set nodes.${nodeId}.adminToken to the OPENCLAW_ADMIN_TOKEN the addon expects.`,
             },
           ],
           isError: true,
