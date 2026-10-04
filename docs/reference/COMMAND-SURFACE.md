@@ -178,7 +178,7 @@ constants in `gateway_ws.py`, not yet fields of the executable contract.
 
 | Bound | Limit | Behaviour when exceeded |
 |---|---|---|
-| Inbound gateway frame | 4 MiB | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible |
+| Inbound gateway message | 4 MiB (the `websockets` `max_size` limit caps a whole incoming message, including its fragments, not a single frame) | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible |
 | `paramsJSON` length | 512 KiB (UTF-8 bytes) | `REQUEST_TOO_LARGE`; command not dispatched |
 | `paramsJSON` nesting | 64 levels | `REQUEST_TOO_LARGE`; command not dispatched |
 | `paramsJSON` members | 4,096 (object values plus array items, aggregate) | `REQUEST_TOO_LARGE`; command not dispatched |
