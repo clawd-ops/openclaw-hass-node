@@ -672,6 +672,31 @@ def test_timeout_kills_grandchildren(tmp_path: Path) -> None:
     assert _wait_dead(int(pidfile.read_text()))
 
 
+def test_timeout_abandons_detached_pipe_holder(tmp_path: Path) -> None:
+    pidfile = tmp_path / "detached.pid"
+    script = f"setsid sh -c 'echo $$ > {pidfile}; exec sleep 5' & sleep 30"
+    t0 = time.monotonic()
+    try:
+        result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=200))
+        elapsed = time.monotonic() - t0
+        assert result["timedOut"] is True
+        assert result["outputIncomplete"] is True
+        assert elapsed < 2.5
+    finally:
+        deadline = time.monotonic() + 2
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(0.02)
+        if pidfile.exists():
+            with contextlib.suppress(ProcessLookupError, ValueError):
+                os.kill(int(pidfile.read_text()), signal.SIGKILL)
+
+
+def test_timeout_without_detached_holder_is_output_complete() -> None:
+    result = handle_system_run(_params(command=["sleep", "30"], timeoutMs=200))
+    assert result["timedOut"] is True
+    assert result["outputIncomplete"] is False
+
+
 def test_argv_over_cap_refused_before_spawn(tmp_path: Path) -> None:
     sentinel = tmp_path / "ran"
     arg = "a" * 8000

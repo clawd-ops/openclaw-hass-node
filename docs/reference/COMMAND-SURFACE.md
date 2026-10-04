@@ -86,7 +86,10 @@ surrogate) is refused with `INVALID_PARAM`. Captured output is truncated to
 256 KiB per stream (`stdout` and `stderr`) after the command finishes. When a
 command exceeds `timeoutMs`, the node kills its whole process group, so
 background descendants do not outlive the timeout, and returns the
-`timedOut` payload. A command whose direct process exits before `timeoutMs`
+`timedOut` payload. Pipe draining after that kill is bounded to one second:
+output from a detached descendant (for example one started with `setsid`)
+that outlives the timeout and still holds the pipes is abandoned, not awaited,
+and the payload carries `outputIncomplete: true`. A command whose direct process exits before `timeoutMs`
 is never reported as timed out and its process group is not killed: any
 background descendants it started keep running. If such a descendant still
 holds the output pipes when `timeoutMs` elapses, the node returns the real

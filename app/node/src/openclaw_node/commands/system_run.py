@@ -65,6 +65,7 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _DEFAULT_TIMEOUT_MS: Final[int] = 30_000
 _DEFAULT_MAX_TIMEOUT_MS: Final[int] = 60_000
+_KILL_DRAIN_TIMEOUT_S: Final[float] = 1.0  # post-kill pipe drain bound
 _MAX_OUTPUT_BYTES: Final[int] = 256 * 1024  # 256 KiB per stream
 _MAX_ARGV_BYTES: Final[int] = 128 * 1024  # total argv bytes, NUL-terminated
 _MAX_ENV_BYTES: Final[int] = 128 * 1024  # merged env, KEY=VALUE NUL-terminated
@@ -125,6 +126,12 @@ def _is_utf8_encodable(items: list[str]) -> bool:
 def _kill_group(proc: subprocess.Popen[bytes]) -> None:
     with contextlib.suppress(ProcessLookupError):
         os.killpg(proc.pid, signal.SIGKILL)
+
+
+def _close_pipes(proc: subprocess.Popen[bytes]) -> None:
+    for pipe in (proc.stdout, proc.stderr):
+        if pipe is not None:
+            pipe.close()
 
 
 def _max_timeout_ms() -> int:
@@ -413,7 +420,14 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             # whole session so grandchildren do not outlive it, then reap.
             timed_out = True
             _kill_group(proc)
-            proc.communicate()
+            try:
+                proc.communicate(timeout=_KILL_DRAIN_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                # A descendant that left the session (setsid) still holds the
+                # pipes. The direct child is dead: reap it, abandon the pipes.
+                proc.wait()
+                _close_pipes(proc)
+                output_incomplete = True
             stdout = stderr = b""
         else:
             # The direct child exited but a background descendant still holds
@@ -422,9 +436,7 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             output_incomplete = True
             stdout = exc.stdout or b""
             stderr = exc.stderr or b""
-            for pipe in (proc.stdout, proc.stderr):
-                if pipe is not None:
-                    pipe.close()
+            _close_pipes(proc)
     returncode = proc.returncode
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
@@ -437,6 +449,7 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "timedOut": True,
             "stdout": "",
             "stderr": "",
+            "outputIncomplete": output_incomplete,
             "error": f"Command timed out after {timeout_ms}ms",
             "elapsed_ms": elapsed_ms,
         }
