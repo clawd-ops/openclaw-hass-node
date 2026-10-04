@@ -1328,8 +1328,21 @@ async def _handle_addon_lifecycle(
             _LOG.info("Tier B %s skipped for %s: already %s", command, slug, before)
             return {"ok": True, "slug": slug, "state": before, "changed": False}
         _LOG.warning("Tier B %s invoked for addon slug=%s", command, slug)
-        await supervisor_post_json(f"/addons/{slug}/{action}")
-        after = await _addon_state(slug)
+        try:
+            await supervisor_post_json(f"/addons/{slug}/{action}")
+            after = await _addon_state(slug)
+        except TimeoutError:
+            # Supervisor may have completed the action after the client gave
+            # up; there is no rollback and the caller must not retry blindly.
+            _LOG.warning("Tier B %s timed out for %s; outcome unknown", command, slug)
+            return _error(
+                "OUTCOME_UNKNOWN",
+                f"{command} timed out waiting for Supervisor; the action may or may not "
+                "have happened. Do not retry automatically. ha.addon_info reports a "
+                "current snapshot, not action history: after a restart it cannot "
+                "distinguish completed from not, and after an update only a changed "
+                "version shows it completed.",
+            )
     except HAClientError as exc:
         return _to_error(exc)
     return {"ok": True, "slug": slug, "state": after, "changed": True}

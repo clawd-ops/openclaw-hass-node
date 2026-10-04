@@ -163,11 +163,13 @@ Sections for each `ha.config.*` command follow the base surface below.
 | `ha.supervisor_info`      | No params; allowlisted host-level Supervisor runtime info (arch, machine, supervisor version, homeassistant version, hassos, operating_system, docker, channel). `hostname`, `timezone`, and network fields are excluded. Read-only / Tier A |
 | `ha.addon_changelog`      | `slug`; addon changelog markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_documentation`  | `slug`; addon documentation markdown, bounded 1 MiB trailing window. Read-only |
-| `ha.addon_start`          | `slug`; Tier B lifecycle command. Requires `allowAdminOps` + explicit `addon_lifecycle.allowlist` opt-in, authenticated via pairing session (no admin token). Always denied for `homeassistant`, `supervisor`, and `core_*` slugs |
-| `ha.addon_stop`           | `slug`; same Tier B lifecycle gate as `ha.addon_start`; idempotent when already stopped |
-| `ha.addon_restart`        | `slug`; same Tier B lifecycle gate as `ha.addon_start` |
-| `ha.addon_update`         | `slug`; same Tier B lifecycle gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
+| `ha.addon_start`          | `slug`; Tier B lifecycle command. Requires `allowAdminOps` + explicit `addon_lifecycle.allowlist` opt-in, authenticated via pairing session (no admin token). Always denied for `homeassistant`, `supervisor`, and `core_*` slugs. Supervisor timeout returns `OUTCOME_UNKNOWN` (see below) |
+| `ha.addon_stop`           | `slug`; same Tier B lifecycle gate as `ha.addon_start`; idempotent when already stopped; may return `OUTCOME_UNKNOWN` |
+| `ha.addon_restart`        | `slug`; same Tier B lifecycle gate as `ha.addon_start`; may return `OUTCOME_UNKNOWN`; a started add-on afterwards does not show whether the restart happened |
+| `ha.addon_update`         | `slug`; same Tier B lifecycle gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`); may return `OUTCOME_UNKNOWN`; compare `version` via `ha.addon_info` if the prior version is known |
 | `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
+
+`OUTCOME_UNKNOWN` (lifecycle commands): the Supervisor POST or the follow-up state read timed out, so the action may or may not have happened. Callers must not retry automatically and should ask the user/operator. `ha.addon_info` reports a current snapshot, not action history: after a restart it cannot distinguish completed from not, and after an update only a changed version shows it completed.
 
 ## Gateway ingress and result bounds (unreleased, #291)
 
@@ -176,7 +178,7 @@ constants in `gateway_ws.py`, not yet fields of the executable contract.
 
 | Bound | Limit | Behaviour when exceeded |
 |---|---|---|
-| Inbound gateway frame | 4 MiB | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible |
+| Inbound gateway message | 4 MiB (the `websockets` `max_size` limit caps a whole incoming message, including its fragments, not a single frame) | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible |
 | `paramsJSON` length | 512 KiB (UTF-8 bytes) | `REQUEST_TOO_LARGE`; command not dispatched |
 | `paramsJSON` nesting | 64 levels | `REQUEST_TOO_LARGE`; command not dispatched |
 | `paramsJSON` members | 4,096 (object values plus array items, aggregate) | `REQUEST_TOO_LARGE`; command not dispatched |

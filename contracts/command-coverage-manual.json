@@ -1182,6 +1182,7 @@
       "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
+      "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: start succeeded and the add-on reached the started state.",
       "evidence_method": "PRODUCTION-LIVE",
       "caller_observations": {
@@ -1203,6 +1204,7 @@
       "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
+      "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: stop succeeded and the add-on reached the stopped state.",
       "evidence_method": "PRODUCTION-LIVE",
       "caller_observations": {
@@ -1224,6 +1226,7 @@
       "outcome": "fail",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
+      "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "issues": [
         323
       ],
@@ -1248,6 +1251,7 @@
       "outcome": "partial",
       "first_shipped_in": "2026.9.13b1",
       "actions": {},
+      "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
     },
     "ha.update_install": {

@@ -443,7 +443,7 @@ export const HA_ADDON_START_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon start",
   name: "ha_addon_start",
   description:
-    "On the paired Home Assistant node: start a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: start a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
   parameters: AddonSlugSchema(),
 };
 
@@ -451,7 +451,7 @@ export const HA_ADDON_STOP_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon stop",
   name: "ha_addon_stop",
   description:
-    "On the paired Home Assistant node: stop a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: stop a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
   parameters: AddonSlugSchema(),
 };
 
@@ -459,7 +459,7 @@ export const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon restart",
   name: "ha_addon_restart",
   description:
-    "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
   parameters: AddonSlugSchema(),
 };
 
@@ -467,7 +467,7 @@ export const HA_ADDON_UPDATE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon update",
   name: "ha_addon_update",
   description:
-    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'.",
+    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator; compare the add-on version to see whether the update applied.",
   parameters: AddonSlugSchema(),
 };
 

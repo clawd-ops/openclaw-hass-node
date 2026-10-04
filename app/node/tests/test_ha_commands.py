@@ -2553,6 +2553,75 @@ async def test_addon_restart_posts_when_allowlisted(monkeypatch: pytest.MonkeyPa
     mock_post.assert_called_once_with("/addons/openclaw_hass_node/restart")
 
 
+@pytest.mark.parametrize(
+    ("handler", "state", "action"),
+    [
+        (handle_ha_addon_restart, "started", "restart"),
+        (handle_ha_addon_stop, "started", "stop"),
+        (handle_ha_addon_start, "stopped", "start"),
+        (handle_ha_addon_update, "started", "update"),
+    ],
+)
+async def test_addon_lifecycle_timeout_is_outcome_unknown(
+    monkeypatch: pytest.MonkeyPatch, handler: Any, state: str, action: str
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            return_value={"data": {"state": state}},
+        ),
+        patch(
+            "openclaw_node.commands.ha.supervisor_post_json", side_effect=TimeoutError
+        ) as mock_post,
+    ):
+        result = await handler({"slug": "openclaw_hass_node"})
+
+    assert result["ok"] is False
+    assert result["error"] == "OUTCOME_UNKNOWN"
+    assert "Do not retry automatically" in result["message"]
+    assert "may or may not have happened" in result["message"]
+    assert "current snapshot, not action history" in result["message"]
+    # Exactly one POST: the node never retries a mutation of unknown outcome.
+    mock_post.assert_called_once_with(f"/addons/openclaw_hass_node/{action}")
+
+
+async def test_addon_lifecycle_timeout_reading_state_after_post_is_outcome_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            side_effect=[{"data": {"state": "started"}}, TimeoutError()],
+        ),
+        patch("openclaw_node.commands.ha.supervisor_post_json", return_value={}) as mock_post,
+    ):
+        result = await handle_ha_addon_restart({"slug": "openclaw_hass_node"})
+
+    assert result["error"] == "OUTCOME_UNKNOWN"
+    mock_post.assert_called_once()
+
+
+async def test_addon_lifecycle_real_failure_keeps_its_error_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
+    with (
+        patch(
+            "openclaw_node.commands.ha.supervisor_get_json",
+            return_value={"data": {"state": "started"}},
+        ),
+        patch(
+            "openclaw_node.commands.ha.supervisor_post_json",
+            side_effect=HAClientError("HA_HTTP_ERROR", "boom"),
+        ),
+    ):
+        result = await handle_ha_addon_restart({"slug": "openclaw_hass_node"})
+
+    assert result["error"] == "HA_HTTP_ERROR"
+
+
 # ---------------------------------------------------------------------------
 # ha.addon_update (Tier B)
 # ---------------------------------------------------------------------------
