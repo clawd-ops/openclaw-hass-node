@@ -261,10 +261,10 @@
     },
     "fs.diff": {
       "authorization_class": "read_path_policy",
-      "capability_conditions": "Allowed path and resolvable backup versions.",
+      "capability_conditions": "Allowed path and a stored backup version. from_version is the sha256 of a version taken from fs.history, not an index (#328).",
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 13 read-only completion sweep reached fs.diff through direct nodes.invoke, but the inspected file had no stored versions, so successful diff rendering remains unverified.",
+      "outcome": "pass",
+      "evidence_note": "Sept 13: a sha256 from fs.history produced a correct unified diff. The earlier from_version=-1 probe failed because that file had no stored versions and the selector is a sha256, not an index (#328).",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -272,6 +272,15 @@
             "outcome": "partial",
             "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
             "observation": "fs.diff for /config/configuration.yaml with from_version=-1 returned DIFF_ERROR because no versions were recorded; dispatch and validation were exercised but a successful diff was not.",
+            "observed_at": "2026-09-13",
+            "node_version": "2026.9.13b1",
+            "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+            "observation": "fs.diff with path and from_version set to a sha256 taken from fs.history returned a correct unified diff from v1 to the current content. The sha256 selector succeeds where the integer -1 selector failed on a file with no stored versions (#328).",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"

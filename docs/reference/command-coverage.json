@@ -215,6 +215,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.9.13b1",
+              "observation": "fs.diff with path and from_version set to a sha256 taken from fs.history returned a correct unified diff from v1 to the current content. The sha256 selector succeeds where the integer -1 selector failed on a file with no stored versions (#328).",
+              "observed_at": "2026-09-13",
+              "outcome": "pass",
+              "plugin_version": "not recorded",
+              "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -292,10 +302,10 @@
           }
         }
       ],
-      "capability_conditions": "Allowed path and resolvable backup versions.",
+      "capability_conditions": "Allowed path and a stored backup version. from_version is the sha256 of a version taken from fs.history, not an index (#328).",
       "command": "fs.diff",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 13 read-only completion sweep reached fs.diff through direct nodes.invoke, but the inspected file had no stored versions, so successful diff rendering remains unverified.",
+      "evidence_note": "Sept 13: a sha256 from fs.history produced a correct unified diff. The earlier from_version=-1 probe failed because that file had no stored versions and the selector is a sha256, not an index (#328).",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_diff",
       "id": "fs.diff",
@@ -311,7 +321,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
