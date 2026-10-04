@@ -14,6 +14,13 @@
 > for the local API at config-flow time. The native OpenClaw approval/write flow
 > is still planned. The Gateway remains the sole approval authority; any add-on
 > view is presentation-only.
+>
+> **Scope of the current plan:** Phases A to C and E apply to the published
+> beta. [Phase G](#phase-g-policy-gate-bounds-and-assist-remedy-unreleased-source)
+> covers behaviour that is merged on `main` but not in any published beta; run it
+> only against a build that contains it. No release-candidate claim is made
+> until these phases have been run against an installed build and the result is
+> recorded.
 
 ## Phase A — Install
 
@@ -227,3 +234,57 @@ profile via `openclaw qr`.
   reviewer comment with `LGTM` or `LGTM with notes`.
 - Every PR has all CI gates green (ruff check + format, mypy strict,
   pytest with branch coverage gated at 95%, security, app-smoke).
+
+## Phase G — Policy gate, bounds, and Assist remedy *(unreleased source)*
+
+These cases cover behaviour merged after `2026.9.13b1`. Every Gateway-forwarded
+invoke reaches the node as an operator call, so the household-user gate cannot
+be exercised through `node.invoke`; it is covered by tests at source until the
+Assist principal reaches the dispatcher. Record the installed version and the
+result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
+
+### G1. Deny-class service is refused for the operator.
+
+- Invoke `ha.call_service` with a deny-class service against an entity that does
+  not exist (for example `update.skip`, which is in the denied `update`
+  domain), so a failed refusal could not change anything real. Expect
+  `SERVICE_DENIED`, and no HA request is made.
+
+### G2. Light control is not prompted.
+
+- Invoke `ha.call_service` with `light.turn_on` on a known light. Expect success
+  with no approval prompt, `changed_states` populated, and
+  `changed_states_complete: true` when the target named concrete entity IDs.
+
+### G3. Unknown history entity.
+
+- Invoke `ha.history` for an entity that does not exist. Expect `HA_NOT_FOUND`,
+  not an empty history. A misspelled parameter name is refused with
+  `INVALID_PARAM`.
+
+### G4. Oversized request.
+
+- Send an invoke whose `paramsJSON` exceeds the documented limit: expect
+  `REQUEST_TOO_LARGE` and no command run.
+- This specifically exercises the gateway ingress bound (`paramsJSON` above
+  512 KiB). The 8 MiB `fs.write` content cap sits behind that smaller ingress
+  bound for the invoke path, and the local HTTP API does not expose `fs.write`,
+  so that cap is covered by source-level tests.
+- Invoke `fs.patch` with a small patch against a large existing file such that
+  the patched result would exceed 8 MiB: expect `RESULT_TOO_LARGE` and the file
+  unchanged. This bound is reachable through invoke because the request itself
+  stays small.
+
+### G5. `system.run` timeout.
+
+- Through `exec host=node` after approval, run a command that spawns a
+  background child and exceeds its timeout. Expect the `timedOut` payload and the
+  child gone afterward. Output from a detached process that outlives the timeout
+  is abandoned and the payload carries `outputIncomplete: true`.
+
+### G6. Assist remedy.
+
+- With the Assist integration, trigger a caller-fixable configuration failure
+  (for example an unresolvable session owner). Expect a short remedy sentence in
+  the reply on both streaming and non-streaming turns, never the bare error
+  code and never node log text.

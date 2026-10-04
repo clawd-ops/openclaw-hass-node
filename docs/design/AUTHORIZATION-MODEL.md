@@ -87,14 +87,12 @@ return "user"
 Home Assistant admin alone is not sufficient. The actor must also appear on the
 OpenClaw-side allowlist.
 
-Today that classification is advisory only. `authz.py` states its own limit:
-
-> It is prompt-level protection; hard invoke-time enforcement is intentionally
-> out of scope until the gateway invoke envelope carries session/actor context.
-
-Promoting this from prompt-level to invoke-time enforcement is the substantive
-remaining work. The role model itself does not need to be designed; it needs to
-be believed by the dispatcher.
+The dispatcher now enforces the role at invoke time for a caller that carries a
+non-operator principal (see [Layer 1](#layer-1-hard-allowlist-enforcement)). What
+is missing is the principal itself: the Gateway invoke envelope does not carry
+session or actor context, so a Gateway-forwarded invoke reaches the dispatcher
+as an operator call. The role model does not need further design; it needs a
+trusted way to reach the dispatcher on the invoke path.
 
 The add-on configuration already states the principle for lifecycle commands:
 
@@ -219,9 +217,27 @@ forbidden set for a role from `_DEFAULT_FORBIDDEN` plus configured per-role
 `fs.*` mutation, `system.run`, `ha.reload_config`, add-on lifecycle, and
 `ha.call_service:*`.
 
-That computed set becomes an enforced allowlist at the dispatcher, refusing the
-command before any handler runs. It is not advisory, and it cannot be relaxed by
-anything the requesting user says.
+That computed set is enforced at the dispatcher, which refuses the command
+before any handler runs. It is not advisory, and it cannot be relaxed by
+anything the requesting user says. Every dispatch takes a caller principal, and a
+call site that supplies none is treated as the untrusted household `user`. The
+local HTTP API and the Gateway WebSocket invoke path construct an operator
+caller explicitly, because the bearer token and the paired session authenticate
+an operator.
+
+The `user` role is default-deny over the whole registry: only an explicit allowed
+set is reachable (read-only commands plus the service-bearing commands the effect
+policy governs), so a newly registered command is refused until it is classified.
+The effect policy applies to `ha.call_service` and the light wrappers alike:
+
+| Service class | Household `user` | HA `admin` / `super_admin` | Operator |
+| --- | --- | --- | --- |
+| `light.turn_on`, `light.turn_off` | allowed | allowed | allowed |
+| Deny class (lifecycle, update, reload, host, shell, shutdown) | `SERVICE_DENIED` | `SERVICE_DENIED` | `SERVICE_DENIED` |
+| Any other service | `PERMISSION_DENIED` | `APPROVAL_REQUIRED` (no approval path exists yet) | allowed, logged (temporary) |
+
+`PERMISSION_DENIED` is a role refusal; `SERVICE_DENIED` is the effect refusal and
+applies to every caller. A malformed service name is refused for non-operators.
 
 For the `user` role, the entries of `USER_FORBIDDEN_COMMANDS` and the
 `ha.call_service:*` wildcard are non-removable: a config `remove` naming one is
@@ -283,8 +299,12 @@ The gap is entirely within this repository.
   reachable through `exec host=node` after approval, and the node re-runs
   argv/rawCommand/env/cwd validation on the forward before the subprocess is
   spawned.
-- No dispatcher-level role gate exists. `forbidden_for_role` has exactly one
-  consumer today, the disclaimer.
+- The dispatcher-level gate exists and `forbidden_for_role` feeds both it and the
+  disclaimer. It protects nothing on the invoke path yet, because the Assist
+  principal is not propagated: Gateway-forwarded invokes and the local HTTP API
+  are operator calls, so **direct `node.invoke` is operator-default**. The
+  propagation design is pending a decision, and the cross-surface ceiling
+  choice above is the operator's. Neither is claimed as delivered.
 
 ## Consequences for the roadmap
 
@@ -300,8 +320,12 @@ adopted rather than built:
 Retained, because this model does not deliver them:
 
 - wiring accepted approvals to protected `fs.*` mutations
-- per-service effect policy for `ha.call_service`
-- invoke-time actor propagation and dispatcher enforcement
+- consuming native approvals for the `require_approval` outcome (today it is a
+  refusal)
+- per-service classification beyond the light exception, with target and data
+  constraints
+- invoke-time actor propagation, so the dispatcher gate applies on the Gateway
+  invoke path
 
 The interim fail-closed behavior introduced in PR #265 remains in force until
 the native path is proven end to end, so there is no window in which unverified
@@ -314,7 +338,7 @@ use, including node-scoped exec approvals resolved by an operator device. The
 node-side protocol methods for the exec-approval path
 (`system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`)
 are now implemented (#274) and `system.run` itself is bound to the approved
-plan (#258, this PR). What is **not** yet proven is a live operator-surface
+plan (#258). What is **not** yet proven is a live operator-surface
 allow/deny cycle observed end to end against this node.
 
 ### Exec approval path (Class 3)
@@ -337,7 +361,9 @@ allow/deny cycle observed end to end against this node.
 ### Principal ceiling
 
 - a `user`-role actor is refused at the dispatcher, before the handler runs,
-  for every command in the computed forbidden set
+  for every command outside the allowed set and every command in the computed
+  forbidden set (covered by tests at source; the live invoke path needs
+  principal propagation first)
 - the refusal holds against prompt-injection and role-play override attempts,
   because it is not evaluated by the model
 - the disclaimer and the enforced set are derived from the same call and cannot

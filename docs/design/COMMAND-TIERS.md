@@ -21,7 +21,8 @@ the subagent allowlist only ever includes Tier A.
 ## Tier A — read-only, subagent-safe
 
 No gate beyond "must be invokable by the node". Live on the subagent
-allowlist once #11's subagent-side enforcement lands.
+allowlist once the node can tell a subagent caller from an operator (see
+[Enforcement status](#enforcement-status)).
 
 Shipped:
 
@@ -160,12 +161,29 @@ that cache after a release.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.
 
+## Enforcement status
+
+The dispatcher evaluates a caller principal before any handler runs (merged on
+`main`, unreleased). The household `user` role is default-deny: it reaches only
+an explicit allowed set, which is Tier A plus other read-only commands and the
+service-bearing commands governed by the effect policy. Every Tier B and
+`ha.config.*` command is refused for it, and a command not yet classified is
+refused until it is.
+
+Gateway-forwarded invokes and the local HTTP API are operator calls, and the
+Assist principal is not yet carried to the dispatcher. The tier boundary is
+therefore enforced for a non-operator principal wherever one is supplied, but
+not yet on the Gateway invoke path, and a subagent caller is not distinguished
+from the main session. Direct `node.invoke` is operator-default. See
+[Authorization model](AUTHORIZATION-MODEL.md).
+
 ## Independent follow-on policy work
 
 1. Ship the remaining Tier A commands (done).
-2. Ship the subagent-side allowlist enforcement at the node
-   (`commands/dispatcher.py` or a new policy layer) — MUST land
-   BEFORE any subagent path is wired to call these commands.
+2. Carry the caller principal to the dispatcher on the Gateway invoke path so
+   subagent callers are restricted to Tier A (the dispatcher gate is merged;
+   propagation is pending a design decision). This MUST land BEFORE any
+   subagent path is wired to call these commands.
 3. Keep subagent access on the Tier A node surface.
 4. Tier B lifecycle surface uses the paired session plus slug policy without a
    separate token; the contract was reconciled under issue #262.

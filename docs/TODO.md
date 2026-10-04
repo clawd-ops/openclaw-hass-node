@@ -33,7 +33,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - 2026-06-28 cutover: live OpenClaw config removed `mcp.servers.homeassistant` and `mcp.servers.homeassistant-readonly` after verifying `nodes.invoke` against the connected `hass` node with `ha.get_state`. Workspace guidance routes agents to the `hass` node command surface instead of `mcp__homeassistant*`.
 - **Assist-side enforcement (DONE):** the `openclaw-hass-node-assist-tools` plugin provides gateway-plugin-level enforcement for Assist contexts — `nodes.invoke` is not exposed in Assist turns, so Assist HA operations must go through the plugin's `ha_*` wrappers. This is Assist-side / gateway-plugin enforcement, NOT subagent-side enforcement.
-- **Separate authorization risk:** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle, but the node dispatcher has no mechanism to distinguish subagent callers from main-session callers. Passing trusted caller/session context into the invoke envelope remains node-policy work outside this closed migration item.
+- **Separate authorization risk:** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle. The dispatcher now evaluates a caller principal, but every Gateway-forwarded invoke is constructed as an operator call, so it still cannot distinguish subagent callers from main-session callers. Passing trusted caller/session context into the invoke envelope remains node-policy work outside this closed migration item (see item 20).
 - Follow-on work does not reopen this item:
   1. **Subagent-side allowlist enforcement at the node** needs trusted caller/session context in the invoke envelope and belongs to authorization policy.
   2. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) uses the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) and audit logging; verify it independently in the release.
@@ -67,6 +67,17 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Goal: consume a Gateway-authenticated, exact-operation-bound, expiring,
   single-use decision resolved from an operator device, then revalidate the
   node-side policy and preconditions immediately before applying the mutation.
+- Merged on `main`, unreleased: the dispatcher evaluates a caller principal
+  before any handler runs, the household `user` role is default-deny, and
+  service calls are classified by effect (`light.turn_on` / `light.turn_off`
+  auto-allowed, deny-class services refused for every caller, other services
+  refused for household users and `APPROVAL_REQUIRED` for HA admins). This is
+  wrapper-path progress only.
+- Still open on this item: Gateway-forwarded invokes and the local HTTP API are
+  operator calls, so direct `node.invoke` is operator-default. Assist-principal
+  propagation to the dispatcher is pending a design decision. The cross-surface
+  ceiling choice is the operator's. Native approval consumption, operation
+  binding, replay protection, and the protected write path do not exist.
 - The Gateway remains the approval authority. Any add-on view is
   presentation-only and cannot maintain or resolve an independent approval
   lifecycle. Implementation is tracked in
@@ -160,6 +171,37 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   (presentation-only native approval status); prefer one OpenClaw panel with
   tabs over multiple independent add-on web apps.
 - Acceptance: after a long HA Assist turn, closing/reopening HA Assist or the OpenClaw ingress panel does not lose the readable transcript, and a follow-up can resume the intended OpenClaw session instead of silently starting from scratch.
+
+### 39. Remaining bounds and resilience (#291)
+- Status: OPEN — partly advanced; the issue stays open.
+- Merged on `main`, unreleased: gateway frame, `paramsJSON`, and result-size
+  bounds; `fs.write` / `fs.patch` content caps; `system.run` argv and
+  environment caps with process-group kill on timeout.
+- Remaining:
+  1. Streaming `system.run` output capture that kills the process at the cap
+     (today output is captured in full, then truncated).
+  2. Invoke queue bound and HA concurrency limits (open; PR #377 was closed unmerged).
+  3. Byte caps on HA REST and WebSocket responses, with truncation or cursor
+     metadata. The list-command filters bound what a caller receives, not what
+     HA sends.
+  4. Acknowledgement correlation and at-most-once redelivery for mutating
+     invokes.
+  5. Separate liveness and readiness signals.
+  6. Secret-safe audit counters.
+  7. Putting the limits into the executable contract (needs #288).
+- Tracked in [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291).
+
+### 40. Release-candidate evidence
+- Status: OPEN.
+- No beta has been cut since `2026.9.13b1`, and the last observed installation
+  is still `2026.7.23b1`. Before any release-candidate claim: cut a new beta
+  when the operator decides, perform the Tier B install, run the
+  [UAT plan](operations/UAT-PLAN.md) against it, and record the result in the
+  [compatibility matrix](COMPATIBILITY-MATRIX.md).
+- Deferred and not part of this item: the executable command contract and
+  strict unknown-key refusal ([#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)),
+  and moving `ha.reload_config` / `ha.update_install` off the admin token
+  ([#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338)).
 
 ---
 
@@ -304,6 +346,26 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Cross-link: this supports item #11; it does not by itself retire the MCPs. The implementation still needs subagent-side allowlist enforcement and subagent wiring to the node Tier A surface.
 
 ---
+
+## Recently merged
+
+Ascending by PR number. Unreleased: merged on `main` after `2026.9.13b1`.
+
+- #355 — coverage ledger ingests the 2026-09-13 mutation-surface evidence.
+- #357 — install guide gains the `allowAdminOps` step.
+- #359 — `changed_states` fallback with `changed_states_complete`.
+- #361 — Assist plugin resolves per-node policy by canonical node ID only.
+- #362 — HA WebSocket ceiling raised; registry, device, service, and config-entry list filters.
+- #363 — startup warning when the lifecycle allowlist lacks the Gateway gate.
+- #366 — Assist shows a curated remedy on both the streaming and non-streaming paths.
+- #367 — `urllib3` locked at 2.8.0.
+- #368 — `fs.write` / `fs.patch` content caps.
+- #369 — effect-based policy core.
+- #370 — `system.run` argv and environment caps, process-group kill on timeout.
+- #372 — dispatcher policy gate; operator call sites at the WebSocket and HTTP API.
+- #373 — read-command input validation; `ha.history` reports unknown entities.
+- #375 — addon lifecycle timeouts return `OUTCOME_UNKNOWN` and are never retried (#323 addressed in source, unreleased).
+- #376 — gateway frame, `paramsJSON`, and result-size bounds.
 
 ## Stale claims to strike
 
