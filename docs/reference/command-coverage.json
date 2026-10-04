@@ -219,7 +219,7 @@
             {
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
-              "observation": "fs.diff with path and from_version set to a sha256 taken from fs.history returned a correct unified diff from v1 to the current content. The sha256 selector succeeds where the integer -1 selector failed on a file with no stored versions (#328).",
+              "observation": "fs.diff with path and from_version set to a sha256 taken from fs.history returned a correct unified diff from v1 to the current content. The target had stored history, so the sha256 selector resolved; the earlier -1 probe failed only because its file had no stored versions, not because of the selector type (#328).",
               "observed_at": "2026-09-13",
               "outcome": "pass",
               "plugin_version": "not recorded",
@@ -302,10 +302,10 @@
           }
         }
       ],
-      "capability_conditions": "Allowed path and a stored backup version. from_version is the sha256 of a version taken from fs.history, not an index (#328).",
+      "capability_conditions": "Allowed path and a stored backup version. from_version and to_version accept either a 1-indexed version position (-1 = latest) or the sha256 hex digest from fs.history, which is a stable selector for a specific version (#328).",
       "command": "fs.diff",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 13: a sha256 from fs.history produced a correct unified diff. The earlier from_version=-1 probe failed because that file had no stored versions and the selector is a sha256, not an index (#328).",
+      "evidence_note": "Sept 13: a sha256 from fs.history produced a correct unified diff. The earlier from_version=-1 probe failed because that file had no stored versions (empty history); that failure says nothing about selector type, since integer positions, including -1, remain a supported selector (#328).",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.fs_write:handle_fs_diff",
       "id": "fs.diff",
