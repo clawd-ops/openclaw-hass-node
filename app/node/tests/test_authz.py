@@ -422,3 +422,31 @@ def test_is_forbidden_wrappers_follow_service_entries_and_fail_closed() -> None:
     assert not is_forbidden(("fs.write",), "ha.call_service", {"domain": 1})
     assert not is_forbidden(wildcard, "ha.get_state", {})
     assert service_for_command("ha.get_state", {}) is None
+
+
+def _patched_identity(add: frozenset[str]) -> IdentityConfig:
+    return IdentityConfig(forbidden_commands={"user": ForbiddenCommandPatch(add=add)})
+
+
+def test_disclaimer_exception_reflects_patched_light_prohibitions() -> None:
+    kid = Actor("kid", is_admin=False)
+    one = resolve_turn_authz(
+        _patched_identity(
+            frozenset(
+                {
+                    "ha.call_service:light.turn_off",
+                }
+            )
+        ),
+        kid,
+    )
+    both = resolve_turn_authz(
+        _patched_identity(
+            frozenset({"ha.call_service:light.turn_off", "ha.call_service:light.turn_on"})
+        ),
+        kid,
+    )
+
+    assert "may still be called are: light.turn_on." in one.disclaimer
+    assert "light.turn_off." not in one.disclaimer
+    assert "may still be called are: none." in both.disclaimer
