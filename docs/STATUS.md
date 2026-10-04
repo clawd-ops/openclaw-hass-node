@@ -93,6 +93,15 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288).
   `ha.history` reports an unknown entity as `HA_NOT_FOUND` instead of an empty
   history.
+- A timeout on the Supervisor lifecycle POST (`ha.addon_start`, `ha.addon_stop`,
+  `ha.addon_restart`, `ha.addon_update`) or on the immediate state read after it
+  returns `OUTCOME_UNKNOWN`, not a caller error: the action may or may not have
+  happened. The POST is never retried. Callers must not retry automatically and
+  should ask the user or operator. `ha.addon_info` reports a current snapshot,
+  not action history, so after a restart it cannot show whether the action
+  completed, and after an update only a changed version does. Addressed in
+  source for [#323](https://github.com/clawd-ops/openclaw-hass-node/issues/323)
+  (unreleased).
 - The registry, device, service, and config-entry list commands accept filters;
   filters are applied after the fetch, so they bound the response a caller
   handles, not the payload HA sends. The HA WebSocket message ceiling is raised
