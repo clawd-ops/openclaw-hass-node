@@ -41,9 +41,10 @@ class _StreamErrorFrame(Exception):
     this and falls through to the single error-only assistant content add.
     """
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, message: str = "") -> None:
         super().__init__(code)
         self.code = code
+        self.message = message
 
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -300,7 +301,8 @@ class OpenClawConversationEntity(ConversationEntity):
                 # `{"delta": "..."}` chunk into an AssistantContentDeltaDict
                 # that chat_log.async_add_delta_content_stream consumes.
                 # `{"done": true}` cleanly closes the iterator;
-                # `{"error": "<code>"}` raises so the user sees the cause.
+                # `{"error": "<code>", "message": "<remedy>"}` raises so the user
+                # sees the cause.
                 first_delta = True
                 collected: list[str] = []
 
@@ -359,7 +361,9 @@ class OpenClawConversationEntity(ConversationEntity):
                             # partial reply as a successful turn. The outer
                             # except converts this into a single error
                             # assistant content add.
-                            raise _StreamErrorFrame(str(frame["error"]))
+                            raise _StreamErrorFrame(
+                                str(frame["error"]), str(frame.get("message") or "")
+                            )
                         elif frame.get("done"):
                             return
 
@@ -372,7 +376,9 @@ class OpenClawConversationEntity(ConversationEntity):
                         # log by HA — we just need to drive the stream.
                         pass
                 except _StreamErrorFrame as exc:
-                    speech = f"OpenClaw Node stream error: {exc.code}"
+                    # The node's curated remedy says what went wrong and who
+                    # can fix it; the bare code is only the fallback.
+                    speech = exc.message or f"OpenClaw Node stream error: {exc.code}"
                 else:
                     speech = ""
 
