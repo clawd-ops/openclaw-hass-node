@@ -17,8 +17,13 @@ import { CALLER_PARAM } from "./caller-context.js";
 /** Reserved node.invoke param carrying the approval marker. */
 export const APPROVAL_PARAM = "_openclaw_approval";
 
-const APPROVAL_TTL_SECONDS = 300;
+// The override is fixed when the hook returns, before the human decides, so the
+// marker must outlive the whole approval window plus time to dispatch the call:
+// exp = hook time + APPROVAL_TIMEOUT + dispatch grace. Single use is enforced by
+// the node's replay cache, not by a short expiry.
 const APPROVAL_TIMEOUT_MS = 600_000;
+const DISPATCH_GRACE_SECONDS = 120;
+const APPROVAL_TTL_SECONDS = APPROVAL_TIMEOUT_MS / 1000 + DISPATCH_GRACE_SECONDS;
 const RESERVED_PARAMS = new Set([APPROVAL_PARAM, CALLER_PARAM]);
 
 /** Sorted keys, no whitespace; identical to Python `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. */
@@ -54,6 +59,19 @@ function normalized(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+/** True when `raw` holds an integer beyond 2^53 that JSON.parse/stringify would silently alter. */
+function hasUnsafeInteger(raw: string): boolean {
+  let unsafe = false;
+  const reviver = (_key: string, value: unknown, context?: { source?: string }) => {
+    if (typeof value === "number" && /^-?\d+$/.test(context?.source ?? "") && !Number.isSafeInteger(value)) {
+      unsafe = true;
+    }
+    return value;
+  };
+  JSON.parse(raw, reviver as Parameters<typeof JSON.parse>[1]);
+  return unsafe;
+}
+
 function parseInnerParams(raw: unknown): Record<string, unknown> | undefined {
   if (typeof raw !== "string") return undefined;
   try {
@@ -78,7 +96,10 @@ function describeTarget(inner: Record<string, unknown>): string {
  *
  * Every nodes invoke has any model-supplied marker stripped. A
  * `ha.config.automation` save additionally requires approval and, once
- * approved, carries a freshly minted marker.
+ * approved, carries a marker. The hook creates the marker when it requests
+ * approval; OpenClaw applies it only after the approval succeeds. A save whose
+ * params hold an integer beyond 2^53 is blocked: re-serializing it would alter
+ * the value the human approved.
  */
 export function beforeNodesToolCall(event: NodesCallEvent, nowMs: () => number = Date.now) {
   const { params } = event;
@@ -97,6 +118,12 @@ export function beforeNodesToolCall(event: NodesCallEvent, nowMs: () => number =
     clean.action.trim() === "save";
   if (!needsApproval) return supplied === undefined ? undefined : { params: rewrite(clean) };
 
+  if (hasUnsafeInteger(params.invokeParamsJson as string)) {
+    return {
+      block: true,
+      blockReason: "Save contains an integer beyond 2^53 that cannot be approved exactly; use a string.",
+    };
+  }
   const marker = {
     id: randomUUID(),
     exp: Math.floor(nowMs() / 1000) + APPROVAL_TTL_SECONDS,

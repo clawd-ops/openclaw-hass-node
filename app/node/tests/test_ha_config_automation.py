@@ -12,7 +12,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from openclaw_node.commands.config_mutation import _USED_IDS, APPROVAL_PARAM, approval_bind
+from openclaw_node.commands.config_mutation import (
+    _USED_IDS,
+    APPROVAL_PARAM,
+    _es_number,
+    approval_bind,
+)
 from openclaw_node.commands.dispatcher import _REGISTRY
 from openclaw_node.commands.ha_config_automation import handle_ha_config_automation
 from openclaw_node.ha_client import HAClientError
@@ -227,6 +232,27 @@ async def test_save_expired_marker_refused() -> None:
     await _save_refused(_approved(_SAVE, exp=int(time.time()) - 1), "APPROVAL_INVALID")
 
 
+async def test_save_marker_accepted_near_end_of_approval_window() -> None:
+    # Plugin exp = hook time + 600 s approval window + 120 s dispatch grace.
+    start = int(time.time())
+    params = _approved(_SAVE, exp=start + 720)
+    mock = AsyncMock(return_value={})
+    with (
+        patch("openclaw_node.commands.config_mutation.time.time", return_value=start + 610),
+        patch("openclaw_node.commands.ha_config_automation.ha_post", mock),
+    ):
+        result = await handle_ha_config_automation(params)
+    assert result["ok"] is True
+    mock.assert_called_once()
+
+
+async def test_save_marker_past_exp_refused() -> None:
+    start = int(time.time())
+    params = _approved(_SAVE, exp=start + 720)
+    with patch("openclaw_node.commands.config_mutation.time.time", return_value=start + 721):
+        await _save_refused(params, "APPROVAL_INVALID")
+
+
 async def test_save_marker_for_other_action_refused() -> None:
     # Marker minted for delete of the same id cannot authorize save.
     wrong = approval_bind("ha.config.automation", "delete", _SAVE)
@@ -273,6 +299,26 @@ def test_approval_bind_matches_cross_language_fixture() -> None:
     fixture = json.loads(_FIXTURE.read_text())
     for case in fixture["cases"]:
         assert approval_bind(case["command"], case["action"], case["params"]) == case["bind"]
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0.000001, "0.000001"),
+        (1e-7, "1e-7"),
+        (1.5e-7, "1.5e-7"),
+        (123456789012345680000.0, "123456789012345680000"),
+        (1e21, "1e+21"),
+        (1.5e21, "1.5e+21"),
+        (-0.0, "0"),
+        (100.0, "100"),
+        (-2.5e-9, "-2.5e-9"),
+        (0.1 + 0.2, "0.30000000000000004"),
+        (float("inf"), "null"),
+    ],
+)
+def test_canonical_numbers_match_ecmascript(value: float, expected: str) -> None:
+    assert _es_number(value) == expected
 
 
 # ---------------------------------------------------------------------------

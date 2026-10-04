@@ -450,12 +450,15 @@ Flow:
    `invokeParamsJson`). The plugin's `before_tool_call` hook matches
    `ha.config.automation` with inner action `save` and returns a
    `requireApproval` request (`allow-once` or `deny`, ten-minute timeout) plus a
-   params override.
+   params override. The hook creates the marker at this point; OpenClaw applies
+   it only after approval succeeds. A save holding an integer beyond 2^53 is
+   blocked, because re-serializing it would change what the operator approved.
 2. OpenClaw asks the operator and applies the override only if the approval
    succeeds. The override adds the reserved field `_openclaw_approval`:
-   `{id, exp, bind}`, where `id` is a random UUID, `exp` is epoch seconds (five
-   minutes ahead), and `bind` is the sha256 hex of the canonical JSON (sorted
-   keys, no whitespace, UTF-8) of `{command, action, params}` with reserved
+   `{id, exp, bind}`, where `id` is a random UUID, `exp` is epoch seconds (the
+   ten-minute approval window plus a two-minute dispatch grace, fixed when the
+   hook returns), and `bind` is the sha256 hex of the canonical JSON (sorted
+   keys, no whitespace, UTF-8, numbers as `JSON.stringify` prints them) of `{command, action, params}` with reserved
    fields removed. Denial and timeout never reach the node.
 3. The node strips the field and runs the save only if the marker is
    well-formed, unexpired, bound to exactly this command, action and params, and

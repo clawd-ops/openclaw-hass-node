@@ -57,11 +57,20 @@ describe("beforeNodesToolCall", () => {
     const marker = inner[APPROVAL_PARAM] as { id: string; exp: number; bind: string };
     expect(Object.keys(marker).sort()).toEqual(["bind", "exp", "id"]);
     expect(marker.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(marker.exp).toBe(NOW / 1000 + 300);
+    expect(marker.exp).toBe(NOW / 1000 + 720);
     expect(marker.bind).toBe(approvalBind("ha.config.automation", "save", SAVE));
     expect(Object.fromEntries(Object.entries(inner).filter(([k]) => k !== APPROVAL_PARAM))).toEqual(SAVE);
     const other = innerOf(beforeNodesToolCall(call(SAVE), () => NOW));
     expect((other[APPROVAL_PARAM] as { id: string }).id).not.toBe(marker.id);
+  });
+
+  it("blocks a save holding an integer beyond 2^53 instead of altering it", () => {
+    const raw = '{"action":"save","id":"a","config":{"n":12345678901234567890}}';
+    const result = beforeNodesToolCall(call(SAVE, { invokeParamsJson: raw }))!;
+    expect(result).toMatchObject({ block: true });
+    expect(result).not.toHaveProperty("params");
+    const safe = '{"action":"save","id":"a","config":{"n":9007199254740991,"f":1e21}}';
+    expect(beforeNodesToolCall(call(SAVE, { invokeParamsJson: safe }))?.requireApproval).toBeDefined();
   });
 
   it("strips a model-supplied marker on an approval-requiring call and mints its own", () => {
