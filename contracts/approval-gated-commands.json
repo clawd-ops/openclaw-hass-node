@@ -1,0 +1,19 @@
+{
+  "comment": "Single source of truth for which node commands need native approval before they run. Each key is a command; each value lists the actions that need approval. An empty string stands for a command with no action param (the fs.* writes). The node decides per call whether a path is protected; an approval marker on an unprotected write is ignored. Read by the Python node tests and the TypeScript plugin tests, which assert their own tables equal this file.",
+  "gated": {
+    "ha.config.automation": ["save", "delete"],
+    "ha.config.script": ["save", "delete"],
+    "ha.config.scene": ["save", "delete"],
+    "ha.config.helpers": ["create", "update", "delete"],
+    "ha.config.area_registry": ["create", "update", "delete"],
+    "ha.config.device_registry": ["update"],
+    "ha.config.entity_registry": ["update", "remove"],
+    "ha.config.config_entries": ["disable", "enable"],
+    "ha.config.lovelace": ["save", "resources_create"],
+    "fs.write": [""],
+    "fs.restore": [""],
+    "fs.move": [""],
+    "fs.delete": [""],
+    "fs.patch": [""]
+  }
+}

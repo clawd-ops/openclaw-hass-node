@@ -1,4 +1,4 @@
-// Native OpenClaw approval for node mutations (prototype: ha.config.automation save).
+// Native OpenClaw approval for node mutations.
 //
 // A `before_tool_call` hook on the core `nodes` tool (action "invoke"). It
 // never executes anything: it only asks OpenClaw for approval and rewrites the
@@ -25,6 +25,55 @@ const APPROVAL_TIMEOUT_MS = 600_000;
 const DISPATCH_GRACE_SECONDS = 120;
 const APPROVAL_TTL_SECONDS = APPROVAL_TIMEOUT_MS / 1000 + DISPATCH_GRACE_SECONDS;
 const RESERVED_PARAMS = new Set([APPROVAL_PARAM, CALLER_PARAM]);
+
+/**
+ * Commands and actions that need approval. Mirrors the node exactly; the shared
+ * contract file contracts/approval-gated-commands.json is asserted equal in tests.
+ * An empty string stands for a command with no action param (the fs.* writes);
+ * the node decides per call whether the path is protected and ignores an
+ * unneeded marker on an unprotected write.
+ */
+export const APPROVAL_GATED: Readonly<Record<string, readonly string[]>> = {
+  "ha.config.automation": ["save", "delete"],
+  "ha.config.script": ["save", "delete"],
+  "ha.config.scene": ["save", "delete"],
+  "ha.config.helpers": ["create", "update", "delete"],
+  "ha.config.area_registry": ["create", "update", "delete"],
+  "ha.config.device_registry": ["update"],
+  "ha.config.entity_registry": ["update", "remove"],
+  "ha.config.config_entries": ["disable", "enable"],
+  "ha.config.lovelace": ["save", "resources_create"],
+  "fs.write": [""],
+  "fs.restore": [""],
+  "fs.move": [""],
+  "fs.delete": [""],
+  "fs.patch": [""],
+};
+
+const NOUNS: Readonly<Record<string, string>> = {
+  "ha.config.automation": "HA automation",
+  "ha.config.script": "HA script",
+  "ha.config.scene": "HA scene",
+  "ha.config.helpers": "HA helper",
+  "ha.config.area_registry": "HA area",
+  "ha.config.device_registry": "HA device",
+  "ha.config.entity_registry": "HA entity",
+  "ha.config.config_entries": "HA integration",
+  "ha.config.lovelace": "HA dashboard",
+  "fs.write": "file",
+  "fs.restore": "file",
+  "fs.move": "file",
+  "fs.delete": "file",
+  "fs.patch": "file",
+};
+const FS_VERBS: Readonly<Record<string, string>> = {
+  "fs.write": "Write",
+  "fs.restore": "Restore",
+  "fs.move": "Move",
+  "fs.delete": "Delete",
+  "fs.patch": "Patch",
+};
+const TARGET_KEYS = ["id", "entity_id", "device_id", "area_id", "entry_id", "url_path", "url", "name", "path", "src", "dst"];
 
 /** Sorted keys, no whitespace; identical to Python `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. */
 export function canonicalJson(value: unknown): string {
@@ -85,19 +134,27 @@ function parseInnerParams(raw: unknown): Record<string, unknown> | undefined {
 }
 
 function describeTarget(inner: Record<string, unknown>): string {
-  const id = typeof inner.id === "string" ? inner.id.slice(0, 80) : "unknown id";
+  const keys = typeof inner.helper_type === "string" ? [...TARGET_KEYS, "helper_type", `${inner.helper_type}_id`] : TARGET_KEYS;
+  const parts = keys.flatMap((key) =>
+    typeof inner[key] === "string" ? [`${key}=${JSON.stringify((inner[key] as string).slice(0, 80))}`] : [],
+  );
   const config = inner.config as { alias?: unknown } | null | undefined;
-  const alias = typeof config?.alias === "string" ? ` (alias "${config.alias.slice(0, 80)}")` : "";
-  return `automation ${id}${alias}`;
+  const alias = typeof config?.alias === "string" ? ` (alias ${JSON.stringify(config.alias.slice(0, 80))})` : "";
+  return `${parts.join(" ") || "unknown target"}${alias}`;
+}
+
+function titleOf(command: string, action: string): string {
+  const verb = FS_VERBS[command] ?? `${action.charAt(0).toUpperCase()}${action.slice(1).replaceAll("_", " ")}`;
+  return `${verb} ${NOUNS[command]}`;
 }
 
 /**
  * `before_tool_call` handler for the core `nodes` tool.
  *
  * Every nodes invoke has any model-supplied marker stripped. A
- * `ha.config.automation` save additionally requires approval and, once
+ * call listed in {@link APPROVAL_GATED} additionally requires approval and, once
  * approved, carries a marker. The hook creates the marker when it requests
- * approval; OpenClaw applies it only after the approval succeeds. A save whose
+ * approval; OpenClaw applies it only after the approval succeeds. A gated call whose
  * params hold an integer beyond 2^53 is blocked: re-serializing it would alter
  * the value the human approved.
  */
@@ -112,28 +169,27 @@ export function beforeNodesToolCall(event: NodesCallEvent, nowMs: () => number =
     ...params,
     invokeParamsJson: JSON.stringify(innerParams),
   });
-  const needsApproval =
-    normalized(params.invokeCommand) === "ha.config.automation" &&
-    typeof clean.action === "string" &&
-    clean.action.trim() === "save";
+  const command = normalized(params.invokeCommand);
+  const action = typeof clean.action === "string" ? clean.action.trim() : "";
+  const needsApproval = Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true;
   if (!needsApproval) return supplied === undefined ? undefined : { params: rewrite(clean) };
 
   if (hasUnsafeInteger(params.invokeParamsJson as string)) {
     return {
       block: true,
-      blockReason: "Save contains an integer beyond 2^53 that cannot be approved exactly; use a string.",
+      blockReason: "Call contains an integer beyond 2^53 that cannot be approved exactly; use a string.",
     };
   }
   const marker = {
     id: randomUUID(),
     exp: Math.floor(nowMs() / 1000) + APPROVAL_TTL_SECONDS,
-    bind: approvalBind("ha.config.automation", "save", clean),
+    bind: approvalBind(command, action, clean),
   };
   return {
     params: rewrite({ ...clean, [APPROVAL_PARAM]: marker }),
     requireApproval: {
-      title: "Save HA automation",
-      description: `Save ${describeTarget(clean)} via ha.config.automation action=save.`,
+      title: titleOf(command, action),
+      description: `${titleOf(command, action)}: ${describeTarget(clean)} via ${command}${action ? ` action=${action}` : ""}.`,
       severity: "warning" as const,
       allowedDecisions: ["allow-once", "deny"] as Array<"allow-once" | "deny">,
       timeoutMs: APPROVAL_TIMEOUT_MS,

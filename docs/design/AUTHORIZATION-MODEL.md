@@ -124,7 +124,7 @@ approval buttons and `/approve`.
 `fs.write`, `fs.restore`, `fs.move`, `fs.delete`, and `fs.patch`.
 
 These are neither shell nor HA API calls, and they are not currently gated in a
-way this model can inherit. Protected roots return `PROPOSAL_REQUIRED`, but
+way this model can inherit. Protected roots return `PROPOSAL_REQUIRED` without an approval marker, but
 allowed unprotected roots mutate immediately when the caller-supplied
 `agent_bridge` parameter is false, which is its default
 (`fs_write.py:224-250`, `fs_move_delete.py:191-228,381-414`,
@@ -413,9 +413,9 @@ Retained, because this model does not deliver them:
 - invoke-time actor propagation, so the dispatcher gate applies on the Gateway
   invoke path
 
-The interim fail-closed behavior introduced in PR #265 remains in force until
-the native path is proven end to end, so there is no window in which unverified
-identifiers are accepted.
+The fail-closed behavior introduced in PR #265 remains the default: without a
+valid native approval marker every gated mutation is refused, so there is no
+window in which unverified identifiers are accepted.
 
 ## Prompt-level versus enforced
 
@@ -441,30 +441,43 @@ Consequences:
 
 ## Native approvals for node mutations
 
-Prototype scope: `ha.config.automation` action `save`. Every other mutation still
-returns `PROPOSAL_REQUIRED`.
+Scope: every mutating action of the nine `ha.config.*` commands, and the protected-path
+(or `agent_bridge`) writes of `fs.write`, `fs.restore`, `fs.move`, `fs.delete` and
+`fs.patch`. The list lives in `contracts/approval-gated-commands.json`; the plugin
+table and the node handlers are each tested against that file. Without a valid
+marker these still return `PROPOSAL_REQUIRED`.
+
+Out of scope: the Tier B admin wrapper tools (`ha_*` plugin tools). They are gated
+by `allowAdminOps` and `adminToken` (#338), not by `PROPOSAL_REQUIRED` paths, and
+this marker does not apply to them.
 
 Flow:
 
 1. The agent calls the core `nodes` tool (`action: "invoke"`, `invokeCommand`,
    `invokeParamsJson`). The plugin's `before_tool_call` hook matches
-   `ha.config.automation` with inner action `save` and returns a
+   a gated command and action (table above) and returns a
    `requireApproval` request (`allow-once` or `deny`, ten-minute timeout) plus a
    params override. The hook creates the marker at this point; OpenClaw applies
-   it only after approval succeeds. A save holding an integer beyond 2^53 is
+   it only after approval succeeds. A gated call holding an integer beyond 2^53 is
    blocked, because re-serializing it would change what the operator approved.
 2. OpenClaw asks the operator and applies the override only if the approval
    succeeds. The override adds the reserved field `_openclaw_approval`:
    `{id, exp, bind}`, where `id` is a random UUID, `exp` is epoch seconds (the
    ten-minute approval window plus a two-minute dispatch grace, fixed when the
    hook returns), and `bind` is the sha256 hex of the canonical JSON (sorted
-   keys, no whitespace, UTF-8, numbers as `JSON.stringify` prints them) of `{command, action, params}` with reserved
+   keys ordered by UTF-16 code unit, no whitespace, UTF-8, numbers as `JSON.stringify` prints them) of `{command, action, params}` with reserved
    fields removed. Denial and timeout never reach the node.
-3. The node strips the field and runs the save only if the marker is
+3. The node strips the field and runs the mutation only if the marker is
    well-formed, unexpired, bound to exactly this command, action and params, and
    its id has not been used. Anything else is refused with `APPROVAL_INVALID`
    and no HA request; a missing marker is `PROPOSAL_REQUIRED` as before. Used ids
    are kept in memory until they expire.
+
+The `fs.*` commands have no action param, so their bound action is the empty string.
+For them the node decides: a protected path (or `agent_bridge`) needs the marker,
+checked once even where several paths are checked (`fs.move`); an unprotected path
+ignores the marker, so the plugin can require approval for every write command
+without a protected-path lookup of its own. An ignored marker is never forwarded.
 
 On every `nodes` invoke the hook also strips any marker the model supplied.
 

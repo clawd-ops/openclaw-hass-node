@@ -132,9 +132,7 @@ async def test_save_missing_config() -> None:
 
 @pytest.mark.usefixtures("trusted_config_approval_adapter_stub")
 async def test_save_config_wrong_type() -> None:
-    result = await handle_ha_config_lovelace(
-        {"action": "save", "config": "yaml goes here", "proposal_id": "prop-1"}
-    )
+    result = await handle_ha_config_lovelace({"action": "save", "config": "yaml goes here"})
     assert result["error"] == "MISSING_PARAM"
 
 
@@ -143,10 +141,8 @@ async def test_save_default_dashboard_happy_path() -> None:
     config = {"views": [{"title": "Home"}]}
     mock = AsyncMock(return_value=None)
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
-        result = await handle_ha_config_lovelace(
-            {"action": "save", "config": config, "proposal_id": "prop-1"}
-        )
-    assert result == {"ok": True, "url_path": None, "proposal_id": "prop-1"}
+        result = await handle_ha_config_lovelace({"action": "save", "config": config})
+    assert result == {"ok": True, "url_path": None}
     mock.assert_awaited_once_with("lovelace/config/save", {"config": config})
 
 
@@ -188,9 +184,7 @@ async def test_save_invalid_url_path_type() -> None:
 async def test_save_ha_error_propagates() -> None:
     mock = AsyncMock(side_effect=HAClientError("HA_WS_ERROR", "bad payload"))
     with patch("openclaw_node.commands.ha_config_lovelace.ha_ws_call", mock):
-        result = await handle_ha_config_lovelace(
-            {"action": "save", "config": {"views": []}, "proposal_id": "prop-1"}
-        )
+        result = await handle_ha_config_lovelace({"action": "save", "config": {"views": []}})
     assert result["ok"] is False
     assert result["error"] == "HA_WS_ERROR"
 
@@ -343,7 +337,7 @@ async def test_resources_create_happy_path() -> None:
                 "proposal_id": "p1",
             }
         )
-    assert result == {"ok": True, "resource": ws_response, "proposal_id": "p1"}
+    assert result == {"ok": True, "resource": ws_response}
     mock.assert_awaited_once_with(
         "lovelace/resources/create",
         {"url": "/local/x.js", "res_type": "module"},

@@ -9,15 +9,14 @@ Single command with an ``action`` param. Supported actions:
 
 - ``get`` — read one automation by id.
 - ``save`` — write one automation; requires a valid native approval marker.
-- ``delete`` — delete one automation (blocked pending trusted approval verification).
+- ``delete`` — delete one automation requires a valid native approval marker.
 
 HA core does not expose a collection route for automation configs; use
 the existing ``ha.list_automations`` command to enumerate automations.
 
-``delete`` fails closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. ``save`` runs only with a valid
-``_openclaw_approval`` marker (see :mod:`openclaw_node.commands.config_mutation`);
-without one it also returns ``PROPOSAL_REQUIRED``.
+Mutations run only with a valid ``_openclaw_approval`` marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -28,7 +27,6 @@ from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import (
     consume_approval_marker,
-    require_config_mutation_approval,
 )
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
@@ -41,7 +39,7 @@ _ACTIONS: Final[frozenset[str]] = frozenset({"get", "save", "delete"})
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "get": frozenset({"action", "id"}),
     "save": frozenset({"action", "id", "config", "proposal_id", "_openclaw_approval"}),
-    "delete": frozenset({"action", "id", "proposal_id"}),
+    "delete": frozenset({"action", "id", "proposal_id", "_openclaw_approval"}),
 }
 
 
@@ -120,7 +118,7 @@ async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.automation", "delete")
+    denied = consume_approval_marker("ha.config.automation", "delete", params)
     if denied is not None:
         return denied
 
@@ -128,17 +126,16 @@ async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
     if err is not None:
         return err
 
-    proposal_id = str(params["proposal_id"]).strip()
     _LOG.warning(
-        "ha.config.automation delete invoked id=%r proposal=%s",
+        "ha.config.automation delete approved id=%r proposal=%r",
         automation_id,
-        proposal_id,
+        params.get("proposal_id"),
     )
     try:
         await ha_delete(f"/api/config/automation/config/{automation_id}")
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "id": automation_id, "proposal_id": proposal_id}
+    return {"ok": True, "id": automation_id}
 
 
 async def handle_ha_config_automation(params: dict[str, Any]) -> dict[str, Any]:
@@ -153,7 +150,7 @@ async def handle_ha_config_automation(params: dict[str, Any]) -> dict[str, Any]:
         config (dict): Required for ``save``; the complete automation
             configuration submitted to Home Assistant.
         proposal_id (str): Audit metadata only; it never grants authorization.
-        _openclaw_approval (dict): ``save`` only; reserved approval marker
+        _openclaw_approval (dict): ``save``/``delete``; reserved approval marker
             ``{id, exp, bind}`` minted by the gateway plugin after approval.
 
     Returns:

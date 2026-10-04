@@ -222,6 +222,20 @@
         }
       },
       "bind": "7aff8f9961edff954ff71974349b9d6c37dea51b1a2b78724c3a1630e0b0a6de"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "k",
+        "config": {
+          "～": 1,
+          "😀": 2,
+          "a": 3
+        }
+      },
+      "bind": "a557da7907fdac49ad814e3a5648f04aac295682e228273f5b87eaea1db25002"
     }
   ]
 }

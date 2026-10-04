@@ -95,7 +95,9 @@ with that variable unset, or on a mismatch, the command is refused with
 native OpenClaw operator approval; that migration is unfinished and is tracked
 by [#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338) and
 [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289). See
-[Authorization model](AUTHORIZATION-MODEL.md).
+[Authorization model](AUTHORIZATION-MODEL.md). The native approval marker for
+`ha.config.*` and `fs.*` mutations does not apply to these Tier B admin commands:
+they stay on the admin-token gate until #338 lands.
 
 - `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;
   reloads the HA core configuration only. The optional `domain` argument may

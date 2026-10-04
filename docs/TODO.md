@@ -62,9 +62,11 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   only issues that are open on GitHub.
 
 ### 20. Native approval-gated write path
-- Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; native OpenClaw
-  plugin approvals are wired only to the `ha.config.automation` `save`
-  prototype. Extend to the other mutations after the prototype is reviewed.
+- Status: OPEN — at source, every mutating `ha.config.*` action and the protected
+  `fs.*` writes run only with a native approval marker minted by the plugin
+  hook; without one they return `PROPOSAL_REQUIRED`. Remaining: the marker is not
+  a secret (known gap, see the authorization model) and effect-policy-gated HA
+  service calls are not covered. The Tier B admin wrappers are gated by #338.
 - Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `fs.restore`,
   `ha.config.*`, and effect-policy-gated HA service calls.
 - Goal: consume a Gateway-authenticated, exact-operation-bound, expiring,

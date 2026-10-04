@@ -21,11 +21,11 @@
 
 ## Phase 0 containment (released, not yet live-verified)
 
-All 19 mutating actions across the nine `ha.config.*` commands now deny
-unverified proposal identifiers before any HA request. The shared boundary has
-no caller-controlled override. Read-only config actions and light control are
-unchanged. API-adapter tests explicitly stub the boundary to retain dormant
-adapter coverage; the independent boundary suite uses real authorization code
+All 19 mutating actions across the nine `ha.config.*` commands deny
+unverified proposal identifiers before any HA request, and at source run only
+with a native approval marker. The shared boundary has no caller-controlled
+override. Read-only config actions and light control are
+unchanged. API-adapter tests explicitly stub the boundary; the independent boundary suite uses real authorization code
 and asserts zero HA requests through both handlers and dispatcher.
 
 This is containment only, not a working approval flow. It shipped in
@@ -251,9 +251,9 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
     fail-closed in this source revision: every mutation returns
-    `PROPOSAL_REQUIRED` without an HA request, except `ha.config.automation`
-    `save` (prototype), which runs only with a native OpenClaw approval marker.
-    A caller-supplied proposal ID cannot authorize anything.
+    `PROPOSAL_REQUIRED` without an HA request unless the call carries a valid
+    native OpenClaw approval marker, which the plugin hook mints after an operator
+    approves that exact call. A caller-supplied proposal ID cannot authorize anything.
   - `fs.*` (11): read/list/stat/glob, write/restore/history/diff,
     move/delete, patch.
   - `system.*` (5): `system.run` (bound in #258 to the Gateway-forwarded
@@ -292,10 +292,11 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
 
 Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
 
-- **Protected filesystem and native config mutations are unavailable** with
-  `PROPOSAL_REQUIRED` in this source revision; native plugin approvals are wired
-  only to the `ha.config.automation` `save` prototype, which an operator-level
-  caller bypassing the tool hook can forge (see the authorization model). See TODO item #20 and
+- **Protected filesystem and native config mutations need native approval**:
+  without a marker they return `PROPOSAL_REQUIRED`. The plugin hook gates every
+  mutating `ha.config.*` action and the `fs.*` write commands; an operator-level
+  caller bypassing the tool hook can forge a marker (see the authorization
+  model). The Tier B admin wrapper tools are out of scope. See TODO item #20 and
   [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289).
 - **Assist-principal propagation** follows the selected D4 default: one agent
   plus a soft prompt-level block, with a separate agent configurable per user.

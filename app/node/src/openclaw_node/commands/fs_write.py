@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError, VersionNotFoundError
+from openclaw_node.commands.config_mutation import approval_checker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_fd import atomic_write_safe, read_bytes_safe
@@ -198,7 +199,7 @@ def _decode_content(content: str, encoding: str) -> bytes | dict[str, Any]:
 
 
 _WRITE_KEYS: Final = frozenset(
-    {"path", "content", "encoding", "actor", "agent_bridge", "proposal_id"}
+    {"path", "content", "encoding", "actor", "agent_bridge", "proposal_id", "_openclaw_approval"}
 )
 
 
@@ -223,6 +224,7 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     invalid = strict_keys_error(params, _WRITE_KEYS)
     if invalid is not None:
         return invalid
+    approved = approval_checker("fs.write", params)
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")
@@ -246,10 +248,9 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
 
     # Protected roots are ALWAYS proposal-gated; caller cannot override with agent_bridge=False.
     if _is_protected(path) or agent_bridge:
-        return _error(
-            "PROPOSAL_REQUIRED",
-            (f"Path {path!r} requires a proposal; gateway-side proposal bridge ships in P3.3"),
-        )
+        denied = approved()
+        if denied is not None:
+            return denied
 
     resolved = _resolve_write_target(path)
     if isinstance(resolved, dict):
@@ -258,10 +259,9 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     # Post-resolution: symlink or traversal may redirect into a protected zone.
     # (_is_storage paths are a subset of /config, so the protected check covers them.)
     if _is_protected(str(resolved)):
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"Resolved path {resolved!r} is under a protected root",
-        )
+        denied = approved()
+        if denied is not None:
+            return denied
 
     content_bytes = _decode_content(str(content_raw), encoding)
     if isinstance(content_bytes, dict):
@@ -329,7 +329,16 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
 
 
 _RESTORE_KEYS: Final = frozenset(
-    {"path", "version_id", "version", "at", "actor", "agent_bridge", "proposal_id"}
+    {
+        "path",
+        "version_id",
+        "version",
+        "at",
+        "actor",
+        "agent_bridge",
+        "proposal_id",
+        "_openclaw_approval",
+    }
 )
 
 
@@ -358,6 +367,7 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     invalid = strict_keys_error(params, _RESTORE_KEYS)
     if invalid is not None:
         return invalid
+    approved = approval_checker("fs.restore", params)
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")
@@ -377,13 +387,9 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
 
     # Protected roots are ALWAYS proposal-gated; caller cannot override with agent_bridge=False.
     if _is_protected(path) or agent_bridge:
-        return _error(
-            "PROPOSAL_REQUIRED",
-            (
-                f"Path {path!r} requires a proposal for restore; "
-                "gateway-side proposal bridge ships in P3.3"
-            ),
-        )
+        denied = approved()
+        if denied is not None:
+            return denied
 
     resolved = _resolve_write_target(path)
     if isinstance(resolved, dict):
@@ -392,10 +398,9 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     # Post-resolution: symlink or traversal may redirect into a protected zone.
     # (_is_storage paths are a subset of /config, so the protected check covers them.)
     if _is_protected(str(resolved)):
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"Resolved path {resolved!r} is under a protected root",
-        )
+        denied = approved()
+        if denied is not None:
+            return denied
 
     store = _get_store()
 

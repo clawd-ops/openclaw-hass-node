@@ -153,7 +153,7 @@
           }
         }
       ],
-      "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
+      "capability_conditions": "Path resolves under an allowed writable root; protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED).",
       "command": "fs.delete",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 fs mutation sweep: delete trashes rather than erases, and the round trip restores.",
@@ -874,7 +874,7 @@
           }
         }
       ],
-      "capability_conditions": "Both paths resolve under allowed writable roots; protected paths fail closed pending trusted approval.",
+      "capability_conditions": "Both paths resolve under allowed writable roots; protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED).",
       "command": "fs.move",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 fs mutation sweep: move relocated the file and carried its version history.",
@@ -898,6 +898,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },
@@ -1055,7 +1056,7 @@
           }
         }
       ],
-      "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval. Patch text is capped at 1 MiB (1048576 UTF-8 bytes) and the patched result at 8 MiB; over-limit requests are refused with REQUEST_TOO_LARGE (patch) or RESULT_TOO_LARGE (result) before any backup snapshot or write.",
+      "capability_conditions": "Path resolves under an allowed writable root; protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED). Patch text is capped at 1 MiB (1048576 UTF-8 bytes) and the patched result at 8 MiB; over-limit requests are refused with REQUEST_TOO_LARGE (patch) or RESULT_TOO_LARGE (result) before any backup snapshot or write.",
       "command": "fs.patch",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 fs mutation sweep: unified diff applied and confirmed by read-back.",
@@ -1081,6 +1082,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },
@@ -1435,7 +1437,7 @@
           }
         }
       ],
-      "capability_conditions": "Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.",
+      "capability_conditions": "Allowed writable root and referenced backup version. Protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED).",
       "command": "fs.restore",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 fs mutation sweep (deployed build): version=0 was accepted and clamped instead of rejected; 1-based selection is documented. Current source rejects version=0 and adds version_id.",
@@ -1461,6 +1463,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },
@@ -1730,7 +1733,7 @@
           }
         }
       ],
-      "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable. Decoded content is capped at 8 MiB (8388608 bytes); over-limit requests are refused with REQUEST_TOO_LARGE before any backup snapshot or write.",
+      "capability_conditions": "Allowed writable root. Protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED); generic /share remains directly writable. Decoded content is capped at 8 MiB (8388608 bytes); over-limit requests are refused with REQUEST_TOO_LARGE before any backup snapshot or write.",
       "command": "fs.write",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 fs mutation sweep: create and update both wrote correctly and archived the prior version.",
@@ -1756,6 +1759,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_authz.py",
         "app/node/tests/test_effect_policy.py",
         "app/node/tests/test_gateway_ws.py"
@@ -3623,7 +3627,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -3658,6 +3662,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -3795,7 +3800,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -3806,7 +3811,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The create action accepts name (required) and optional attrs for additional area fields.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once. The create action accepts name (required) and optional attrs for additional area fields.",
       "command": "ha.config.area_registry",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 mutation-gate probe: refused with a bogus proposal id, settling the Sept 11 CODE-FAIL.",
@@ -3832,6 +3837,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -3944,7 +3950,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -3955,7 +3961,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
@@ -3981,6 +3987,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -4093,6 +4100,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -4219,7 +4227,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -4230,7 +4238,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists. The update action requires area_id and attrs (dict of fields to change).",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once. The update action requires area_id and attrs (dict of fields to change).",
       "command": "ha.config.area_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before this current-version probe.",
@@ -4256,6 +4264,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -4365,8 +4374,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "null",
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -4401,6 +4409,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -4514,7 +4523,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -4525,7 +4534,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -4551,6 +4560,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -4678,6 +4688,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -4816,7 +4827,7 @@
           }
         }
       ],
-      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED) until a trusted approval verifier exists; with a valid native approval marker the save runs once.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.automation",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -4842,6 +4853,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -4938,7 +4950,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -4973,6 +4985,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_config_entries.py"
       ]
@@ -5085,7 +5098,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -5096,7 +5109,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -5122,6 +5135,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_config_entries.py"
       ]
@@ -5234,7 +5248,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -5245,7 +5259,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.config_entries",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -5271,6 +5285,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_config_entries.py"
       ]
@@ -5397,6 +5412,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_config_entries.py"
       ]
@@ -5534,7 +5550,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -5569,6 +5585,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -5711,6 +5728,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -5837,7 +5855,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -5848,7 +5866,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.device_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only list action returned correct but oversized data in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -5874,6 +5892,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -6039,7 +6058,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -6074,6 +6093,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -6200,6 +6220,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -6372,6 +6393,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -6484,7 +6506,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -6495,7 +6517,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -6521,6 +6543,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -6647,7 +6670,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -6658,7 +6681,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.entity_registry",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -6684,6 +6707,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_registries.py"
       ]
@@ -6793,7 +6817,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -6828,6 +6852,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_helpers.py",
         "app/node/tests/test_ha_config_mutation_boundary.py"
@@ -6965,7 +6990,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -6976,7 +7001,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.helpers",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 mutation-gate probe: same refusal and message as the other families.",
@@ -7002,6 +7027,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_helpers.py",
         "app/node/tests/test_ha_config_mutation_boundary.py"
@@ -7129,7 +7155,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -7140,7 +7166,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -7166,6 +7192,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_helpers.py",
         "app/node/tests/test_ha_config_mutation_boundary.py"
@@ -7293,6 +7320,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_helpers.py",
         "app/node/tests/test_ha_config_mutation_boundary.py"
@@ -7434,7 +7462,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -7445,7 +7473,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.helpers",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only list action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -7471,6 +7499,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_helpers.py",
         "app/node/tests/test_ha_config_mutation_boundary.py"
@@ -7567,7 +7596,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -7644,6 +7673,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_lovelace.py"
       ]
@@ -7756,6 +7786,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_lovelace.py"
       ]
@@ -7882,6 +7913,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_lovelace.py"
       ]
@@ -8008,7 +8040,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -8019,7 +8051,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -8045,6 +8077,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_lovelace.py"
       ]
@@ -8157,6 +8190,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_lovelace.py"
       ]
@@ -8283,7 +8317,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -8294,7 +8328,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.lovelace",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "Dashboard and resource listing passed; default-dashboard get was environment-conditional in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -8320,6 +8354,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_lovelace.py"
       ]
@@ -8429,7 +8464,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -8464,6 +8499,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
@@ -8577,7 +8613,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -8588,7 +8624,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.scene",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -8614,6 +8650,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
@@ -8741,6 +8778,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
@@ -8878,7 +8916,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -8889,7 +8927,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.scene",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 mutation-gate probe: same refusal and message as the other families.",
@@ -8915,6 +8953,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "app/node/tests/test_ha_config_scene.py"
@@ -9025,7 +9064,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -9060,6 +9099,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_script.py"
       ]
@@ -9172,7 +9212,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -9183,7 +9223,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -9209,6 +9249,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_script.py"
       ]
@@ -9335,6 +9376,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_script.py"
       ]
@@ -9461,7 +9503,7 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "required-or-validated-before-access"
+            "null"
           ],
           "name": "proposal_id",
           "provenance": {
@@ -9472,7 +9514,7 @@
           }
         }
       ],
-      "capability_conditions": "Fails closed in stacked PR #265 until a trusted approval verifier exists.",
+      "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.script",
       "evidence_method": "TEST-PROVEN",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
@@ -9498,6 +9540,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_script.py"
       ]

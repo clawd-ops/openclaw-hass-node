@@ -25,6 +25,7 @@ import re
 from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError
+from openclaw_node.commands.config_mutation import approval_checker
 from openclaw_node.commands.fs_write import (
     MAX_WRITE_BYTES,
     _error,
@@ -278,7 +279,9 @@ def _run_patch(
     return patched, hunks
 
 
-_PATCH_KEYS: Final = frozenset({"path", "patch", "dry_run", "actor", "agent_bridge", "proposal_id"})
+_PATCH_KEYS: Final = frozenset(
+    {"path", "patch", "dry_run", "actor", "agent_bridge", "proposal_id", "_openclaw_approval"}
+)
 
 
 def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
@@ -305,6 +308,7 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     invalid = strict_keys_error(params, _PATCH_KEYS)
     if invalid is not None:
         return invalid
+    approved = approval_checker("fs.patch", params)
     path = str(params.get("path", ""))
     patch_text = str(params.get("patch", ""))
     if not path:
@@ -331,19 +335,17 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
             "Writes to .storage/ are refused; use the HA REST config API instead",
         )
     if _is_protected(path) or agent_bridge:
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"Path {path!r} requires a proposal; gateway-side proposal bridge ships in P3.3",
-        )
+        denied = approved()
+        if denied is not None:
+            return denied
 
     resolved = _resolve_write_target(path)
     if isinstance(resolved, dict):
         return resolved
     if _is_protected(str(resolved)):
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"Resolved path {resolved!r} is under a protected root",
-        )
+        denied = approved()
+        if denied is not None:
+            return denied
 
     roots = allowed_roots_for_env()
     try:

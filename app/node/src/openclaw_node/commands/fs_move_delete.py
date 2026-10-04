@@ -29,10 +29,12 @@ import hashlib
 import logging
 import os
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError
+from openclaw_node.commands.config_mutation import approval_checker
 from openclaw_node.commands.fs_write import (
     _error,
     _is_protected,
@@ -167,12 +169,15 @@ def _trash_file(path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _write_preflight(path: str, agent_bridge: bool) -> dict[str, Any] | None:
+def _write_preflight(
+    path: str, agent_bridge: bool, approved: Callable[[], dict[str, Any] | None]
+) -> dict[str, Any] | None:
     """Apply storage and protected-root policy checks.
 
     Args:
         path: Raw caller-supplied path.
         agent_bridge: Whether the call is routed through the proposal bridge.
+        approved: One-shot approval check from :func:`approval_checker`.
 
     Returns:
         An error dict if the path is blocked, ``None`` if clear to proceed.
@@ -183,27 +188,24 @@ def _write_preflight(path: str, agent_bridge: bool) -> dict[str, Any] | None:
             "Writes to .storage/ are refused; use the HA REST config API instead",
         )
     if _is_protected(path) or agent_bridge:
-        return _error(
-            "PROPOSAL_REQUIRED",
-            (f"Path {path!r} requires a proposal; gateway-side proposal bridge ships in P3.3"),
-        )
+        return approved()
     return None
 
 
-def _post_resolution_check(resolved: Path) -> dict[str, Any] | None:
+def _post_resolution_check(
+    resolved: Path, approved: Callable[[], dict[str, Any] | None]
+) -> dict[str, Any] | None:
     """Check the resolved path after symlink/traversal expansion.
 
     Args:
         resolved: The resolved :class:`Path` returned by ``_resolve_write_target``.
+        approved: One-shot approval check from :func:`approval_checker`.
 
     Returns:
         An error dict if the resolved path is blocked, ``None`` if clear.
     """
     if _is_protected(str(resolved)):
-        return _error(
-            "PROPOSAL_REQUIRED",
-            f"Resolved path {resolved!r} is under a protected root",
-        )
+        return approved()
     return None
 
 
@@ -212,7 +214,9 @@ def _post_resolution_check(resolved: Path) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
-_MOVE_KEYS: Final = frozenset({"src", "dst", "actor", "agent_bridge", "proposal_id"})
+_MOVE_KEYS: Final = frozenset(
+    {"src", "dst", "actor", "agent_bridge", "proposal_id", "_openclaw_approval"}
+)
 
 
 def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
@@ -237,6 +241,7 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     invalid = strict_keys_error(params, _MOVE_KEYS)
     if invalid is not None:
         return invalid
+    approved = approval_checker("fs.move", params)
     src_raw = str(params.get("src", ""))
     dst_raw = str(params.get("dst", ""))
     if not src_raw:
@@ -250,24 +255,24 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
         params.get("agent_bridge", _is_protected(src_raw) or _is_protected(dst_raw))
     )
 
-    err = _write_preflight(src_raw, agent_bridge)
+    err = _write_preflight(src_raw, agent_bridge, approved)
     if err:
         return err
-    err = _write_preflight(dst_raw, agent_bridge)
+    err = _write_preflight(dst_raw, agent_bridge, approved)
     if err:
         return err
 
     src = _resolve_write_target(src_raw)
     if isinstance(src, dict):
         return src
-    err = _post_resolution_check(src)
+    err = _post_resolution_check(src, approved)
     if err:
         return err
 
     dst = _resolve_write_target(dst_raw)
     if isinstance(dst, dict):
         return dst
-    err = _post_resolution_check(dst)
+    err = _post_resolution_check(dst, approved)
     if err:
         return err
 
@@ -363,7 +368,9 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_DELETE_KEYS: Final = frozenset({"path", "actor", "agent_bridge", "proposal_id"})
+_DELETE_KEYS: Final = frozenset(
+    {"path", "actor", "agent_bridge", "proposal_id", "_openclaw_approval"}
+)
 
 
 def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
@@ -385,6 +392,7 @@ def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
     invalid = strict_keys_error(params, _DELETE_KEYS)
     if invalid is not None:
         return invalid
+    approved = approval_checker("fs.delete", params)
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")
@@ -393,14 +401,14 @@ def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
     actor = str(params.get("actor", "agent"))
     agent_bridge = bool(params.get("agent_bridge", False))
 
-    err = _write_preflight(path, agent_bridge)
+    err = _write_preflight(path, agent_bridge, approved)
     if err:
         return err
 
     resolved = _resolve_write_target(path)
     if isinstance(resolved, dict):
         return resolved
-    err = _post_resolution_check(resolved)
+    err = _post_resolution_check(resolved, approved)
     if err:
         return err
 

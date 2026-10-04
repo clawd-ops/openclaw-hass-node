@@ -7,14 +7,14 @@ never touches ``/config/.storage/`` directly for lovelace state.
 Single command with an ``action`` param. Supported actions:
 
 - ``get`` — read a dashboard config (default or named).
-- ``save`` — write a dashboard config (blocked pending trusted approval verification).
+- ``save`` — write a dashboard config (requires a valid native approval marker).
 - ``dashboards_list`` — list configured dashboards.
 - ``resources_list`` — list registered resources.
-- ``resources_create`` — register a new resource (blocked pending trusted approval verification).
+- ``resources_create`` — register a new resource (requires a valid native approval marker).
 
-Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. The retained API adapters are dormant
-until a trusted approval verifier and human approval round-trip are implemented.
+Mutations require a valid native approval marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.config_mutation import consume_approval_marker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
@@ -38,10 +38,12 @@ _MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"save", "resources_create"
 
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "get": frozenset({"action", "url_path"}),
-    "save": frozenset({"action", "url_path", "config", "proposal_id"}),
+    "save": frozenset({"action", "url_path", "config", "proposal_id", "_openclaw_approval"}),
     "dashboards_list": frozenset({"action"}),
     "resources_list": frozenset({"action"}),
-    "resources_create": frozenset({"action", "url", "res_type", "proposal_id"}),
+    "resources_create": frozenset(
+        {"action", "url", "res_type", "proposal_id", "_openclaw_approval"}
+    ),
 }
 
 
@@ -86,7 +88,7 @@ async def _action_get(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.lovelace", "save")
+    denied = consume_approval_marker("ha.config.lovelace", "save", params)
     if denied is not None:
         return denied
 
@@ -102,17 +104,16 @@ async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
     if url_path is not None:
         payload["url_path"] = url_path
 
-    proposal_id = str(params["proposal_id"]).strip()
     _LOG.warning(
-        "ha.config.lovelace save invoked url_path=%r proposal=%s",
+        "ha.config.lovelace save invoked url_path=%r proposal=%r",
         url_path,
-        proposal_id,
+        params.get("proposal_id"),
     )
     try:
         await ha_ws_call("lovelace/config/save", payload)
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "url_path": url_path, "proposal_id": proposal_id}
+    return {"ok": True, "url_path": url_path}
 
 
 async def _action_dashboards_list(_params: dict[str, Any]) -> dict[str, Any]:
@@ -136,7 +137,7 @@ async def _action_resources_list(_params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_resources_create(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.lovelace", "resources_create")
+    denied = consume_approval_marker("ha.config.lovelace", "resources_create", params)
     if denied is not None:
         return denied
 
@@ -152,19 +153,18 @@ async def _action_resources_create(params: dict[str, Any]) -> dict[str, Any]:
             f"res_type must be one of {sorted(_LOVELACE_RESOURCE_TYPES)}, got {res_type!r}",
         )
 
-    proposal_id = str(params["proposal_id"]).strip()
     payload = {"url": url.strip(), "res_type": res_type}
     _LOG.warning(
-        "ha.config.lovelace resources_create invoked url=%r res_type=%s proposal=%s",
+        "ha.config.lovelace resources_create invoked url=%r res_type=%s proposal=%r",
         url,
         res_type,
-        proposal_id,
+        params.get("proposal_id"),
     )
     try:
         result = await ha_ws_call("lovelace/resources/create", payload)
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "resource": result, "proposal_id": proposal_id}
+    return {"ok": True, "resource": result}
 
 
 async def handle_ha_config_lovelace(params: dict[str, Any]) -> dict[str, Any]:
@@ -181,8 +181,7 @@ async def handle_ha_config_lovelace(params: dict[str, Any]) -> dict[str, Any]:
         res_type (str): Required for ``resources_create``; one of
             ``module``, ``css``, ``js``, or ``html``.
         proposal_id (str): Audit metadata for ``save`` and
-            ``resources_create``. It never grants authorization, and
-            mutations currently fail closed before this value is consumed.
+            ``resources_create``; it never grants authorization.
 
     Returns:
         The action's result dict, or an error dict when action is

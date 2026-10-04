@@ -124,7 +124,6 @@ async def test_create_happy_path() -> None:
             }
         )
     assert result["ok"] is True
-    assert result["proposal_id"] == "prop-1"
     mock.assert_awaited_once_with("input_boolean/create", {"name": "New Boolean"})
 
 

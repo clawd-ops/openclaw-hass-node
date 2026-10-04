@@ -369,7 +369,7 @@ async def test_delete_happy_path() -> None:
         result = await handle_ha_config_automation(
             {"action": "delete", "id": "42", "proposal_id": "p1"}
         )
-    assert result == {"ok": True, "id": "42", "proposal_id": "p1"}
+    assert result == {"ok": True, "id": "42"}
     mock.assert_awaited_once_with("/api/config/automation/config/42")
 
 

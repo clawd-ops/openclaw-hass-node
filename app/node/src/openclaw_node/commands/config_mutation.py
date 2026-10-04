@@ -1,9 +1,10 @@
 """Fail-closed boundary for HA-native configuration mutations.
 
 Proposal identifiers supplied by a caller are audit metadata, not proof of
-approval. Every mutation is refused with ``PROPOSAL_REQUIRED`` except those
-that opt in to the native approval marker via :func:`consume_approval_marker`
-(prototype: ``ha.config.automation`` save). The marker is minted by the gateway
+approval. Every mutation (each mutating ``ha.config.*`` action and each
+protected ``fs.*`` write) calls :func:`consume_approval_marker` or
+:func:`approval_checker` and is refused with ``PROPOSAL_REQUIRED`` unless it
+carries a valid native approval marker. The marker is minted by the gateway
 plugin's ``before_tool_call`` hook when it requests approval; OpenClaw applies it
 only after the approval succeeds. See
 ``docs/design/AUTHORIZATION-MODEL.md`` for the trust model and its known gap.
@@ -15,6 +16,7 @@ import hashlib
 import json
 import math
 import time
+from collections.abc import Callable
 from decimal import Decimal
 from typing import Any, Final
 
@@ -63,11 +65,17 @@ def _es_number(value: float) -> str:
     return ("-" if sign else "") + body
 
 
+def _utf16_key(key: str) -> bytes:
+    """Sort key matching JS ``Array.prototype.sort`` (UTF-16 code units)."""
+    return key.encode("utf-16-be", "surrogatepass")
+
+
 def _canonical(value: Any) -> str:
-    """Canonical JSON: sorted keys, no whitespace, ES number formatting."""
+    """Canonical JSON: keys sorted by UTF-16 code unit, no whitespace, ES numbers."""
     if isinstance(value, dict):
         items = ",".join(
-            f"{json.dumps(k, ensure_ascii=False)}:{_canonical(value[k])}" for k in sorted(value)
+            f"{json.dumps(k, ensure_ascii=False)}:{_canonical(value[k])}"
+            for k in sorted(value, key=_utf16_key)
         )
         return "{" + items + "}"
     if isinstance(value, list):
@@ -119,21 +127,38 @@ def consume_approval_marker(
     return None
 
 
-def require_config_mutation_approval(command: str, action: str) -> dict[str, Any] | None:
-    """Refuse a configuration mutation that has no approval path.
+def approval_checker(command: str, params: dict[str, Any]) -> Callable[[], dict[str, Any] | None]:
+    """Return a one-shot check for handlers that gate only some paths.
+
+    The first call verifies and consumes the marker (action is ``""``: ``fs.*``
+    commands have none); later calls repeat that result, so a handler with
+    several protected-path checks never consumes the single-use marker twice.
+    """
+    result: list[dict[str, Any] | None] = []
+
+    def check() -> dict[str, Any] | None:
+        if not result:
+            result.append(consume_approval_marker(command, "", params))
+        return result[0]
+
+    return check
+
+
+def require_config_mutation_approval(command: str, action: str) -> dict[str, Any]:
+    """Refuse a mutation that carries no approval marker.
 
     Args:
-        command: Registered HA configuration command name.
-        action: Validated action requested by the caller.
+        command: Registered command name.
+        action: Validated action requested by the caller (``""`` when none).
 
     Returns:
-        A fail-closed error without performing any Home Assistant request.
+        A ``PROPOSAL_REQUIRED`` error; no request is made.
     """
+    target = f"{command} action={action}" if action else command
     return {
         "ok": False,
         "error": "PROPOSAL_REQUIRED",
         "message": (
-            f"{command} action={action}: mutation unavailable until a trusted "
-            "approval verifier is implemented; proposal_id alone is not authorization"
+            f"{target}: mutation requires native approval; proposal_id alone is not authorization"
         ),
     }
