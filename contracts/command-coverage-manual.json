@@ -426,7 +426,7 @@
     },
     "ha.list_states": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; direct caller/filter contract drift remains unresolved.",
+      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Source-only; not in a released artifact.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
@@ -822,10 +822,13 @@
     },
     "ha.logbook": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable; direct caller aliases and URL encoding remain unresolved.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Source-only; not in a released artifact.",
+      "issues": [
+        344
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
-      "evidence_note": "Installed-node probes covered plugin-path bounding; direct source contract drift remains unresolved.",
+      "evidence_note": "Installed-node probes covered plugin-path bounding; the source now refuses unknown direct keys, but that is not yet production-verified.",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -859,7 +862,11 @@
     },
     "ha.history": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Direct-path caller aliases (entity_ids vs entity_id, start_time/end_time vs start/end) remain mismatched in source. +00:00 percent-encoding failure observed on 2026.7.23b1 (direct path, Sept 11); not re-probed via direct path on 2026.9.13b1. Unknown-entity silent-empty result and encoding semantics remain unverified.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Source-only; not in a released artifact.",
+      "issues": [
+        344,
+        345
+      ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
       "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",

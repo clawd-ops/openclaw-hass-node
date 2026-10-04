@@ -817,7 +817,7 @@ async def test_history_with_end_time() -> None:
 async def test_history_with_entity_ids() -> None:
     with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
         await handle_ha_history({"entity_ids": ["light.x", "sensor.y"]})
-    url = mock_get.call_args[0][0]
+    url = mock_get.call_args_list[0][0][0]
     assert "filter_entity_id=light.x,sensor.y" in url
 
 
@@ -829,6 +829,135 @@ async def test_history_invalid_entity_ids_type() -> None:
 async def test_history_invalid_entity_ids_contents() -> None:
     result = await handle_ha_history({"entity_ids": [1, 2]})
     assert result["error"] == "INVALID_PARAM"
+
+
+# ---------------------------------------------------------------------------
+# Read-command input validation (#319, #344, #345)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("handler", "params"),
+    [
+        (handle_ha_list_states, {"entity_filtr": "light.*"}),
+        (handle_ha_list_states, {"entity_filter": None}),
+        (handle_ha_list_states, {"entity_filter": ""}),
+        (handle_ha_list_states, {"entity_filter": 5}),
+        (handle_ha_list_states, {"domain": None}),
+        (handle_ha_logbook, {"start": "2026-06-01T00:00:00"}),
+        (handle_ha_logbook, {"entity_id": None}),
+        (handle_ha_logbook, {"end_time": ""}),
+        (handle_ha_history, {"entity_id": "light.x"}),
+        (handle_ha_history, {"start_time": None}),
+        (handle_ha_history, {"end_time": 7}),
+        (handle_ha_history, {"entity_ids": None}),
+        (handle_ha_history, {"entity_ids": []}),
+        (handle_ha_history, {"entity_ids": [""]}),
+        (handle_ha_history, {"entity_ids": ["  "]}),
+        (handle_ha_history, {"entity_ids": "light.x"}),
+        (handle_ha_history, {"minimal_response": None}),
+        (handle_ha_history, {"minimal_response": 0}),
+        (handle_ha_history, {"no_attributes": None}),
+        (handle_ha_history, {"no_attributes": ""}),
+        (handle_ha_history, {"significant_changes_only": None}),
+        (handle_ha_history, {"significant_changes_only": "false"}),
+    ],
+)
+async def test_read_commands_refuse_bad_params_before_any_ha_request(
+    handler: Any, params: dict[str, Any]
+) -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_get") as mock_get,
+        patch("openclaw_node.commands.ha.ha_ws_call") as mock_ws,
+    ):
+        result = await handler(params)
+    assert result["error"] == "INVALID_PARAM"
+    mock_get.assert_not_called()
+    mock_ws.assert_not_called()
+
+
+async def test_list_states_applies_entity_filter_glob() -> None:
+    states = [
+        {"entity_id": "scene.garage"},
+        {"entity_id": "scene.kitchen"},
+        {"entity_id": "light.garage"},
+        {"entity_id": None},
+    ]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_states({"entity_filter": "scene.g*"})
+    assert result["states"] == [{"entity_id": "scene.garage"}]
+    assert result["count"] == 1
+
+
+async def test_list_states_combines_domain_and_entity_filter() -> None:
+    states = [{"entity_id": "scene.garage"}, {"entity_id": "light.garage"}]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=states):
+        result = await handle_ha_list_states({"domain": "light", "entity_filter": "*.garage"})
+    assert result["states"] == [{"entity_id": "light.garage"}]
+
+
+async def test_history_unknown_entity_reports_not_found() -> None:
+    async def fake_get(path: str) -> Any:
+        if path.startswith("/api/history/period"):
+            return []
+        if path == "/api/states/light.real":
+            return {"entity_id": "light.real", "state": "on"}
+        raise HAClientError("HA_NOT_FOUND", "404")
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["light.real", "light.ghost"]})
+    assert result["error"] == "HA_NOT_FOUND"
+    assert "light.ghost" in result["message"]
+    assert "light.real" not in result["message"]
+
+
+async def test_history_known_entity_with_no_history_stays_empty_ok() -> None:
+    async def fake_get(path: str) -> Any:
+        if path.startswith("/api/history/period"):
+            return []
+        return {"entity_id": "light.real", "state": "on"}
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["light.real"]})
+    assert result == {"ok": True, "count": 0, "history": []}
+
+
+async def test_history_probe_failure_other_than_404_is_not_reported_missing() -> None:
+    async def fake_get(path: str) -> Any:
+        if path.startswith("/api/history/period"):
+            return []
+        raise HAClientError("HA_HTTP_ERROR", "500")
+
+    with patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get):
+        result = await handle_ha_history({"entity_ids": ["light.x"]})
+    assert result["ok"] is True
+
+
+async def test_history_probe_is_bounded_and_skips_slow_reads() -> None:
+    probed: list[str] = []
+
+    async def fake_get(path: str) -> Any:
+        if path.startswith("/api/history/period"):
+            return []
+        probed.append(path)
+        await asyncio.sleep(10)
+        return None
+
+    ids = [f"light.l{i}" for i in range(25)] + ["../x"]
+    with (
+        patch("openclaw_node.commands.ha.ha_get", side_effect=fake_get),
+        patch("openclaw_node.commands.ha._OBSERVATION_BUDGET_SECONDS", 0.01),
+    ):
+        result = await handle_ha_history({"entity_ids": ids})
+    assert result["ok"] is True
+    assert len(probed) == 10
+
+
+async def test_history_non_empty_result_is_not_probed() -> None:
+    history = [[{"entity_id": "light.x", "state": "on"}]]
+    with patch("openclaw_node.commands.ha.ha_get", return_value=history) as mock_get:
+        await handle_ha_history({"entity_ids": ["light.x"]})
+    mock_get.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -864,7 +993,7 @@ async def test_history_start_time_cannot_escape_its_path_segment() -> None:
 async def test_history_entity_ids_cannot_inject_query_parameters() -> None:
     with patch("openclaw_node.commands.ha.ha_get", return_value=[]) as mock_get:
         await handle_ha_history({"entity_ids": ["light.x&minimal_response"]})
-    url = mock_get.call_args[0][0]
+    url = mock_get.call_args_list[0][0][0]
     assert "filter_entity_id=light.x%26minimal_response" in url
     assert "&minimal_response" not in url
 

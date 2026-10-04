@@ -315,13 +315,13 @@ export const HA_HISTORY_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: history",
   name: "ha_history",
   description:
-    "On the paired Home Assistant node: read historical state changes. Both the 'Z' and '+00:00' ISO-8601 offset forms are accepted. KNOWN DEFECT: an entity_id that does not exist returns an empty result that is indistinguishable from a real entity with no history in the window. This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
+    "On the paired Home Assistant node: read historical state changes. Both the 'Z' and '+00:00' ISO-8601 offset forms are accepted. When the query returns no history, the requested entity_id is probed (bounded to the first ten IDs); a nonexistent one is reported as HA_NOT_FOUND, while an existing entity with no history in the window returns an empty result. This tool reaches the hass node — NOT the OC host. Access control is enforced by the node's allowCommands tier policy and HA's own auth layer.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     entity_id: Type.Optional(
       Type.String({
         description:
-          "Filter to a single entity_id. A nonexistent entity_id yields an empty result rather than an error.",
+          "Filter to a single entity_id. If the window has no history, a nonexistent entity_id is reported as HA_NOT_FOUND rather than an empty result.",
       }),
     ),
     start: Type.Optional(
