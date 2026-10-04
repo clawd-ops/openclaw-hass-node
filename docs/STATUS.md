@@ -68,7 +68,7 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   humidifier, water heater, remote, locks, alarm arm/disarm, scenes, scripts,
   buttons). Nothing that edits configuration is listed, and no domain is open.
   Security devices follow HA's own code model: the node passes a
-  caller-supplied `code` to HA (a lock or alarm's own code as text) and does not log or return it in any form it can recognise. Deny-class
+  caller-supplied `code` to HA (a lock or alarm's own code as text) and does not log it and does not return it in any form it can recognise (a code equal to a logged identifier such as a command or service name is not protected). Deny-class
   services (lifecycle, update, reload, host, shell, shutdown) are refused with
   `SERVICE_DENIED` for every caller, including the operator. Any other service
   is refused for a household user and returns `APPROVAL_REQUIRED` for an HA

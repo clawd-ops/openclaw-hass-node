@@ -280,10 +280,12 @@ it. The node never stores or guesses a code. For `lock` and `alarm_control_panel
 only, the service's own top-level `code` is sent as text, as HA's `cv.string`
 would read it (a boolean or non-finite number is `INVALID_PARAM` before any HA
 request); every other value, including a nested `code` in script variables, is
-sent exactly as supplied. The node does not log or return a caller-supplied code
-in any form it can recognise: its textual forms inside strings, or equal values.
-An integration that transforms the code (e.g. hashes or re-encodes it) is outside
-this guarantee, and so is a code identical to a command name: the command name is logged as-is before params are decoded. An HA rejection of a missing or wrong code is returned as a
+sent exactly as supplied. The node never logs a supplied code value, and does not return it
+in any form it can recognise (its textual forms inside strings, or equal values).
+Identifiers the node logs as routing context (command names, HA domain and service
+names, entity IDs) are logged as-is, so a code identical to one of those identifiers
+is not protected; an integration that transforms the code (e.g. hashes or re-encodes it)
+is also outside this guarantee. An HA rejection of a missing or wrong code is returned as a
 readable error.
 
 `PERMISSION_DENIED` is a role refusal; `SERVICE_DENIED` is the effect refusal and
