@@ -267,7 +267,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         ``{ok: True, changed_states}`` with the HA response (list of state
-        objects that changed) or an error dict.
+        objects that changed) or an error dict.  When the fallback snapshot
+        covers only part of the targeted entities, ``changed_states_truncated``
+        is ``True`` and ``targeted_entity_count`` gives the full count.
     """
     unknown = sorted(set(params) - _CALL_SERVICE_PARAMS)
     if unknown:
@@ -331,11 +333,12 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")
     changed = result
+    extra: dict[str, Any] = {}
     if not changed:
         entity_id_val = target.get("entity_id") if target is not None else None
         if entity_id_val and isinstance(entity_id_val, (str, list)):
-            changed = await _fetch_entity_states(entity_id_val)
-    return {"ok": True, "changed_states": changed}
+            changed, extra = await _fetch_entity_states(entity_id_val)
+    return {"ok": True, "changed_states": changed, **extra}
 
 
 async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:
@@ -638,7 +641,9 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "domain": _RELOAD_CORE_DOMAIN}
 
 
-async def _fetch_entity_states(entity_ids: str | list[str]) -> list[dict[str, Any]]:
+async def _fetch_entity_states(
+    entity_ids: str | list[str],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Fetch current states for named entity IDs after a service call.
 
     HA's REST service endpoint no longer reliably returns changed states in
@@ -646,7 +651,10 @@ async def _fetch_entity_states(entity_ids: str | list[str]) -> list[dict[str, An
     explicit entity IDs.  area_id and device_id targets are not handled here
     because enumerating their members requires additional registry calls.
     Errors from individual fetches are silently skipped so a partially-unavailable
-    entity does not fail the whole response.
+    entity does not fail the whole response.  At most ``_MAX_ENTITY_STATE_FETCHES``
+    IDs are fetched; when more were targeted the second return value carries
+    ``changed_states_truncated`` and ``targeted_entity_count`` so the partial
+    snapshot is never presented as complete (it is empty otherwise).
     """
     if isinstance(entity_ids, str):
         entity_ids = [entity_ids]
@@ -661,7 +669,10 @@ async def _fetch_entity_states(entity_ids: str | list[str]) -> list[dict[str, An
             continue
         if isinstance(state, dict):
             states.append(state)
-    return states
+    extra: dict[str, Any] = {}
+    if len(entity_ids) > _MAX_ENTITY_STATE_FETCHES:
+        extra = {"changed_states_truncated": True, "targeted_entity_count": len(entity_ids)}
+    return states, extra
 
 
 def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
@@ -728,11 +739,12 @@ async def handle_ha_light_turn_on(params: dict[str, Any]) -> dict[str, Any]:
         return _to_error(exc)
 
     changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    extra: dict[str, Any] = {}
     if not changed:
         entity_id_val = params.get("entity_id")
         if isinstance(entity_id_val, (str, list)):
-            changed = await _fetch_entity_states(entity_id_val)
-    return {"ok": True, "changed_states": changed}
+            changed, extra = await _fetch_entity_states(entity_id_val)
+    return {"ok": True, "changed_states": changed, **extra}
 
 
 async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
@@ -765,11 +777,12 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
         return _to_error(exc)
 
     changed: list[dict[str, Any]] = result if isinstance(result, list) else []
+    extra: dict[str, Any] = {}
     if not changed:
         entity_id_val = params.get("entity_id")
         if isinstance(entity_id_val, (str, list)):
-            changed = await _fetch_entity_states(entity_id_val)
-    return {"ok": True, "changed_states": changed}
+            changed, extra = await _fetch_entity_states(entity_id_val)
+    return {"ok": True, "changed_states": changed, **extra}
 
 
 _LIST_AUTOMATIONS_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset(

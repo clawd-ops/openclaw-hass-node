@@ -1252,6 +1252,47 @@ async def test_light_turn_on_fetches_state_when_ha_returns_empty() -> None:
     assert result["changed_states"] == [fetched]
 
 
+async def test_call_service_marks_fallback_truncated_for_eleven_entities() -> None:
+    ids = [f"light.l{i}" for i in range(11)]
+    mock_get = AsyncMock(side_effect=lambda path: {"entity_id": path.rsplit("/", 1)[1]})
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", mock_get),
+    ):
+        result = await handle_ha_call_service(
+            {"domain": "light", "service": "turn_on", "target": {"entity_id": ids}}
+        )
+    assert result["ok"] is True
+    assert len(result["changed_states"]) == 10
+    assert result["changed_states_truncated"] is True
+    assert result["targeted_entity_count"] == 11
+
+
+async def test_light_turn_off_marks_fallback_truncated_for_eleven_entities() -> None:
+    ids = [f"light.l{i}" for i in range(11)]
+    mock_get = AsyncMock(side_effect=lambda path: {"entity_id": path.rsplit("/", 1)[1]})
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", mock_get),
+    ):
+        result = await handle_ha_light_turn_off({"entity_id": ids})
+    assert len(result["changed_states"]) == 10
+    assert result["changed_states_truncated"] is True
+    assert result["targeted_entity_count"] == 11
+
+
+async def test_light_turn_on_ten_entities_not_marked_truncated() -> None:
+    ids = [f"light.l{i}" for i in range(10)]
+    mock_get = AsyncMock(side_effect=lambda path: {"entity_id": path.rsplit("/", 1)[1]})
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", mock_get),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": ids})
+    assert len(result["changed_states"]) == 10
+    assert "changed_states_truncated" not in result
+
+
 async def test_light_turn_on_no_fallback_for_area_target() -> None:
     with (
         patch("openclaw_node.commands.ha.ha_post", return_value=[]),
