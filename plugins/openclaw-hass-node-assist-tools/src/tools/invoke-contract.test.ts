@@ -15,7 +15,8 @@ vi.mock("openclaw/plugin-sdk/plugin-config-runtime", () => ({
 }));
 
 import { createHaCallServiceTool } from "./ha-call-service-tool.js";
-import { invokeHaCommand } from "./node-tool-invoke.js";
+import { invokeHaCommand as invokeRaw } from "./node-tool-invoke.js";
+import { runWithCallerContext } from "../shared/caller-context.js";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 type Exchange = { response: { ok: boolean; payload?: unknown; error?: unknown }; ha_calls: unknown[][] };
@@ -23,7 +24,17 @@ let exchanges: Exchange[];
 let haError: boolean;
 let legacyEnvelope: boolean;
 
-function nodeInvoke(params: Record<string, unknown>): Exchange {
+// Real wrapper calls run in an Assist caller context. The Python node does not
+// consume the reserved caller hint until WP2c-2, so it is removed before the
+// fixture; the pre-strip hint is recorded in `hints`.
+const hints: unknown[] = [];
+const invokeHaCommand: typeof invokeRaw = (input) =>
+  runWithCallerContext("ha-assist:contract", () => invokeRaw(input));
+
+function nodeInvoke(rawEnvelope: Record<string, unknown>): Exchange {
+  const { _openclaw_caller: hint, ...innerParams } = (rawEnvelope.params ?? {}) as Record<string, unknown>;
+  hints.push(hint);
+  const params = { ...rawEnvelope, params: innerParams };
   const child = spawnSync(`${root}.venv/bin/python`, ["app/node/tests/contracts/invoke_fixture.py"], {
     cwd: root,
     input: JSON.stringify({ ...params, ha_error: haError }),
@@ -38,6 +49,7 @@ function nodeInvoke(params: Record<string, unknown>): Exchange {
 
 beforeEach(() => {
   exchanges = [];
+  hints.length = 0;
   haError = false;
   legacyEnvelope = false;
   gatewayMock.mockReset().mockImplementation(async (method: string, _opts: unknown, params: Record<string, unknown>) => {
@@ -57,9 +69,9 @@ beforeEach(() => {
 });
 
 function call(args: Record<string, unknown>) {
-  return createHaCallServiceTool().execute("test", {
+  return runWithCallerContext("ha-assist:contract", () => createHaCallServiceTool().execute("test", {
     node: "hass", domain: "light", service: "turn_on", ...args,
-  }, new AbortController().signal, () => undefined);
+  }, new AbortController().signal, () => undefined));
 }
 
 describe("wrapper/node command contract", () => {
@@ -67,7 +79,11 @@ describe("wrapper/node command contract", () => {
     const data = { brightness_pct: 50, transition: 0, rgb_color: [1, 2, 3], nested: { effect: "test", enabled: false } };
     const result = await call({ [key]: data, target: { entity_id: ["light.test"] } });
     expect(exchanges[0].ha_calls).toEqual([["/api/services/light/turn_on", { ...data, entity_id: ["light.test"] }]]);
-    expect(gatewayMock.mock.calls[1][2].params).toEqual({ domain: "light", service: "turn_on", data, target: { entity_id: ["light.test"] } });
+    expect(gatewayMock.mock.calls[1][2].params).toEqual({
+      domain: "light", service: "turn_on", data, target: { entity_id: ["light.test"] },
+      _openclaw_caller: { sessionKey: "ha-assist:contract" },
+    });
+    expect(hints).toEqual([{ sessionKey: "ha-assist:contract" }]);
     const expectedPayload = {
       ok: true,
       changed_states: [{

@@ -18,8 +18,17 @@ vi.mock("openclaw/plugin-sdk/plugin-config-runtime", () => ({
   resolvePluginConfigObject: (...args: unknown[]) => resolvePluginConfigObjectMock(...args),
 }));
 
+const ASSIST_KEY = "agent:main:ha-assist:conv-1";
+
+// Existing behaviour tests run inside a valid Assist caller context.
 async function loadModule() {
-  return await import("./node-tool-invoke.js");
+  const mod = await import("./node-tool-invoke.js");
+  const { runWithCallerContext } = await import("../shared/caller-context.js");
+  return {
+    ...mod,
+    invokeHaCommand: ((input) =>
+      runWithCallerContext(ASSIST_KEY, () => mod.invokeHaCommand(input))) as typeof mod.invokeHaCommand,
+  };
 }
 
 afterEach(() => {
@@ -166,6 +175,47 @@ describe("invokeHaCommand", () => {
         gatewayOpts: {},
       }),
     ).rejects.toThrow("node command failed");
+  });
+});
+
+describe("invokeHaCommand caller hint", () => {
+  it("attaches the captured session key as the reserved caller field", async () => {
+    callGatewayToolMock.mockResolvedValue({ payload: {} });
+    const { invokeHaCommand } = await loadModule();
+    await invokeHaCommand({ nodeId: "n", command: "ha.get_state", commandParams: { entity_id: "sensor.x" }, gatewayOpts: {} });
+    expect(callGatewayToolMock.mock.calls[0][2].params).toEqual({
+      entity_id: "sensor.x",
+      _openclaw_caller: { sessionKey: ASSIST_KEY },
+    });
+  });
+
+  it("overwrites a caller-supplied reserved field", async () => {
+    callGatewayToolMock.mockResolvedValue({ payload: {} });
+    const { invokeHaCommand } = await loadModule();
+    await invokeHaCommand({
+      nodeId: "n",
+      command: "ha.get_state",
+      commandParams: { entity_id: "sensor.x", _openclaw_caller: { sessionKey: "operator", role: "operator" } },
+      gatewayOpts: {},
+    });
+    expect(callGatewayToolMock.mock.calls[0][2].params._openclaw_caller).toEqual({ sessionKey: ASSIST_KEY });
+  });
+
+  it.each([
+    ["no scope", undefined, false],
+    ["missing key", undefined, true],
+    ["non-string key", 42, true],
+    ["non-Assist key", "agent:main:main", true],
+    ["empty Assist id", "ha-assist:", true],
+  ] as const)("refuses with zero node invokes: %s", async (_name, key, scoped) => {
+    const mod = await import("./node-tool-invoke.js");
+    const { runWithCallerContext } = await import("../shared/caller-context.js");
+    const run = () => mod.invokeHaCommand({ nodeId: "n", command: "ha.get_state", commandParams: {}, gatewayOpts: {} });
+    await expect(scoped ? runWithCallerContext(key, run) : run()).rejects.toMatchObject({
+      code: "MISSING_ASSIST_CONTEXT",
+      source: "gateway",
+    });
+    expect(callGatewayToolMock).not.toHaveBeenCalled();
   });
 });
 

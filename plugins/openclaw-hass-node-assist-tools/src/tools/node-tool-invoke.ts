@@ -10,6 +10,7 @@ import {
   type NodeListNode,
 } from "openclaw/plugin-sdk/agent-harness-runtime";
 import { resolvePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
+import { CALLER_PARAM, readAssistSessionKey } from "../shared/caller-context.js";
 import { readPerNodePolicy, type PerNodePolicy } from "../shared/per-node-policy.js";
 
 export const PLUGIN_ID = "openclaw-hass-node-assist-tools";
@@ -85,6 +86,19 @@ export async function invokeHaCommand<T = unknown>(input: {
   commandParams: Record<string, unknown>;
   gatewayOpts: Record<string, unknown>;
 }): Promise<T> {
+  // Refuse before any gateway call when there is no valid Assist context.
+  const sessionKey = readAssistSessionKey();
+  if (sessionKey === undefined) {
+    throw new HaCommandError(
+      "MISSING_ASSIST_CONTEXT",
+      "No valid Assist session context for this tool call; nothing was sent to the node",
+      "gateway",
+    );
+  }
+  // Drop any caller-supplied reserved key, then set it ourselves. The value is
+  // a lookup hint for the node, not an identity claim (see caller-context.ts).
+  const { [CALLER_PARAM]: _ignored, ...cleanParams } = input.commandParams;
+  const params = { ...cleanParams, [CALLER_PARAM]: { sessionKey } };
   let raw: { payload?: T; ok?: boolean; error?: unknown };
   try {
     raw = await callGatewayTool<{ payload?: T; ok?: boolean; error?: unknown }>(
@@ -93,7 +107,7 @@ export async function invokeHaCommand<T = unknown>(input: {
       {
         nodeId: input.nodeId,
         command: input.command,
-        params: input.commandParams,
+        params,
         // The gateway's node.invoke schema requires idempotencyKey. The plugin-sdk
         // callGatewayTool wrapper does not inject one automatically, so we generate
         // a per-call UUID here. See docs/known-workarounds.md #3.
