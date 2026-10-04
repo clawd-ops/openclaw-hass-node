@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import selectors
+import socket
 from typing import Any
 
 import pytest
@@ -76,6 +78,59 @@ def _session_message_event(session_key: str, role: str, text: str) -> dict[str, 
             "message": text,
         },
     }
+
+
+class _JumpingSelector(selectors.DefaultSelector):
+    """Selector that never blocks: a wait of ``timeout`` advances ``now`` instead."""
+
+    now = 0.0
+
+    def select(self, timeout: float | None = None) -> Any:
+        ready = super().select(0)
+        if ready or not timeout:
+            return ready
+        self.now += timeout
+        return super().select(0)
+
+
+class _VirtualClockLoop(asyncio.SelectorEventLoop):
+    """Event loop whose clock only advances when it would otherwise block.
+
+    ``loop.time()`` (and so ``asyncio.sleep`` / ``asyncio.timeout``) runs on
+    virtual time: when the loop would wait for a timer, the clock jumps to it.
+    Timing assertions then depend on ordering, not on wall-clock load.
+    """
+
+    def __init__(self) -> None:
+        self._jumping = _JumpingSelector()
+        super().__init__(self._jumping)
+
+    def time(self) -> float:
+        return self._jumping.now
+
+
+def _run_virtual(coro: Any) -> None:
+    with asyncio.Runner(loop_factory=_VirtualClockLoop) as runner:
+        runner.run(coro)
+
+
+def test_virtual_clock_delivers_ready_socket_before_timeout() -> None:
+    """An already-readable socket wins over the virtual timeout."""
+
+    async def _main() -> None:
+        left, right = socket.socketpair()
+        left.setblocking(False)
+        right.setblocking(False)
+        try:
+            loop = asyncio.get_running_loop()
+            loop.call_soon(right.send, b"x")
+            data = await asyncio.wait_for(loop.sock_recv(left, 1), 0.1)
+            assert data == b"x"
+        finally:
+            left.close()
+            right.close()
+
+    _run_virtual(_main())
 
 
 @pytest.mark.asyncio
@@ -537,8 +592,7 @@ async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
     assert chunks == ["Hello", ", world!"]
 
 
-@pytest.mark.asyncio
-async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
     """When the turn deadline elapses while waiting, any chunks already
     queued must still be yielded before the iterator closes."""
     import openclaw_node.chat_relay as cr_mod
@@ -563,29 +617,38 @@ async def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.Mo
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
         await asyncio.sleep(0.005)
-        # One delta arrives, then the stream times out without a final.
-        relay.handle_event(
-            {
-                "type": "event",
-                "event": "chat",
-                "payload": {
-                    "sessionKey": canonical_session_key,
-                    "state": "delta",
-                    "deltaText": "partial",
-                    "message": {"role": "assistant", "content": "partial"},
-                },
-            }
-        )
+        # Two deltas land back to back, then no final ever arrives.
+        for text in ("partial", " tail"):
+            relay.handle_event(
+                {
+                    "type": "event",
+                    "event": "chat",
+                    "payload": {
+                        "sessionKey": canonical_session_key,
+                        "state": "delta",
+                        "deltaText": text,
+                        "message": {"role": "assistant", "content": text},
+                    },
+                }
+            )
 
     chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
     async def _consume() -> None:
         async for chunk in relay.stream_turn(conv_id, "hi"):
             chunks.append(chunk)
+            if len(chunks) == 1:
+                # Stay busy past the 0.1s deadline so " tail" is still queued
+                # when the relay next looks at the clock: only the drain
+                # path can deliver it.
+                await asyncio.sleep(0.2)
 
-    await asyncio.gather(_consume(), _drive())
+    async def _main() -> None:
+        await asyncio.gather(_consume(), _drive())
 
-    assert chunks == ["partial"]
+    _run_virtual(_main())
+
+    assert chunks == ["partial", " tail"]
 
 
 @pytest.mark.asyncio
@@ -756,8 +819,7 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
     assert raised[0].code == "DISCONNECTED"
 
 
-@pytest.mark.asyncio
-async def test_stream_turn_emits_keepalive_during_silent_gap(
+def test_stream_turn_emits_keepalive_during_silent_gap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """#129 follow-up: on tool-heavy turns the gateway can go silent for
@@ -828,7 +890,10 @@ async def test_stream_turn_emits_keepalive_during_silent_gap(
         async for chunk in relay.stream_turn(conv_id, "long question"):
             chunks.append(chunk)
 
-    await asyncio.gather(_consume(), _drive())
+    async def _main() -> None:
+        await asyncio.gather(_consume(), _drive())
+
+    _run_virtual(_main())
 
     progress_idxs = [i for i, c in enumerate(chunks) if c == "Working on it..."]
     keepalive_idxs = [i for i, c in enumerate(chunks) if isinstance(c, StreamKeepalive)]
