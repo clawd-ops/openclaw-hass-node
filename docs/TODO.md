@@ -180,7 +180,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Remaining:
   1. Streaming `system.run` output capture that kills the process at the cap
      (today output is captured in full, then truncated).
-  2. Invoke queue bound and HA concurrency limits.
+  2. Invoke queue bound and HA concurrency limits (open; PR #377 was closed unmerged).
   3. Byte caps on HA REST and WebSocket responses, with truncation or cursor
      metadata. The list-command filters bound what a caller receives, not what
      HA sends.

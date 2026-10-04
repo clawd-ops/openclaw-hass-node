@@ -262,12 +262,15 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
   not an empty history. A misspelled parameter name is refused with
   `INVALID_PARAM`.
 
-### G4. Oversized request and content.
+### G4. Oversized request.
 
 - Send an invoke whose `paramsJSON` exceeds the documented limit: expect
   `REQUEST_TOO_LARGE` and no command run.
-- Write content above the `fs.write` cap to an allowed root: expect
-  `REQUEST_TOO_LARGE` and no backup snapshot or file change.
+- This tests the gateway ingress bound (`paramsJSON` above 512 KiB), which is
+  the only size bound reachable through invoke. The 8 MiB `fs.write` content cap
+  sits below that bound as defense in depth; it cannot be reached through invoke
+  or the local HTTP API (which does not expose `fs.write`) and is covered by
+  source-level tests.
 
 ### G5. `system.run` timeout.
 

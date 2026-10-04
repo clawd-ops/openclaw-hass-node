@@ -82,9 +82,17 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   when HA returns no changed states and the caller named concrete entity IDs.
   `changed_states_complete` reports whether every targeted entity was returned.
   Area and device targets are not expanded.
-- Read commands validate their inputs and refuse bad values with `INVALID_PARAM`
-  before any HA request. `ha.history` reports an unknown entity as
-  `HA_NOT_FOUND` instead of an empty history.
+- `ha.list_states`, `ha.history`, `ha.logbook`, the registry, device, service,
+  config-entry and automation list commands validate their parameters and
+  refuse unknown keys and bad values with `INVALID_PARAM` before any HA request.
+  Other read handlers (for example `ha.list_areas`, `ha.get_config`,
+  `ha.list_events`, `ha.list_addons`, `ha.supervisor_info`) still ignore
+  unknown keys and make the HA request anyway; `ha.core_logs` checks only
+  `lines`. This is tracked under umbrella
+  [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349) and
+  [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288).
+  `ha.history` reports an unknown entity as `HA_NOT_FOUND` instead of an empty
+  history.
 - The registry, device, service, and config-entry list commands accept filters;
   filters are applied after the fetch, so they bound the response a caller
   handles, not the payload HA sends. The HA WebSocket message ceiling is raised
@@ -267,7 +275,8 @@ candidate ready. Still open:
   complete accepted-key authority exists yet.
 - **[#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291)** is
   partly advanced. Still open: streaming output capture with a kill at the cap,
-  invoke queue bound and concurrency limits, HA REST and WebSocket response
+  invoke queue bound and concurrency limits (the queue and concurrency work is
+  not merged; PR #377 was closed unmerged), HA REST and WebSocket response
   byte caps with truncation metadata, correct acknowledgement correlation and
   at-most-once redelivery, liveness versus readiness, and audit counters.
 - **[#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338):**
