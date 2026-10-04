@@ -283,7 +283,7 @@ request); every other value, including a nested `code` in script variables, is
 sent exactly as supplied. The node does not log or return a caller-supplied code
 in any form it can recognise: its textual forms inside strings, or equal values.
 An integration that transforms the code (e.g. hashes or re-encodes it) is outside
-this guarantee. An HA rejection of a missing or wrong code is returned as a
+this guarantee, and so is a code identical to a command name: the command name is logged as-is before params are decoded. An HA rejection of a missing or wrong code is returned as a
 readable error.
 
 `PERMISSION_DENIED` is a role refusal; `SERVICE_DENIED` is the effect refusal and

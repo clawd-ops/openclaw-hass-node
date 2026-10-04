@@ -18,6 +18,7 @@ from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.dispatcher import (
     _REGISTRY,
     AsyncHandlerError,
+    HandlerFailedError,
     UnknownCommandError,
     dispatch,
     dispatch_async,
@@ -212,3 +213,58 @@ async def test_handler_alone_does_not_scrub_the_dispatcher_does() -> None:
         caller=_OP,
     )
     assert _SECRET not in json.dumps(scrubbed)
+
+
+async def test_refusal_log_never_contains_a_supplied_code(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    params = {"domain": "automation", "service": "trigger", "data": {"code": "automation"}}
+    with caplog.at_level("DEBUG"):
+        result = await dispatch_async("ha.call_service", params, caller=_ADMIN)
+        sync_result = dispatch("ha.call_service", params, caller=_ADMIN)
+    assert result["error"] == sync_result["error"] == "APPROVAL_REQUIRED"
+    refusals = [r.getMessage() for r in caplog.records if "Refused" in r.getMessage()]
+    assert len(refusals) == 2
+    assert all("automation" not in m for m in refusals)
+    other = {"domain": "automation", "service": "trigger", "data": {"code": _SECRET}}
+    with caplog.at_level("DEBUG"):
+        await dispatch_async("ha.call_service", other, caller=_ADMIN)
+    assert _SECRET not in caplog.text
+
+
+def _boom(params: dict[str, Any]) -> dict[str, Any]:
+    raise ValueError(f"lock rejected {_SECRET} secret detail")
+
+
+async def _aboom(params: dict[str, Any]) -> dict[str, Any]:
+    return _boom(params)
+
+
+async def test_handler_exception_with_a_code_is_masked_and_unchained(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setitem(_REGISTRY, "ping", _boom)
+    monkeypatch.setitem(_REGISTRY, "pong", _aboom)
+    with caplog.at_level("DEBUG"):
+        with pytest.raises(HandlerFailedError) as sync_info:
+            dispatch("ping", {"code": _SECRET}, caller=_OP)
+        with pytest.raises(HandlerFailedError) as async_info:
+            await dispatch_async("pong", {"code": _SECRET}, caller=_OP)
+    for info in (sync_info, async_info):
+        assert _SECRET not in str(info.value)
+        assert info.value.__cause__ is None
+        assert info.value.__suppress_context__ is True
+    assert _SECRET not in caplog.text
+    assert "secret detail" not in caplog.text
+    assert "ValueError" in caplog.text
+
+
+async def test_handler_exception_without_a_code_is_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(_REGISTRY, "ping", _boom)
+    monkeypatch.setitem(_REGISTRY, "pong", _aboom)
+    with pytest.raises(ValueError, match="secret detail"):
+        dispatch("ping", {}, caller=_OP)
+    with pytest.raises(ValueError, match="secret detail"):
+        await dispatch_async("pong", {}, caller=_OP)
