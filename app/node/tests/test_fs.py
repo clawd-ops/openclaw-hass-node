@@ -5,9 +5,10 @@ from __future__ import annotations
 import base64
 import os
 import stat
+from collections.abc import Callable
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 import pytest
 
@@ -631,3 +632,56 @@ def test_fs_glob_recursive_hidden_excluded(tmp_path: Path) -> None:
     result = handle_fs_glob({"root": str(tmp_path), "pattern": "**/*.yaml"})
     assert "visible.yaml" in result["matches"]
     assert ".hidden/x.yaml" not in result["matches"]
+
+
+# ---------------------------------------------------------------------------
+# Strict parameter keys
+# ---------------------------------------------------------------------------
+
+_READ_ONLY_CALLS: dict[str, tuple[Callable[[dict[str, Any]], dict[str, Any]], dict[str, Any]]] = {
+    "fs.read": (
+        handle_fs_read,
+        {"path": "{f}", "encoding": "utf-8", "max_bytes": 10, "offset": 0, "length": 1},
+    ),
+    "fs.list": (handle_fs_list, {"path": "{d}", "hidden": True, "max_entries": 5}),
+    "fs.stat": (handle_fs_stat, {"path": "{f}"}),
+    "fs.glob": (handle_fs_glob, {"root": "{d}", "pattern": "*", "hidden": True, "max_matches": 5}),
+}
+
+
+def _fs_call(
+    name: str, tmp_path: Path
+) -> tuple[Callable[[dict[str, Any]], dict[str, Any]], dict[str, Any]]:
+    handler, template = _READ_ONLY_CALLS[name]
+    f = tmp_path / "f.txt"
+    f.write_text("hello", encoding="utf-8")
+    params = {
+        k: (v.format(f=f, d=tmp_path) if isinstance(v, str) else v) for k, v in template.items()
+    }
+    return handler, params
+
+
+@pytest.mark.parametrize("name", sorted(_READ_ONLY_CALLS))
+def test_fs_read_family_valid_call_with_every_key_succeeds(name: str, tmp_path: Path) -> None:
+    handler, params = _fs_call(name, tmp_path)
+    assert handler(dict(params))["ok"] is True
+
+
+@pytest.mark.parametrize("name", sorted(_READ_ONLY_CALLS))
+def test_fs_read_family_refuses_unknown_key(name: str, tmp_path: Path) -> None:
+    handler, params = _fs_call(name, tmp_path)
+    result = handler({**params, "pth": "x"})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert "pth" in result["message"]
+    assert "allowed:" in result["message"]
+
+
+@pytest.mark.parametrize("name", sorted(_READ_ONLY_CALLS))
+def test_fs_read_family_refuses_null_for_every_accepted_key(name: str, tmp_path: Path) -> None:
+    handler, params = _fs_call(name, tmp_path)
+    for key in params:
+        result = handler({**params, key: None})
+        assert result["ok"] is False, key
+        assert result["error"] == "INVALID_PARAM", key
+        assert key in result["message"]

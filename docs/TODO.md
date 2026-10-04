@@ -365,6 +365,7 @@ Ascending by PR number. Unreleased: merged on `main` after `2026.9.13b1`.
 - #372 — dispatcher policy gate; operator call sites at the WebSocket and HTTP API.
 - #373 — read-command input validation; `ha.history` reports unknown entities.
 - #375 — addon lifecycle timeouts return `OUTCOME_UNKNOWN` and are never retried (#323 addressed in source, unreleased).
+- Unreleased: `fs.*` commands refuse unknown and null parameters (advances #349).
 - #376 — gateway frame, `paramsJSON`, and result-size bounds.
 
 ## Stale claims to strike

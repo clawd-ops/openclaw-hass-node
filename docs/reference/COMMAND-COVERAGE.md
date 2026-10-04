@@ -282,6 +282,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_fs.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.history` {#row-fs-history}
@@ -356,6 +357,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_fs.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.move` {#row-fs-move}
@@ -519,6 +521,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - `app/node/tests/test_fs.py::test_fs_read_offset_beyond_eof_fails_closed` / `handler_dispatch` / `pass`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_fs.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.restore` {#row-fs-restore}
@@ -614,6 +617,7 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_fs.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.write` {#row-fs-write}

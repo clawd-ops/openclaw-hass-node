@@ -1001,3 +1001,84 @@ def test_fs_write_limit_counts_decoded_base64_bytes(tmp_path: Path) -> None:
     assert not target.exists()
     at = base64.b64encode(b"\0" * MAX_WRITE_BYTES).decode()
     assert handle_fs_write({"path": str(target), "content": at, "encoding": "base64"})["ok"]
+
+
+# ---------------------------------------------------------------------------
+# Strict parameter keys
+# ---------------------------------------------------------------------------
+
+
+def _tree(root: Path) -> dict[str, bytes | None]:
+    return {
+        str(p.relative_to(root)): (p.read_bytes() if p.is_file() else None)
+        for p in sorted(root.rglob("*"))
+    }
+
+
+def _write_params(tmp_path: Path) -> dict[str, object]:
+    return {
+        "path": str(tmp_path / "fs" / "new.yaml"),
+        "content": "a: 1\n",
+        "encoding": "utf-8",
+        "proposal_id": "p1",
+        "actor": "tester",
+        "agent_bridge": False,
+    }
+
+
+def test_fs_write_valid_call_with_every_key_succeeds(tmp_path: Path) -> None:
+    assert handle_fs_write(_write_params(tmp_path))["ok"] is True
+
+
+def test_fs_write_refuses_unknown_key_without_side_effects(tmp_path: Path) -> None:
+    before = _tree(tmp_path)
+    result = handle_fs_write({**_write_params(tmp_path), "conten": "x"})
+    assert result["error"] == "INVALID_PARAM"
+    assert "conten" in result["message"]
+    assert _tree(tmp_path) == before
+
+
+def test_fs_write_refuses_null_for_every_key_without_side_effects(tmp_path: Path) -> None:
+    before = _tree(tmp_path)
+    for key in _write_params(tmp_path):
+        result = handle_fs_write({**_write_params(tmp_path), key: None})
+        assert result["error"] == "INVALID_PARAM", key
+        assert key in result["message"]
+    assert _tree(tmp_path) == before
+
+
+def test_fs_restore_strict_keys_have_no_side_effects(tmp_path: Path, live_file: Path) -> None:
+    handle_fs_write({"path": str(live_file), "content": "changed\n"})
+    before = _tree(tmp_path)
+    base = {"path": str(live_file), "version": 1, "actor": "t", "agent_bridge": False}
+    unknown = handle_fs_restore({**base, "versoin": 1})
+    assert unknown["error"] == "INVALID_PARAM"
+    assert "versoin" in unknown["message"]
+    for key in [*base, "version_id", "proposal_id", "at"]:
+        result = handle_fs_restore({**base, key: None})
+        assert result["error"] == "INVALID_PARAM", key
+        assert key in result["message"]
+    assert _tree(tmp_path) == before
+    assert live_file.read_text(encoding="utf-8") == "changed\n"
+    assert handle_fs_restore(base)["ok"] is True
+    assert live_file.read_text(encoding="utf-8") == "key: value\n"
+
+
+def test_fs_history_strict_keys(live_file: Path) -> None:
+    unknown = handle_fs_history({"path": str(live_file), "limit": 1})
+    assert unknown["error"] == "INVALID_PARAM"
+    assert "limit" in unknown["message"]
+    assert handle_fs_history({"path": None})["error"] == "INVALID_PARAM"
+    assert handle_fs_history({"path": str(live_file)})["ok"] is True
+
+
+def test_fs_diff_strict_keys_allow_null_to_version_only(live_file: Path) -> None:
+    handle_fs_write({"path": str(live_file), "content": "changed\n"})
+    base = {"path": str(live_file), "from_version": 1}
+    unknown = handle_fs_diff({**base, "to": 2})
+    assert unknown["error"] == "INVALID_PARAM"
+    assert "to" in unknown["message"]
+    for key in base:
+        result = handle_fs_diff({**base, key: None})
+        assert result["error"] == "INVALID_PARAM", key
+    assert handle_fs_diff({**base, "to_version": None})["ok"] is True

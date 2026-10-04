@@ -33,6 +33,7 @@ from openclaw_node.commands.fs_write import (
     _reset_store_for_testing,
     _resolve_write_target,
 )
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_fd import atomic_write_safe, read_bytes_safe
 from openclaw_node.safe_path import OutOfBoundsError
@@ -277,6 +278,9 @@ def _run_patch(
     return patched, hunks
 
 
+_PATCH_KEYS: Final = frozenset({"path", "patch", "dry_run", "actor", "agent_bridge", "proposal_id"})
+
+
 def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     """Apply a unified diff to a file within the allowed roots.
 
@@ -298,6 +302,9 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, path, dry_run: True, hunks_applicable: N}`` for dry
         runs, or an error dict.
     """
+    invalid = strict_keys_error(params, _PATCH_KEYS)
+    if invalid is not None:
+        return invalid
     path = str(params.get("path", ""))
     patch_text = str(params.get("patch", ""))
     if not path:
