@@ -54,6 +54,15 @@ if TYPE_CHECKING:
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
+# Ingress/egress bounds (#291). Inbound frames over the frame cap make the
+# websockets library close the connection (1009); the paramsJSON and result
+# caps are enforced per invoke with a structured error.
+_MAX_GATEWAY_FRAME_BYTES: Final[int] = 4 * 1024 * 1024
+_MAX_PARAMS_JSON_BYTES: Final[int] = 512 * 1024
+_MAX_PARAMS_DEPTH: Final[int] = 64
+_MAX_PARAMS_MEMBERS: Final[int] = 4096
+_MAX_INVOKE_RESULT_BYTES: Final[int] = 24 * 1024 * 1024
+
 # Every gateway invoke is operator until WP2c-2 carries the Assist principal.
 _INVOKE_CALLER: Final[Caller] = Caller.operator("gateway-invoke")
 
@@ -234,7 +243,40 @@ class InvalidInvokeParamsError(ValueError):
     that decodes to a JSON object. Any other shape is a schema violation
     and the invoker is told ``INVALID_PARAMS`` rather than running with
     silently-degraded input.
+
+    ``code`` is the stable gateway error code returned for the refusal.
     """
+
+    code: str = "INVALID_PARAMS"
+
+
+class OversizeInvokeParamsError(InvalidInvokeParamsError):
+    """Raised when ``paramsJSON`` exceeds the length, depth, or member bound."""
+
+    code = "REQUEST_TOO_LARGE"
+
+
+def _check_params_shape(decoded: object) -> None:
+    """Refuse decoded params nested deeper or wider than the contract bound.
+
+    Iterative walk; raises :class:`OversizeInvokeParamsError`.
+    """
+    members = 0
+    stack: list[tuple[object, int]] = [(decoded, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if isinstance(node, dict):
+            children: list[object] = list(node.values())
+        elif isinstance(node, list):
+            children = list(node)
+        else:
+            continue
+        if depth > _MAX_PARAMS_DEPTH:
+            raise OversizeInvokeParamsError("paramsJSON nesting exceeds limit")  # noqa: TRY003
+        members += len(children)
+        if members > _MAX_PARAMS_MEMBERS:
+            raise OversizeInvokeParamsError("paramsJSON member count exceeds limit")  # noqa: TRY003
+        stack.extend((child, depth + 1) for child in children)
 
 
 def _decode_invoke_params(payload: dict[str, Any]) -> dict[str, Any]:
@@ -248,14 +290,19 @@ def _decode_invoke_params(payload: dict[str, Any]) -> dict[str, Any]:
     raw_json = payload.get("paramsJSON")
     if not isinstance(raw_json, str) or not raw_json:
         raise InvalidInvokeParamsError("paramsJSON must be a non-empty string")  # noqa: TRY003
+    if len(raw_json.encode()) > _MAX_PARAMS_JSON_BYTES:
+        raise OversizeInvokeParamsError("paramsJSON exceeds size limit")  # noqa: TRY003
     try:
         decoded = json.loads(raw_json)
+    except RecursionError as exc:
+        raise OversizeInvokeParamsError("paramsJSON nesting exceeds limit") from exc  # noqa: TRY003
     except json.JSONDecodeError as exc:
         raise InvalidInvokeParamsError(f"paramsJSON is not valid JSON: {exc}") from exc  # noqa: TRY003
     if not isinstance(decoded, dict):
         raise InvalidInvokeParamsError(  # noqa: TRY003
             f"paramsJSON must decode to a JSON object, got {type(decoded).__name__}"
         )
+    _check_params_shape(decoded)
     return dict(decoded)
 
 
@@ -520,7 +567,9 @@ class GatewayClient:
         """
         self._reload_device_token()
         _LOG.info("Connecting to gateway: %s", self._config.gateway_url)
-        async with websockets.asyncio.client.connect(self._config.gateway_url) as ws:
+        async with websockets.asyncio.client.connect(
+            self._config.gateway_url, max_size=_MAX_GATEWAY_FRAME_BYTES
+        ) as ws:
             # Step 1: receive connect.challenge
             nonce, _ts = await self._recv_challenge(ws)
 
@@ -1191,10 +1240,10 @@ class GatewayClient:
                 {
                     **base,
                     "ok": False,
-                    "error": {"code": "INVALID_PARAMS", "message": "Malformed invoke params"},
+                    "error": {"code": exc.code, "message": "Malformed invoke params"},
                 },
             )
-            await ws.send(json.dumps(resp))
+            await self._send_invoke_result(ws, resp, base)
             return
         try:
             result = await dispatch_async(command, params, caller=_INVOKE_CALLER)
@@ -1252,7 +1301,36 @@ class GatewayClient:
                 },
             )
 
-        await ws.send(json.dumps(resp))
+        await self._send_invoke_result(ws, resp, base)
+
+    async def _send_invoke_result(
+        self,
+        ws: websockets.asyncio.client.ClientConnection,
+        resp: dict[str, Any],
+        base: dict[str, Any],
+    ) -> None:
+        """Send a ``node.invoke.result`` frame, bounded to the result budget.
+
+        An over-budget result is replaced with a ``RESULT_TOO_LARGE`` error.
+        The command has already run by then; the error says so.
+        """
+        encoded = json.dumps(resp)
+        if len(encoded.encode()) > _MAX_INVOKE_RESULT_BYTES:
+            _LOG.warning("invoke ◀ RESULT_TOO_LARGE id=%s", str(base["id"])[:8])
+            encoded = json.dumps(
+                _make_req(
+                    "node.invoke.result",
+                    {
+                        **base,
+                        "ok": False,
+                        "error": {
+                            "code": "RESULT_TOO_LARGE",
+                            "message": "Command ran but its result exceeds the size limit",
+                        },
+                    },
+                )
+            )
+        await ws.send(encoded)
 
     def _notify_pairing_state(self) -> None:
         """Notify the optional callback of the current pairing state."""

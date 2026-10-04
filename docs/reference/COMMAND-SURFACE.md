@@ -169,6 +169,22 @@ Sections for each `ha.config.*` command follow the base surface below.
 | `ha.addon_update`         | `slug`; same Tier B lifecycle gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`) |
 | `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
 
+## Gateway ingress and result bounds (unreleased, #291)
+
+The node enforces these limits on its gateway WebSocket. Limits are source
+constants in `gateway_ws.py`, not yet fields of the executable contract.
+
+| Bound | Limit | Behaviour when exceeded |
+|---|---|---|
+| Inbound gateway frame | 4 MiB | The connection is closed (WebSocket 1009) and reconnects; no structured error is possible |
+| `paramsJSON` length | 512 KiB (UTF-8 bytes) | `REQUEST_TOO_LARGE`; command not dispatched |
+| `paramsJSON` nesting | 64 levels | `REQUEST_TOO_LARGE`; command not dispatched |
+| `paramsJSON` members | 4,096 (object values plus array items, aggregate) | `REQUEST_TOO_LARGE`; command not dispatched |
+| `node.invoke.result` | 24 MiB serialized | `RESULT_TOO_LARGE` replaces the result; the command **has already run** |
+
+A limit-sized request or result is accepted. Not yet covered by #291: HTTP/Assist
+ingress, queue depth, concurrency, and the contract fields for these limits.
+
 ## Service payload and result contract (unreleased, #266)
 
 Both direct `ha.call_service` and Assist `ha_call_service` use **`data`** as
