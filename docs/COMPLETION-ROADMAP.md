@@ -112,7 +112,7 @@ remains listed when release-tied evidence is still outstanding.
 
 | Retained gap | Tracker |
 |---|---|
-| Trusted caller propagation. The dispatcher gate is merged at source, but Gateway-forwarded invokes and the local HTTP API are operator calls, so direct `node.invoke` is operator-default. Assist-principal propagation is pending a design decision. The cross-surface ceiling still has two documented alternatives; neither is selected here. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
+| Trusted caller propagation. The dispatcher gate is merged at source, but Gateway-forwarded invokes and the local HTTP API are operator calls, so direct `node.invoke` is operator-default. Assist-principal propagation is delivered on the wrapper path: the plugin carries a session-key lookup hint and the node resolves it against its own turn registry. The hint is unauthenticated, so a direct operator-level `node.invoke` caller could supply a guessed key; this is an accepted limitation for now (no widening beyond operator access), and an ambiguous match is refused. The cross-surface ceiling follows the selected D4 default (same agent plus a soft prompt-level block, separate agent configurable per user); the full OpenClaw tool surface is not covered. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
 | Per-effect service policy is merged at source (the everyday-control table of named services allowed for household users and HA admins, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: classification of services outside the table, target and data constraints, and covering the non-service mutation commands. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289), [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) (the interim denylist tracker #287 is closed) |
 | Same-agent hardening is merged at source: a soft prompt-level tool-limit block, marker stripping, and per-role agent routing. A restricted agent is the hard control for OpenClaw tools and is optional. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
 | Complete the executable cross-layer command contract and strict dispatcher validation. Deferred: no complete accepted-key authority exists. Every `ha.*` command, all eleven `fs.*` commands, the nine `ha.config.*` commands, `system.which` and `ping` now refuse unknown keys and null optional keys at source; `system.run`, `system.run.prepare` and `system.execApprovals.get`/`set` are out of scope by design because their params are the Gateway's forwarded envelope (umbrella [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349)). | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
@@ -258,14 +258,15 @@ store, or approval application.
 - [ ] Carry trusted caller/delegation context in a Gateway-owned envelope. Never
   trust `actor`, `role`, or `proposal_id` supplied in ordinary command params.
 - [ ] Enforce the computed principal ceiling at the dispatcher before any
-  handler runs. Keep the two unresolved cross-surface alternatives in
-  [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) without
-  selecting one in implementation or documentation. Source (unreleased): the
+  handler runs. The cross-surface decision (D4) selects one agent plus a soft
+  prompt-level block, with a separate agent configurable per user; see
+  [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275). Source (unreleased): the
   dispatcher gate refuses before the handler runs, the household `user` role is
   default-deny over the command registry, and its forbidden entries are non-removable.
   Not satisfied: Gateway-forwarded invokes and the local HTTP API are operator
-  calls, so direct `node.invoke` is operator-default, and the Assist principal
-  is not carried to the dispatcher (pending a design decision).
+  calls, so direct `node.invoke` is operator-default. Assist turns carry their
+  resolved principal to the dispatcher on the wrapper path; the full OpenClaw
+  tool surface is not covered.
 - [ ] Implement a versioned node-side service policy keyed by `domain.service`,
   with optional target/data constraints and outcomes `auto_allow`,
   `require_approval`, and `deny`. Source (unreleased): the policy is effect-

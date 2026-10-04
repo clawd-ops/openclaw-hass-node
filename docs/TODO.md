@@ -33,7 +33,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Tier A read-only commands shipped (PRs #132 / #134 / #137): `ha.addon_logs`, `ha.list_addons`, `ha.addon_info`, `ha.addon_stats`, `ha.addon_changelog`, `ha.addon_documentation`. Working end-to-end on b6.
 - 2026-06-28 cutover: live OpenClaw config removed `mcp.servers.homeassistant` and `mcp.servers.homeassistant-readonly` after verifying `nodes.invoke` against the connected `hass` node with `ha.get_state`. Workspace guidance routes agents to the `hass` node command surface instead of `mcp__homeassistant*`.
 - **Assist-side enforcement (DONE):** the `openclaw-hass-node-assist-tools` plugin provides gateway-plugin-level enforcement for Assist contexts — `nodes.invoke` is not exposed in Assist turns, so Assist HA operations must go through the plugin's `ha_*` wrappers. This is Assist-side / gateway-plugin enforcement, NOT subagent-side enforcement.
-- **Separate authorization risk:** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle. The dispatcher now evaluates a caller principal, but every Gateway-forwarded invoke is constructed as an operator call, so it still cannot distinguish subagent callers from main-session callers. Passing trusted caller/session context into the invoke envelope remains node-policy work outside this closed migration item (see item 20).
+- **Separate authorization risk:** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle. The dispatcher now evaluates a caller principal and Assist turns carry theirs on the wrapper path, but a Gateway-forwarded invoke without the plugin hint is still an operator call, so it cannot distinguish subagent callers from main-session callers. Passing trusted caller/session context into the invoke envelope remains node-policy work outside this closed migration item (see item 20).
 - Follow-on work does not reopen this item:
   1. **Subagent-side allowlist enforcement at the node** needs trusted caller/session context in the invoke envelope and belongs to authorization policy.
   2. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) uses the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) and audit logging; verify it independently in the release.
@@ -80,10 +80,15 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   (soft, prompt-level) and a per-role default agent can route household and
   admin turns to a restricted agent (hard when configured).
 - Still open on this item: Gateway-forwarded invokes and the local HTTP API are
-  operator calls, so direct `node.invoke` is operator-default. Assist-principal
-  propagation to the dispatcher is pending a design decision. The cross-surface
-  ceiling choice is the operator's. Native approval consumption, operation
+  operator calls, so direct `node.invoke` is operator-default. Assist turns carry
+  the resolved caller to the dispatcher on the wrapper path (selected D4
+  default: same agent plus a soft prompt-level block, separate agent
+  configurable per user); the full OpenClaw tool surface is not covered. Native approval consumption, operation
   binding, replay protection, and the protected write path do not exist.
+- Accepted limitation for now: the session-key caller hint is unauthenticated, so a
+  direct operator-level `node.invoke` caller could supply a guessed key. This does
+  not widen access beyond operator callers. A hint matching more than one active
+  turn (case-insensitively) is refused. Tracked on #275.
 - The Gateway remains the approval authority. Any add-on view is
   presentation-only and cannot maintain or resolve an independent approval
   lifecycle. Implementation is tracked in

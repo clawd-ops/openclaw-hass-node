@@ -24,12 +24,14 @@ Design decisions (2026-06-08, the agent, for the owner's follow-up review):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, Final
 
 from openclaw_node.authz import TurnAuthz, apply_turn_authz, log_agent_inventory
+from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.config import IdentityConfig
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -258,6 +260,10 @@ class ChatRelay:
         # canonicalKey; we capture it and use it for ALL internal state so
         # the in-event lookup matches.
         self._canonical_by_raw: dict[str, str] = {}
+        # WP2c-2: principals of Assist turns in flight, keyed by raw session
+        # key. The only source of a node.invoke caller above the untrusted
+        # default; an invoke's reserved hint is looked up here, never believed.
+        self._active_turns: dict[str, Caller] = {}
         # Gateway agent inventory, or None when it has not been observed.
         # None and () mean different things: None is 'topology unknown, do
         # not conclude anything', () is 'the gateway reported no agents'.
@@ -397,11 +403,44 @@ class ChatRelay:
         session_key = _session_key(conversation_id, agent_id)
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
         use_tool_frames = _CAP_TOOL_PROGRESS_FRAMES in (client_caps or [])
-        async with lock:
+        async with lock, self._active_turn(session_key, authz):
             async for chunk in self._stream_turn_locked(
                 session_key, conversation_id, text, authz, use_tool_frames
             ):
                 yield chunk
+
+    @contextlib.asynccontextmanager
+    async def _active_turn(self, session_key: str, authz: TurnAuthz | None) -> AsyncIterator[None]:
+        """Hold this turn's principal in the registry from before chat.send to the end.
+
+        Removed in ``finally`` so success, error and cancellation all clear it.
+        Entered under the per-session lock, so one session has one entry.
+        """
+        self._active_turns[session_key] = Caller.from_turn(authz) if authz else UNTRUSTED
+        try:
+            yield
+        finally:
+            self._active_turns.pop(session_key, None)
+
+    def active_caller(self, session_key_hint: str) -> Caller | None:
+        """Principal of the in-flight turn that ``session_key_hint`` names, else ``None``.
+
+        A turn is a candidate when its raw key or its gateway-canonical key equals
+        the hint, compared case-insensitively because the gateway lowercases its
+        canonical keys. The principal is returned only when exactly one distinct
+        turn is a candidate. An unqualified turn's canonical key can equal another
+        turn's raw key, and keys differing only by case may hold different
+        principals, so a hint matching several turns resolves to nobody and is
+        refused. The hint is only a lookup key; the returned principal is
+        node-owned.
+        """
+        hint = session_key_hint.strip().lower()
+        matches = [
+            caller
+            for raw, caller in self._active_turns.items()
+            if hint in (raw.lower(), self._canonical_by_raw.get(raw, raw).lower())
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def _prepare_pending(self) -> tuple[str, asyncio.Future[dict[str, Any]]]:
         """Allocate a req_id and pending future for a hand-rolled RPC.
@@ -738,7 +777,7 @@ class ChatRelay:
         session_key = _session_key(conversation_id, agent_id)
 
         lock = self._turn_locks.setdefault(session_key, asyncio.Lock())
-        async with lock:
+        async with lock, self._active_turn(session_key, authz):
             return await self._relay_turn_locked(session_key, conversation_id, text, authz)
 
     async def _relay_turn_locked(
