@@ -10,7 +10,10 @@ contract) and the successful payload uses ``success``/``exitCode``/
 
 from __future__ import annotations
 
+import contextlib
 import os
+import signal
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -724,3 +727,35 @@ def test_env_under_cap_succeeds() -> None:
     env = {f"E{i}": "v" * 3000 for i in range(20)}
     result = handle_system_run(_params(command=["true"], env=env))
     assert result["success"] is True
+
+
+def test_normal_exit_leaves_background_grandchild_alive(tmp_path: Path) -> None:
+    pidfile = tmp_path / "bg.pid"
+    script = f"sleep 30 & echo $! > {pidfile}"
+    result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=20_000))
+    pid = int(pidfile.read_text())
+    try:
+        assert result["success"] is True
+        assert result["exitCode"] == 0
+        assert "terminated" not in result
+        # The grandchild holds the pipes open; the handler must not wait on it.
+        assert result["elapsed_ms"] < 5_000
+        assert _alive(pid)
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_cap_after_child_exit_reports_truncation_not_termination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def late_cap(stream: Any, out: bytearray, over_cap: threading.Event) -> None:
+        stream.read()
+        time.sleep(0.1)
+        over_cap.set()
+
+    monkeypatch.setattr("openclaw_node.commands.system_run._drain", late_cap)
+    result = handle_system_run(_params(command=["true"]))
+    assert result["exitCode"] == 0
+    assert result["outputTruncated"] is True
+    assert "terminated" not in result

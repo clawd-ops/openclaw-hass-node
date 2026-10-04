@@ -71,7 +71,7 @@ _MAX_ARGV_BYTES: Final[int] = 128 * 1024  # total argv bytes, NUL-terminated
 _MAX_ENV_BYTES: Final[int] = 128 * 1024  # merged env, KEY=VALUE NUL-terminated
 _READ_CHUNK: Final[int] = 64 * 1024
 _POLL_S: Final[float] = 0.01
-_READER_GRACE_S: Final[float] = 1.0
+_READER_GRACE_S: Final[float] = 0.25
 
 _SAFE_ENV_KEYS: Final[frozenset[str]] = frozenset(
     ["PATH", "HOME", "LANG", "TZ", "USER", "TERM", "LOGNAME"]
@@ -421,14 +421,25 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             timed_out = True
             break
         over_cap.wait(_POLL_S)
-    # Killing the whole session group also reaps grandchildren that would
-    # otherwise outlive the command (and hold the pipes open).
-    _kill_group(proc)
+    # Group termination is reserved for enforcement: a timeout, or the output
+    # cap tripping while the direct child is still running. A normal exit
+    # leaves any backgrounded grandchildren alone.
+    cap_killed = False
+    if timed_out:
+        _kill_group(proc)
+    elif over_cap.is_set() and proc.poll() is None:
+        _kill_group(proc)
+        cap_killed = True
     returncode = proc.wait()
+    # A surviving grandchild may hold the pipes open; bound the total wait.
+    join_deadline = time.monotonic() + _READER_GRACE_S
     for reader in readers:
-        reader.join(_READER_GRACE_S)
-    proc.stdout.close()
-    proc.stderr.close()
+        reader.join(max(0.0, join_deadline - time.monotonic()))
+    # Closing a stream a reader is still blocked on would block; leave it to
+    # the daemon reader, which ends when the last pipe holder exits.
+    for reader, stream in zip(readers, (proc.stdout, proc.stderr), strict=True):
+        if not reader.is_alive():
+            stream.close()
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     if timed_out:
@@ -463,5 +474,6 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
         _LOG.warning("system.run output cap exceeded argv=%r", argv)
         payload["success"] = False
         payload["outputTruncated"] = True
-        payload["terminated"] = "output_cap"
+        if cap_killed:
+            payload["terminated"] = "output_cap"
     return payload
