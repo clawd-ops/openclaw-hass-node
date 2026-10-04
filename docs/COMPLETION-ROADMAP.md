@@ -113,7 +113,7 @@ remains listed when release-tied evidence is still outstanding.
 | Retained gap | Tracker |
 |---|---|
 | Trusted caller propagation. The dispatcher gate is merged at source, but Gateway-forwarded invokes and the local HTTP API are operator calls, so direct `node.invoke` is operator-default. Assist-principal propagation is pending a design decision. The cross-surface ceiling still has two documented alternatives; neither is selected here. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
-| Per-effect service policy is merged at source (`light.turn_on` / `light.turn_off` auto-allowed, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: per-service classification beyond the light exception, target and data constraints, and covering the non-service mutation commands. | [#287](https://github.com/clawd-ops/openclaw-hass-node/issues/287), [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Per-effect service policy is merged at source (the everyday-control table of named services allowed for household users and HA admins, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: classification of services outside the table, target and data constraints, and covering the non-service mutation commands. | [#287](https://github.com/clawd-ops/openclaw-hass-node/issues/287), [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
 | Complete the executable cross-layer command contract and strict dispatcher validation. Deferred: no complete accepted-key authority exists. Only some read handlers (`ha.list_states`, `ha.history`, `ha.logbook`, the registry/device/service/config-entry/automation lists) refuse unknown keys at source; the rest (for example `ha.list_areas`, `ha.get_config`, `ha.list_events`) still ignore them; all eleven `fs.*` commands, the nine `ha.config.*` commands, `system.which` and `ping` now refuse unknown keys and null optional keys at source (umbrella [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349)). | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
 | Consume native approvals for structured HA and filesystem mutations, and wire accepted decisions to protected writes. Nothing is consumed yet; operator-held approval routing needs a live Gateway. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
 | Enforce protected recovery storage, precondition/version checks, retention, and recovery behavior. | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) |
@@ -261,16 +261,16 @@ store, or approval application.
   [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) without
   selecting one in implementation or documentation. Source (unreleased): the
   dispatcher gate refuses before the handler runs, the household `user` role is
-  default-deny over the registry, and its forbidden entries are non-removable.
+  default-deny over the command registry, and its forbidden entries are non-removable.
   Not satisfied: Gateway-forwarded invokes and the local HTTP API are operator
   calls, so direct `node.invoke` is operator-default, and the Assist principal
   is not carried to the dispatcher (pending a design decision).
 - [ ] Implement a versioned node-side service policy keyed by `domain.service`,
   with optional target/data constraints and outcomes `auto_allow`,
   `require_approval`, and `deny`. Source (unreleased): the policy is effect-
-  based with `light.turn_on` / `light.turn_off` as the only auto-allow, deny-
-  class services refused with `SERVICE_DENIED` for every caller, and everything
-  else unclassified. It is not versioned, has no target/data constraints, and
+  based with an everyday-control table of named services auto-allowed for
+  household users and HA admins, deny-class services refused with
+  `SERVICE_DENIED` for every caller, and everything else unclassified. It is not versioned, has no target/data constraints, and
   `require_approval` is a refusal (`APPROVAL_REQUIRED`) until native approval
   consumption exists.
 - [ ] Route `ha.call_service`, light wrappers, reload/update helpers, lifecycle

@@ -71,11 +71,12 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   single-use decision resolved from an operator device, then revalidate the
   node-side policy and preconditions immediately before applying the mutation.
 - Merged on `main`, unreleased: the dispatcher evaluates a caller principal
-  before any handler runs, the household `user` role is default-deny, and
-  service calls are classified by effect (`light.turn_on` / `light.turn_off`
-  auto-allowed, deny-class services refused for every caller, other services
-  refused for household users and `APPROVAL_REQUIRED` for HA admins). This is
-  wrapper-path progress only.
+  before any handler runs, the household `user` role is default-deny over
+  the command registry, and service calls are classified by effect (the
+  everyday-control table of named services is allowed for household users and
+  HA admins, deny-class services are refused for every caller, other services
+  are refused for household users and `APPROVAL_REQUIRED` for HA admins). This
+  is wrapper-path progress only.
 - Still open on this item: Gateway-forwarded invokes and the local HTTP API are
   operator calls, so direct `node.invoke` is operator-default. Assist-principal
   propagation to the dispatcher is pending a design decision. The cross-surface
