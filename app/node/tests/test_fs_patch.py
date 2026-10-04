@@ -9,12 +9,14 @@ from unittest.mock import patch as mock_patch
 import pytest
 
 from openclaw_node.commands.fs_patch import (
+    MAX_PATCH_BYTES,
     PatchApplyError,
     _apply_unified_diff,
     _run_patch,
     handle_fs_patch,
     reset_store_for_testing,
 )
+from openclaw_node.commands.fs_write import MAX_WRITE_BYTES, _get_store
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -479,3 +481,49 @@ def test_fs_patch_records_patch_op_in_history(tmp_path: Path) -> None:
     assert history["ok"] is True
     assert len(history["versions"]) == 1
     assert history["versions"][0]["op"] == "patch"
+
+
+# ---------------------------------------------------------------------------
+# handle_fs_patch — content caps (#291)
+# ---------------------------------------------------------------------------
+
+
+def _padded_patch(total_bytes: int) -> str:
+    """Return a valid one-hunk diff (hello -> world) padded to exactly *total_bytes*."""
+    base = "@@ -1 +1 @@\n-hello\n+world\n"
+    return base + "\\" + " " * (total_bytes - len(base) - 2) + "\n"
+
+
+def test_fs_patch_text_at_limit_passes_size_check(tmp_path: Path) -> None:
+    p = _allowed_file(tmp_path, "a.txt", "hello\n")
+    patch = _padded_patch(MAX_PATCH_BYTES)
+    assert len(patch.encode("utf-8")) == MAX_PATCH_BYTES
+    result = handle_fs_patch({"path": str(p), "patch": patch, "dry_run": True})
+    assert result.get("error") != "REQUEST_TOO_LARGE"
+
+
+def test_fs_patch_text_over_limit_refused_without_write_or_snapshot(tmp_path: Path) -> None:
+    p = _allowed_file(tmp_path, "a.txt", "hello\n")
+    patch = _padded_patch(MAX_PATCH_BYTES + 1)
+    result = handle_fs_patch({"path": str(p), "patch": patch})
+    assert result["ok"] is False
+    assert result["error"] == "REQUEST_TOO_LARGE"
+    assert p.read_text(encoding="utf-8") == "hello\n"
+    assert _get_store().history(str(p)) == []
+
+
+def test_fs_patch_limit_counts_utf8_bytes_not_characters(tmp_path: Path) -> None:
+    p = _allowed_file(tmp_path, "a.txt", "hello\n")
+    patch = "\u00e9" * (MAX_PATCH_BYTES // 2 + 1)
+    assert len(patch) <= MAX_PATCH_BYTES
+    assert handle_fs_patch({"path": str(p), "patch": patch})["error"] == "REQUEST_TOO_LARGE"
+
+
+def test_fs_patch_result_over_limit_refused_without_write_or_snapshot(tmp_path: Path) -> None:
+    p = _allowed_file(tmp_path, "a.txt", "x" * MAX_WRITE_BYTES)
+    patch = "@@ -0,0 +1 @@\n+y\n"
+    result = handle_fs_patch({"path": str(p), "patch": patch})
+    assert result["ok"] is False
+    assert result["error"] == "RESULT_TOO_LARGE"
+    assert p.stat().st_size == MAX_WRITE_BYTES
+    assert _get_store().history(str(p)) == []

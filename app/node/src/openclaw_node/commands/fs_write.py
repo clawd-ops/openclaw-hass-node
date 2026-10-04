@@ -44,6 +44,10 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 # Protected roots: writes here are always proposal-gated, no override.
 _PROTECTED_ROOTS: Final[frozenset[str]] = frozenset({"/config", "/addons", "/ssl"})
 
+# Content-size limits, measured in bytes of the decoded content (#291).  At the
+# limit succeeds; one byte over is refused before any backup or write.
+MAX_WRITE_BYTES: Final[int] = 8 * 1024 * 1024
+
 # .storage/ writes are refused outright (not even proposal-gatable).
 _STORAGE_SUFFIX: Final[str] = "/.storage/"
 
@@ -253,6 +257,13 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     content_bytes = _decode_content(str(content_raw), encoding)
     if isinstance(content_bytes, dict):
         return content_bytes
+
+    if len(content_bytes) > MAX_WRITE_BYTES:
+        return _error(
+            "REQUEST_TOO_LARGE",
+            f"content is {len(content_bytes)} bytes; limit is {MAX_WRITE_BYTES}",
+            limit=MAX_WRITE_BYTES,
+        )
 
     roots = allowed_roots_for_env()
 

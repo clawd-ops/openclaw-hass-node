@@ -181,9 +181,12 @@
     },
     "fs.write": {
       "authorization_class": "path_dependent_mutation",
-      "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable.",
+      "capability_conditions": "Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable. Decoded content is capped at 8 MiB (8388608 bytes); over-limit requests are refused with REQUEST_TOO_LARGE before any backup snapshot or write.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
       "first_shipped_in": "2026.6.8a8",
+      "issues": [
+        291
+      ],
       "actions": {},
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "pass",
@@ -316,9 +319,12 @@
     },
     "fs.patch": {
       "authorization_class": "path_dependent_mutation",
-      "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.",
+      "capability_conditions": "Path resolves under an allowed writable root; protected paths fail closed pending trusted approval. Patch text is capped at 1 MiB (1048576 UTF-8 bytes) and the patched result at 8 MiB; over-limit requests are refused with REQUEST_TOO_LARGE (patch) or RESULT_TOO_LARGE (result) before any backup snapshot or write.",
       "assist_unavailable_reason": "Assist intentionally has no filesystem mutation wrapper.",
       "first_shipped_in": "2026.6.8a8",
+      "issues": [
+        291
+      ],
       "actions": {},
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "pass",
