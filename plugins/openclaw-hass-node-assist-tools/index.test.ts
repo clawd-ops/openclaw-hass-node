@@ -25,7 +25,15 @@ describe("plugin entrypoint registration", () => {
 
     plugin.register({ registerTool, registerNodeInvokePolicy, on } as never);
     expect(on).toHaveBeenCalledWith("before_tool_call", expect.any(Function), {
-      matcher: ["nodes"],
+      matcher: [
+        "nodes",
+        "ha_reload_config",
+        "ha_update_install",
+        "ha_addon_start",
+        "ha_addon_stop",
+        "ha_addon_restart",
+        "ha_addon_update",
+      ],
     });
 
     expect(registerTool).toHaveBeenCalledTimes(assistCommandContract.registrations.length);

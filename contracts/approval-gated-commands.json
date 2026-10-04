@@ -1,5 +1,5 @@
 {
-  "comment": "Single source of truth for which node commands need native approval before they run. Each key is a command; each value lists the actions that need approval. An empty string stands for a command with no action param (the fs.* writes). The node decides per call whether a path is protected; an approval marker on an unprotected write is ignored. Read by the Python node tests and the TypeScript plugin tests, which assert their own tables equal this file.",
+  "comment": "Single source of truth for which node commands need native approval before they run. Each key is a command; each value lists the actions that need approval. An empty string stands for a command with no action param (the fs.* writes and the Tier B admin commands). The node decides per call whether a path is protected; an approval marker on an unprotected write is ignored. Read by the Python node tests and the TypeScript plugin tests, which assert their own tables equal this file.",
   "gated": {
     "ha.config.automation": ["save", "delete"],
     "ha.config.script": ["save", "delete"],
@@ -14,6 +14,12 @@
     "fs.restore": [""],
     "fs.move": [""],
     "fs.delete": [""],
-    "fs.patch": [""]
+    "fs.patch": [""],
+    "ha.reload_config": [""],
+    "ha.update_install": [""],
+    "ha.addon_start": [""],
+    "ha.addon_stop": [""],
+    "ha.addon_restart": [""],
+    "ha.addon_update": [""]
   }
 }

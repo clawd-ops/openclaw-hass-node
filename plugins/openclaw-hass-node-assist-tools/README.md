@@ -35,10 +35,9 @@ See `docs/design/COMPONENT-NAMING.md` for how this piece fits the full
 **Implemented.** 30 `ha_*` tools are declared in the manifest
 (`openclaw.plugin.json`) with the corresponding registrations in
 `index.ts`. The plugin exposes read/observability + `ha_call_service` +
-Tier B lifecycle and admin wrappers. Lifecycle operations require the paired
-node boundary, `allowAdminOps`, and the node's lifecycle slug policy, without
-another token. `ha_reload_config` and `ha_update_install` remain separate admin
-operations that also require `adminToken`. The plugin does **not** expose the
+Tier B lifecycle and admin wrappers. Every Tier B operation needs the paired
+node boundary, the node's lifecycle slug policy where it applies, and a native
+approval from the operator. The plugin does **not** expose the
 `ha.config.*` domain-config editors (lovelace, automation, script,
 scene, helpers, area/device/entity registries, config_entries). Those
 are proposal-gated mutations meant for chat/cron/sub-agent flows via
@@ -95,53 +94,26 @@ For example, `entity_filter: "automation.morning_*"` with
 `state_filter: "on"` returns only enabled matching automations. A valid filter
 with no matches returns `count: 0` and an empty `automations` list.
 
-## Per-node config
+## Config
 
-Config lives at `plugins.entries.openclaw-hass-node-assist-tools.config.nodes.<nodeId>`.
+The plugin has no config keys of its own (its schema is `additionalProperties:
+false` and empty). **Routing-only design**: the plugin does not enumerate
+entities, services, or calendars. Access control is delegated entirely to the
+hass node's tier policy plus the Gateway's `gateway.nodes.commands.allow`
+allowlist and HA's own auth.
 
-**Routing-only design**: the plugin does not enumerate entities, services, or
-calendars. Access control is delegated entirely to the hass node's tier policy
-plus the Gateway's `gateway.nodes.commands.allow` allowlist and HA's own auth.
-The only plugin-scoped config is the Tier B gate:
+### Tier B operations (native approval)
 
-```json
-{
-  "plugins": {
-    "entries": {
-      "openclaw-hass-node-assist-tools": {
-        "enabled": true,
-        "config": {
-          "nodes": {
-            "hass": {}
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-### Tier B operations (optional)
-
-Set `allowAdminOps: true` to enable `ha_addon_start`, `ha_addon_stop`,
-`ha_addon_restart`, and `ha_addon_update`. The node also requires the target
-slug in `addon_lifecycle.allowlist` and always denies `homeassistant`,
-`supervisor`, and `core_*`:
-
-```json
-"nodes": {
-  "hass": {
-    "allowAdminOps": true,
-    "adminToken": "<shared secret for reload_config and update_install only>"
-  }
-}
-```
-
-`adminToken` is optional unless `ha_reload_config` or `ha_update_install` is
-used. For those two admin operations it is a shared secret between the plugin
-and the node's admin surface. It is not the HA long-lived access token. The
-plugin injects it and the caller cannot override it. Lifecycle operations do
-not send or consult it.
+`ha_addon_start`, `ha_addon_stop`, `ha_addon_restart`, `ha_addon_update`,
+`ha_reload_config`, and `ha_update_install` each need a native OpenClaw
+approval. A `before_tool_call` hook on these tools (and on the core `nodes` tool
+when it invokes the same commands) asks the operator to allow or deny that exact
+call (allow-once or deny, 10 minute window). Once allowed, the hook's params
+override carries a one-use approval marker in the reserved `_openclaw_approval`
+field; any model-supplied value is replaced. The tool forwards the marker and
+the node verifies it before it acts. The node also requires the target slug in
+`addon_lifecycle.allowlist` and always denies `homeassistant`, `supervisor`, and
+`core_*`; that check runs before the approval is consumed.
 
 ## Layout
 
@@ -166,7 +138,7 @@ plugins/openclaw-hass-node-assist-tools/
 │   │   └── ha-admin-tools.ts               # reload_config, addon_start, addon_stop, addon_restart, addon_update, update_install (Tier B)
 │   └── shared/
 │       ├── node-invoke-policy.ts           # routing-only invoke policy with param validation
-│       ├── per-node-policy.ts              # PerNodePolicy type (lifecycle enablement + separate admin token)
+│       ├── node-approval.ts                # before_tool_call native approval hook + marker
 │       └── lazy-node-invoke-policy.ts      # command allowlist
 └── README.md
 ```

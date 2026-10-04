@@ -415,8 +415,7 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     # The node now accepts `domain`, supports only `core`, and rejects anything
     # else before HA I/O, so the mismatch is retired. The row stays `partial`
     # rather than `pass`: per-domain reload is still unimplemented, the
-    # admin-token gate is not the ratified authorization model, and the fix is
-    # not in a released artifact.
+    # fix is not in a released artifact.
     assert rows_by_id["ha.reload_config"]["outcome"] == "partial"
     assert (
         rows_by_id["ha.reload_config"]["callers"]["assist_wrapper"]["known_unaccepted_node_params"]
@@ -661,7 +660,7 @@ def test_assist_contract_rejects_unsupported_injected_source(
     registration = next(
         item for item in contract["registrations"] if item["tool_name"] == "ha_reload_config"
     )
-    registration["injected_node_params"] = {"$policy.synthetic": "admin_token"}
+    registration["injected_node_params"] = {"$policy.synthetic": "synthetic"}
     mutated = tmp_path / "assist-command-contract.json"
     mutated.write_text(json.dumps(contract), encoding="utf-8")
     monkeypatch.setattr(generator, "ASSIST_CONTRACT", mutated)

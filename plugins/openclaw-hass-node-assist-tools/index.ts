@@ -10,7 +10,7 @@ import {
   type AnyAgentTool,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { runWithCallerContext } from "./src/shared/caller-context.js";
-import { beforeNodesToolCall } from "./src/shared/node-approval.js";
+import { ADMIN_TOOL_COMMANDS, beforeToolCall } from "./src/shared/node-approval.js";
 import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.js";
 import {
   resolvedAssistCommandRegistrations,
@@ -30,7 +30,7 @@ type ToolFactoryApi = {
 type HookApi = {
   on(
     hook: "before_tool_call",
-    handler: typeof beforeNodesToolCall,
+    handler: typeof beforeToolCall,
     opts: { matcher: string[] },
   ): void;
 };
@@ -65,8 +65,8 @@ export default definePluginEntry({
     "Scoped tool wrappers so HA Assist sessions can operate the paired Home Assistant node without the operator-only nodes.invoke tool.",
   register(api) {
     api.registerNodeInvokePolicy(createLazyAssistToolsNodeInvokePolicy());
-    (api as unknown as HookApi).on("before_tool_call", beforeNodesToolCall, {
-      matcher: ["nodes"],
+    (api as unknown as HookApi).on("before_tool_call", beforeToolCall, {
+      matcher: ["nodes", ...Object.keys(ADMIN_TOOL_COMMANDS)],
     });
     for (const registration of resolvedAssistCommandRegistrations()) {
       (api as unknown as ToolFactoryApi).registerTool(

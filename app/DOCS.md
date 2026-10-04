@@ -338,10 +338,10 @@ Tier B authorization is:
 2. The target slug must appear in `addon_lifecycle.allowlist` (and not
    in `addon_lifecycle.denylist`, and not a `core_*` slug).
 
-There is no separate operator admin token for Tier B. The pairing
-session is the authentication boundary; the allowlist is the
-authorization boundary. If you do not want a particular add-on to be
-restartable remotely, leave its slug out of the allowlist.
+The pairing session is the authentication boundary; the allowlist and a
+native OpenClaw approval for each call are the authorization boundary. If
+you do not want a particular add-on to be restartable remotely, leave its
+slug out of the allowlist.
 
 ## Related references
 

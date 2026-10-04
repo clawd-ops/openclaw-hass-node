@@ -15,10 +15,10 @@
 > app hands an AI agent a direct line into your Home Assistant: it can
 > read entity state, call services, control devices, edit files under
 > `/config`, `/share`, and `/media`, fetch app logs and metadata, and
-> (gated behind `OPENCLAW_ADMIN_TOKEN`) reload HA core config or run
-> shell commands inside the app container. We sandbox what we can —
+> (each needing your approval in OpenClaw) reload HA core config, restart
+> add-ons, or run shell commands inside the app container. We sandbox what we can —
 > path-traversal protection, a read-only app surface that strips
-> secrets at the boundary, admin tokens on the destructive commands —
+> secrets at the boundary, native approval on the destructive commands —
 > but we are not a tinfoil hat. A misbehaving, jailbroken, or
 > well-meaning-but-overconfident agent CAN delete your automations, brick
 > an app, leak configuration to a chat channel, or otherwise turn your
@@ -97,14 +97,12 @@ gateway side. Short version:
    (the gateway silently drops unknown commands; without this the node
    pairs but no commands work). Load the
    **`openclaw-hass-node-assist-tools`** plugin under
-   `plugins.entries`. The plugin's per-node config is routing-only: its
-   schema is `additionalProperties: false` and permits exactly two keys
-   — `allowAdminOps` (Tier B gate for lifecycle + admin commands) and
-   `adminToken` (forwarded for `ha.reload_config` and
-   `ha.update_install` only). There are no `allowServices`,
-   `allowReadEntities`, or `allowCalendars` keys; service, entity, and
-   calendar reach is decided by `gateway.nodes.commands.allow` plus the
-   node's `_NODE_COMMANDS` surface, not the plugin. Install
+   `plugins.entries`. The plugin has no config keys of its own: its
+   schema is `additionalProperties: false` and empty. Service, entity,
+   and calendar reach is decided by `gateway.nodes.commands.allow` plus
+   the node's `_NODE_COMMANDS` surface, not the plugin; Tier B commands
+   (add-on lifecycle, `ha.reload_config`, `ha.update_install`) each ask
+   you for native approval. Install
    **`openclaw-hass-node-skill`** into your OC session skill registry
    so non-Assist sessions can drive the node too.
 2. **HA app** — add this repo as an HA app repository, install

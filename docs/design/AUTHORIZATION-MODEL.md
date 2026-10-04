@@ -1,12 +1,12 @@
 # Authorization model
 
-Status: ratified 2026-09-11. Supersedes the `OPENCLAW_ADMIN_TOKEN` design
+Status: ratified 2026-09-11. Supersedes the add-on-specific secret gate
 described in earlier revisions of `COMMAND-TIERS.md`, `COMPLETION-ROADMAP.md`,
 and `INSTALL.md`.
 
 ## Decision
 
-There is no add-on-specific admin token. Authorization comes from two
+Authorization uses no add-on-specific secret. It comes from two
 identities that already exist:
 
 1. **OpenClaw operator identity** — the paired session and its operator scopes,
@@ -28,45 +28,6 @@ already exposes, plus deletion of the parallel implementation in this
 repository. The cross-surface ceiling described in
 [Principal ceiling](#principal-ceiling) has a known limit under these
 constraints, stated explicitly there.
-
-## Why the admin token had to go
-
-`OPENCLAW_ADMIN_TOKEN` was not merely undesirable. It was already inert.
-
-The variable appears in neither the `options:` block nor the `schema:` block of
-`app/config.yaml`. There is no add-on UI field for it and no supported way to
-set it, so the environment variable is empty in every real deployment. The gate
-fails closed on empty:
-
-```python
-# app/node/src/openclaw_node/commands/ha.py
-required = os.environ.get("OPENCLAW_ADMIN_TOKEN", "")
-if not required:
-    return _error("PERMISSION_DENIED", f"{command}: admin gate not configured")
-```
-
-Three commands sat behind that gate and were therefore unreachable:
-
-| Command | Gate site (pre-#258) |
-| --- | --- |
-| `system.run` | `commands/system_run.py` (removed in #258) |
-| `ha.reload_config` | `commands/ha.py:440` |
-| `ha.update_install` | `commands/ha.py:1103` |
-
-`system.run` has since been re-gated onto the native exec-approval contract and
-the token check deleted; see the closing note in
-[Class 3: Home Assistant shell](#class-3-home-assistant-shell). The two
-`ha.*` gates remain in place until the corresponding plugin-approval work
-lands.
-
-The generated coverage ledger now reports `ha.reload_config` and
-`ha.update_install` as `partial` from source-only evidence. That status does
-not establish released or live behavior, nor does it complete the ratified
-authorization work.
-
-PR #270 already moved the four add-on lifecycle commands off the token and onto
-paired-session authentication plus slug policy. This document finishes that
-direction for the remaining commands rather than preserving a split model.
 
 ## What already exists and becomes load-bearing
 
@@ -96,10 +57,10 @@ trusted way to reach the dispatcher on the invoke path. For Assist turns relayed
 by this node that path now exists (see
 [Assist caller resolution](#assist-caller-resolution-and-the-host-session-key-hint)).
 
-The add-on configuration already states the principle for lifecycle commands:
+The add-on configuration states the principle for lifecycle commands:
 
-> Authorization is the pairing-session bearer (`local_api_token`) plus this
-> allowlist, no separate admin token.
+> Authorization is the pairing-session bearer (`local_api_token`), this
+> allowlist, and a native OpenClaw approval for each call.
 
 ## Three mutation classes, all on the Home Assistant side
 
@@ -183,8 +144,7 @@ and the successful payload returns the native exec wire contract
 (`success`/`exitCode`/`timedOut`/`stdout`/`stderr`) so the exec tool parser
 sees a well-formed result. The `proposalId` is accepted as audit metadata
 only; it is not part of the Gateway's forward whitelist and travels only when
-a caller supplies it. The inert `OPENCLAW_ADMIN_TOKEN` gate and its
-`_admin_token_ok` helper have been removed from `commands/system_run.py`.
+a caller supplies it.
 
 `system.run` is retained and re-gated, not removed. Running scripts from the
 Home Assistant directory is a supported use case.
@@ -379,8 +339,7 @@ The gap is entirely within this repository.
   `system.execApprovals.get`, and `system.execApprovals.set` (delivered by
   #274), so the node participates in exec approvals.
 - `commands/system_run.py` is bound to the Gateway-forwarded canonical plan
-  (#258). The `_admin_token_ok` helper and every trace of
-  `OPENCLAW_ADMIN_TOKEN` are gone from that module. Direct
+  (#258). Direct
   `nodes.invoke system.run` remains refused by the Gateway; execution is
   reachable through `exec host=node` after approval, and the node re-runs
   argv/rawCommand/env/cwd validation on the forward before the subprocess is
@@ -441,15 +400,25 @@ Consequences:
 
 ## Native approvals for node mutations
 
-Scope: every mutating action of the nine `ha.config.*` commands, and the protected-path
+Scope: every mutating action of the nine `ha.config.*` commands, the protected-path
 (or `agent_bridge`) writes of `fs.write`, `fs.restore`, `fs.move`, `fs.delete` and
-`fs.patch`. The list lives in `contracts/approval-gated-commands.json`; the plugin
+`fs.patch`, and the Tier B admin commands `ha.reload_config`, `ha.update_install`,
+`ha.addon_start`, `ha.addon_stop`, `ha.addon_restart` and `ha.addon_update`. The list lives in `contracts/approval-gated-commands.json`; the plugin
 table and the node handlers are each tested against that file. Without a valid
 marker these still return `PROPOSAL_REQUIRED`.
 
-Out of scope: the Tier B admin wrapper tools (`ha_*` plugin tools). They are gated
-by `allowAdminOps` and `adminToken` (#338), not by `PROPOSAL_REQUIRED` paths, and
-this marker does not apply to them.
+The Tier B commands are reached two ways, and both are covered: through the core
+`nodes` tool, and through the plugin's own `ha_reload_config`, `ha_update_install`,
+`ha_addon_start`, `ha_addon_stop`, `ha_addon_restart` and `ha_addon_update` tools.
+For the plugin tools the `before_tool_call` hook matches the tool name, builds the
+marker over the exact node params the tool will send (one shared function builds
+them for both the hook and the tool), and the tool forwards the reserved
+`_openclaw_approval` field to the node. Like the `fs.*` commands they have no action
+param, so the bound action is the empty string. On the node, the add-on slug
+allowlist, the always-deny list, and parameter validation run first; the marker is
+checked and consumed only after them, so a policy refusal never uses up an
+approval. There is no plugin config for any of this; the plugin's config schema is
+empty.
 
 Flow:
 
@@ -479,7 +448,7 @@ checked once even where several paths are checked (`fs.move`); an unprotected pa
 ignores the marker, so the plugin can require approval for every write command
 without a protected-path lookup of its own. An ignored marker is never forwarded.
 
-On every `nodes` invoke the hook also strips any marker the model supplied.
+On every `nodes` invoke the hook also strips any marker the model supplied, and for the plugin's Tier B tools it replaces any model-supplied marker with its own.
 
 The requester never approves its own call. Where approval prompts are delivered
 is gateway configuration (`approvals.plugin`) and belongs to the operator; this

@@ -11,11 +11,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 from openclaw_node.commands import ha
+from openclaw_node.commands.config_mutation import APPROVAL_PARAM as APPROVAL
 
 Handler = Callable[[dict[str, Any]], Coroutine[Any, Any, dict[str, Any]]]
 
 SLUG = "my_addon"
-ADMIN = "secret"
+MARKER = {"id": "m", "exp": 1, "bind": "b"}
 CONTRACT = (
     Path(__file__).resolve().parents[3]
     / "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
@@ -65,27 +66,45 @@ MUTATING: dict[str, tuple[Handler, frozenset[str], dict[str, Any]]] = {
     "ha.reload_config": (
         ha.handle_ha_reload_config,
         ha._RELOAD_CONFIG_KEYS,
-        {"domain": "core", "admin_token": ADMIN},
+        {"domain": "core", APPROVAL: MARKER},
     ),
     "ha.update_install": (
         ha.handle_ha_update_install,
         ha._UPDATE_INSTALL_KEYS,
-        {"entity_id": "update.a", "backup": True, "version": "1", "admin_token": ADMIN},
+        {"entity_id": "update.a", "backup": True, "version": "1", APPROVAL: MARKER},
     ),
-    "ha.addon_start": (ha.handle_ha_addon_start, ha._SLUG_KEYS, {"slug": SLUG}),
-    "ha.addon_stop": (ha.handle_ha_addon_stop, ha._SLUG_KEYS, {"slug": SLUG}),
-    "ha.addon_restart": (ha.handle_ha_addon_restart, ha._SLUG_KEYS, {"slug": SLUG}),
-    "ha.addon_update": (ha.handle_ha_addon_update, ha._SLUG_KEYS, {"slug": SLUG}),
+    "ha.addon_start": (
+        ha.handle_ha_addon_start,
+        ha._LIFECYCLE_KEYS,
+        {"slug": SLUG, APPROVAL: MARKER},
+    ),
+    "ha.addon_stop": (
+        ha.handle_ha_addon_stop,
+        ha._LIFECYCLE_KEYS,
+        {"slug": SLUG, APPROVAL: MARKER},
+    ),
+    "ha.addon_restart": (
+        ha.handle_ha_addon_restart,
+        ha._LIFECYCLE_KEYS,
+        {"slug": SLUG, APPROVAL: MARKER},
+    ),
+    "ha.addon_update": (
+        ha.handle_ha_addon_update,
+        ha._LIFECYCLE_KEYS,
+        {"slug": SLUG, APPROVAL: MARKER},
+    ),
+}
+TIER_B = {"ha.reload_config", "ha.update_install"} | {
+    c for c in MUTATING if c.startswith("ha.addon_")
 }
 ALL = {**READS, **MUTATING}
 COMMANDS = sorted(ALL)
-# The admin token is owned by the gate, which runs before the key check.
-NULL_CASES = [(c, k) for c in COMMANDS for k in sorted(ALL[c][1]) if k != "admin_token"]
+# The approval marker is owned by the approval check, which runs after the key check.
+NULL_CASES = [(c, k) for c in COMMANDS for k in sorted(ALL[c][1]) if k != APPROVAL]
 
 
 @pytest.fixture(autouse=True)
 def env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", ADMIN)
     monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", SLUG)
 
 
@@ -145,17 +164,16 @@ async def test_full_valid_params_pass_the_key_check(
     assert "must not be null" not in result.get("message", "")
 
 
-@pytest.mark.parametrize("command", ["ha.reload_config", "ha.update_install"])
-async def test_admin_gate_runs_before_key_check(
-    command: str, ha_calls: list[AsyncMock], monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("command", sorted(TIER_B))
+async def test_key_check_runs_before_approval_check(
+    command: str, ha_calls: list[AsyncMock]
 ) -> None:
     handler, _keys, valid = ALL[command]
-    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN")
-    result = await handler({**valid, "bogus": 1})
-    assert result["error"] == "PERMISSION_DENIED"
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", ADMIN)
-    result = await handler({**valid, "admin_token": "wrong", "bogus": 1})
-    assert result["error"] == "PERMISSION_DENIED"
+    params = {k: v for k, v in valid.items() if k != APPROVAL}
+    result = await handler({**params, "bogus": 1})
+    assert result["error"] == "INVALID_PARAM"
+    result = await handler(params)
+    assert result["error"] == "PROPOSAL_REQUIRED"
     for mock in ha_calls:
         mock.assert_not_awaited()
 

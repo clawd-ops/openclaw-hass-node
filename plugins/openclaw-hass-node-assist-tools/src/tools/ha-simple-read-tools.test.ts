@@ -13,7 +13,7 @@ const resolveMock = vi.fn();
 vi.mock("./node-tool-invoke.js", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
-  resolveNodeAndPolicy: (...args: unknown[]) => resolveMock(...args),
+  resolveNode: (...args: unknown[]) => resolveMock(...args),
   readGatewayCallOptions: () => ({}),
   readTrimmedString: (params: Record<string, unknown>, key: string) => {
     const v = params[key];

@@ -13,8 +13,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 import openclaw_node.commands.fs_write as fs_write_mod
+import openclaw_node.commands.ha as ha_module
 from openclaw_node import ha_client
 from openclaw_node.caller import Caller
+from openclaw_node.commands import config_mutation
 from openclaw_node.commands.config_mutation import APPROVAL_PARAM, _canonical, approval_bind
 from openclaw_node.commands.dispatcher import _REGISTRY, dispatch_async
 from openclaw_node.commands.fs_write import _reset_store_for_testing
@@ -278,3 +280,96 @@ async def test_fs_move_consumes_one_marker_for_two_protected_paths(fs_env: Path)
     result = await dispatch_async("fs.move", {**params, APPROVAL_PARAM: marker}, caller=_OPERATOR)
     assert result["ok"] is True
     assert _read(dst) == after
+
+
+# --- Tier B admin commands: policy first, then the marker, then the effect ---
+
+_SLUG = "my_addon"
+ADMIN: dict[str, dict[str, Any]] = {
+    "ha.reload_config": {"domain": "core"},
+    "ha.update_install": {"entity_id": "update.example", "backup": True},
+    "ha.addon_start": {"slug": _SLUG},
+    "ha.addon_stop": {"slug": _SLUG},
+    "ha.addon_restart": {"slug": _SLUG},
+    "ha.addon_update": {"slug": _SLUG},
+}
+
+
+@pytest.fixture
+def admin_requests(monkeypatch: pytest.MonkeyPatch) -> list[AsyncMock]:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", json.dumps([_SLUG]))
+    mocks: list[AsyncMock] = []
+    for name in ("ha_get", "ha_post", "supervisor_get_json", "supervisor_post_json"):
+        mock = AsyncMock(name=name, return_value={"data": {"state": "stopped"}})
+        monkeypatch.setattr(ha_module, name, mock)
+        mocks.append(mock)
+    return mocks
+
+
+def _effects(mocks: list[AsyncMock]) -> int:
+    """Count awaited mutating requests (ha_post and supervisor_post_json)."""
+    return len(mocks[1].await_args_list) + len(mocks[3].await_args_list)
+
+
+def test_admin_contract_matches_node_handlers() -> None:
+    contract = {c: a for c, a in GATED.items() if c.startswith("ha.") and c not in HA_CONFIG}
+    assert set(contract) == set(ADMIN)
+    assert all(a == [""] for a in contract.values())
+    assert set(ADMIN) <= set(_REGISTRY)
+
+
+@pytest.mark.parametrize("command", sorted(ADMIN))
+async def test_admin_valid_marker_executes_once_and_is_not_forwarded(
+    command: str, admin_requests: list[AsyncMock]
+) -> None:
+    params = dict(ADMIN[command])
+    state = "stopped" if command == "ha.addon_start" else "started"
+    admin_requests[2].return_value = {"data": {"state": state}}
+    marker = _marker(command, "", params)
+    result = await dispatch_async(command, {**params, APPROVAL_PARAM: marker}, caller=_OPERATOR)
+    assert result["ok"] is True, result
+    assert _effects(admin_requests) == 1
+    assert APPROVAL_PARAM not in repr(_calls(admin_requests))
+    replay = await dispatch_async(command, {**params, APPROVAL_PARAM: marker}, caller=_OPERATOR)
+    assert replay["error"] == "APPROVAL_INVALID"
+    assert _effects(admin_requests) == 1
+
+
+@pytest.mark.parametrize("command", sorted(ADMIN))
+async def test_admin_absent_marker_is_proposal_required(
+    command: str, admin_requests: list[AsyncMock]
+) -> None:
+    result = await dispatch_async(command, dict(ADMIN[command]), caller=_OPERATOR)
+    assert result["error"] == "PROPOSAL_REQUIRED"
+    assert _calls(admin_requests) == []
+
+
+@pytest.mark.parametrize("command", sorted(ADMIN))
+@pytest.mark.parametrize("flaw", ["mismatch", "other_command", "expired", "malformed"])
+async def test_admin_invalid_marker_is_approval_invalid(
+    command: str, flaw: str, admin_requests: list[AsyncMock]
+) -> None:
+    params = dict(ADMIN[command])
+    markers: dict[str, Any] = {
+        "mismatch": _marker(command, "", {**params, "extra": 1}),
+        "other_command": _marker("ha.config.scene", "", params),
+        "expired": _marker(command, "", params, exp=int(time.time()) - 1),
+        "malformed": "junk",
+    }
+    result = await dispatch_async(
+        command, {**params, APPROVAL_PARAM: markers[flaw]}, caller=_OPERATOR
+    )
+    assert result["error"] == "APPROVAL_INVALID"
+    assert _calls(admin_requests) == []
+
+
+@pytest.mark.parametrize("command", [c for c in sorted(ADMIN) if c.startswith("ha.addon_")])
+async def test_admin_allowlist_refusal_precedes_approval(
+    command: str, admin_requests: list[AsyncMock]
+) -> None:
+    params = {"slug": "other_addon"}
+    marker = _marker(command, "", params)
+    result = await dispatch_async(command, {**params, APPROVAL_PARAM: marker}, caller=_OPERATOR)
+    assert result["error"] == "PERMISSION_DENIED"
+    assert marker["id"] not in config_mutation._USED_IDS
+    assert _calls(admin_requests) == []

@@ -2296,7 +2296,7 @@
     {
       "acceptance_test_ids": [],
       "action": null,
-      "authorization_class": "addon_slug_policy_only",
+      "authorization_class": "native_approval",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
@@ -2394,7 +2394,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_restart",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: the restart succeeded but was reported as a failure.",
@@ -2420,6 +2420,7 @@
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
@@ -2430,7 +2431,7 @@
     {
       "acceptance_test_ids": [],
       "action": null,
-      "authorization_class": "addon_slug_policy_only",
+      "authorization_class": "native_approval",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
@@ -2526,7 +2527,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_start",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: start succeeded and the add-on reached the started state.",
@@ -2550,6 +2551,7 @@
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
@@ -2687,7 +2689,7 @@
     {
       "acceptance_test_ids": [],
       "action": null,
-      "authorization_class": "addon_slug_policy_only",
+      "authorization_class": "native_approval",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
@@ -2783,7 +2785,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_stop",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: stop succeeded and the add-on reached the stopped state.",
@@ -2807,9 +2809,9 @@
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
-        "app/node/tests/test_main_wiring.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
       ]
@@ -2817,7 +2819,7 @@
     {
       "acceptance_test_ids": [],
       "action": null,
-      "authorization_class": "addon_slug_policy_only",
+      "authorization_class": "native_approval",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
@@ -2903,7 +2905,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.",
+      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_update",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
@@ -2927,6 +2929,7 @@
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
         "app/node/tests/test_dispatcher.py",
         "app/node/tests/test_effect_policy.py",
@@ -11986,7 +11989,7 @@
     {
       "acceptance_test_ids": [],
       "action": null,
-      "authorization_class": "admin_token",
+      "authorization_class": "native_approval",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
@@ -12008,9 +12011,7 @@
             }
           ],
           "factory": "createHaReloadConfigTool",
-          "injected_node_params": {
-            "$policy.adminToken": "admin_token"
-          },
+          "injected_node_params": {},
           "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
@@ -12029,7 +12030,7 @@
             {
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
-              "observation": "ha.reload_config was refused with 'adminToken is not configured for this node | INVALID_REQUEST' immediately after ha.check_config reported valid. The shipped plugin's enforceAdminOp checks policy.adminToken, while docs/design/COMMAND-TIERS.md:88 states no add-on admin token exists and that allowAdminOps plus a resolved permission request is the model. The gate also short-circuits before parameter validation, so the domain-rejection path remains unverified.",
+              "observation": "ha.reload_config was refused by the plugin's legacy admin gate (INVALID_REQUEST) immediately after ha.check_config reported valid. The gate short-circuited before parameter validation, so the domain-rejection path remained unverified. That gate has since been replaced by native approval.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
               "plugin_version": "not recorded",
@@ -12073,20 +12074,6 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
-          ],
-          "name": "admin_token",
-          "provenance": {
-            "aliases": "manual declaration validated against source accepted keys",
-            "bounds": "manual UNVERIFIED placeholder",
-            "defaults": "source-derived AST expression",
-            "name": "source-derived AST accepted key"
-          }
-        },
-        {
-          "aliases": [],
-          "bounds": "unverified; no normalized contract yet",
-          "defaults": [
             "null"
           ],
           "name": "domain",
@@ -12098,10 +12085,10 @@
           }
         }
       ],
-      "capability_conditions": "The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.",
+      "capability_conditions": "Needs a valid native approval marker, otherwise refused (PROPOSAL_REQUIRED) before any HA I/O. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. Source-only; not in a released artifact.",
       "command": "ha.reload_config",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 13 control-group exercise: gated before any HA I/O, and the gate contradicts the documented model.",
+      "evidence_note": "Sept 13 control-group exercise: refused by the plugin's legacy admin gate before any HA I/O; that gate has since been replaced by native approval.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_reload_config",
       "id": "ha.reload_config",
@@ -12124,6 +12111,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
@@ -12245,7 +12233,7 @@
     {
       "acceptance_test_ids": [],
       "action": null,
-      "authorization_class": "admin_token",
+      "authorization_class": "native_approval",
       "callers": {
         "assist_wrapper": {
           "accepted_tool_params": [
@@ -12271,9 +12259,7 @@
             }
           ],
           "factory": "createHaUpdateInstallTool",
-          "injected_node_params": {
-            "$policy.adminToken": "admin_token"
-          },
+          "injected_node_params": {},
           "known_unaccepted_node_params": {},
           "reason": "The executable Assist registration contract maps this tool to the node command.",
           "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json",
@@ -12326,20 +12312,6 @@
           "aliases": [],
           "bounds": "unverified; no normalized contract yet",
           "defaults": [
-            "''"
-          ],
-          "name": "admin_token",
-          "provenance": {
-            "aliases": "manual declaration validated against source accepted keys",
-            "bounds": "manual UNVERIFIED placeholder",
-            "defaults": "source-derived AST expression",
-            "name": "source-derived AST accepted key"
-          }
-        },
-        {
-          "aliases": [],
-          "bounds": "unverified; no normalized contract yet",
-          "defaults": [
             "null"
           ],
           "name": "backup",
@@ -12379,7 +12351,7 @@
           }
         }
       ],
-      "capability_conditions": "HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.",
+      "capability_conditions": "HA `update.install` service is reachable via the paired session and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED before dispatch). Entity ID must be in the `update.` domain.",
       "command": "ha.update_install",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
@@ -12405,6 +12377,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_approval_gated_commands.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
@@ -13029,7 +13002,7 @@
           }
         }
       ],
-      "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
+      "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist.",
       "command": "system.run",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.",

@@ -445,7 +445,7 @@ def _assist_callers() -> dict[str, dict[str, Any]]:
             isinstance(key, str) and isinstance(target, str) for key, target in injected.items()
         ):
             raise LedgerError(f"Assist {command} injected_node_params must be a string map")
-        unsupported_injected = set(injected) - {"$policy.adminToken"}
+        unsupported_injected = set(injected)
         if unsupported_injected or any(not target for target in injected.values()):
             raise LedgerError(
                 f"Assist {command} has unsupported or empty injected sources: "

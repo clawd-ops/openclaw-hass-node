@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+import openclaw_node.commands.ha as ha_module
 from openclaw_node.caller import Caller
 from openclaw_node.commands.dispatcher import dispatch_async
 from openclaw_node.commands.ha import (
@@ -55,6 +56,13 @@ from openclaw_node.ha_client import HAClientError
 # ---------------------------------------------------------------------------
 # ha.list_states
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _approval_boundary_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate the Tier B handlers from the approval marker; the real boundary is
+    exercised in test_approval_gated_commands.py."""
+    monkeypatch.setattr(ha_module, "consume_approval_marker", lambda *_args: None)
 
 
 async def test_list_states_returns_all() -> None:
@@ -1130,39 +1138,19 @@ async def test_history_bad_response_shape() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_reload_config_no_env_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
-    result = await handle_ha_reload_config({})
-    assert result["error"] == "PERMISSION_DENIED"
-
-
-async def test_reload_config_wrong_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_reload_config({"admin_token": "wrong"})
-    assert result["error"] == "PERMISSION_DENIED"
-
-
 async def test_reload_config_correct_token_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post", return_value=None):
-        result = await handle_ha_reload_config({"admin_token": "secret"})
+        result = await handle_ha_reload_config({})
     assert result["ok"] is True
 
 
 async def test_reload_config_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch(
         "openclaw_node.commands.ha.ha_post",
         side_effect=HAClientError("HA_HTTP_ERROR", "500"),
     ):
-        result = await handle_ha_reload_config({"admin_token": "secret"})
+        result = await handle_ha_reload_config({})
     assert result["error"] == "HA_HTTP_ERROR"
-
-
-async def test_reload_config_missing_token_param_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_reload_config({})
-    assert result["error"] == "PERMISSION_DENIED"
 
 
 # ---------------------------------------------------------------------------
@@ -1176,9 +1164,8 @@ async def test_reload_config_missing_token_param_denied(monkeypatch: pytest.Monk
 
 
 async def test_reload_config_omitted_domain_reloads_core(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post", return_value=None) as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "secret"})
+        result = await handle_ha_reload_config({})
     assert result == {"ok": True, "domain": "core"}
     mock_post.assert_called_once_with("/api/services/homeassistant/reload_core_config")
 
@@ -1186,9 +1173,8 @@ async def test_reload_config_omitted_domain_reloads_core(monkeypatch: pytest.Mon
 async def test_reload_config_explicit_core_domain_reloads_core(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post", return_value=None) as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "core"})
+        result = await handle_ha_reload_config({"domain": "core"})
     assert result == {"ok": True, "domain": "core"}
     mock_post.assert_called_once_with("/api/services/homeassistant/reload_core_config")
 
@@ -1196,9 +1182,8 @@ async def test_reload_config_explicit_core_domain_reloads_core(
 async def test_reload_config_rejects_per_domain_reload_without_calling_ha(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post") as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "automation"})
+        result = await handle_ha_reload_config({"domain": "automation"})
     assert result["ok"] is False
     assert result["error"] == "UNSUPPORTED"
     assert "automation" in result["message"]
@@ -1206,17 +1191,15 @@ async def test_reload_config_rejects_per_domain_reload_without_calling_ha(
 
 
 async def test_reload_config_rejects_template_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post") as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "template"})
+        result = await handle_ha_reload_config({"domain": "template"})
     assert result["error"] == "UNSUPPORTED"
     mock_post.assert_not_called()
 
 
 async def test_reload_config_rejects_non_string_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post") as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "secret", "domain": 7})
+        result = await handle_ha_reload_config({"domain": 7})
     assert result["error"] == "INVALID_PARAM"
     mock_post.assert_not_called()
 
@@ -1224,28 +1207,10 @@ async def test_reload_config_rejects_non_string_domain(monkeypatch: pytest.Monke
 async def test_reload_config_blank_domain_is_treated_as_omitted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post", return_value=None) as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "secret", "domain": "  "})
+        result = await handle_ha_reload_config({"domain": "  "})
     assert result == {"ok": True, "domain": "core"}
     mock_post.assert_called_once_with("/api/services/homeassistant/reload_core_config")
-
-
-async def test_reload_config_domain_rejected_after_auth_not_before(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """On the direct node path, an unauthorized caller must not learn the domains.
-
-    Scoped deliberately to direct invocation. On the Assist path the TypeBox
-    `core` literal is an executable constraint that rejects other values before
-    the tool runs, so that boundary refuses earlier and for a different reason.
-    This test pins the handler's own ordering: admin gate first, domain second.
-    """
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    with patch("openclaw_node.commands.ha.ha_post") as mock_post:
-        result = await handle_ha_reload_config({"admin_token": "wrong", "domain": "automation"})
-    assert result["error"] == "PERMISSION_DENIED"
-    mock_post.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -2463,24 +2428,7 @@ async def test_addon_documentation_not_found() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_addon_start_ignores_admin_token_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Tier B no longer requires OPENCLAW_ADMIN_TOKEN; the pairing-session
-    bearer authenticates the request, and the slug allowlist authorizes it.
-
-    With no allowlist configured every slug is rejected by the allowlist check,
-    not by an admin gate.
-    """
-    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
-    monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
-
-    result = await handle_ha_addon_start({"slug": "openclaw_hass_node"})
-
-    assert result["error"] == "PERMISSION_DENIED"
-    assert "allowlisted" in result["message"]
-
-
 async def test_addon_start_requires_allowlisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
     monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
 
     result = await handle_ha_addon_start({"slug": "openclaw_hass_node"})
@@ -2637,7 +2585,6 @@ async def test_addon_lifecycle_real_failure_keeps_its_error_code(
 
 
 async def test_addon_update_requires_allowlisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
     monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
 
     result = await handle_ha_addon_update({"slug": "openclaw_hass_node"})
@@ -2681,51 +2628,24 @@ async def test_addon_update_posts_when_allowlisted(monkeypatch: pytest.MonkeyPat
 # ---------------------------------------------------------------------------
 
 
-async def test_update_install_no_env_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENCLAW_ADMIN_TOKEN", raising=False)
-    result = await handle_ha_update_install(
-        {"entity_id": "update.home_assistant_core_update", "admin_token": "secret"}
-    )
-    assert result["error"] == "PERMISSION_DENIED"
-
-
-async def test_update_install_wrong_token_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_update_install({"entity_id": "update.hacs", "admin_token": "wrong"})
-    assert result["error"] == "PERMISSION_DENIED"
-
-
-async def test_update_install_missing_token_param_denied(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_update_install({"entity_id": "update.hacs"})
-    assert result["error"] == "PERMISSION_DENIED"
-
-
 async def test_update_install_missing_entity_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_update_install({"admin_token": "secret"})
+    result = await handle_ha_update_install({})
     assert result["error"] == "MISSING_PARAM"
     assert "entity_id" in result["message"]
 
 
 async def test_update_install_rejects_non_update_domain(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_update_install(
-        {"entity_id": "sensor.temperature", "admin_token": "secret"}
-    )
+    result = await handle_ha_update_install({"entity_id": "sensor.temperature"})
     assert result["error"] == "INVALID_PARAM"
     assert "update." in result["message"]
 
 
 async def test_update_install_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch(
         "openclaw_node.commands.ha.ha_post",
         return_value=[{"entity_id": "update.hacs", "state": "off"}],
     ) as mock_post:
-        result = await handle_ha_update_install(
-            {"entity_id": "update.hacs", "admin_token": "secret"}
-        )
+        result = await handle_ha_update_install({"entity_id": "update.hacs"})
 
     assert result["ok"] is True
     assert result["entity_id"] == "update.hacs"
@@ -2734,14 +2654,12 @@ async def test_update_install_happy_path(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 async def test_update_install_passes_backup_and_version(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch("openclaw_node.commands.ha.ha_post", return_value=[]) as mock_post:
         result = await handle_ha_update_install(
             {
                 "entity_id": "update.home_assistant_core_update",
                 "backup": True,
                 "version": "2026.7.0",
-                "admin_token": "secret",
             }
         )
 
@@ -2757,23 +2675,17 @@ async def test_update_install_passes_backup_and_version(monkeypatch: pytest.Monk
 
 
 async def test_update_install_invalid_backup_type(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
-    result = await handle_ha_update_install(
-        {"entity_id": "update.hacs", "backup": "yes", "admin_token": "secret"}
-    )
+    result = await handle_ha_update_install({"entity_id": "update.hacs", "backup": "yes"})
     assert result["error"] == "INVALID_PARAM"
     assert "backup" in result["message"]
 
 
 async def test_update_install_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADMIN_TOKEN", "secret")
     with patch(
         "openclaw_node.commands.ha.ha_post",
         side_effect=HAClientError("HA_HTTP_ERROR", "500 Internal Server Error"),
     ):
-        result = await handle_ha_update_install(
-            {"entity_id": "update.hacs", "admin_token": "secret"}
-        )
+        result = await handle_ha_update_install({"entity_id": "update.hacs"})
     assert result["error"] == "HA_HTTP_ERROR"
 
 

@@ -7,7 +7,7 @@ import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
-  resolveNodeAndPolicy,
+  resolveNode,
 } from "./node-tool-invoke.js";
 
 export function createHaGetStateTool(): AnyAgentTool {
@@ -21,7 +21,7 @@ export function createHaGetStateTool(): AnyAgentTool {
       if (!entityId) throw new Error("entity_id required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNode({
         nodeIdentifier,
         gatewayOpts,
       });

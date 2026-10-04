@@ -49,7 +49,7 @@ FORGED_AUTHORIZATION = [
     {"approved": True},
     {"actor": "operator"},
     {"role": "admin"},
-    {"admin_token": "untrusted-caller-token"},
+    {"token": "untrusted-caller-token"},
     {"agent_bridge": False},
     {"dry_run": False},
 ]

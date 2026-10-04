@@ -116,7 +116,7 @@ remains listed when release-tied evidence is still outstanding.
 | Per-effect service policy is merged at source (the everyday-control table of named services allowed for household users and HA admins, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: classification of services outside the table, target and data constraints, and covering the non-service mutation commands. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289), [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) (the interim denylist tracker #287 is closed) |
 | Same-agent hardening is merged at source: a soft prompt-level tool-limit block, marker stripping, and per-role agent routing. A restricted agent is the hard control for OpenClaw tools and is optional. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
 | Complete the executable cross-layer command contract and strict dispatcher validation. Deferred: no complete accepted-key authority exists. Every `ha.*` command, all eleven `fs.*` commands, the nine `ha.config.*` commands, `system.which` and `ping` now refuse unknown keys and null optional keys at source; `system.run`, `system.run.prepare` and `system.execApprovals.get`/`set` are out of scope by design because their params are the Gateway's forwarded envelope (umbrella [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349)). | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
-| Consume native approvals for structured HA and filesystem mutations, and wire accepted decisions to protected writes. At source, every mutating `ha.config.*` action and the protected `fs.*` writes consume a native approval marker; the marker is not a secret (known gap), service calls are not covered, and operator-held approval routing needs a live Gateway. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Consume native approvals for structured HA and filesystem mutations, and wire accepted decisions to protected writes. At source, every mutating `ha.config.*` action, the protected `fs.*` writes, and the Tier B commands (add-on lifecycle, `ha.reload_config`, `ha.update_install`) consume a native approval marker; the marker is not a secret (known gap), service calls are not covered, and operator-held approval routing needs a live Gateway. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
 | Enforce protected recovery storage, precondition/version checks, retention, and recovery behavior. | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) |
 | Bound requests, responses, queues, concurrency, and process output; distinguish readiness from liveness. Partly advanced: gateway ingress and result bounds, `fs.write` / `fs.patch` content caps, `system.run` argv/env caps and timeout teardown. Remaining: streaming output cap, queue and concurrency bounds (not merged; the earlier attempt was closed unmerged), HA response byte caps, acknowledgement correlation, liveness versus readiness, audit counters. | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) |
 | Produce reproducible plugin, HACS, and multi-architecture artifacts. | [#292](https://github.com/clawd-ops/openclaw-hass-node/issues/292) |
@@ -299,12 +299,11 @@ store, or approval application.
   crash at every state transition and prove restart cannot execute the effect
   twice or lose the final operation outcome.
 - [x] Ratify Tier B add-on lifecycle authorization as trusted principal context
-  plus node-enforced slug allow/deny and effect policy. Resolved in #270:
-  lifecycle ops (addon_start/stop/restart/update) require only `allowAdminOps`
-  with pairing-session authentication and slug policy. #270 left admin ops
-  (reload_config, update_install) on `adminToken`; the ratified authorization
-  model removes the add-on admin token entirely in favor of OpenClaw's native
-  approval APIs, so those move to operator approval. See
+  plus node-enforced slug allow/deny and effect policy. Resolved: every Tier B
+  command (addon_start/stop/restart/update, reload_config, update_install)
+  needs a native OpenClaw approval marker minted by the plugin hook after an
+  operator approves that exact call, on top of the node's slug policy. The
+  former secret-based gate and the plugin's per-node policy config are gone. See
   `design/AUTHORIZATION-MODEL.md`. Dedicated and generic service paths must
   still converge on the same decision (Phase 2 remainder).
 

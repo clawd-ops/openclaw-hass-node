@@ -3,7 +3,6 @@
   "plugin": ["typedoc-plugin-markdown"],
   "entryPoints": [
     "index.ts",
-    "src/shared/per-node-policy.ts",
     "src/shared/node-invoke-policy.ts",
     "src/tools/assist-command-registration.ts",
     "src/tools/descriptors.ts",

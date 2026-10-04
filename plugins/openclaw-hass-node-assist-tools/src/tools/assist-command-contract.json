@@ -446,9 +446,7 @@
         "node": null,
         "domain": "domain"
       },
-      "injected_node_params": {
-        "$policy.adminToken": "admin_token"
-      },
+      "injected_node_params": {},
       "known_unaccepted_node_params": {},
       "value_transforms": {}
     },
@@ -533,9 +531,7 @@
         "backup": "backup",
         "version": "version"
       },
-      "injected_node_params": {
-        "$policy.adminToken": "admin_token"
-      },
+      "injected_node_params": {},
       "value_transforms": {}
     }
   ]

@@ -11,7 +11,7 @@ const resolveMock = vi.fn();
 vi.mock("./node-tool-invoke.js", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
-  resolveNodeAndPolicy: (...args: unknown[]) => resolveMock(...args),
+  resolveNode: (...args: unknown[]) => resolveMock(...args),
   readGatewayCallOptions: () => ({}),
   readTrimmedString: (params: Record<string, unknown>, key: string) => {
     const v = params[key];
@@ -97,7 +97,7 @@ describe("ha_call_service execute", () => {
     await expect(
       tool.execute(
         "call-unknown",
-        { node: "hass", domain: "light", service: "turn_on", admin_token: "bypass" },
+        { node: "hass", domain: "light", service: "turn_on", token: "bypass" },
         new AbortController().signal,
         () => undefined,
       ),

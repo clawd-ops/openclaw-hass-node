@@ -11,7 +11,7 @@ import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
-  resolveNodeAndPolicy,
+  resolveNode,
 } from "./node-tool-invoke.js";
 
 type Descriptor = Pick<
@@ -36,7 +36,7 @@ export function createHaMetadataReadTool(input: {
       if (!nodeIdentifier) throw new Error("node required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNode({
         nodeIdentifier,
         gatewayOpts,
       });

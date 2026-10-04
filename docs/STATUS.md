@@ -85,9 +85,6 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   (`identity.user_role_agent_id`, `identity.admin_role_agent_id`) sits between
   `user_agent_map` and `default_agent_id`; a restricted agent makes the limits
   hard. See [Prompt-level versus enforced](design/AUTHORIZATION-MODEL.md#prompt-level-versus-enforced).
-- The node logs a startup warning when `addon_lifecycle.allowlist` is populated,
-  reminding the operator that the Gateway also needs `allowAdminOps` for this
-  node.
 
 **Command behaviour:**
 
@@ -165,8 +162,7 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   finishes. Streaming capture with a kill at the cap is not implemented.
 
 **Dependencies and docs:** the locked `urllib3` is 2.8.0 (PYSEC-2026-4175,
--4176, -4177), the install guide documents the `allowAdminOps`
-step, and the command ledger includes the 2026-09-13 mutation-surface evidence.
+-4176, -4177), and the command ledger includes the 2026-09-13 mutation-surface evidence.
 
 **What this does not deliver.** Gateway-forwarded invokes and the local HTTP API
 are constructed as operator calls. Assist turns relayed by this node do carry
@@ -194,10 +190,8 @@ evidence uniformly contradicts (the ratified evidence-method conflict rule; a
 live pass never erases a recorded code-level defect, and cross-caller
 disagreement stays a valid `partial`). It also fails when a cited in-repo evidence
 document no longer matches its recorded sha256 (`evidence_hashes`), so stale
-evidence announces itself. The lifecycle `admin_token` mismatch is resolved in `2026.9.13b1`:
-lifecycle wrappers require `allowAdminOps` and the node's slug policy without
-injecting another token. The separate `ha.reload_config` domain mismatch is
-also resolved in `2026.9.13b1`: `domain` is optional, only `core` is supported,
+evidence announces itself. The `ha.reload_config` domain mismatch is
+resolved in `2026.9.13b1`: `domain` is optional, only `core` is supported,
 and any other value is refused with `UNSUPPORTED` before any HA request instead
 of silently reloading core config. Per-domain reload stays unimplemented
 pending the effect policy.
@@ -245,8 +239,8 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
     `addon_documentation`, `supervisor_info`), Tier B addon lifecycle
     (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) and
     `update_install`, authenticated
-    by the paired session and constrained by an explicit slug allowlist, with no
-    separate lifecycle admin token, and the nine
+    by the paired session, constrained by an explicit slug allowlist for the
+    add-on commands, and each needing a native approval, and the nine
     `ha.config.*` domain-config editors: `lovelace`, `automation`,
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
@@ -262,9 +256,7 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
     refused by the Gateway), `system.which` (basename-only lookup), and the
     native exec-approval protocol methods delivered by #274:
     `system.run.prepare`, `system.execApprovals.get`, and
-    `system.execApprovals.set`. There is no add-on admin token; the inert
-    `OPENCLAW_ADMIN_TOKEN` gate and `_admin_token_ok` helper have been
-    removed from `commands/system_run.py`. See
+    `system.execApprovals.set`. See
     [Authorization model](design/AUTHORIZATION-MODEL.md).
   - `ping`.
 - **Local HTTP API is fail-closed.** When `local_api_token` is unset
@@ -292,11 +284,15 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
 
 Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
 
-- **Protected filesystem and native config mutations need native approval**:
-  without a marker they return `PROPOSAL_REQUIRED`. The plugin hook gates every
-  mutating `ha.config.*` action and the `fs.*` write commands; an operator-level
-  caller bypassing the tool hook can forge a marker (see the authorization
-  model). The Tier B admin wrapper tools are out of scope. See TODO item #20 and
+- **Protected filesystem, native config mutations, and Tier B admin commands
+  need native approval**: without a marker they return `PROPOSAL_REQUIRED`. The
+  plugin hook gates every mutating `ha.config.*` action, the `fs.*` write
+  commands, and the Tier B tools (add-on start/stop/restart/update,
+  `ha.reload_config`, `ha.update_install`), whether reached through the plugin's
+  `ha_*` tools or the core `nodes` tool; an operator-level caller bypassing the
+  tool hook can forge a marker (see the authorization model). The former
+  secret-based gate and the plugin's per-node policy config are removed. See
+  TODO item #20 and
   [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289).
 - **Assist-principal propagation** follows the selected D4 default: one agent
   plus a soft prompt-level block, with a separate agent configurable per user.
@@ -347,8 +343,9 @@ candidate ready. Still open:
   byte caps with truncation metadata, correct acknowledgement correlation and
   at-most-once redelivery, liveness versus readiness, and audit counters.
 - **[#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338):**
-  `ha.reload_config` and `ha.update_install` still carry the inert admin-token
-  gate and are unreachable until they move to operator approval.
+  `ha.reload_config` and `ha.update_install` now use native approval like the
+  other Tier B commands; they still need a live approval probe against a
+  release.
 - **Release evidence.** A new beta has not been cut. Live UAT and a Tier B
   install of that beta are required before any release-candidate claim.
 

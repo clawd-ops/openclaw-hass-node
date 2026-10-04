@@ -10,7 +10,7 @@ import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
-  resolveNodeAndPolicy,
+  resolveNode,
 } from "./node-tool-invoke.js";
 
 function createEntityScopedReadTool(input: {
@@ -29,7 +29,7 @@ function createEntityScopedReadTool(input: {
       const end = readTrimmedString(params, "end");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNode({
         nodeIdentifier,
         gatewayOpts,
       });

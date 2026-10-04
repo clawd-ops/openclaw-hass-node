@@ -93,8 +93,7 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   the allowed roots; cross-checks argv / cwd / commandText / agentId /
   sessionKey against the stored plan; and rejects credential-shaped env keys
   before execution. Timeout is read from `timeoutMs` (native wire); the
-  successful payload uses `success`/`exitCode`/`timedOut`. The inert
-  `OPENCLAW_ADMIN_TOKEN` gate has been removed. See
+  successful payload uses `success`/`exitCode`/`timedOut`. See
   [Authorization model](AUTHORIZATION-MODEL.md).
 - Supervisor API access uses `SUPERVISOR_TOKEN` against
   `http://supervisor/...`. Today this is exposed through the

@@ -1,8 +1,8 @@
 // Native OpenClaw approval for node mutations.
 //
-// A `before_tool_call` hook on the core `nodes` tool (action "invoke"). It
-// never executes anything: it only asks OpenClaw for approval and rewrites the
-// inner invoke params. OpenClaw applies the rewrite ONLY after the approval
+// A `before_tool_call` hook on the core `nodes` tool (action "invoke") and on
+// this plugin's own Tier B admin tools. It never executes anything: it only
+// asks OpenClaw for approval and rewrites the invoke params. OpenClaw applies the rewrite ONLY after the approval
 // succeeds, so the approval marker exists nowhere but in that override.
 //
 // SECURITY: the marker is not a credential. It binds an approval to one exact
@@ -48,7 +48,55 @@ export const APPROVAL_GATED: Readonly<Record<string, readonly string[]>> = {
   "fs.move": [""],
   "fs.delete": [""],
   "fs.patch": [""],
+  "ha.reload_config": [""],
+  "ha.update_install": [""],
+  "ha.addon_start": [""],
+  "ha.addon_stop": [""],
+  "ha.addon_restart": [""],
+  "ha.addon_update": [""],
 };
+
+/** This plugin's Tier B admin tools and the node command each one invokes. */
+export const ADMIN_TOOL_COMMANDS: Readonly<Record<string, string>> = {
+  ha_reload_config: "ha.reload_config",
+  ha_update_install: "ha.update_install",
+  ha_addon_start: "ha.addon_start",
+  ha_addon_stop: "ha.addon_stop",
+  ha_addon_restart: "ha.addon_restart",
+  ha_addon_update: "ha.addon_update",
+};
+
+const ADMIN_TITLES: Readonly<Record<string, string>> = {
+  "ha.reload_config": "Reload HA core config",
+  "ha.update_install": "Install HA update",
+  "ha.addon_start": "Start HA add-on",
+  "ha.addon_stop": "Stop HA add-on",
+  "ha.addon_restart": "Restart HA add-on",
+  "ha.addon_update": "Update HA add-on",
+};
+
+function trimmed(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * The node invoke params an admin tool sends for the given tool arguments. The
+ * tool and the approval hook both call this, so the approval binds to exactly
+ * what reaches the node.
+ */
+export function adminCommandParams(command: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (command === "ha.reload_config") {
+    const domain = trimmed(args.domain);
+    return domain ? { domain } : {};
+  }
+  if (command === "ha.update_install") {
+    const params: Record<string, unknown> = { entity_id: trimmed(args.entity_id) };
+    if (typeof args.backup === "boolean") params.backup = args.backup;
+    if (typeof args.version === "string" && args.version) params.version = args.version;
+    return params;
+  }
+  return { slug: trimmed(args.slug) };
+}
 
 const NOUNS: Readonly<Record<string, string>> = {
   "ha.config.automation": "HA automation",
@@ -73,7 +121,7 @@ const FS_VERBS: Readonly<Record<string, string>> = {
   "fs.delete": "Delete",
   "fs.patch": "Patch",
 };
-const TARGET_KEYS = ["id", "entity_id", "device_id", "area_id", "entry_id", "url_path", "url", "name", "path", "src", "dst"];
+const TARGET_KEYS = ["slug", "id", "entity_id", "device_id", "area_id", "entry_id", "url_path", "url", "name", "path", "src", "dst"];
 
 /** Sorted keys, no whitespace; identical to Python `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. */
 export function canonicalJson(value: unknown): string {
@@ -133,7 +181,8 @@ function parseInnerParams(raw: unknown): Record<string, unknown> | undefined {
   }
 }
 
-function describeTarget(inner: Record<string, unknown>): string {
+function describeTarget(inner: Record<string, unknown>, command = ""): string {
+  if (command === "ha.reload_config") return "core configuration";
   const keys = typeof inner.helper_type === "string" ? [...TARGET_KEYS, "helper_type", `${inner.helper_type}_id`] : TARGET_KEYS;
   const parts = keys.flatMap((key) =>
     typeof inner[key] === "string" ? [`${key}=${JSON.stringify((inner[key] as string).slice(0, 80))}`] : [],
@@ -144,12 +193,49 @@ function describeTarget(inner: Record<string, unknown>): string {
 }
 
 function titleOf(command: string, action: string): string {
+  const admin = ADMIN_TITLES[command];
+  if (admin !== undefined) return admin;
   const verb = FS_VERBS[command] ?? `${action.charAt(0).toUpperCase()}${action.slice(1).replaceAll("_", " ")}`;
   return `${verb} ${NOUNS[command]}`;
 }
 
+function approvalRequest(title: string, description: string) {
+  return {
+    title,
+    description,
+    severity: "warning" as const,
+    allowedDecisions: ["allow-once", "deny"] as Array<"allow-once" | "deny">,
+    timeoutMs: APPROVAL_TIMEOUT_MS,
+  };
+}
+
+function newMarker(command: string, action: string, params: Record<string, unknown>, nowMs: () => number) {
+  return {
+    id: randomUUID(),
+    exp: Math.floor(nowMs() / 1000) + APPROVAL_TTL_SECONDS,
+    bind: approvalBind(command, action, params),
+  };
+}
+
 /**
- * `before_tool_call` handler for the core `nodes` tool.
+ * `before_tool_call` handler for the plugin's own admin tools: always replaces
+ * any model-supplied marker with a fresh one bound to the exact node params.
+ */
+function beforeAdminToolCall(command: string, params: Record<string, unknown>, nowMs: () => number) {
+  const { [APPROVAL_PARAM]: _supplied, ...clean } = params;
+  const commandParams = adminCommandParams(command, clean);
+  const title = titleOf(command, "");
+  return {
+    params: { ...clean, [APPROVAL_PARAM]: newMarker(command, "", commandParams, nowMs) },
+    requireApproval: approvalRequest(
+      title,
+      `${title}: ${describeTarget(commandParams, command)} via ${command}.`,
+    ),
+  };
+}
+
+/**
+ * `before_tool_call` handler for the core `nodes` tool and the plugin's admin tools.
  *
  * Every nodes invoke has any model-supplied marker stripped. A
  * call listed in {@link APPROVAL_GATED} additionally requires approval and, once
@@ -158,8 +244,12 @@ function titleOf(command: string, action: string): string {
  * params hold an integer beyond 2^53 is blocked: re-serializing it would alter
  * the value the human approved.
  */
-export function beforeNodesToolCall(event: NodesCallEvent, nowMs: () => number = Date.now) {
+export function beforeToolCall(event: NodesCallEvent, nowMs: () => number = Date.now) {
   const { params } = event;
+  const adminCommand = Object.hasOwn(ADMIN_TOOL_COMMANDS, event.toolName)
+    ? ADMIN_TOOL_COMMANDS[event.toolName]
+    : undefined;
+  if (adminCommand !== undefined) return beforeAdminToolCall(adminCommand, params, nowMs);
   if (event.toolName !== "nodes" || normalized(params.action) !== "invoke") return undefined;
   const inner = parseInnerParams(params.invokeParamsJson);
   if (inner === undefined) return undefined;
@@ -180,19 +270,11 @@ export function beforeNodesToolCall(event: NodesCallEvent, nowMs: () => number =
       blockReason: "Call contains an integer beyond 2^53 that cannot be approved exactly; use a string.",
     };
   }
-  const marker = {
-    id: randomUUID(),
-    exp: Math.floor(nowMs() / 1000) + APPROVAL_TTL_SECONDS,
-    bind: approvalBind(command, action, clean),
-  };
   return {
-    params: rewrite({ ...clean, [APPROVAL_PARAM]: marker }),
-    requireApproval: {
-      title: titleOf(command, action),
-      description: `${titleOf(command, action)}: ${describeTarget(clean)} via ${command}${action ? ` action=${action}` : ""}.`,
-      severity: "warning" as const,
-      allowedDecisions: ["allow-once", "deny"] as Array<"allow-once" | "deny">,
-      timeoutMs: APPROVAL_TIMEOUT_MS,
-    },
+    params: rewrite({ ...clean, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) }),
+    requireApproval: approvalRequest(
+      titleOf(command, action),
+      `${titleOf(command, action)}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
+    ),
   };
 }
