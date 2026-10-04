@@ -135,15 +135,14 @@ def test_forbidden_patches_add_and_remove_defaults() -> None:
         forbidden_commands={
             "user": ForbiddenCommandPatch(
                 add=frozenset({"ha.call_service:lock.unlock"}),
-                remove=frozenset({"fs.write"}),
-            )
+                remove=frozenset({"ha.call_service:lock.unlock"}),
+            ),
+            "admin": ForbiddenCommandPatch(remove=frozenset({"fs.write"})),
         }
     )
 
-    authz = resolve_turn_authz(identity, None)
-
-    assert "ha.call_service:lock.unlock" in authz.forbidden
-    assert "fs.write" not in authz.forbidden
+    assert "ha.call_service:lock.unlock" not in resolve_turn_authz(identity, None).forbidden
+    assert "fs.write" not in resolve_turn_authz(identity, Actor("a", is_admin=True)).forbidden
 
 
 def test_log_agent_inventory_reports_misconfig(caplog: LogCaptureFixture) -> None:
@@ -391,23 +390,16 @@ def test_every_printed_forbidden_entry_is_enforced_and_vice_versa(role_admin: bo
     assert is_forbidden(authz.forbidden, "ha.call_service", _call("lock", "unlock"))
 
 
-def test_removing_wildcard_removes_rule_and_exception_text() -> None:
+def test_user_service_wildcard_is_non_removable(caplog: LogCaptureFixture) -> None:
     identity = IdentityConfig(
-        forbidden_commands={
-            "user": ForbiddenCommandPatch(
-                add=frozenset(),
-                remove=frozenset(
-                    {
-                        "ha.call_service:*",
-                    }
-                ),
-            )
-        }
+        forbidden_commands={"user": ForbiddenCommandPatch(remove=frozenset({"ha.call_service:*"}))}
     )
-    authz = resolve_turn_authz(identity, Actor("kid", is_admin=False))
+    with caplog.at_level("WARNING"):
+        authz = resolve_turn_authz(identity, Actor("kid", is_admin=False))
 
-    assert "ha.call_service:*" not in authz.forbidden
-    assert not is_forbidden(authz.forbidden, "ha.call_service", _call("switch", "turn_on"))
+    assert "ha.call_service:*" in authz.forbidden
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call("switch", "turn_on"))
+    assert sum("ha.call_service:*" in r.getMessage() for r in caplog.records) == 1
 
 
 def test_is_forbidden_wrappers_follow_service_entries_and_fail_closed() -> None:
@@ -450,3 +442,23 @@ def test_disclaimer_exception_reflects_patched_light_prohibitions() -> None:
     assert "may still be called are: light.turn_on." in one.disclaimer
     assert "light.turn_off." not in one.disclaimer
     assert "may still be called are: none." in both.disclaimer
+
+
+def test_user_forbidden_commands_are_non_removable(caplog: LogCaptureFixture) -> None:
+    identity = IdentityConfig(
+        forbidden_commands={
+            "user": ForbiddenCommandPatch(
+                add=frozenset({"ha.get_state"}),
+                remove=frozenset({"ha.addon_update"}),
+            )
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        authz = resolve_turn_authz(identity, None)
+
+    assert "ha.addon_update" in authz.forbidden
+    assert "ha.addon_update" in authz.disclaimer
+    assert "ha.get_state" in authz.forbidden
+    assert "ha.get_state" in authz.disclaimer
+    assert sum("ha.addon_update" in r.getMessage() for r in caplog.records) == 1

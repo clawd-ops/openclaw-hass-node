@@ -7,7 +7,8 @@ single one in ``commands.ha``; the auto-allow set is the single constant in
 
 Principal x outcome:
 
-- ``user``: deny/unclassified/forbidden refused; auto-allow allowed.
+- ``user``: deny/unclassified/forbidden refused; auto-allow allowed; anything
+  outside ``USER_ALLOWED_COMMANDS`` is refused (default deny).
 - ``admin``/``super_admin``: unclassified refused ``APPROVAL_REQUIRED``.
 - ``operator``: only deny refused; unclassified allowed (temporary, logged).
 """
@@ -19,6 +20,7 @@ from typing import Any, Final, Literal
 
 from openclaw_node.authz import (
     HOUSEHOLD_AUTO_ALLOW_SERVICES,
+    USER_ALLOWED_COMMANDS,
     is_forbidden,
     service_for_command,
 )
@@ -50,18 +52,28 @@ def _refusal(code: str, message: str) -> dict[str, Any]:
 
 
 def check(caller: Caller, command: str, params: dict[str, Any]) -> dict[str, Any] | None:
-    """Return a refusal for this call, or ``None`` when it may proceed."""
+    """Return a refusal for this call, or ``None`` when it may proceed.
+
+    Deny-class services are refused ``SERVICE_DENIED`` for every caller (the
+    handler's documented code); ``PERMISSION_DENIED`` is a role-based refusal.
+    """
     operator = caller.role == "operator"
-    if not operator and is_forbidden(caller.forbidden, command, params):
-        return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
-    if command != "ha.call_service" and service_for_command(command, params) is None:
-        return None
     service = service_for_command(command, params)
     effect = classify(service)
-    if effect == "deny":
-        if operator and service is None:
+    if service is not None and effect == "deny":
+        return _refusal("SERVICE_DENIED", f"{command} denies {service}")
+    if caller.role == "user" and command not in USER_ALLOWED_COMMANDS:
+        # Default deny: a household user reaches only the allowed set, whatever
+        # the (config-patchable) forbidden list says; unclassified commands included.
+        return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
+    if not operator and is_forbidden(caller.forbidden, command, params):
+        return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
+    if command != "ha.call_service" and service is None:
+        return None
+    if service is None:
+        if operator:
             return None  # the handler reports its own validation error
-        return _refusal("PERMISSION_DENIED", f"service {service or 'is malformed'} is denied")
+        return _refusal("PERMISSION_DENIED", "service is malformed")
     if effect == "auto_allow":
         return None
     if operator:

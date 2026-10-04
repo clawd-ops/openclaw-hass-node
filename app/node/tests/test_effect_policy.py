@@ -71,7 +71,7 @@ def test_user_allowed_light_calls_and_wrappers(service: tuple[str, str]) -> None
 
 @pytest.mark.parametrize(
     "service",
-    [("light", "toggle"), ("lock", "unlock"), ("switch", "turn_on"), ("shell_command", "x")],
+    [("light", "toggle"), ("lock", "unlock"), ("switch", "turn_on")],
 )
 def test_user_refused_for_everything_else(service: tuple[str, str]) -> None:
     refusal = check(_turn(False), "ha.call_service", _call(*service))
@@ -98,7 +98,7 @@ def test_admin_unclassified_needs_approval_and_deny_refused() -> None:
     assert check(admin, "ha.call_service", _call("light", "turn_on")) is None
     denied = check(admin, "ha.call_service", _call("shell_command", "x"))
     assert denied is not None
-    assert denied["error"] == "PERMISSION_DENIED"
+    assert denied["error"] == "SERVICE_DENIED"
     assert _code(check(admin, "system.run", {})) == "PERMISSION_DENIED"
 
 
@@ -121,7 +121,7 @@ def test_operator_keeps_non_denied_and_logs(caplog: pytest.LogCaptureFixture) ->
     assert check(op, "ha.call_service", _call("light", "turn_on")) is None
     denied = check(op, "ha.call_service", _call("shell_command", "x"))
     assert denied is not None
-    assert denied["error"] == "PERMISSION_DENIED"
+    assert denied["error"] == "SERVICE_DENIED"
     assert check(op, "ha.call_service", {"domain": 5}) is None
 
 
@@ -154,18 +154,44 @@ def test_policy_agrees_with_printed_rule_under_config_patch() -> None:
     assert check(user, "ha.call_service", _call("light", "turn_on")) is None
 
     relaxed = IdentityConfig(
+        forbidden_commands={"user": ForbiddenCommandPatch(remove=frozenset({"ha.call_service:*"}))}
+    )
+    # The wildcard is non-removable: the patched disclaimer and the gate come
+    # from the same computed set, so both still refuse an unclassified service.
+    authz = resolve_turn_authz(relaxed, Actor("u", is_admin=False))
+    rel = Caller.from_turn(authz)
+    assert "ha.call_service:*" in authz.forbidden
+    assert "the only services that may still be called are: light.turn_on, light.turn_off." in (
+        authz.disclaimer
+    )
+    assert _code(check(rel, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
+    assert check(rel, "ha.call_service", _call("light", "turn_on")) is None
+
+
+@pytest.mark.parametrize("caller", [UNTRUSTED, _turn(True), Caller.operator("gateway-invoke")])
+def test_deny_class_is_service_denied_for_every_caller(caller: Caller) -> None:
+    for service in (("shell_command", "x"), ("homeassistant", "restart"), ("update", "install")):
+        assert _code(check(caller, "ha.call_service", _call(*service))) == "SERVICE_DENIED"
+
+
+def test_role_refusal_is_permission_denied_not_service_denied() -> None:
+    assert (
+        _code(check(UNTRUSTED, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
+    )
+
+
+def test_removed_user_forbidden_command_stays_in_disclaimer_and_refused() -> None:
+    identity = IdentityConfig(
         forbidden_commands={
             "user": ForbiddenCommandPatch(
-                add=frozenset(),
-                remove=frozenset(
-                    {
-                        "ha.call_service:*",
-                    }
-                ),
+                add=frozenset({"ha.get_state"}),
+                remove=frozenset({"ha.addon_update"}),
             )
         }
     )
-    # Removing the wildcard drops the forbidden entry, but unclassified services
-    # stay refused for a household user by the effect table (D2).
-    rel = _turn(False, identity=relaxed)
-    assert check(rel, "ha.call_service", _call("switch", "turn_on")) is not None
+    authz = resolve_turn_authz(identity, None)
+    caller = Caller(role="user", actor_id="u", forbidden=authz.forbidden)
+
+    for command in ("ha.addon_update", "ha.get_state"):
+        assert f"  - {command}" in authz.disclaimer
+        assert _code(check(caller, command, {})) == "PERMISSION_DENIED"

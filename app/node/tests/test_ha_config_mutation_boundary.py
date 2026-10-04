@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from openclaw_node import ha_client
+from openclaw_node.caller import Caller
 from openclaw_node.commands.dispatcher import _REGISTRY, dispatch_async
 from openclaw_node.commands.ha_config_helpers import _HELPER_TYPES
 
@@ -103,6 +104,10 @@ def test_mutation_inventory_covers_every_config_command_and_action() -> None:
         assert reads | mutations == module._ACTIONS
 
 
+# The handler's own fail-closed denial is under test, so bypass the household gate.
+_OPERATOR = Caller.operator("test")
+
+
 @pytest.mark.parametrize(("domain", "action"), MUTATIONS)
 @pytest.mark.parametrize("authorization", UNTRUSTED_AUTHORIZATION)
 @pytest.mark.parametrize("route", ["handler", "dispatcher"])
@@ -116,7 +121,7 @@ async def test_config_mutations_never_contact_ha(
     command = f"ha.config.{domain}"
     params = {**mutation_params(action), **authorization}
     if route == "dispatcher":
-        result = await dispatch_async(command, params)
+        result = await dispatch_async(command, params, caller=_OPERATOR)
     else:
         module = importlib.import_module(f"openclaw_node.commands.ha_config_{domain}")
         result = await getattr(module, f"handle_ha_config_{domain}")(params)
@@ -133,7 +138,9 @@ async def test_mutation_denial_precedes_payload_validation(
     # Missing targets, whitespace-normalized actions and an apparent approval
     # must still fail closed, not reach a fallback request.
     result = await dispatch_async(
-        f"ha.config.{domain}", {"action": f" {action} ", "proposal_id": "p1"}
+        f"ha.config.{domain}",
+        {"action": f" {action} ", "proposal_id": "p1"},
+        caller=_OPERATOR,
     )
     assert result["error"] == "PROPOSAL_REQUIRED"
 
@@ -151,5 +158,6 @@ async def test_all_helper_namespaces_fail_closed(
             f"{helper_type}_id": "example",
             "proposal_id": "p1",
         },
+        caller=_OPERATOR,
     )
     assert result["error"] == "PROPOSAL_REQUIRED"
