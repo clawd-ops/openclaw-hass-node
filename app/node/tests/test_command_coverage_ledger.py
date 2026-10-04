@@ -1774,3 +1774,15 @@ def test_corrected_rollups_pass_and_keep_per_method_cells() -> None:
     assert rows["ha.logbook"]["outcome"] == "partial"
     methods = {e["method"] for c in rows["ha.logbook"]["callers"].values() for e in c["evidence"]}
     assert {"CODE-PROVEN", "PRODUCTION-LIVE"} <= methods
+
+
+@pytest.mark.parametrize("defect", ["fail", "partial"])
+def test_live_pass_cannot_erase_a_known_code_defect_into_a_pass_rollup(defect: str) -> None:
+    generator = _load_generator()
+    callers = _caller_evidence(
+        ("PRODUCTION-LIVE", "pass"), ("DISPOSABLE-LIVE", "pass"), ("CODE-PROVEN", defect)
+    )
+    with pytest.raises(
+        generator.LedgerError, match=r"^row declares outcome 'pass' but lower-ranked"
+    ):
+        generator._validate_rollup_against_evidence("row", "pass", callers)

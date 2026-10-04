@@ -975,6 +975,12 @@ def _validate_rollup_against_evidence(row_id: str, declared: str, callers: dict[
             for item in items
             if not (item["method"] in _LIVE_METHODS and item["outcome"] == "pass")
         ]
+        # The surviving defect evidence still bounds the verdict: never a clean pass.
+        if declared == "pass":
+            raise LedgerError(
+                f"{row_id} declares outcome 'pass' but lower-ranked evidence still "
+                "records a fail or partial; declare the defect or record the contrary evidence"
+            )
     if not items:
         return
     top = max(EVIDENCE_METHODS.index(item["method"]) for item in items)
