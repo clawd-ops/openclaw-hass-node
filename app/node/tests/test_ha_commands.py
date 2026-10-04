@@ -2581,6 +2581,7 @@ async def test_addon_lifecycle_timeout_is_outcome_unknown(
     assert result["error"] == "OUTCOME_UNKNOWN"
     assert "Do not retry automatically" in result["message"]
     assert "may or may not have happened" in result["message"]
+    assert "current snapshot, not action history" in result["message"]
     # Exactly one POST: the node never retries a mutation of unknown outcome.
     mock_post.assert_called_once_with(f"/addons/openclaw_hass_node/{action}")
 

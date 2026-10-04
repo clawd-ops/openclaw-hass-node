@@ -1338,9 +1338,10 @@ async def _handle_addon_lifecycle(
             return _error(
                 "OUTCOME_UNKNOWN",
                 f"{command} timed out waiting for Supervisor; the action may or may not "
-                "have happened. Do not retry automatically. ha.addon_info reports state "
-                "only: after a restart it cannot distinguish completed from not, and "
-                "after an update only a changed version shows it completed.",
+                "have happened. Do not retry automatically. ha.addon_info reports a "
+                "current snapshot, not action history: after a restart it cannot "
+                "distinguish completed from not, and after an update only a changed "
+                "version shows it completed.",
             )
     except HAClientError as exc:
         return _to_error(exc)

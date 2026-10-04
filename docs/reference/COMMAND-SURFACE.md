@@ -169,7 +169,7 @@ Sections for each `ha.config.*` command follow the base surface below.
 | `ha.addon_update`         | `slug`; same Tier B lifecycle gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`); may return `OUTCOME_UNKNOWN`; compare `version` via `ha.addon_info` if the prior version is known |
 | `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
 
-`OUTCOME_UNKNOWN` (lifecycle commands): the Supervisor POST or the follow-up state read timed out, so the action may or may not have happened. Callers must not retry automatically and should ask the user/operator. `ha.addon_info` reports state only: after a restart it cannot distinguish completed from not, and after an update only a changed version shows it completed.
+`OUTCOME_UNKNOWN` (lifecycle commands): the Supervisor POST or the follow-up state read timed out, so the action may or may not have happened. Callers must not retry automatically and should ask the user/operator. `ha.addon_info` reports a current snapshot, not action history: after a restart it cannot distinguish completed from not, and after an update only a changed version shows it completed.
 
 ## Gateway ingress and result bounds (unreleased, #291)
 

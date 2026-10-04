@@ -852,7 +852,7 @@ _(no unreleased command additions)_
 - Authorization: `addon_slug_policy_only`
 - Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
-- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports state only: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
+- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `fail`**
 - Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/323" target="_blank" rel="noopener noreferrer">#323</a>
@@ -897,7 +897,7 @@ _(no unreleased command additions)_
 - Authorization: `addon_slug_policy_only`
 - Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
-- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports state only: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
+- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `pass`**
 - Evidence note: Sept 13 Tier B lifecycle exercise: start succeeded and the add-on reached the started state.
@@ -980,7 +980,7 @@ _(no unreleased command additions)_
 - Authorization: `addon_slug_policy_only`
 - Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
-- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports state only: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
+- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `pass`**
 - Evidence note: Sept 13 Tier B lifecycle exercise: stop succeeded and the add-on reached the stopped state.
@@ -1023,7 +1023,7 @@ _(no unreleased command additions)_
 - Authorization: `addon_slug_policy_only`
 - Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
-- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports state only: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
+- Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `CODE-PROVEN`
 - **Outcome: `partial`**
 - Evidence note: AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.
