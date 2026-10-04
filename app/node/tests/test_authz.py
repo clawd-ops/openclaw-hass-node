@@ -15,6 +15,7 @@ from openclaw_node.authz import (
     Actor,
     actor_from_payload,
     actor_from_signed_body,
+    collect_codes,
     derive_actor_signing_secret,
     is_forbidden,
     redact_code,
@@ -548,3 +549,12 @@ def test_scrub_code_masks_numeric_values_and_keys_but_not_booleans() -> None:
     assert scrub_code({482913: "k"}, 482913) == {"[redacted]": "k"}
     # True is an int subclass but never a code; code 1 leaves a boolean alone.
     assert scrub_code({"t": True, "n": 1}, 1) == {"t": True, "n": "[redacted]"}
+
+
+def test_collect_codes_finds_nested_string_and_numeric_codes_only() -> None:
+    data = {"a": {"code": "1"}, "b": [{"code": 2}, {"code": True}, {"code": {"code": "3"}}]}
+
+    assert collect_codes(data) == ["1", 2, "3"]
+    assert redact_code({"data": {"variables": {"code": "4321"}}}) == {
+        "data": {"variables": {"code": "***"}}
+    }

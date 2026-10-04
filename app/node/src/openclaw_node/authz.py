@@ -115,16 +115,6 @@ def service_allowed(service: str) -> bool:
     return name in HOUSEHOLD_ALLOWED_SERVICES.get(domain, frozenset())
 
 
-def redact_code(params: dict[str, Any]) -> dict[str, Any]:
-    """Copy of call params with any service-data ``code`` masked, for log lines."""
-    out = dict(params)
-    for key in ("data", "service_data"):
-        value = out.get(key)
-        if isinstance(value, dict) and "code" in value:
-            out[key] = {**value, "code": "***"}
-    return out
-
-
 _REDACTED: Final[str] = "[redacted]"
 
 
@@ -138,6 +128,50 @@ def _number_form(item: Any) -> str:
     if isinstance(item, float) and item.is_integer():
         return str(int(item))
     return str(item)
+
+
+def collect_codes(value: Any) -> list[object]:
+    """Every string or numeric value under a key named ``code``, at any depth.
+
+    Walks dicts and lists; a code that is itself a dict, list, or bool is not a
+    scalar code and is walked for further ``code`` keys instead.
+    """
+    found: list[object] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "code" and (isinstance(item, str) or _is_number(item)):
+                found.append(item)
+            else:
+                found.extend(collect_codes(item))
+    elif isinstance(value, list):
+        for item in value:
+            found.extend(collect_codes(item))
+    return found
+
+
+def scrub_codes(value: Any, codes: list[object]) -> Any:
+    """``scrub_code`` for each collected code, in turn."""
+    for code in codes:
+        value = scrub_code(value, code)
+    return value
+
+
+def redact_code(params: dict[str, Any]) -> dict[str, Any]:
+    """Copy of call params with every nested service-data ``code`` masked, for log lines."""
+    codes = collect_codes(params)
+
+    def mask(item: Any) -> Any:
+        if isinstance(item, dict):
+            return {
+                k: "***" if k == "code" and (isinstance(v, str) or _is_number(v)) else mask(v)
+                for k, v in item.items()
+            }
+        if isinstance(item, list):
+            return [mask(v) for v in item]
+        return item
+
+    out: dict[str, Any] = scrub_codes(mask(params), codes)
+    return out
 
 
 def scrub_code(value: Any, code: object) -> Any:

@@ -546,3 +546,38 @@ async def test_ws_numeric_code_echoed_in_fetched_snapshot_is_redacted(
     assert sent["ok"] is True
     assert "unlocked" in json.dumps(sent)
     assert "482913" not in json.dumps(sent)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"variables": {"code": "482913"}},
+        {"variables": {"steps": [{"code": "482913"}]}},
+        {"items": [{"nested": {"code": "482913"}}]},
+    ],
+)
+async def test_ws_nested_code_reaches_ha_but_not_logs_or_result(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    data: dict[str, Any],
+) -> None:
+    _as_role(monkeypatch, False)
+    ha_stub.reply = [_ECHO_STATE]
+    ha_stub.get_reply = _ECHO_STATE
+    params = {
+        "domain": "script",
+        "service": "turn_on",
+        "target": {"entity_id": "script.front"},
+        "data": data,
+    }
+
+    with caplog.at_level("DEBUG"):
+        sent = await _invoke(tmp_path, "ha.call_service", params)
+
+    assert sent["ok"] is True
+    assert ha_stub.calls[0][1] == {"entity_id": "script.front", **data}
+    assert "482913" not in caplog.text
+    assert "482913" not in json.dumps(sent)
+    assert "unlocked" in json.dumps(sent)

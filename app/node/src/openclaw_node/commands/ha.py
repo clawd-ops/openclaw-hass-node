@@ -53,7 +53,7 @@ import re
 from typing import Any, Final
 from urllib.parse import quote
 
-from openclaw_node.authz import scrub_code
+from openclaw_node.authz import collect_codes, scrub_codes
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
     HAClientError,
@@ -514,18 +514,18 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         # HA REST collapses target into the body for service calls.
         body.update(target)
 
-    code = body.get("code")
+    codes = collect_codes(body)
     try:
         result = await ha_post(f"/api/services/{domain}/{service}", body or None)
     except HAClientError as exc:
         # HA validates a lock/alarm `code`; surface its error, never the code.
-        return _error(exc.code, scrub_code(exc.message, code))
+        return _error(exc.code, scrub_codes(exc.message, codes))
 
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")
     # One exit for every success path: HA may echo the code in a changed state
     # or in the fetched snapshot, and neither may carry it out.
-    observed: dict[str, Any] = scrub_code(await _with_observed_states(result, target), code)
+    observed: dict[str, Any] = scrub_codes(await _with_observed_states(result, target), codes)
     return observed
 
 
