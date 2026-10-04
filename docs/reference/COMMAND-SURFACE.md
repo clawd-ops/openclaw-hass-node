@@ -86,8 +86,11 @@ surrogate) is refused with `INVALID_PARAM`. Captured output is truncated to
 256 KiB per stream (`stdout` and `stderr`) after the command finishes. When a
 command exceeds `timeoutMs`, the node kills its whole process group, so
 background descendants do not outlive the timeout, and returns the
-`timedOut` payload. A command that exits normally leaves any background
-descendants it started running.
+`timedOut` payload. A command whose direct process exits before `timeoutMs`
+is never reported as timed out and its process group is not killed: any
+background descendants it started keep running. If such a descendant still
+holds the output pipes when `timeoutMs` elapses, the node returns the real
+exit code with the output captured so far and `outputIncomplete: true`.
 
 ### Advertised commands that are not reachable through `nodes.invoke`
 

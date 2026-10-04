@@ -404,14 +404,27 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
         return _error("EXEC_ERROR", f"Execution failed: {exc}")
 
     timed_out = False
+    output_incomplete = False
     try:
         stdout, stderr = proc.communicate(timeout=timeout_s)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        # Kill the whole session so grandchildren do not outlive the timeout,
-        # then reap. A normal exit leaves backgrounded children alone.
-        _kill_group(proc)
-        proc.communicate()
+    except subprocess.TimeoutExpired as exc:
+        if proc.poll() is None:
+            # The direct child is still running: a genuine timeout. Kill the
+            # whole session so grandchildren do not outlive it, then reap.
+            timed_out = True
+            _kill_group(proc)
+            proc.communicate()
+            stdout = stderr = b""
+        else:
+            # The direct child exited but a background descendant still holds
+            # the pipes, so EOF never arrived. Not a timeout: keep what was
+            # captured, leave the descendants alone, and drop our pipe ends.
+            output_incomplete = True
+            stdout = exc.stdout or b""
+            stderr = exc.stderr or b""
+            for pipe in (proc.stdout, proc.stderr):
+                if pipe is not None:
+                    pipe.close()
     returncode = proc.returncode
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)
@@ -441,5 +454,6 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
         "timedOut": False,
         "stdout": stdout[:_MAX_OUTPUT_BYTES].decode(errors="replace"),
         "stderr": stderr[:_MAX_OUTPUT_BYTES].decode(errors="replace"),
+        "outputIncomplete": output_incomplete,
         "elapsed_ms": elapsed_ms,
     }

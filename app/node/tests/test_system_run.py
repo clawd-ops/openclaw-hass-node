@@ -722,6 +722,43 @@ def test_normal_exit_leaves_background_grandchild_alive(tmp_path: Path) -> None:
             os.kill(pid, signal.SIGKILL)
 
 
+def test_exited_child_with_pipe_holding_background_not_timed_out() -> None:
+    result = handle_system_run(
+        _params(command=["sh", "-c", "sleep 5 & echo $! >&2; echo fg"], timeoutMs=300)
+    )
+    pid = int(result["stderr"].strip())
+    try:
+        assert result["timedOut"] is False
+        assert result["success"] is True
+        assert result["exitCode"] == 0
+        assert result["stdout"] == "fg\n"
+        assert result["outputIncomplete"] is True
+        assert _alive(pid)
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_exited_child_nonzero_with_pipe_holding_background_reports_exit_code() -> None:
+    result = handle_system_run(
+        _params(command=["sh", "-c", "sleep 5 & echo $! >&2; exit 3"], timeoutMs=300)
+    )
+    pid = int(result["stderr"].strip())
+    try:
+        assert result["timedOut"] is False
+        assert result["success"] is False
+        assert result["exitCode"] == 3
+        assert result["outputIncomplete"] is True
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_clean_exit_output_is_complete() -> None:
+    result = handle_system_run(_params(command=["echo", "hi"]))
+    assert result["outputIncomplete"] is False
+
+
 def test_argv_unencodable_value_refused_before_spawn(tmp_path: Path) -> None:
     sentinel = tmp_path / "ran"
     argv = ["sh", "-c", f"touch {sentinel}", "\ud800"]
