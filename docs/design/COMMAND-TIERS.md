@@ -84,11 +84,17 @@ slug allowlist/denylist policy. The plugin requires `allowAdminOps` only.
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
 - `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version (Supervisor API, slug-based)
 
-### Tier B admin (operator approval required)
+### Tier B admin (interim admin token; operator approval planned)
 
-No add-on admin token exists. These commands require `allowAdminOps` plus a
-resolved OpenClaw plugin permission request, the same gate used for other
-Home Assistant mutations. See
+Current behaviour: these two commands still use the interim admin token. The
+gateway plugin requires `allowAdminOps` and a per-node `adminToken` in the
+gateway plugin config (never taken from the caller) and injects it as the
+`admin_token` parameter. The node then compares it with `OPENCLAW_ADMIN_TOKEN`;
+with that variable unset, or on a mismatch, the command is refused with
+`PERMISSION_DENIED`. The ratified model removes the admin token in favour of
+native OpenClaw operator approval; that migration is unfinished and is tracked
+by [#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338) and
+[#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289). See
 [Authorization model](AUTHORIZATION-MODEL.md).
 
 - `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;

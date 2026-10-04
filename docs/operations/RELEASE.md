@@ -2,18 +2,20 @@
 
 > Status: **live.** `.github/workflows/release-on-version-bump.yml`
 > auto-cuts a release whenever a push to `main` bumps the version in
-> the five tracked files. `scripts/bump-version.py` updates those version
+> the seven tracked files. `scripts/bump-version.py` updates those version
 > sources, and `scripts/mark-commands-shipped.py` stamps current command
 > additions locally in the same release PR. PR CI checks the transition, and
 > the push-triggered release workflow checks it again before creating a tag or
 > release. The manual procedure at the bottom is
 > preserved for emergency / out-of-band use only.
 
-The project carries the version string in five places (`pyproject.toml`,
+The project carries the version string in seven places (`pyproject.toml`,
 `app/config.yaml`, `app/build.yaml`, `__init__.py` fallback,
-`custom_components/openclaw_hass_node_assist/manifest.json`) and ships through
+`custom_components/openclaw_hass_node_assist/manifest.json`,
+`plugins/openclaw-hass-node-assist-tools/package.json`,
+`skills/openclaw-hass-node-skill/SKILL.md`) and ships through
 two ecosystems (HA Supervisor add-on, HACS custom integration).
-Preparing a release uses two commands, not five careful edits plus a manual
+Preparing a release uses two commands, not seven careful edits plus a manual
 ledger sweep.
 
 ## Goals
@@ -25,7 +27,7 @@ ledger sweep.
 2. **Command release history lands with the version bump.** The maintainer runs
    `scripts/mark-commands-shipped.py` locally after the version bump. The
    manual command ledger and both generated artifacts are committed in the
-   same PR as all five version sources and the changelog. This is not tag
+   same PR as all seven version sources and the changelog. This is not tag
    automation. The helper always regenerates the artifacts, including when no
    command needed stamping, because a version-only release still moves
    `latest_release`.
@@ -90,15 +92,17 @@ Three-step preparation: bump version, stamp commands, write the changelog,
 then merge and let CI do
 the rest.
 
-### Step 1 — bump the five version files
+### Step 1 — bump the seven version files
 
-The five files are:
+The seven files are:
 
 - `app/config.yaml`
 - `app/build.yaml`
 - `app/node/pyproject.toml`
 - `app/node/src/openclaw_node/__init__.py`
 - `custom_components/openclaw_hass_node_assist/manifest.json`
+- `plugins/openclaw-hass-node-assist-tools/package.json`
+- `skills/openclaw-hass-node-skill/SKILL.md`
 
 Hand-editing them is how drift happens. Use the script:
 
@@ -153,7 +157,7 @@ executable PR check, not a claim about branch protection. The push-triggered
 release workflow reruns the same transition check
 against the pre-push commit before any tag or GitHub release is created, which
 provides tag-time protection even if repository merge settings do not require
-the PR check. Commit the ledger changes with all five version sources and the
+the PR check. Commit the ledger changes with all seven version sources and the
 changelog in the same version-bump PR.
 
 ### Step 3 — add the CHANGELOG entry, open + merge the release PR
@@ -177,8 +181,13 @@ PR title: `release: 2026.6.20b8 — <one-line summary>`. Merge it.
 ### Step 4 — CI cuts the release (no human action)
 
 `.github/workflows/release-on-version-bump.yml` triggers on push to
-`main` when any of the five version files (or the workflow file
-itself) changes. It:
+`main` when any of five watched paths changes: `app/config.yaml`,
+`app/build.yaml`, `app/node/pyproject.toml`,
+`app/node/src/openclaw_node/__init__.py`,
+`custom_components/openclaw_hass_node_assist/manifest.json` (or the workflow
+file itself). `scripts/bump-version.py` always updates all seven version
+files together, so a normal bump triggers it; a change to only the plugin
+package or the skill version would not. It:
 
 1. Reads the current synced version via `scripts/bump-version.py --get`.
 2. Validates the base-to-head command shipment transition before tagging.

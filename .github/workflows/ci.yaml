@@ -101,5 +101,5 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - name: Verify all five version files agree
+      - name: Verify all seven version files agree
         run: scripts/bump-version.py --check

@@ -13,7 +13,7 @@ your PR title is what matters). Common prefixes: `feat:`, `fix:`,
 The release Action is live
 (`.github/workflows/release-on-version-bump.yml`) and auto-cuts a
 GitHub release whenever a push to `main` bumps the version in the
-five tracked files. Release notes come from the hand-written
+seven tracked files. Release notes come from the hand-written
 `app/CHANGELOG.md` section for that version — the workflow
 extracts it, it does not generate it. Follow the commit convention
 so the changelog you write groups cleanly. See
@@ -21,19 +21,21 @@ so the changelog you write groups cleanly. See
 
 ## Version policy
 
-The project carries the version string in five places (`pyproject.toml`,
+The project carries the version string in seven places (`pyproject.toml`,
 `__init__.py` fallback, `app/config.yaml`, `app/build.yaml`,
-`custom_components/openclaw_hass_node_assist/manifest.json`). Use
-`scripts/bump-version.py <new-version>` — it updates all five together.
+`custom_components/openclaw_hass_node_assist/manifest.json`,
+`plugins/openclaw-hass-node-assist-tools/package.json`,
+`skills/openclaw-hass-node-skill/SKILL.md`). Use
+`scripts/bump-version.py <new-version>` — it updates all seven together.
 Then run `scripts/mark-commands-shipped.py <new-version>` locally. Commit its
-manual-ledger and generated-artifact changes in the same PR as all five
+manual-ledger and generated-artifact changes in the same PR as all seven
 version sources and the matching `app/CHANGELOG.md` entry. This release-prep
 stamp is not tag automation. The Command Coverage Ledger PR check validates the
 base-to-head shipment transition, and the push-triggered release workflow runs
 the same check before creating a tag or release. These are executable checks;
 whether the PR check is required for merge depends on repository settings.
 `test_version_sync.py` keeps them honest in CI; a drift in any of the
-five fails the Version Sync gate on the PR. The version stays on a
+seven fails the Version Sync gate on the PR. The version stays on a
 pre-release marker (`a`/`b`/`rc`/`.dev`) until the project ships a 1.0
 — enforced by CI (`test_prerelease_tag_present`).
 
@@ -58,7 +60,7 @@ plan.
       Update prompt. `test_version_sync.py` will refuse to let you
       bump some-but-not-all.
 - [ ] For a release bump, run `scripts/mark-commands-shipped.py <new-version>`
-      locally and include the manual ledger, generated artifacts, all five
+      locally and include the manual ledger, generated artifacts, all seven
       version sources, and changelog in the same PR.
 - [ ] If the change touches the connect frame, the auth payload, or the
       command surface — add a `docs/operations/LESSONS.md` entry so the agent (future maintainer)
@@ -108,11 +110,13 @@ case. The rule is "two providers", not "Claude generates".
 2. **Cross-review.** A Codex subagent is spawned against the PR diff
    with a review-only prompt (no write access). It posts:
    - Inline `gh pr comment` lines for specific issues.
-   - A final verdict comment: `LGTM` or `CHANGES REQUESTED` with a
-     prioritized list.
-3. **Iterate.** If `CHANGES REQUESTED`, Claude addresses each item in
-   follow-up commits. Codex re-reviews until `LGTM` or human override.
-4. **Merge.** Only on `LGTM` or explicit human override. Squash-merge
+   - A final verdict comment whose first line is `APPROVE` or
+     `REQUEST CHANGES`, followed by one `Reviewed head: <sha> (base <sha>)`
+     pin and ending with a `Reviewer model:` stamp, then a prioritized list.
+     A verdict covers only the head SHA it names.
+3. **Iterate.** If `REQUEST CHANGES`, Claude addresses each item in
+   follow-up commits. Codex re-reviews until `APPROVE` or human override.
+4. **Merge.** Only on `APPROVE` or explicit human override. Squash-merge
    keeps history clean.
 
 ### Spawning
