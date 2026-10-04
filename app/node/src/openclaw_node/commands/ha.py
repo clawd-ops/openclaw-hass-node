@@ -44,6 +44,7 @@ Commands in this module:
 
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import hmac
 import logging
@@ -77,6 +78,8 @@ _CALL_SERVICE_TARGET_PARAMS: Final[frozenset[str]] = frozenset(
     {"entity_id", "area_id", "device_id"}
 )
 _MAX_ENTITY_STATE_FETCHES: Final[int] = 10
+# Total wall-clock budget for the optional post-call state observation.
+_OBSERVATION_BUDGET_SECONDS: Final[float] = 2.0
 
 # Phase 0 containment for effects that already have a narrower lifecycle,
 # update, reload, or shell policy surface.  This is intentionally not an
@@ -267,9 +270,10 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
 
     Returns:
         ``{ok: True, changed_states}`` with the HA response (list of state
-        objects that changed) or an error dict.  When the fallback snapshot
-        covers only part of the targeted entities, ``changed_states_truncated``
-        is ``True`` and ``targeted_entity_count`` gives the full count.
+        objects that changed) or an error dict.  When HA returns no changed
+        states and entity IDs were named, a best-effort snapshot is added with
+        ``changed_states_complete`` (``True`` only if every targeted ID returned
+        a state) and ``targeted_entity_count``.
     """
     unknown = sorted(set(params) - _CALL_SERVICE_PARAMS)
     if unknown:
@@ -650,29 +654,33 @@ async def _fetch_entity_states(
     newer versions; this provides a post-call snapshot when the caller named
     explicit entity IDs.  area_id and device_id targets are not handled here
     because enumerating their members requires additional registry calls.
-    Errors from individual fetches are silently skipped so a partially-unavailable
-    entity does not fail the whole response.  At most ``_MAX_ENTITY_STATE_FETCHES``
-    IDs are fetched; when more were targeted the second return value carries
-    ``changed_states_truncated`` and ``targeted_entity_count`` so the partial
-    snapshot is never presented as complete (it is empty otherwise).
+    The reads run concurrently under one ``_OBSERVATION_BUDGET_SECONDS``
+    deadline and never raise: the service call already succeeded, so a failed
+    or slow observation only lowers completeness.  At most
+    ``_MAX_ENTITY_STATE_FETCHES`` IDs are read.  The second return value carries
+    ``changed_states_complete`` (every targeted ID returned a state) and
+    ``targeted_entity_count`` so a partial snapshot is never presented as whole.
     """
     if isinstance(entity_ids, str):
         entity_ids = [entity_ids]
+    paths = [
+        f"/api/states/{encoded}"
+        for eid in entity_ids[:_MAX_ENTITY_STATE_FETCHES]
+        if (encoded := _encode_path_segment(eid)) is not None
+    ]
+    tasks = [asyncio.ensure_future(ha_get(path)) for path in paths]
+    if tasks:
+        await asyncio.wait(tasks, timeout=_OBSERVATION_BUDGET_SECONDS)
     states: list[dict[str, Any]] = []
-    for eid in entity_ids[:_MAX_ENTITY_STATE_FETCHES]:
-        encoded = _encode_path_segment(eid)
-        if encoded is None:
+    for task in tasks:
+        if not task.done():
+            task.cancel()
+        elif task.cancelled() or task.exception() is not None:
             continue
-        try:
-            state = await ha_get(f"/api/states/{encoded}")
-        except (HAClientError, TimeoutError):
-            continue
-        if isinstance(state, dict):
+        elif isinstance(state := task.result(), dict):
             states.append(state)
-    extra: dict[str, Any] = {}
-    if len(entity_ids) > _MAX_ENTITY_STATE_FETCHES:
-        extra = {"changed_states_truncated": True, "targeted_entity_count": len(entity_ids)}
-    return states, extra
+    complete = len(states) == len(entity_ids) <= _MAX_ENTITY_STATE_FETCHES
+    return states, {"changed_states_complete": complete, "targeted_entity_count": len(entity_ids)}
 
 
 def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
