@@ -153,7 +153,8 @@ openclaw gateway restart
 ```
 
 If the plugin's command surface changed (tools added or removed), also update
-the per-node policy in `~/.openclaw/openclaw.json` and restart again.
+the gateway command allowlist (`nodes.allowCommands` in
+`~/.openclaw/openclaw.json`) and restart again.
 
 ---
 

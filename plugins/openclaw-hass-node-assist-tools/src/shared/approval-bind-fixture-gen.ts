@@ -32,6 +32,10 @@ const SPECIAL_STRINGS = [
   "\u0000", "\u001f", "\u007f", "  ", "\b\f\n\r\t", "\"\\/", "café ☃", "﻿", "￿",
 ];
 
+// `10 ** n` is not correctly rounded for large |n| and differs between V8 versions;
+// parsing the literal is, so the generated numbers are identical on every Node.
+const pow10 = (n: number): number => Number(`1e${n}`);
+
 export interface FixtureCase {
   command: string;
   action: string;
@@ -70,8 +74,8 @@ export function generateCases(): FixtureCase[] {
       case 3: {
         const mode = int(4);
         if (mode === 0) return String(Math.trunc((rnd() - 0.5) * 2 ** 53));
-        const m = (rnd() - 0.5) * 10 ** int(8);
-        const x = mode === 1 ? m : mode === 2 ? m * 10 ** (int(60) - 30) : m / 10 ** int(25);
+        const m = (rnd() - 0.5) * pow10(int(8));
+        const x = mode === 1 ? m : mode === 2 ? m * pow10(int(60) - 30) : m / pow10(int(25));
         return Number.isFinite(x) ? String(x) : "0";
       }
       case 4: return JSON.stringify(randString());
