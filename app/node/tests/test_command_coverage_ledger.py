@@ -1119,7 +1119,10 @@ def test_plugin_version_is_recorded_and_rendered(
 
 def _manual_with_fix_reference(generator: Any, later_pass: str | None = None, **fix: Any) -> Any:
     manual = _manual_with_observation(generator, outcome="fail", **fix)
-    if later_pass is not None:
+    if later_pass is None:
+        # A lone live failure uniformly contradicts the default declared pass.
+        manual["commands"]["ha.get_config"]["outcome"] = "fail"
+    else:
         later = copy.deepcopy(manual["commands"]["ha.get_config"]["caller_observations"])
         later["assist_wrapper"][0].update(
             outcome="pass", observed_at=later_pass, node_version="2026.9.13b1"
@@ -1704,3 +1707,82 @@ def test_a_second_coverage_section_is_rejected() -> None:
     )
     with pytest.raises(generator.LedgerError, match="table links emitted more than once"):
         generator._assert_anchors_round_trip(document, rows)
+
+
+def _caller_evidence(*pairs: tuple[str, str]) -> dict[str, Any]:
+    return {
+        f"caller{index}": {"evidence": [{"method": method, "outcome": outcome}]}
+        for index, (method, outcome) in enumerate(pairs)
+    }
+
+
+@pytest.mark.parametrize(
+    ("declared", "pairs"),
+    [
+        ("pass", [("PRODUCTION-LIVE", "pass"), ("CODE-PROVEN", "pass")]),
+        # Declared pass over a uniform live partial is the drift being refused.
+        ("partial", [("PRODUCTION-LIVE", "partial"), ("TEST-PROVEN", "pass")]),
+        # Cross-caller disagreement at the top rank stays a valid partial.
+        ("partial", [("PRODUCTION-LIVE", "pass"), ("PRODUCTION-LIVE", "fail")]),
+        # A live pass is the absence of a symptom: it must not erase a code defect.
+        ("partial", [("PRODUCTION-LIVE", "pass"), ("CODE-PROVEN", "fail")]),
+        # Without live evidence the declared verdict is authored judgment.
+        ("partial", [("CODE-PROVEN", "pass"), ("UNVERIFIED", "unverified")]),
+        ("refused-as-designed", [("PRODUCTION-LIVE", "refused-as-designed")]),
+    ],
+)
+def test_rollup_consistent_with_evidence_is_accepted(
+    declared: str, pairs: list[tuple[str, str]]
+) -> None:
+    generator = _load_generator()
+    generator._validate_rollup_against_evidence("row", declared, _caller_evidence(*pairs))
+
+
+@pytest.mark.parametrize(
+    ("declared", "pairs"),
+    [
+        ("pass", [("PRODUCTION-LIVE", "partial"), ("TEST-PROVEN", "pass")]),
+        ("pass", [("PRODUCTION-LIVE", "refused-as-designed"), ("CODE-PROVEN", "pass")]),
+        ("partial", [("PRODUCTION-LIVE", "pass"), ("TEST-PROVEN", "pass")]),
+        ("pass", [("PRODUCTION-LIVE", "fail"), ("PRODUCTION-LIVE", "fail")]),
+    ],
+)
+def test_rollup_contradicting_top_ranked_evidence_is_refused(
+    declared: str, pairs: list[tuple[str, str]]
+) -> None:
+    generator = _load_generator()
+    with pytest.raises(generator.LedgerError, match=r"^row declares outcome .* highest-ranked"):
+        generator._validate_rollup_against_evidence("row", declared, _caller_evidence(*pairs))
+
+
+def test_manual_row_contradicting_its_live_evidence_fails_generation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    generator = _load_generator()
+    manual = copy.deepcopy(generator._load_manual())
+    manual["commands"]["ha.list_automations"]["outcome"] = "pass"
+    monkeypatch.setattr(generator, "_load_manual", lambda: manual)
+    with pytest.raises(generator.LedgerError, match=r"ha\.list_automations declares outcome"):
+        generator.build_ledger()
+
+
+def test_corrected_rollups_pass_and_keep_per_method_cells() -> None:
+    rows = {r["id"]: r for r in _load_generator().build_ledger()["rows"]}
+    assert rows["ha.list_automations"]["outcome"] == "partial"
+    assert rows["system.run"]["outcome"] == "refused-as-designed"
+    # The live pass on ha.logbook does not erase the code-level finding.
+    assert rows["ha.logbook"]["outcome"] == "partial"
+    methods = {e["method"] for c in rows["ha.logbook"]["callers"].values() for e in c["evidence"]}
+    assert {"CODE-PROVEN", "PRODUCTION-LIVE"} <= methods
+
+
+@pytest.mark.parametrize("defect", ["fail", "partial"])
+def test_live_pass_cannot_erase_a_known_code_defect_into_a_pass_rollup(defect: str) -> None:
+    generator = _load_generator()
+    callers = _caller_evidence(
+        ("PRODUCTION-LIVE", "pass"), ("DISPOSABLE-LIVE", "pass"), ("CODE-PROVEN", defect)
+    )
+    with pytest.raises(
+        generator.LedgerError, match=r"^row declares outcome 'pass' but lower-ranked"
+    ):
+        generator._validate_rollup_against_evidence("row", "pass", callers)

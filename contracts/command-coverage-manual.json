@@ -367,8 +367,8 @@
     "system.run": {
       "authorization_class": "operator_approval",
       "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
-      "evidence_method": "TEST-PROVEN",
-      "outcome": "pass",
+      "evidence_method": "PRODUCTION-LIVE",
+      "outcome": "refused-as-designed",
       "acceptance_test_ids": [
         {
           "id": "app/node/tests/test_system_run_gateway_contract.py::test_forwarded_plan_executes_and_returns_native_payload",
@@ -1016,7 +1016,7 @@
         "state_filter": "non-empty string, capped at 256 chars; exact match against the state field"
       },
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "pass",
+      "outcome": "partial",
       "acceptance_test_ids": [
         {
           "id": "app/node/tests/test_ha_commands.py::test_list_automations_entity_filter_no_match_returns_empty",
