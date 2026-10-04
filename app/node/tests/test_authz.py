@@ -527,3 +527,24 @@ def test_scrub_code_masks_embedded_escaped_and_nested_occurrences() -> None:
     assert scrub_code(value, None) is value
     assert scrub_code(value, "") is value
     assert scrub_code("12 apples", "12") == "[redacted] apples"
+
+
+def test_scrub_code_masks_numeric_values_and_keys_but_not_booleans() -> None:
+    value = {"a": 482913, "b": [482913.0, {"c": 482913}], "t": True, "o": 482914, "f": 1.5}
+
+    out = scrub_code(value, 482913)
+    assert out == {
+        "a": "[redacted]",
+        "b": ["[redacted]", {"c": "[redacted]"}],
+        "t": True,
+        "o": 482914,
+        "f": 1.5,
+    }
+    # A string code masks the same number echoed as a JSON number.
+    assert scrub_code({"a": 482913, "k": "pin 482913"}, "482913") == {
+        "a": "[redacted]",
+        "k": "pin [redacted]",
+    }
+    assert scrub_code({482913: "k"}, 482913) == {"[redacted]": "k"}
+    # True is an int subclass but never a code; code 1 leaves a boolean alone.
+    assert scrub_code({"t": True, "n": 1}, 1) == {"t": True, "n": "[redacted]"}

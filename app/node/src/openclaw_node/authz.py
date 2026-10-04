@@ -128,10 +128,23 @@ def redact_code(params: dict[str, Any]) -> dict[str, Any]:
 _REDACTED: Final[str] = "[redacted]"
 
 
+def _is_number(item: object) -> bool:
+    """True for a JSON number; ``bool`` is an ``int`` subclass but never a code."""
+    return isinstance(item, int | float) and not isinstance(item, bool)
+
+
+def _number_form(item: Any) -> str:
+    """Canonical text of a number: an integral float prints without ``.0``."""
+    if isinstance(item, float) and item.is_integer():
+        return str(int(item))
+    return str(item)
+
+
 def scrub_code(value: Any, code: object) -> Any:
     """Return ``value`` with every occurrence of a supplied ``code`` masked.
 
-    Recurses through dicts (keys and values), lists, and strings, replacing
+    Recurses through dicts (keys and values), lists, strings, and JSON numbers
+    (a numeric value whose text equals the code is masked; booleans never are), replacing
     each literal occurrence (plain substring, no word boundaries, so ``x482913x``
     is masked too) and its JSON-escaped form. Fails safe: a short code such as
     ``12`` masks that text wherever it appears, which over-redacts ordinary
@@ -139,11 +152,13 @@ def scrub_code(value: Any, code: object) -> Any:
     """
     if code is None or code == "":
         return value
-    raw = str(code)
+    raw = _number_form(code) if _is_number(code) else str(code)
     escaped = json.dumps(raw)[1:-1]
     needles = sorted({raw, escaped}, key=len, reverse=True)
 
     def walk(item: Any) -> Any:
+        if _is_number(item) and _number_form(item) == raw:
+            return _REDACTED
         if isinstance(item, str):
             for needle in needles:
                 item = item.replace(needle, _REDACTED)
