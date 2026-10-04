@@ -10889,7 +10889,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "pass",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -12957,7 +12957,7 @@
       ],
       "capability_conditions": "Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.",
       "command": "system.run",
-      "evidence_method": "TEST-PROVEN",
+      "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.system_run:handle_system_run",
@@ -12974,7 +12974,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "pass",
+      "outcome": "refused-as-designed",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",

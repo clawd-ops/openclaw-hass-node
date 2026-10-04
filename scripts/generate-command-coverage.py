@@ -944,6 +944,51 @@ def _derive_reprobe_owed(items: list[dict[str, Any]]) -> None:
         )
 
 
+_LIVE_METHODS = frozenset({"DISPOSABLE-LIVE", "PRODUCTION-LIVE"})
+
+
+def _validate_rollup_against_evidence(row_id: str, declared: str, callers: dict[str, Any]) -> None:
+    """Fail when a declared rollup contradicts its own highest-ranked live evidence.
+
+    Implements the ratified conflict rule (docs/VERIFICATION-2026-09-11.md): live
+    evidence outranks repo inference; repo evidence outranks live *absence* of a
+    symptom. Ranking is the EVIDENCE_METHODS order (UNVERIFIED lowest,
+    PRODUCTION-LIVE highest). The verdict stays declared, never derived: this only
+    refuses a verdict the top-ranked evidence uniformly contradicts. Disagreement
+    between callers at the top rank is a real state and is never flagged.
+    """
+    items = [
+        item
+        for caller in callers.values()
+        for item in caller["evidence"]
+        if item["method"] != "UNVERIFIED" and item["outcome"] != "unverified"
+    ]
+    # A live pass is only the absence of a symptom when a lower-ranked method
+    # recorded a defect, so it must not outrank that finding.
+    has_defect = any(
+        item["method"] not in _LIVE_METHODS and item["outcome"] in ("fail", "partial")
+        for item in items
+    )
+    if has_defect:
+        items = [
+            item
+            for item in items
+            if not (item["method"] in _LIVE_METHODS and item["outcome"] == "pass")
+        ]
+    if not items:
+        return
+    top = max(EVIDENCE_METHODS.index(item["method"]) for item in items)
+    if EVIDENCE_METHODS[top] not in _LIVE_METHODS:
+        return
+    outcomes = {item["outcome"] for item in items if EVIDENCE_METHODS.index(item["method"]) == top}
+    if len(outcomes) == 1 and declared not in outcomes:
+        raise LedgerError(
+            f"{row_id} declares outcome {declared!r} but its highest-ranked evidence "
+            f"({EVIDENCE_METHODS[top]}) uniformly records {next(iter(outcomes))!r}; "
+            "correct the row or record the contrary evidence"
+        )
+
+
 def _caller(
     status: str,
     source: str,
@@ -1506,6 +1551,7 @@ def build_ledger() -> dict[str, Any]:
                     caller_items.append(item)
                 _derive_reprobe_owed(caller_items)
                 row_callers[caller_name]["evidence"].extend(caller_items)
+            _validate_rollup_against_evidence(row_id, outcome, row_callers)
             # Only a genuinely absent key defaults. `or []` used to run before the
             # type check, so an explicit "", 0, false or {} was silently accepted
             # as "no citations" instead of being rejected as malformed, and an
