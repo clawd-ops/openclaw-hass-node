@@ -492,8 +492,8 @@ default) requires no action.
 - **Phase 2 architecture reshape (PR #171).** Reorganized `docs/` into four
   audience-grouped folders (`design/`, `reference/`, `operations/`,
   `research/`), absorbed 4 overlap files (OVERVIEW, PACKAGING, PROCESS,
-  QUESTIONS-FOR-OWNER), and stripped duplicated content so STATUS / MEMORY /
-  PLAN no longer overlap. README.md gained the "Security model" and
+  and the open-questions handoff), and stripped duplicated content so
+  STATUS / MEMORY / PLAN no longer overlap. README.md gained the "Security model" and
   "What this is not" sections that previously lived in OVERVIEW.
 
 ## 2026.6.20b7 (2026-06-24) — HA Assist identity routing + Tier B add-on lifecycle commands

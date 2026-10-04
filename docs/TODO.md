@@ -8,7 +8,7 @@ Supersedes (historical reference only; the in-repo handoff files were
 deleted in PR #150, workspace-side originals remain on disk):
 - `docs/HANDOFF-2026-06-20-streaming-followups.md` (deleted)
 - `docs/HANDOFF-2026-06-20-addon-command-surface.md` (deleted)
-- `docs/QUESTIONS-FOR-OWNER.md` (deleted in Phase 2 doc reshape; Q1/Q2 carried below)
+- the open-questions handoff to the owner (deleted in Phase 2 doc reshape; Q1/Q2 carried below)
 - `~/.openclaw/workspace/handoffs/2026-06-20-ha-assist-followups.md`
 - `~/.openclaw/workspace/handoffs/2026-06-20-MASTER-todo.md` (this file's original location)
 
