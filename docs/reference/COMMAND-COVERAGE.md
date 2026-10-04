@@ -531,7 +531,7 @@ _(no unreleased command additions)_
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `fail`**
 - Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/324" target="_blank" rel="noopener noreferrer">#324</a>
-- Evidence note: Sept 13 fs mutation sweep: restores, but silently returns a different version than requested.
+- Evidence note: Sept 13 fs mutation sweep (deployed build): version=0 was accepted and clamped instead of rejected; 1-based selection is documented. Current source rejects version=0 and adds version_id.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -575,7 +575,7 @@ _(no unreleased command additions)_
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: fs.restore is 1-based while fs.history returns a 0-based array: version=1 returned entry 0 and version=4 returned entry 3, and version=0 was silently clamped rather than rejected. A caller asking for a specific version receives a different one with no error. Data-integrity class. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`fail`**: On the deployed build, fs.restore accepted version=0 and clamped it to entry 0 instead of rejecting it. version=1 returning entry 0 and version=4 returning entry 3 is the documented 1-indexed selection over the 0-indexed history array, not a defect. Current source rejects version=0 as out of range and adds a version_id selector (the sha256 fs.history returns); this observation predates that fix. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no filesystem restore wrapper. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
