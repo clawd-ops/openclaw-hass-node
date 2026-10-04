@@ -4144,7 +4144,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - **Outcome: `refused-as-designed`**
 - Evidence note: Delivered by #258. Live operator allow/deny cycle observation remains a UAT gate rather than a source change.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
-- Direct caller: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
+- Direct caller: A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist intentionally has no shell-execution wrapper; shell execution is an operator surface.
 - Parameter details:
@@ -4215,7 +4215,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual normalized note", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
-  - `direct_nodes_invoke` / `CODE-PROVEN` / **`refused-as-designed`**: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`refused-as-designed`**: A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `app/node/src/openclaw_node/commands/system_run.py::_verify_authorization`)
   - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`refused-as-designed`**: Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan. (source: `docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable`) [node_version=2026.7.23b1; plugin_version=not recorded; observed_at=2026-09-11; **STALE**]
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist intentionally has no shell-execution wrapper; shell execution is an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
@@ -4246,7 +4246,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - **Outcome: `unverified`**
 - Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
-- Direct caller: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
+- Direct caller: A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist does not expose host shell preparation; exec approvals are an operator surface.
 - Parameter details:
@@ -4282,7 +4282,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
-  - `direct_nodes_invoke` / `CODE-PROVEN` / **`refused-as-designed`**: Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell`)
+  - `direct_nodes_invoke` / `CODE-PROVEN` / **`refused-as-designed`**: A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `app/node/src/openclaw_node/commands/system_run.py::_verify_authorization`)
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose host shell preparation; exec approvals are an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:

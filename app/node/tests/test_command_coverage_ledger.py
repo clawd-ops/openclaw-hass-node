@@ -1223,7 +1223,7 @@ def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None
     """A design document is not an observation.
 
     The generator's `system.run*` direct-path branch emitted PRODUCTION-LIVE with
-    `docs/design/AUTHORIZATION-MODEL.md` as its source. Because that branch builds
+    a design document (`AUTHORIZATION-MODEL.md`) as its source. Because that branch builds
     the caller directly, it also bypassed the provenance validation applied to
     manual observations, producing live-evidence rows with no `observed_at`, no
     `node_version` and no staleness.
@@ -1241,7 +1241,7 @@ def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None
         design_sourced = [
             observation
             for observation in evidence
-            if "AUTHORIZATION-MODEL.md" in observation["source"]
+            if "system_run.py::_verify_authorization" in observation["source"]
         ]
         assert design_sourced, f"{command} should retain its design-derived row"
         for observation in design_sourced:

@@ -12718,9 +12718,9 @@
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+              "observation": "A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
               "outcome": "refused-as-designed",
-              "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell"
+              "source": "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization"
             },
             {
               "method": "PRODUCTION-LIVE",
@@ -12733,8 +12733,8 @@
               "stale": true
             }
           ],
-          "reason": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
-          "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
+          "reason": "A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+          "source": "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization",
           "status": "unavailable"
         },
         "handler_dispatch": {
@@ -13009,13 +13009,13 @@
           "evidence": [
             {
               "method": "CODE-PROVEN",
-              "observation": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+              "observation": "A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
               "outcome": "refused-as-designed",
-              "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell"
+              "source": "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization"
             }
           ],
-          "reason": "Direct nodes.invoke is refused by the Gateway by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
-          "source": "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
+          "reason": "A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
+          "source": "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization",
           "status": "unavailable"
         },
         "handler_dispatch": {

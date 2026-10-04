@@ -1231,17 +1231,18 @@ def build_ledger() -> dict[str, Any]:
             )
 
         if command in {"system.run", "system.run.prepare"}:
-            # CODE-PROVEN, not PRODUCTION-LIVE. The source here is a design
-            # document, and neither command appears in the September 13 sweep,
+            # CODE-PROVEN, not PRODUCTION-LIVE. The source here is the node-side
+            # authorization guard, and neither command appears in the September 13 sweep,
             # so there is no observation behind this row. Labelling it
             # PRODUCTION-LIVE also bypassed provenance validation, which is only
             # applied to manual observations, and emitted a live-evidence row
             # carrying no observed_at, node_version, or staleness.
             direct_path = _caller(
                 "unavailable",
-                "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
+                "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization",
                 (
-                    "Direct nodes.invoke is refused by the Gateway by design; "
+                    "A direct nodes.invoke carrying no Gateway approval envelope is refused "
+                    "by the node (UNAUTHORIZED); the Gateway also refuses it by design; "
                     "reach this command through the OpenClaw exec tool with host=node, "
                     "which prepares the canonical systemRunPlan and forwards it after "
                     "operator approval."
