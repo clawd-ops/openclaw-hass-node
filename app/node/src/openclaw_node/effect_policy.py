@@ -2,7 +2,7 @@
 
 ``check`` returns a structured refusal or ``None``. It decides before any
 handler runs, so a refusal makes zero HA requests. The service denylist is the
-single one in ``commands.ha``; the auto-allow set is the single constant in
+single one in ``commands.ha``; the allowed set is the single table in
 ``authz``. No approval is ever inferred from a parameter.
 
 Principal x outcome:
@@ -19,9 +19,9 @@ import logging
 from typing import Any, Final, Literal
 
 from openclaw_node.authz import (
-    HOUSEHOLD_AUTO_ALLOW_SERVICES,
     USER_ALLOWED_COMMANDS,
     is_forbidden,
+    service_allowed,
     service_for_command,
 )
 from openclaw_node.caller import Caller
@@ -32,7 +32,6 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 Effect = Literal["deny", "auto_allow", "unclassified"]
 
 DENY: Final = _INTERIM_DENIED_SERVICE_PATTERNS
-AUTO_ALLOW: Final = HOUSEHOLD_AUTO_ALLOW_SERVICES
 
 
 def classify(service: str | None) -> Effect:
@@ -42,7 +41,7 @@ def classify(service: str | None) -> Effect:
     domain, _, name = service.partition(".")
     if _interim_service_denial(domain, name):
         return "deny"
-    if service in AUTO_ALLOW:
+    if service_allowed(service):
         return "auto_allow"
     return "unclassified"
 

@@ -25,11 +25,72 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 Role = Literal["user", "admin", "super_admin"]
 
-# The only services household and HA-admin principals may call without an
-# approval path. One constant: `is_forbidden` defines `ha.call_service:*` as
-# "every service except these", and the disclaimer prints the same tuple, so the
-# printed rule and enforcement cannot disagree. No toggle.
-HOUSEHOLD_AUTO_ALLOW_SERVICES: Final[tuple[str, ...]] = ("light.turn_on", "light.turn_off")
+# The only services household and HA-admin principals may call. domain ->
+# allowed services; ``None`` means every ordinary control service of that domain
+# (anything but ``reload``/``reload_*``). One table: `is_forbidden` defines
+# `ha.call_service:*` as "every service outside this table", the effect policy
+# classifies from it, and the disclaimer prints it, so the printed rule and
+# enforcement cannot disagree. No toggle. The deny-class list in
+# ``commands.ha`` still refuses first, for every caller.
+#
+# Security devices follow Home Assistant's own model: HA validates the ``code``
+# a lock or alarm requires. The node adds no block and never stores, logs, or
+# echoes a code (see ``redact_code``).
+HOUSEHOLD_ALLOWED_SERVICES: Final[dict[str, frozenset[str] | None]] = {
+    **dict.fromkeys(
+        (
+            "light",
+            "switch",
+            "media_player",
+            "scene",
+            "cover",
+            "climate",
+            "fan",
+            "input_boolean",
+            "input_select",
+            "input_number",
+            "vacuum",
+            "humidifier",
+            "water_heater",
+            "remote",
+        )
+    ),
+    "script": frozenset({"turn_on"}),
+    "button": frozenset({"press"}),
+    "lock": frozenset({"lock", "unlock", "open"}),
+    "alarm_control_panel": frozenset(
+        {
+            "alarm_arm_away",
+            "alarm_arm_home",
+            "alarm_arm_night",
+            "alarm_arm_vacation",
+            "alarm_arm_custom_bypass",
+            "alarm_disarm",
+        }
+    ),
+}
+
+
+def service_allowed(service: str) -> bool:
+    """Whether a canonical ``domain.service`` is in ``HOUSEHOLD_ALLOWED_SERVICES``."""
+    domain, _, name = service.partition(".")
+    if domain not in HOUSEHOLD_ALLOWED_SERVICES:
+        return False
+    allowed = HOUSEHOLD_ALLOWED_SERVICES[domain]
+    if allowed is None:
+        return name != "reload" and not name.startswith("reload_")
+    return name in allowed
+
+
+def redact_code(params: dict[str, Any]) -> dict[str, Any]:
+    """Copy of call params with any service-data ``code`` masked, for log lines."""
+    out = dict(params)
+    for key in ("data", "service_data"):
+        value = out.get(key)
+        if isinstance(value, dict) and "code" in value:
+            out[key] = {**value, "code": "***"}
+    return out
+
 
 # Light wrappers share the generic service decision (one policy, no second path).
 _WRAPPER_SERVICES: Final[dict[str, str]] = {
@@ -328,7 +389,7 @@ def is_forbidden(forbidden: Iterable[str], command: str, params: dict[str, objec
 
     Entries are exact command names or ``ha.call_service:<glob>`` over the
     canonical ``domain.service``. ``ha.call_service:*`` means every service
-    except ``HOUSEHOLD_AUTO_ALLOW_SERVICES``. Light wrappers are matched as the
+    outside ``HOUSEHOLD_ALLOWED_SERVICES``. Light wrappers are matched as the
     service they call. A malformed service name is forbidden whenever any
     service entry exists (fail closed).
     """
@@ -347,7 +408,7 @@ def is_forbidden(forbidden: Iterable[str], command: str, params: dict[str, objec
         return True
     for pattern in patterns:
         if pattern == "*":
-            if service not in HOUSEHOLD_AUTO_ALLOW_SERVICES:
+            if not service_allowed(service):
                 return True
         elif fnmatch.fnmatchcase(service, pattern):
             return True
@@ -404,27 +465,44 @@ def build_disclaimer(
     )
 
 
-def _params_for(service: str) -> dict[str, object]:
-    domain, _, name = service.partition(".")
-    return {"domain": domain, "service": name}
+_PATTERN_ALL: Final[str] = "*"
 
 
 def _service_exception(forbidden: tuple[str, ...]) -> str:
     """Render which services stay callable under ``ha.call_service:*``.
 
-    Computed from ``is_forbidden`` so a patched specific entry is reflected.
+    Computed from the same table and ``is_forbidden``, so a patched specific
+    entry is reflected: a fully forbidden domain disappears, a forbidden
+    service in an open domain is listed as an exclusion.
     """
     if f"{_CALL_SERVICE_PREFIX}*" not in forbidden:
         return ""
-    allowed = [
-        service
-        for service in HOUSEHOLD_AUTO_ALLOW_SERVICES
-        if not is_forbidden(forbidden, "ha.call_service", _params_for(service))
+    patterns = [
+        e[len(_CALL_SERVICE_PREFIX) :]
+        for e in forbidden
+        if e.startswith(_CALL_SERVICE_PREFIX) and e != f"{_CALL_SERVICE_PREFIX}*"
     ]
-    listed = ", ".join(allowed) if allowed else "none"
+    parts: list[str] = []
+    for domain, names in HOUSEHOLD_ALLOWED_SERVICES.items():
+        if names is None:
+            relevant = [p for p in patterns if p.startswith((f"{domain}.", "*"))]
+            if f"{domain}.*" in relevant:
+                continue
+            note = f" (except {', '.join(relevant)})" if relevant else ""
+            parts.append(f"{domain}.*{note}")
+            continue
+        parts.extend(
+            f"{domain}.{n}"
+            for n in sorted(names)
+            if not is_forbidden(forbidden, "ha.call_service", {"domain": domain, "service": n})
+        )
+    listed = ", ".join(parts) if parts else "none"
     return (
         "Exception: because the forbidden list includes ha.call_service:*, the only "
-        f"services that may still be called are: {listed}.\n\n"
+        f"services that may still be called are: {listed}. In the domains written "
+        "with .* that means ordinary control services only, never reload. Locks and "
+        "alarms may require a code: pass along only a code the user actually "
+        "supplied, and never guess or invent one.\n\n"
     )
 
 

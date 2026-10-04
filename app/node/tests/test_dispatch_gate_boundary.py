@@ -21,9 +21,10 @@ from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
 from openclaw_node import gateway_ws
-from openclaw_node.caller import UNTRUSTED
+from openclaw_node.authz import Actor, resolve_turn_authz
+from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.chat_relay import ChatRelay
-from openclaw_node.config import NodeConfig
+from openclaw_node.config import IdentityConfig, NodeConfig
 from openclaw_node.gateway_ws import GatewayClient
 from openclaw_node.http_api import NodeRuntime, create_app
 from openclaw_node.identity import generate_identity
@@ -110,9 +111,10 @@ def household_user(monkeypatch: pytest.MonkeyPatch) -> None:
     ("command", "params"),
     [
         ("ha.call_service", {"domain": "shell_command", "service": "anything"}),
-        ("ha.call_service", {"domain": "lock", "service": "unlock"}),
-        ("ha.call_service", {"domain": "light", "service": "toggle"}),
-        ("ha.call_service", {"domain": "switch", "service": "turn_on"}),
+        ("ha.call_service", {"domain": "automation", "service": "trigger"}),
+        ("ha.call_service", {"domain": "script", "service": "reload"}),
+        ("ha.call_service", {"domain": "script", "service": "turn_off"}),
+        ("ha.call_service", {"domain": "homeassistant", "service": "turn_off"}),
         ("ha.reload_config", {}),
         ("ha.addon_restart", {"slug": "core_ssh"}),
         ("ha.addon_update", {"slug": "core_ssh"}),
@@ -128,7 +130,12 @@ async def test_ws_household_user_refused_with_zero_ha_requests(
 ) -> None:
     sent = await _invoke(tmp_path, command, params)
     assert sent["ok"] is False
-    expected = "SERVICE_DENIED" if params.get("domain") == "shell_command" else "PERMISSION_DENIED"
+    denied = {"shell_command", "script"}
+    expected = (
+        "SERVICE_DENIED"
+        if params.get("domain") in denied and params.get("service") != "turn_off"
+        else "PERMISSION_DENIED"
+    )
     assert sent["error"]["code"] == expected
     assert ha_requests == []
 
@@ -189,11 +196,159 @@ async def test_event_loop_frame_household_user_refused_with_zero_ha_requests(
 ) -> None:
     """Role refusal through real ingress; the caller constant is swapped until WP2c-2."""
     sent = await _invoke_via_event_loop(
-        tmp_path, "ha.call_service", {"domain": "lock", "service": "unlock"}
+        tmp_path, "ha.call_service", {"domain": "automation", "service": "trigger"}
     )
     assert sent["ok"] is False
     assert sent["error"]["code"] == "PERMISSION_DENIED"
     assert ha_requests == []
+
+
+class _Stub:
+    """Recording HA stub with a scripted reply, bodies included."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, Any]] = []
+        self.status = 200
+        self.reply: Any = []
+
+
+@pytest_asyncio.fixture
+async def ha_stub(monkeypatch: pytest.MonkeyPatch) -> AsyncGenerator[_Stub]:
+    stub = _Stub()
+
+    async def _record(request: web.Request) -> web.Response:
+        body = await request.json() if request.can_read_body else None
+        stub.calls.append((request.path, body))
+        return web.json_response(stub.reply, status=stub.status)
+
+    app = web.Application()
+    app.router.add_route("*", "/{tail:.*}", _record)
+    server = TestServer(app)
+    await server.start_server()
+    monkeypatch.delenv("SUPERVISOR_TOKEN", raising=False)
+    monkeypatch.setenv("HASS_URL", str(server.make_url("")))
+    monkeypatch.setenv("HASS_TOKEN", "stub-token")
+    try:
+        yield stub
+    finally:
+        await server.close()
+
+
+def _as_role(monkeypatch: pytest.MonkeyPatch, is_admin: bool) -> None:
+    turn = resolve_turn_authz(IdentityConfig(), Actor("u", is_admin=is_admin))
+    monkeypatch.setattr(gateway_ws, "_INVOKE_CALLER", Caller.from_turn(turn))
+
+
+_EVERYDAY: list[tuple[str, str]] = [
+    ("light", "turn_on"),
+    ("media_player", "turn_on"),
+    ("switch", "turn_on"),
+    ("scene", "turn_on"),
+    ("script", "turn_on"),
+    ("button", "press"),
+    ("cover", "open_cover"),
+    ("lock", "unlock"),
+    ("alarm_control_panel", "alarm_disarm"),
+]
+
+
+@pytest.mark.parametrize("is_admin", [False, True])
+@pytest.mark.parametrize(("domain", "service"), _EVERYDAY)
+async def test_ws_everyday_control_reaches_ha_for_user_and_admin(
+    domain: str,
+    service: str,
+    is_admin: bool,
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    tmp_path: Path,
+) -> None:
+    _as_role(monkeypatch, is_admin)
+    params = {"domain": domain, "service": service, "target": {"entity_id": f"{domain}.x"}}
+
+    sent = await _invoke(tmp_path, "ha.call_service", params)
+
+    assert sent["ok"] is True
+    assert ha_stub.calls[0] == (f"/api/services/{domain}/{service}", {"entity_id": f"{domain}.x"})
+
+
+async def test_ws_user_non_allowlisted_service_makes_zero_ha_requests(
+    monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
+) -> None:
+    _as_role(monkeypatch, False)
+
+    sent = await _invoke(
+        tmp_path, "ha.call_service", {"domain": "automation", "service": "trigger"}
+    )
+
+    assert sent["error"]["code"] == "PERMISSION_DENIED"
+    assert ha_stub.calls == []
+
+
+async def test_ws_lock_code_reaches_ha_but_not_logs_or_result(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    _as_role(monkeypatch, False)
+    params = {
+        "domain": "lock",
+        "service": "unlock",
+        "target": {"entity_id": "lock.front"},
+        "data": {"code": "482913"},
+    }
+
+    with caplog.at_level("DEBUG"):
+        sent = await _invoke(tmp_path, "ha.call_service", params)
+
+    assert sent["ok"] is True
+    assert ha_stub.calls[0][1] == {"entity_id": "lock.front", "code": "482913"}
+    assert "482913" not in caplog.text
+    assert "482913" not in json.dumps(sent)
+
+
+async def test_ws_ha_code_rejection_is_readable_and_code_free(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
+    _as_role(monkeypatch, True)
+    ha_stub.status = 400
+    ha_stub.reply = {"message": "Invalid code 482913 provided for lock.front"}
+    params = {
+        "domain": "lock",
+        "service": "unlock",
+        "target": {"entity_id": "lock.front"},
+        "data": {"code": "482913"},
+    }
+
+    with caplog.at_level("DEBUG"):
+        sent = await _invoke(tmp_path, "ha.call_service", params)
+
+    assert sent["ok"] is False
+    message = sent["error"]["message"]
+    assert "Invalid code" in message
+    assert "482913" not in message
+    assert "482913" not in caplog.text
+
+
+async def test_ws_missing_code_rejection_is_readable(
+    monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
+) -> None:
+    _as_role(monkeypatch, False)
+    ha_stub.status = 400
+    ha_stub.reply = {"message": "Invalid code for lock.front"}
+
+    sent = await _invoke(
+        tmp_path,
+        "ha.call_service",
+        {"domain": "lock", "service": "unlock", "target": {"entity_id": "lock.front"}},
+    )
+
+    assert sent["ok"] is False
+    assert "Invalid code" in sent["error"]["message"]
+    assert "code" not in ha_stub.calls[0][1]
 
 
 @pytest_asyncio.fixture

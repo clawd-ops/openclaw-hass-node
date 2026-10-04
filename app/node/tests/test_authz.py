@@ -9,13 +9,15 @@ import pytest
 from _pytest.logging import LogCaptureFixture
 
 from openclaw_node.authz import (
-    HOUSEHOLD_AUTO_ALLOW_SERVICES,
+    HOUSEHOLD_ALLOWED_SERVICES,
     Actor,
     actor_from_payload,
     actor_from_signed_body,
     derive_actor_signing_secret,
     is_forbidden,
+    redact_code,
     resolve_turn_authz,
+    service_allowed,
     service_for_command,
     sign_actor,
 )
@@ -318,22 +320,43 @@ def _call(domain: str, service: str) -> dict[str, object]:
     return {"domain": domain, "service": service}
 
 
-def test_light_exception_is_one_constant_in_disclaimer() -> None:
+def test_disclaimer_prints_the_allowed_table() -> None:
     authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
+    exception = authz.disclaimer.split("may still be called are: ")[1].split(". In the domains")[0]
+    printed = set(exception.split(", "))
 
-    assert ", ".join(HOUSEHOLD_AUTO_ALLOW_SERVICES) in authz.disclaimer
-    assert "input_*" not in authz.disclaimer
-    assert "switch" not in authz.disclaimer
+    expected = {
+        f"{d}.*" if names is None else f"{d}.{n}"
+        for d, names in HOUSEHOLD_ALLOWED_SERVICES.items()
+        for n in (names or {"*"})
+    }
+    assert printed == expected
+    assert "shell_command" not in exception
+    assert "never guess or invent" in authz.disclaimer
 
 
 @pytest.mark.parametrize(
     ("domain", "service", "forbidden"),
     [
         ("light", "turn_on", False),
-        ("light", "turn_off", False),
-        ("light", "toggle", True),
-        ("lock", "unlock", True),
-        ("switch", "turn_on", True),
+        ("light", "toggle", False),
+        ("switch", "turn_on", False),
+        ("media_player", "turn_on", False),
+        ("scene", "turn_on", False),
+        ("cover", "open_cover", False),
+        ("climate", "set_temperature", False),
+        ("script", "turn_on", False),
+        ("script", "turn_off", True),
+        ("script", "reload", True),
+        ("button", "press", False),
+        ("button", "reload", True),
+        ("light", "reload", True),
+        ("lock", "unlock", False),
+        ("lock", "set_code", True),
+        ("alarm_control_panel", "alarm_disarm", False),
+        ("alarm_control_panel", "alarm_trigger", True),
+        ("automation", "trigger", True),
+        ("homeassistant", "turn_off", True),
         ("shell_command", "x", True),
     ],
 )
@@ -341,10 +364,20 @@ def test_default_user_policy_matches_printed_rule(
     domain: str, service: str, forbidden: bool
 ) -> None:
     authz = resolve_turn_authz(IdentityConfig(), Actor("kid", is_admin=False))
-    printed = f"{domain}.{service}" in HOUSEHOLD_AUTO_ALLOW_SERVICES
 
     assert is_forbidden(authz.forbidden, "ha.call_service", _call(domain, service)) is forbidden
-    assert printed is (not forbidden) or domain == "shell_command"
+    assert service_allowed(f"{domain}.{service}") is (not forbidden) or domain == "shell_command"
+
+
+def test_redact_code_masks_code_without_mutating_input() -> None:
+    params = {"domain": "lock", "data": {"code": "4321", "x": 1}, "service_data": {"code": 9}}
+
+    redacted = redact_code(params)
+
+    assert redacted["data"] == {"code": "***", "x": 1}
+    assert redacted["service_data"] == {"code": "***"}
+    assert params["data"] == {"code": "4321", "x": 1}
+    assert redact_code({"data": {"x": 1}}) == {"data": {"x": 1}}
 
 
 @pytest.mark.parametrize("role_admin", [False, True])
@@ -375,7 +408,7 @@ def test_every_printed_forbidden_entry_is_enforced_and_vice_versa(role_admin: bo
         assert f"  - {entry}" in authz.disclaimer
         if entry.startswith("ha.call_service:"):
             glob = entry.split(":", 1)[1]
-            sample = _call("lock", "unlock") if glob != "*" else _call("cover", "open_cover")
+            sample = _call("lock", "unlock") if glob != "*" else _call("automation", "trigger")
             if glob.startswith("shell_command"):
                 sample = _call("shell_command", "run")
             elif glob.startswith("python_script"):
@@ -398,7 +431,7 @@ def test_user_service_wildcard_is_non_removable(caplog: LogCaptureFixture) -> No
         authz = resolve_turn_authz(identity, Actor("kid", is_admin=False))
 
     assert "ha.call_service:*" in authz.forbidden
-    assert is_forbidden(authz.forbidden, "ha.call_service", _call("switch", "turn_on"))
+    assert is_forbidden(authz.forbidden, "ha.call_service", _call("automation", "trigger"))
     assert sum("ha.call_service:*" in r.getMessage() for r in caplog.records) == 1
 
 
@@ -420,28 +453,19 @@ def _patched_identity(add: frozenset[str]) -> IdentityConfig:
     return IdentityConfig(forbidden_commands={"user": ForbiddenCommandPatch(add=add)})
 
 
-def test_disclaimer_exception_reflects_patched_light_prohibitions() -> None:
+def test_disclaimer_exception_reflects_patched_prohibitions() -> None:
     kid = Actor("kid", is_admin=False)
-    one = resolve_turn_authz(
-        _patched_identity(
-            frozenset(
-                {
-                    "ha.call_service:light.turn_off",
-                }
-            )
-        ),
-        kid,
-    )
-    both = resolve_turn_authz(
-        _patched_identity(
-            frozenset({"ha.call_service:light.turn_off", "ha.call_service:light.turn_on"})
-        ),
+    one = resolve_turn_authz(_patched_identity(frozenset({"ha.call_service:light.turn_off"})), kid)
+    domain = resolve_turn_authz(
+        _patched_identity(frozenset({"ha.call_service:lock.*", "ha.call_service:button.press"})),
         kid,
     )
 
-    assert "may still be called are: light.turn_on." in one.disclaimer
-    assert "light.turn_off." not in one.disclaimer
-    assert "may still be called are: none." in both.disclaimer
+    assert "light.* (except light.turn_off)" in one.disclaimer
+    assert "lock.unlock" in one.disclaimer
+    assert "lock." not in domain.disclaimer.split("may still be called are: ")[1].split(". In")[0]
+    assert "button.press" not in domain.disclaimer.split("may still be called are: ")[1]
+    assert "light.*," in domain.disclaimer
 
 
 def test_user_forbidden_commands_are_non_removable(caplog: LogCaptureFixture) -> None:

@@ -62,8 +62,13 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   refused until it is classified. The forbidden entries and the generic-service
   restriction cannot be removed by configuration.
 - Service calls are classified by effect, and `ha.call_service` and the light
-  wrappers share one decision. `light.turn_on` and `light.turn_off` are the only
-  services auto-allowed for household and HA-admin principals. Deny-class
+  wrappers share one decision. Household and HA-admin principals may call the
+  everyday-control table in `authz.py` (light, switch, media_player, scene, cover,
+  climate, fan, input helpers, vacuum, humidifier, water_heater, remote, lock,
+  alarm_control_panel arm/disarm; `script.turn_on` and `button.press` only; never
+  `reload`). Security devices follow HA's own code model: the node passes a
+  caller-supplied `code` to HA unchanged and never stores, logs, or echoes it.
+  Deny-class
   services (lifecycle, update, reload, host, shell, shutdown) are refused with
   `SERVICE_DENIED` for every caller, including the operator. Any other service
   is refused for a household user and returns `APPROVAL_REQUIRED` for an HA

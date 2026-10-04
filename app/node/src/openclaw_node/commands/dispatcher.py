@@ -11,6 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
+from openclaw_node.authz import redact_code
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.exec_approvals import (
     handle_system_exec_approvals_get,
@@ -223,7 +224,7 @@ def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED
         _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
         return refusal
 
-    _LOG.debug("Dispatching command=%r params=%r", command, params)
+    _LOG.debug("Dispatching command=%r params=%r", command, redact_code(params))
     result = handler(params)
     if inspect.iscoroutine(result):
         result.close()
@@ -259,7 +260,7 @@ async def dispatch_async(
         _LOG.warning("Refused command=%r caller=%s: %s", command, caller.actor_id, refusal["error"])
         return refusal
 
-    _LOG.debug("Dispatching (async) command=%r params=%r", command, params)
+    _LOG.debug("Dispatching (async) command=%r params=%r", command, redact_code(params))
     result = handler(params)
     if inspect.iscoroutine(result):
         awaited: dict[str, Any] = await result

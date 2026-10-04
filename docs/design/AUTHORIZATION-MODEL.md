@@ -232,9 +232,30 @@ The effect policy applies to `ha.call_service` and the light wrappers alike:
 
 | Service class | Household `user` | HA `admin` / `super_admin` | Operator |
 | --- | --- | --- | --- |
-| `light.turn_on`, `light.turn_off` | allowed | allowed | allowed |
+| Everyday control (table below) | allowed | allowed | allowed |
 | Deny class (lifecycle, update, reload, host, shell, shutdown) | `SERVICE_DENIED` | `SERVICE_DENIED` | `SERVICE_DENIED` |
-| Any other service | `PERMISSION_DENIED` | `APPROVAL_REQUIRED` (no approval path exists yet) | allowed, logged (temporary) |
+| Any service outside the table | `PERMISSION_DENIED` | `APPROVAL_REQUIRED` (no approval path exists yet) | allowed, logged (temporary) |
+
+The everyday-control table (`HOUSEHOLD_ALLOWED_SERVICES` in `authz.py`) is the
+one source read by the gate, the effect policy and the printed disclaimer. A
+household member is an adult, so the user tier allows what an adult in the house
+reasonably does; the block list is for system-level things only. Admin is never
+stricter than user for any service.
+
+| Domain | Allowed services |
+| --- | --- |
+| light, switch, media_player, scene, cover (incl. garage and gate), climate, fan, input_boolean, input_select, input_number, vacuum, humidifier, water_heater, remote | every ordinary control service except `reload` / `reload_*` |
+| script | `turn_on` only |
+| button | `press` only |
+| lock | `lock`, `unlock`, `open` |
+| alarm_control_panel | `alarm_arm_away`, `alarm_arm_home`, `alarm_arm_night`, `alarm_arm_vacation`, `alarm_arm_custom_bypass`, `alarm_disarm` |
+
+Security devices follow Home Assistant's own model, with no node-side block: a
+lock or alarm that has a code requires it in the service call and HA validates
+it. The node passes a caller-supplied `code` through unchanged and never stores,
+logs, echoes, or guesses one; it is masked in dispatch log lines and in HA error
+text, and an HA rejection of a missing or wrong code is returned as a readable
+error.
 
 `PERMISSION_DENIED` is a role refusal; `SERVICE_DENIED` is the effect refusal and
 applies to every caller. A malformed service name is refused for non-operators.
@@ -242,7 +263,7 @@ applies to every caller. A malformed service name is refused for non-operators.
 For the `user` role, the entries of `USER_FORBIDDEN_COMMANDS` and the
 `ha.call_service:*` wildcard are non-removable: a config `remove` naming one is
 ignored with a warning, so the disclaimer always renders the refused set the
-gate enforces (the generic service restriction plus the light exception).
+gate enforces (the generic service restriction plus the everyday-control table).
 `add`, and removal of other added entries, still work.
 
 **One source of truth, two consumers.** The same `forbidden_for_role` result

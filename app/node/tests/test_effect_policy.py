@@ -7,7 +7,12 @@ from typing import Any
 import pytest
 
 from openclaw_node import effect_policy
-from openclaw_node.authz import HOUSEHOLD_AUTO_ALLOW_SERVICES, Actor, resolve_turn_authz
+from openclaw_node.authz import (
+    HOUSEHOLD_ALLOWED_SERVICES,
+    USER_FORBIDDEN_COMMANDS,
+    Actor,
+    resolve_turn_authz,
+)
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands import ha
 from openclaw_node.config import ForbiddenCommandPatch, IdentityConfig
@@ -28,10 +33,17 @@ def _turn(is_admin: bool, user_id: str = "u", identity: IdentityConfig | None = 
     )
 
 
+def _allowed_services() -> list[str]:
+    """Every service the table allows (open domains probed with ordinary names)."""
+    return [
+        f"{domain}.{name}"
+        for domain, names in HOUSEHOLD_ALLOWED_SERVICES.items()
+        for name in (names or ("turn_on", "turn_off", "toggle", "set_value", "x_y"))
+    ]
+
+
 def test_denylist_is_the_ha_dict_not_a_copy() -> None:
     assert effect_policy.DENY is ha._INTERIM_DENIED_SERVICE_PATTERNS
-    assert effect_policy.AUTO_ALLOW is HOUSEHOLD_AUTO_ALLOW_SERVICES
-    assert HOUSEHOLD_AUTO_ALLOW_SERVICES == ("light.turn_on", "light.turn_off")
 
 
 def test_every_denylist_key_classifies_deny() -> None:
@@ -44,11 +56,12 @@ def test_every_denylist_key_classifies_deny() -> None:
         assert classify(f"{domain}.{name}") == "deny", key
 
 
-def test_classify_light_unclassified_and_malformed() -> None:
+def test_classify_allowed_unclassified_and_malformed() -> None:
     assert classify("light.turn_on") == "auto_allow"
-    assert classify("light.turn_off") == "auto_allow"
-    assert classify("light.toggle") == "unclassified"
-    assert classify("lock.unlock") == "unclassified"
+    assert classify("light.toggle") == "auto_allow"
+    assert classify("script.turn_on") == "auto_allow"
+    assert classify("script.turn_off") == "unclassified"
+    assert classify("automation.trigger") == "unclassified"
     assert classify(None) == "deny"
     assert classify("light.reload") == "deny"
 
@@ -57,8 +70,27 @@ def test_untrusted_default_is_household_user() -> None:
     assert UNTRUSTED.role == "user"
     assert "ha.call_service:*" in UNTRUSTED.forbidden
     assert (
-        _code(check(UNTRUSTED, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
+        _code(check(UNTRUSTED, "ha.call_service", _call("automation", "trigger")))
+        == "PERMISSION_DENIED"
     )
+
+
+@pytest.mark.parametrize("is_admin", [False, True])
+@pytest.mark.parametrize("service", _allowed_services())
+def test_every_allowed_service_is_allowed_for_user_and_admin(service: str, is_admin: bool) -> None:
+    domain, _, name = service.partition(".")
+
+    assert check(_turn(is_admin), "ha.call_service", _call(domain, name)) is None
+
+
+@pytest.mark.parametrize("service", _allowed_services())
+def test_admin_is_never_stricter_than_user(service: str) -> None:
+    domain, _, name = service.partition(".")
+    user = check(_turn(False), "ha.call_service", _call(domain, name))
+    admin = check(_turn(True), "ha.call_service", _call(domain, name))
+
+    assert user is None
+    assert admin is None
 
 
 @pytest.mark.parametrize("service", [("light", "turn_on"), ("light", "turn_off")])
@@ -71,18 +103,27 @@ def test_user_allowed_light_calls_and_wrappers(service: tuple[str, str]) -> None
 
 @pytest.mark.parametrize(
     "service",
-    [("light", "toggle"), ("lock", "unlock"), ("switch", "turn_on")],
+    [
+        ("script", "reload"),
+        ("script", "turn_off"),
+        ("light", "reload"),
+        ("lock", "set_usercode"),
+        ("alarm_control_panel", "alarm_trigger"),
+        ("automation", "trigger"),
+        ("homeassistant", "turn_off"),
+    ],
 )
 def test_user_refused_for_everything_else(service: tuple[str, str]) -> None:
     refusal = check(_turn(False), "ha.call_service", _call(*service))
 
     assert refusal is not None
     assert refusal["ok"] is False
-    assert refusal["error"] == "PERMISSION_DENIED"
+    assert refusal["error"] in {"PERMISSION_DENIED", "SERVICE_DENIED"}
+    assert refusal["error"] == ("SERVICE_DENIED" if service[1] == "reload" else "PERMISSION_DENIED")
 
 
 def test_user_forbidden_commands_refused() -> None:
-    for command in ("fs.write", "system.run", "ha.reload_config", "ha.addon_restart"):
+    for command in sorted(USER_FORBIDDEN_COMMANDS):
         refusal = check(_turn(False), command, {})
         assert refusal is not None
         assert refusal["error"] == "PERMISSION_DENIED"
@@ -92,7 +133,7 @@ def test_user_forbidden_commands_refused() -> None:
 def test_admin_unclassified_needs_approval_and_deny_refused() -> None:
     admin = _turn(True)
 
-    refusal = check(admin, "ha.call_service", _call("switch", "turn_on"))
+    refusal = check(admin, "ha.call_service", _call("automation", "trigger"))
     assert refusal is not None
     assert refusal["error"] == "APPROVAL_REQUIRED"
     assert check(admin, "ha.call_service", _call("light", "turn_on")) is None
@@ -107,7 +148,9 @@ def test_super_admin_unclassified_needs_approval() -> None:
     sa = _turn(True, "root", identity)
 
     assert sa.role == "super_admin"
-    assert _code(check(sa, "ha.call_service", _call("switch", "turn_on"))) == "APPROVAL_REQUIRED"
+    assert (
+        _code(check(sa, "ha.call_service", _call("automation", "trigger"))) == "APPROVAL_REQUIRED"
+    )
     assert check(sa, "system.run", {}) is None
 
 
@@ -115,8 +158,8 @@ def test_operator_keeps_non_denied_and_logs(caplog: pytest.LogCaptureFixture) ->
     op = Caller.operator("gateway-invoke")
 
     with caplog.at_level("INFO"):
-        assert check(op, "ha.call_service", _call("scene", "turn_on")) is None
-    assert "unclassified service scene.turn_on" in caplog.text
+        assert check(op, "ha.call_service", _call("automation", "trigger")) is None
+    assert "unclassified service automation.trigger" in caplog.text
     assert check(op, "fs.write", {}) is None
     assert check(op, "ha.call_service", _call("light", "turn_on")) is None
     denied = check(op, "ha.call_service", _call("shell_command", "x"))
@@ -161,10 +204,10 @@ def test_policy_agrees_with_printed_rule_under_config_patch() -> None:
     authz = resolve_turn_authz(relaxed, Actor("u", is_admin=False))
     rel = Caller.from_turn(authz)
     assert "ha.call_service:*" in authz.forbidden
-    assert "the only services that may still be called are: light.turn_on, light.turn_off." in (
-        authz.disclaimer
+    assert "light.*, switch.*" in authz.disclaimer
+    assert (
+        _code(check(rel, "ha.call_service", _call("automation", "trigger"))) == "PERMISSION_DENIED"
     )
-    assert _code(check(rel, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
     assert check(rel, "ha.call_service", _call("light", "turn_on")) is None
 
 
@@ -176,7 +219,8 @@ def test_deny_class_is_service_denied_for_every_caller(caller: Caller) -> None:
 
 def test_role_refusal_is_permission_denied_not_service_denied() -> None:
     assert (
-        _code(check(UNTRUSTED, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
+        _code(check(UNTRUSTED, "ha.call_service", _call("automation", "trigger")))
+        == "PERMISSION_DENIED"
     )
 
 
