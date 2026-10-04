@@ -92,7 +92,9 @@ non-operator principal (see [Layer 1](#layer-1-hard-allowlist-enforcement)). Wha
 is missing is the principal itself: the Gateway invoke envelope does not carry
 session or actor context, so a Gateway-forwarded invoke reaches the dispatcher
 as an operator call. The role model does not need further design; it needs a
-trusted way to reach the dispatcher on the invoke path.
+trusted way to reach the dispatcher on the invoke path. For Assist turns relayed
+by this node that path now exists (see
+[Assist caller resolution](#assist-caller-resolution-and-the-host-session-key-hint)).
 
 The add-on configuration already states the principle for lifecycle commands:
 
@@ -334,7 +336,11 @@ Two options exist, and the choice is the operator's:
    enforced guarantee covers this node's command surface and not the gateway's
    full tool surface.
 
-This document does not claim the cross-surface ceiling is solved. The gap is
+The selected default (D4) is option 2 with a soft prompt-level block: one
+agent, with a separate agent configurable per user (option 1). The enforced
+guarantee covers this node's command surface on the wrapper path, where Assist
+turns carry the resolved caller to the dispatcher. The gateway's full tool
+surface is not covered, and this document does not claim it is. The gap is
 recorded so it is not mistaken for a delivered property.
 
 ### Assist caller resolution and the host session key hint
@@ -350,7 +356,10 @@ The hint is not authenticated. A caller who can call `node.invoke` directly
 whichever active turn owns it. This is an **accepted limitation for now**,
 tracked on [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275).
 It does not widen access beyond what operator-level callers already have:
-a direct `node.invoke` without the field is already an operator call.
+a direct `node.invoke` without the field is already an operator call. An exact
+key match wins; otherwise a case-insensitive match resolves only when exactly one
+active turn matches. Several turns differing only by key case are ambiguous and
+the invoke is refused.
 
 The default is one agent plus a prompt-level block, with a separate agent
 configurable per user (option 1 above).
@@ -370,11 +379,11 @@ The gap is entirely within this repository.
   argv/rawCommand/env/cwd validation on the forward before the subprocess is
   spawned.
 - The dispatcher-level gate exists and `forbidden_for_role` feeds both it and the
-  disclaimer. It protects nothing on the invoke path yet, because the Assist
-  principal is not propagated: Gateway-forwarded invokes and the local HTTP API
-  are operator calls, so **direct `node.invoke` is operator-default**. The
-  propagation design is pending a decision, and the cross-surface ceiling
-  choice above is the operator's. Neither is claimed as delivered.
+  disclaimer. The Assist principal reaches it only on the wrapper path:
+  Gateway-forwarded invokes without the plugin hint and the local HTTP API are
+  operator calls, so **direct `node.invoke` is operator-default**. The selected
+  D4 default (one agent plus a soft prompt-level block) does not cover the
+  gateway's full tool surface, which is not claimed as delivered.
 
 ## Consequences for the roadmap
 

@@ -425,15 +425,23 @@ class ChatRelay:
     def active_caller(self, session_key_hint: str) -> Caller | None:
         """Principal of the in-flight turn that ``session_key_hint`` names, else ``None``.
 
-        Matches the raw or the gateway-canonical key, case-insensitively. The
-        hint is only a lookup key; the returned principal is node-owned.
+        An exact raw-key match wins. Otherwise the raw or gateway-canonical key
+        is matched case-insensitively, and only when exactly one turn matches:
+        turns keyed apart only by case may hold different principals, so an
+        ambiguous hint resolves to nobody and is refused. The hint is only a
+        lookup key; the returned principal is node-owned.
         """
-        wanted = session_key_hint.strip().lower()
-        for raw, caller in self._active_turns.items():
-            canonical = self._canonical_by_raw.get(raw, raw)
-            if wanted in (raw.lower(), canonical.lower()):
-                return caller
-        return None
+        hint = session_key_hint.strip()
+        exact = self._active_turns.get(hint)
+        if exact is not None:
+            return exact
+        wanted = hint.lower()
+        matches = [
+            caller
+            for raw, caller in self._active_turns.items()
+            if wanted in (raw.lower(), self._canonical_by_raw.get(raw, raw).lower())
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def _prepare_pending(self) -> tuple[str, asyncio.Future[dict[str, Any]]]:
         """Allocate a req_id and pending future for a hand-rolled RPC.

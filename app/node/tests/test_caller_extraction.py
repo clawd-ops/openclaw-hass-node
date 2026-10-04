@@ -339,3 +339,56 @@ async def test_contract_fixture_threads_active_turn_and_hint() -> None:
     )
     assert stale["response"]["ok"] is False
     assert stale["ha_calls"] == []
+
+
+async def test_case_only_distinct_turns_resolve_to_own_caller_and_ambiguity_is_refused(
+    tmp_path: Path, ha_requests: list[str]
+) -> None:
+    """Assist accepts a supplied conversation id, so keys differing only by case may coexist."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    relay._gateway_agents = ("only-agent",)
+    runtime = NodeRuntime(_config(tmp_path))
+    runtime.chat_relay = relay
+    client = GatewayClient(
+        config=_config(tmp_path),
+        identity=generate_identity(),
+        device_token="",
+        runtime=runtime,
+        chat_relay_enabled=False,
+    )
+    admin = resolve_turn_authz(IdentityConfig(), Actor("u1", is_admin=True))
+    tasks = [
+        asyncio.create_task(relay.relay_turn("Conv", "hi", authz=admin)),
+        asyncio.create_task(relay.relay_turn("conv", "hi")),
+    ]
+    answered = 0
+    try:
+        while len(relay._active_turns) < 2 or answered < len(sender.frames):
+            if answered < len(sender.frames):
+                relay.handle_response(
+                    {"type": "res", "id": sender.frames[answered]["id"], "ok": True}
+                )
+                answered += 1
+            await asyncio.sleep(0.001)
+        admin_caller = relay.active_caller("ha-assist:Conv")
+        user_caller = relay.active_caller("ha-assist:conv")
+        assert admin_caller is not None
+        assert user_caller is not None
+        assert admin_caller.role == "admin"
+        assert user_caller.role != "admin"
+        assert relay.active_caller("HA-ASSIST:CONV") is None
+
+        send = {"domain": "notify", "service": "send_message"}
+        ambiguous = await _ingress(client, "ha.call_service", {**send, **_hint("HA-ASSIST:CONV")})
+        assert ambiguous["error"]["code"] == "PERMISSION_DENIED"
+        household = await _ingress(client, "ha.call_service", {**send, **_hint("ha-assist:conv")})
+        assert household["error"]["code"] == "PERMISSION_DENIED"
+        assert ha_requests == []
+        admin_call = await _ingress(client, "ha.call_service", {**send, **_hint("ha-assist:Conv")})
+        assert admin_call["error"]["code"] == "APPROVAL_REQUIRED"
+        assert ha_requests == []
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
