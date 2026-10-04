@@ -69,7 +69,7 @@ describe("ha_get_state execute", () => {
     const tool = await loadTool();
     const result = await tool.execute(
       "call-2",
-      { node: "hass", entity_id: "person.rob" },
+      { node: "hass", entity_id: "person.user1" },
       new AbortController().signal,
       () => undefined,
     );

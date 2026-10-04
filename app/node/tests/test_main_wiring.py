@@ -79,22 +79,22 @@ def test_ha_user_id_by_name_extracts_names_and_credentials() -> None:
     result = {
         "users": [
             {
-                "id": "uuid-rob",
+                "id": "uuid-admin1",
                 "name": "Mutable Display Name",
                 "credentials": [
                     {
                         "auth_provider_type": "homeassistant",
-                        "data": {"username": "bigrob8181"},
+                        "data": {"username": "adminuser1"},
                     }
                 ],
             },
-            {"id": "uuid-ash", "username": "ash"},
+            {"id": "uuid-user1", "username": "user1"},
         ]
     }
 
     assert _ha_user_id_by_name(result) == {
-        "bigrob8181": "uuid-rob",
-        "ash": "uuid-ash",
+        "adminuser1": "uuid-admin1",
+        "user1": "uuid-user1",
     }
 
 
@@ -106,8 +106,8 @@ async def test_resolve_identity_usernames_maps_to_ids(
     config = replace(
         config,
         identity=IdentityConfig(
-            super_admins=frozenset({"BigRob8181"}),
-            user_agent_map={"Ash": "my-agent-household"},
+            super_admins=frozenset({"AdminUser1"}),
+            user_agent_map={"User1": "my-agent-household"},
         ),
     )
 
@@ -115,8 +115,8 @@ async def test_resolve_identity_usernames_maps_to_ids(
         assert msg_type == "config/auth/list"
         return {
             "users": [
-                {"id": "rob-uuid", "username": "bigrob8181"},
-                {"id": "ash-uuid", "username": "ash"},
+                {"id": "admin1-uuid", "username": "adminuser1"},
+                {"id": "user1-uuid", "username": "user1"},
             ]
         }
 
@@ -124,8 +124,8 @@ async def test_resolve_identity_usernames_maps_to_ids(
 
     resolved = await _resolve_identity_usernames(config)
 
-    assert resolved.identity.super_admins == frozenset({"rob-uuid"})
-    assert resolved.identity.user_agent_map == {"ash-uuid": "my-agent-household"}
+    assert resolved.identity.super_admins == frozenset({"admin1-uuid"})
+    assert resolved.identity.user_agent_map == {"user1-uuid": "my-agent-household"}
 
 
 async def test_resolve_identity_usernames_drops_unknown_entries(
@@ -136,20 +136,20 @@ async def test_resolve_identity_usernames_drops_unknown_entries(
     config = replace(
         config,
         identity=IdentityConfig(
-            super_admins=frozenset({"bigrob8181", "unknown"}),
+            super_admins=frozenset({"adminuser1", "unknown"}),
             user_agent_map={"unknown-route": "my-agent-household"},
         ),
     )
 
     async def fake_ws_call(msg_type: str) -> list[dict[str, Any]]:
         assert msg_type == "config/auth/list"
-        return [{"id": "rob-uuid", "username": "bigrob8181"}]
+        return [{"id": "admin1-uuid", "username": "adminuser1"}]
 
     monkeypatch.setattr("openclaw_node.__main__.ha_ws_call", fake_ws_call)
 
     resolved = await _resolve_identity_usernames(config)
 
-    assert resolved.identity.super_admins == frozenset({"rob-uuid"})
+    assert resolved.identity.super_admins == frozenset({"admin1-uuid"})
     assert resolved.identity.user_agent_map == {}
 
 
@@ -161,8 +161,8 @@ async def test_resolve_identity_usernames_fails_closed_on_timeout(
     config = replace(
         config,
         identity=IdentityConfig(
-            super_admins=frozenset({"bigrob8181"}),
-            user_agent_map={"ash": "my-agent-household"},
+            super_admins=frozenset({"adminuser1"}),
+            user_agent_map={"user1": "my-agent-household"},
         ),
     )
 

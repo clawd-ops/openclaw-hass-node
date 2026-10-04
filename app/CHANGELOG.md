@@ -395,7 +395,7 @@ remains the source of truth and is **not** complete at this tag.
   (e.g. `"Sure, running a few.🔧 Calling Bash..."`). The relay now
   tracks whether any user-visible chunk has been yielded this turn and
   prepends a leading `\n` to the progress chunk when so. Caught
-  end-to-end by Rob on b10 in an Assist turn.
+  end-to-end by the owner on b10 in an Assist turn.
 
 ### Known limitation (unchanged this release)
 - **Multi-tool turns still only label the first tool.** When the model
@@ -409,7 +409,7 @@ remains the source of truth and is **not** complete at this tag.
 
 ### Fixes
 - **Dropped deprecated `armv7` from the addon `arch:` list.** HA Supervisor
-  deprecated 32-bit ARM support; Rob's Supervisor logged
+  deprecated 32-bit ARM support; the owner's Supervisor logged
   `App config 'arch' uses deprecated values ['armv7']. Please report this
   to the maintainer of OpenClaw Node`. Now `arch: [amd64, aarch64]`. The
   addon never had a working 32-bit build path, so no installer is affected.
@@ -492,8 +492,8 @@ default) requires no action.
 - **Phase 2 architecture reshape (PR #171).** Reorganized `docs/` into four
   audience-grouped folders (`design/`, `reference/`, `operations/`,
   `research/`), absorbed 4 overlap files (OVERVIEW, PACKAGING, PROCESS,
-  QUESTIONS-FOR-ROB), and stripped duplicated content so STATUS / MEMORY /
-  PLAN no longer overlap. README.md gained the "Security model" and
+  and the open-questions handoff), and stripped duplicated content so
+  STATUS / MEMORY / PLAN no longer overlap. README.md gained the "Security model" and
   "What this is not" sections that previously lived in OVERVIEW.
 
 ## 2026.6.20b7 (2026-06-24) — HA Assist identity routing + Tier B add-on lifecycle commands

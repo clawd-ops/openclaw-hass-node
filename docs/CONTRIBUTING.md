@@ -166,7 +166,7 @@ Two independent provider perspectives catch:
 
 ### Human escalation
 
-The reviewer flagging something does not require Rob to resolve it
-directly. Reviewer comments are addressed by the generator first; Rob
+The reviewer flagging something does not require the owner to resolve it
+directly. Reviewer comments are addressed by the generator first; the owner
 is only pulled in when the two agents loop without converging, or when
 either agent flags a scope/safety question.

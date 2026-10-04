@@ -5,7 +5,7 @@ the gateway's ``chat.send`` + ``sessions.messages.subscribe`` surface.
 Each HA ``conversation_id`` maps to a unique gateway session keyed as
 ``ha-assist:{conversation_id}``.
 
-Design decisions (2026-06-08, the agent, for Rob's follow-up review):
+Design decisions (2026-06-08, the agent, for the owner's follow-up review):
 
 1. **Fresh session per conversation_id.** Matches HA's conversation
    model (each ``conversation_id`` is a self-contained thread); avoids

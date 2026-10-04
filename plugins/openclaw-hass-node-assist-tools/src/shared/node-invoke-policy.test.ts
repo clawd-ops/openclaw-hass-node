@@ -332,22 +332,22 @@ describe("createAssistToolsNodeInvokePolicy", () => {
     {
       name: "ha.history rejects delimiter-smuggling entity_ids entry",
       command: "ha.history",
-      params: { entity_ids: ["sensor.outdoor_temp,person.rob"] },
+      params: { entity_ids: ["sensor.outdoor_temp,person.user1"] },
     },
     {
       name: "ha.history rejects delimiter-smuggling singular entity_id",
       command: "ha.history",
-      params: { entity_id: "sensor.outdoor_temp,person.rob" },
+      params: { entity_id: "sensor.outdoor_temp,person.user1" },
     },
     {
       name: "ha.logbook rejects delimiter-smuggling entity_id",
       command: "ha.logbook",
-      params: { entity_id: "sensor.outdoor_temp person.rob" },
+      params: { entity_id: "sensor.outdoor_temp person.user1" },
     },
     {
       name: "ha.get_state rejects malformed entity_id syntax",
       command: "ha.get_state",
-      params: { entity_id: "sensor.outdoor_temp,person.rob" },
+      params: { entity_id: "sensor.outdoor_temp,person.user1" },
     },
     {
       name: "ha.logbook rejects entity_ids param (history-only field)",
@@ -369,7 +369,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
       command: "ha.history",
       params: {
         entity_id: "sensor.outdoor_temp",
-        end_time: "2026-07-02T00:00:00&filter_entity_id=person.rob",
+        end_time: "2026-07-02T00:00:00&filter_entity_id=person.user1",
       },
     },
     {
@@ -377,7 +377,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
       command: "ha.history",
       params: {
         entity_id: "sensor.outdoor_temp",
-        start_time: "2026-07-01T00:00:00\n&filter_entity_id=person.rob",
+        start_time: "2026-07-01T00:00:00\n&filter_entity_id=person.user1",
       },
     },
     {
@@ -401,7 +401,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
       command: "ha.logbook",
       params: {
         entity_id: "sensor.outdoor_temp",
-        end_time: "2026-07-02T00:00:00&entity=person.rob",
+        end_time: "2026-07-02T00:00:00&entity=person.user1",
       },
     },
     {
@@ -409,7 +409,7 @@ describe("createAssistToolsNodeInvokePolicy", () => {
       command: "ha.history",
       params: {
         entity_id: "sensor.outdoor_temp",
-        end: "2026-07-02T00:00:00&filter_entity_id=person.rob",
+        end: "2026-07-02T00:00:00&filter_entity_id=person.user1",
       },
     },
     {

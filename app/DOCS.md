@@ -127,7 +127,7 @@ control surface. The manifest field reference is at
   ```yaml
   identity:
     super_admins:
-      - "bigrob8181"
+      - "adminuser1"
   ```
 - **Default**: `[]`.
 - **Security**: These are HA usernames, not Discord or OpenClaw
@@ -154,9 +154,9 @@ or `user` role for Assist turns.
   ```yaml
   identity:
     user_agent_map:
-      - ha_username: "bigrob8181"
+      - ha_username: "adminuser1"
         agent_id: "<your-agent-id>"
-      - ha_username: "ash"
+      - ha_username: "user1"
         agent_id: "household"
   ```
 - **Default**: `[]`.

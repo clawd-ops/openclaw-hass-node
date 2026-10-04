@@ -1,6 +1,6 @@
 """CI gate: ``scripts/bump-version.py`` must refuse pre-release counters past 9.
 
-Rob's rule (memory: ``feedback_beta_cap_b9``): for ``YYYY.M.D{a|b|rc}n``
+The owner's rule (memory: ``feedback_beta_cap_b9``): for ``YYYY.M.D{a|b|rc}n``
 versions, never go past ``b9`` (or ``a9`` / ``rc9``). When the next bump
 would be ``b10``, roll the calendar portion forward and reset the counter
 to ``b1`` instead.

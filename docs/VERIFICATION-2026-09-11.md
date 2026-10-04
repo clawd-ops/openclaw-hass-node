@@ -287,7 +287,7 @@ nodes.invoke { command: ha.addon_update, slug: core_mosquitto }
 ```
 
 **Consequence worth stating plainly:** both are present in
-`gateway.nodes.commands.allow`. Rob completed that configuration step in July.
+`gateway.nodes.commands.allow`. The owner completed that configuration step in July.
 The chain is plugin exposes → gateway permits → **node never advertises** →
 invoke rejects. The add-on self-update path has never been callable, and the July
 task marked done produced no working capability.
@@ -443,7 +443,7 @@ Verified against the live agent-bridge:
 - **1 targets `admin`** — last seen 2026-05-31.
 - **7 (ids 24–30) are addressed from `clawd-…` to `clawd-…`** — the agent
   addressed them to itself.
-- **There is no peer representing Rob.** The only live peer is the agent.
+- **There is no peer representing the owner.** The only live peer is the agent.
 
 The only proposals ever resolved are ids 1–8, from May, all recording the same
 agent peer as resolver. The agent was author, counterparty, and approver. That
@@ -506,7 +506,7 @@ Worth flagging from the source read: `ha.call_service`, `ha.light_turn_on`, and
 in the node handler (`commands/ha.py:128-168,449-533`).
 
 **This is not straightforwardly a defect, and an earlier draft of this document
-wrongly implied it was.** Rob's direction (2026-09-11): turning on a light is a
+wrongly implied it was.** The owner's direction (2026-09-11): turning on a light is a
 simple intended action and should not be guarded. Other services are genuinely
 destructive. `ha.call_service` is therefore a **case-by-case decision — auto-allow
 or require-approval per service**, not a single gate on the whole command.

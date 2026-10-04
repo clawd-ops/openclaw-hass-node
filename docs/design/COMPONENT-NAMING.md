@@ -56,7 +56,7 @@ node's `_NODE_COMMANDS` surface, not by plugin-side allow lists.
 
 The HACS custom_component uses the domain `openclaw_hass_node_assist` (renamed
 from the earlier `openclaw_gateway`). Clean break — no backwards-compat
-alias — because the only existing install was Rob's and a fresh setup was
+alias — because the only existing install was the owner's and a fresh setup was
 acceptable. External users will only ever see the new domain.
 
 ## Future repo split
