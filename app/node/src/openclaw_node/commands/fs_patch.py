@@ -26,6 +26,7 @@ from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError
 from openclaw_node.commands.fs_write import (
+    MAX_WRITE_BYTES,
     _error,
     _is_protected,
     _is_storage,
@@ -37,6 +38,10 @@ from openclaw_node.safe_fd import atomic_write_safe, read_bytes_safe
 from openclaw_node.safe_path import OutOfBoundsError
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
+
+# Patch text limit, in UTF-8 bytes (#291).  The patched result is bounded by
+# the fs.write content limit.
+MAX_PATCH_BYTES: Final[int] = 1024 * 1024
 
 # Re-export for test convenience.
 reset_store_for_testing = _reset_store_for_testing
@@ -300,6 +305,14 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     if not patch_text:
         return _error("MISSING_PARAM", "patch is required")
 
+    patch_size = len(patch_text.encode("utf-8"))
+    if patch_size > MAX_PATCH_BYTES:
+        return _error(
+            "REQUEST_TOO_LARGE",
+            f"patch is {patch_size} bytes; limit is {MAX_PATCH_BYTES}",
+            limit=MAX_PATCH_BYTES,
+        )
+
     dry_run = bool(params.get("dry_run", False))
     proposal_id = str(params.get("proposal_id", "direct"))
     actor = str(params.get("actor", "agent"))
@@ -338,10 +351,17 @@ def handle_fs_patch(params: dict[str, Any]) -> dict[str, Any]:
     # Apply (or dry-run) the patch before capturing backup, so we don't
     # pollute the store when the diff is malformed.
     try:
-        patched_bytes, hunks = _run_patch(original_bytes, patch_text, dry_run=dry_run)
+        patched_bytes, hunks = _run_patch(original_bytes, patch_text)
     except PatchApplyError as exc:
         _LOG.error("patch failed for %r: %s", path, exc)
         return _error("PATCH_FAILED", f"Patch did not apply cleanly: {exc}")
+
+    if len(patched_bytes) > MAX_WRITE_BYTES:
+        return _error(
+            "RESULT_TOO_LARGE",
+            f"patched file would be {len(patched_bytes)} bytes; limit is {MAX_WRITE_BYTES}",
+            limit=MAX_WRITE_BYTES,
+        )
 
     if dry_run:
         return {"ok": True, "path": path, "dry_run": True, "hunks_applicable": hunks}

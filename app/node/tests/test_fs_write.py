@@ -9,6 +9,7 @@ import pytest
 
 import openclaw_node.commands.fs_write as fs_write_mod
 from openclaw_node.commands.fs_write import (
+    MAX_WRITE_BYTES,
     _backup_root,
     _get_store,
     _reset_store_for_testing,
@@ -956,3 +957,47 @@ def test_fs_restore_version_id_not_found(tmp_path: Path, live_file: Path) -> Non
     )
     assert result["ok"] is False
     assert result["error"] == "VERSION_NOT_FOUND"
+
+
+# ---------------------------------------------------------------------------
+# fs.write content cap (#291)
+# ---------------------------------------------------------------------------
+
+
+def test_fs_write_at_limit_succeeds(tmp_path: Path) -> None:
+    target = tmp_path / "fs" / "big.bin"
+    result = handle_fs_write({"path": str(target), "content": "a" * MAX_WRITE_BYTES})
+    assert result["ok"] is True
+    assert result["size"] == MAX_WRITE_BYTES
+    assert target.stat().st_size == MAX_WRITE_BYTES
+
+
+def test_fs_write_over_limit_refused_without_write_or_snapshot(live_file: Path) -> None:
+    result = handle_fs_write({"path": str(live_file), "content": "a" * (MAX_WRITE_BYTES + 1)})
+    assert result["ok"] is False
+    assert result["error"] == "REQUEST_TOO_LARGE"
+    assert result["limit"] == MAX_WRITE_BYTES
+    assert live_file.read_text(encoding="utf-8") == "key: value\n"
+    assert _get_store().history(str(live_file)) == []
+
+
+def test_fs_write_limit_counts_utf8_bytes_not_characters(tmp_path: Path) -> None:
+    # 2-byte characters: character count is under the limit, byte count is over.
+    target = tmp_path / "fs" / "multi.txt"
+    content = "\u00e9" * (MAX_WRITE_BYTES // 2 + 1)
+    assert len(content) <= MAX_WRITE_BYTES
+    result = handle_fs_write({"path": str(target), "content": content})
+    assert result["error"] == "REQUEST_TOO_LARGE"
+    assert not target.exists()
+
+
+def test_fs_write_limit_counts_decoded_base64_bytes(tmp_path: Path) -> None:
+    import base64
+
+    target = tmp_path / "fs" / "b64.bin"
+    over = base64.b64encode(b"\0" * (MAX_WRITE_BYTES + 1)).decode()
+    result = handle_fs_write({"path": str(target), "content": over, "encoding": "base64"})
+    assert result["error"] == "REQUEST_TOO_LARGE"
+    assert not target.exists()
+    at = base64.b64encode(b"\0" * MAX_WRITE_BYTES).decode()
+    assert handle_fs_write({"path": str(target), "content": at, "encoding": "base64"})["ok"]

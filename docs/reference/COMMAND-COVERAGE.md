@@ -63,11 +63,11 @@ _(no unreleased command additions)_
 | [`fs.history`](#row-fs-history) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | [`fs.list`](#row-fs-list) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | [`fs.move`](#row-fs-move) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `PRODUCTION-LIVE` | **`pass`** |
-| [`fs.patch`](#row-fs-patch) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.patch`](#row-fs-patch) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/291" target="_blank" rel="noopener noreferrer">#291</a>) |
 | [`fs.read`](#row-fs-read) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
 | [`fs.restore`](#row-fs-restore) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/324" target="_blank" rel="noopener noreferrer">#324</a>) |
 | [`fs.stat`](#row-fs-stat) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `read_path_policy` | `PRODUCTION-LIVE` | **`pass`** |
-| [`fs.write`](#row-fs-write) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `PRODUCTION-LIVE` | **`pass`** |
+| [`fs.write`](#row-fs-write) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `path_dependent_mutation` | `PRODUCTION-LIVE` | **`pass`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/291" target="_blank" rel="noopener noreferrer">#291</a>) |
 | [`ha.addon_changelog`](#row-ha-addon-changelog) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.addon_documentation`](#row-ha-addon-documentation) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.addon_info`](#row-ha-addon-info) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
@@ -415,11 +415,12 @@ _(no unreleased command additions)_
 - Handler: `openclaw_node.commands.fs_patch:handle_fs_patch`
 - Canonical parameters: actor, agent_bridge, dry_run, patch, path, proposal_id
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.
+- Capability conditions: Path resolves under an allowed writable root; protected paths fail closed pending trusted approval. Patch text is capped at 1 MiB (1048576 UTF-8 bytes) and the patched result at 8 MiB; over-limit requests are refused with REQUEST_TOO_LARGE (patch) or RESULT_TOO_LARGE (result) before any backup snapshot or write.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `pass`**
+- Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/291" target="_blank" rel="noopener noreferrer">#291</a>
 - Evidence note: Sept 13 fs mutation sweep: unified diff applied and confirmed by read-back.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
@@ -620,11 +621,12 @@ _(no unreleased command additions)_
 - Handler: `openclaw_node.commands.fs_write:handle_fs_write`
 - Canonical parameters: actor, agent_bridge, content, encoding, path, proposal_id
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable.
+- Capability conditions: Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable. Decoded content is capped at 8 MiB (8388608 bytes); over-limit requests are refused with REQUEST_TOO_LARGE before any backup snapshot or write.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `pass`**
+- Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/291" target="_blank" rel="noopener noreferrer">#291</a>
 - Evidence note: Sept 13 fs mutation sweep: create and update both wrote correctly and archived the prior version.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
