@@ -56,6 +56,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 17. Open GitHub issues (not otherwise tracked above)
 - Status: OPEN
 - #1 — Direction (catch-all, leave for Rob).
+- #347 — Assist unqualified session key on multi-agent gateways: code, spec,
+  config comment and startup log fixed (#351); tests now pin that the key owner
+  equals the `chat.send` agent. Remains open pending Rob's confirmation.
 - Recently closed issues formerly listed here are now recorded in the closed
   section below so this rollup only names live GitHub issues.
 

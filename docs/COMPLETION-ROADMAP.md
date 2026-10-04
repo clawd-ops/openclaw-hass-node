@@ -394,6 +394,8 @@ reconnect, and recovery evidence.
   add-on restarts.
 - [ ] Verify user mapping, agent routing, signature expiry, reconnect, concurrent
   turns, cancellation, timeout, and stale-frame isolation end to end.
+  (Per-turn session-key qualification and the multi-agent refusal are done and
+  tested for #347; the live end-to-end check is still outstanding.)
 - [ ] Reconcile all identity claims with actual invoke-time enforcement. Prompt
   disclaimers are not counted as a security boundary.
 - [ ] Minimize and justify every Gateway scope requested by each connection.
