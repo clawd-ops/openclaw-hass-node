@@ -675,3 +675,21 @@ async def test_supervisor_get_json_network_error(
     ):
         await supervisor_get_json("/addons")
     assert ei.value.code == "HA_NETWORK"
+
+
+async def test_ws_call_raises_message_size_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ws_connect must request a ceiling above aiohttp's 4 MiB default (issue #316).
+
+    A ~7,200-entity installation produced a 7.6 MB entity-registry frame, which
+    aiohttp rejected before any handler saw it. The assertion is against the
+    observed failing size rather than a hard-coded constant, so shrinking the
+    ceiling back under a known-real payload fails here.
+    """
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_success([])]
+    with _patch_ws_session(messages) as fake:
+        await ha_ws_call("config/entity_registry/list")
+    max_msg_size = fake.return_value.ws_connect.call_args.kwargs["max_msg_size"]
+    assert max_msg_size > 4 * 1024 * 1024, "must exceed aiohttp's default ceiling"
+    assert max_msg_size > 7_579_915, "must admit the frame size observed in production"
