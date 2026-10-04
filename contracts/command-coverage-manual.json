@@ -395,7 +395,7 @@
             "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan.",
             "observed_at": "2026-09-11",
             "node_version": "2026.7.23b1",
-            "plugin_version": "0.1.1"
+            "plugin_version": "not recorded"
           }
         ],
         "handler_dispatch": [
@@ -865,7 +865,7 @@
             "observation": "The installed Assist wrapper honored time and entity scoping in the probed path.",
             "observed_at": "2026-09-11",
             "node_version": "2026.7.23b1",
-            "plugin_version": "0.1.1"
+            "plugin_version": "not recorded"
           },
           {
             "method": "PRODUCTION-LIVE",
@@ -908,7 +908,7 @@
             "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
             "observed_at": "2026-09-11",
             "node_version": "2026.7.23b1",
-            "plugin_version": "0.1.1"
+            "plugin_version": "not recorded"
           }
         ],
         "assist_wrapper": [
@@ -946,7 +946,7 @@
             "observation": "ha.reload_config was refused with 'adminToken is not configured for this node | INVALID_REQUEST' immediately after ha.check_config reported valid. The shipped plugin's enforceAdminOp checks policy.adminToken, while docs/design/COMMAND-TIERS.md:88 states no add-on admin token exists and that allowAdminOps plus a resolved permission request is the model. The gate also short-circuits before parameter validation, so the domain-rejection path remains unverified.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "2026.9.13b1"
+            "plugin_version": "not recorded"
           }
         ]
       }
@@ -1236,7 +1236,7 @@
             "observation": "ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "2026.9.13b1"
+            "plugin_version": "not recorded"
           }
         ]
       }
@@ -1259,7 +1259,7 @@
             "observation": "ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "2026.9.13b1"
+            "plugin_version": "not recorded"
           }
         ]
       }
@@ -1285,7 +1285,7 @@
             "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
-            "plugin_version": "2026.9.13b1"
+            "plugin_version": "not recorded"
           }
         ]
       }
