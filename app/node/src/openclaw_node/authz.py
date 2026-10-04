@@ -41,22 +41,80 @@ _SERVICE_NAME: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_]{1,64}$")
 _ACTOR_SIGNATURE_WINDOW_S: Final[int] = 300
 _ACTOR_SIGNING_KEY_LABEL: Final[bytes] = b"openclaw-hass-node actor-signing v1"
 
+# Household `user` policy over the whole dispatcher registry. Every registered
+# command is in exactly one of these two sets (a test iterates the live
+# registry); a command in neither is refused for `user` by the gate (default
+# deny), so a newly registered command is never reachable until classified.
+# Allowed: read-only commands, plus the service-bearing commands that the
+# effect policy governs (`ha.call_service` and the light wrappers).
+USER_ALLOWED_COMMANDS: Final[frozenset[str]] = frozenset(
+    {
+        "ping",
+        "fs.read",
+        "fs.list",
+        "fs.stat",
+        "fs.glob",
+        "fs.history",
+        "fs.diff",
+        "system.which",
+        "ha.list_states",
+        "ha.get_state",
+        "ha.call_service",
+        "ha.light_turn_on",
+        "ha.light_turn_off",
+        "ha.list_areas",
+        "ha.list_devices",
+        "ha.list_services",
+        "ha.get_config",
+        "ha.list_events",
+        "ha.list_config_entries",
+        "ha.core_logs",
+        "ha.calendar_get_events",
+        "ha.list_entity_registry",
+        "ha.logbook",
+        "ha.history",
+        "ha.list_automations",
+        "ha.check_config",
+        "ha.addon_logs",
+        "ha.list_addons",
+        "ha.addon_info",
+        "ha.addon_stats",
+        "ha.addon_changelog",
+        "ha.addon_documentation",
+        "ha.supervisor_info",
+    }
+)
+USER_FORBIDDEN_COMMANDS: Final[frozenset[str]] = frozenset(
+    {
+        "fs.write",
+        "fs.delete",
+        "fs.move",
+        "fs.restore",
+        "fs.patch",
+        "system.run",
+        "system.run.prepare",
+        "system.execApprovals.get",
+        "system.execApprovals.set",
+        "ha.reload_config",
+        "ha.addon_start",
+        "ha.addon_stop",
+        "ha.addon_restart",
+        "ha.addon_update",
+        "ha.update_install",
+        "ha.config.lovelace",
+        "ha.config.automation",
+        "ha.config.script",
+        "ha.config.scene",
+        "ha.config.helpers",
+        "ha.config.area_registry",
+        "ha.config.device_registry",
+        "ha.config.entity_registry",
+        "ha.config.config_entries",
+    }
+)
+
 _DEFAULT_FORBIDDEN: Final[dict[Role, frozenset[str]]] = {
-    "user": frozenset(
-        {
-            "fs.write",
-            "fs.delete",
-            "fs.move",
-            "fs.restore",
-            "fs.patch",
-            "system.run",
-            "ha.reload_config",
-            "ha.addon_start",
-            "ha.addon_stop",
-            "ha.addon_restart",
-            "ha.call_service:*",
-        }
-    ),
+    "user": frozenset({*USER_FORBIDDEN_COMMANDS, "ha.call_service:*"}),
     "admin": frozenset(
         {
             "fs.write",

@@ -115,6 +115,8 @@ def household_user(monkeypatch: pytest.MonkeyPatch) -> None:
         ("ha.call_service", {"domain": "switch", "service": "turn_on"}),
         ("ha.reload_config", {}),
         ("ha.addon_restart", {"slug": "core_ssh"}),
+        ("ha.addon_update", {"slug": "core_ssh"}),
+        ("system.execApprovals.set", {"file": {"version": 1, "agents": {}}}),
     ],
 )
 async def test_ws_household_user_refused_with_zero_ha_requests(

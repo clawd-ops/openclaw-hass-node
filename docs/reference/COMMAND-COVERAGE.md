@@ -1053,6 +1053,8 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_dispatch_gate_boundary.py`
+  - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_gateway_ws.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
@@ -4109,6 +4111,8 @@ _(no unreleased command additions)_
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_dispatch_gate_boundary.py`
+  - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_exec_approvals.py`
   - `app/node/tests/test_gateway_ws.py`
 

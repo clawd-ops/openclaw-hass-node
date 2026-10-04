@@ -7,7 +7,8 @@ single one in ``commands.ha``; the auto-allow set is the single constant in
 
 Principal x outcome:
 
-- ``user``: deny/unclassified/forbidden refused; auto-allow allowed.
+- ``user``: deny/unclassified/forbidden refused; auto-allow allowed; anything
+  outside ``USER_ALLOWED_COMMANDS`` is refused (default deny).
 - ``admin``/``super_admin``: unclassified refused ``APPROVAL_REQUIRED``.
 - ``operator``: only deny refused; unclassified allowed (temporary, logged).
 """
@@ -19,6 +20,7 @@ from typing import Any, Final, Literal
 
 from openclaw_node.authz import (
     HOUSEHOLD_AUTO_ALLOW_SERVICES,
+    USER_ALLOWED_COMMANDS,
     is_forbidden,
     service_for_command,
 )
@@ -60,6 +62,10 @@ def check(caller: Caller, command: str, params: dict[str, Any]) -> dict[str, Any
     effect = classify(service)
     if service is not None and effect == "deny":
         return _refusal("SERVICE_DENIED", f"{command} denies {service}")
+    if caller.role == "user" and command not in USER_ALLOWED_COMMANDS:
+        # Default deny: a household user reaches only the allowed set, whatever
+        # the (config-patchable) forbidden list says; unclassified commands included.
+        return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
     if not operator and is_forbidden(caller.forbidden, command, params):
         return _refusal("PERMISSION_DENIED", f"{command} is not permitted for this caller")
     if command != "ha.call_service" and service is None:
