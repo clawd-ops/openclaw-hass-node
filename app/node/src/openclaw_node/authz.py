@@ -614,17 +614,22 @@ def resolve_agent_id(identity: IdentityConfig, actor: Actor | None) -> str:
 
 _BLOCK_OPEN: Final[str] = "[OpenClaw authorization context"
 _BLOCK_CLOSE: Final[str] = "[end OpenClaw authorization context]"
+# The marker's core phrase with any whitespace (newlines included) between the
+# words, whatever brackets surround it, so spacing and partial variants cannot
+# slip past a contiguous match.
 _BLOCK_MARKER: Final[re.Pattern[str]] = re.compile(
-    re.escape(_BLOCK_OPEN) + "|" + re.escape(_BLOCK_CLOSE), re.IGNORECASE
+    r"openclaw\s+authorization\s+context", re.IGNORECASE
 )
 
 
 def apply_turn_authz(text: str, authz: TurnAuthz) -> str:
     """Prepend the authorization block to the user utterance.
 
-    Every copy of the block's open or close marker in ``text`` is replaced
-    first, so an utterance can neither forge a block nor close the real one
-    early: the genuine block is the only place the markers appear.
+    Every occurrence of the marker phrase in ``text`` is replaced first, so an
+    utterance can neither forge a block nor close the real one early: the
+    genuine block is the only place the phrase appears. One pass suffices: the
+    replacement is non-empty and whitespace-free, so a removal cannot join
+    fragments into a new match.
     """
     cleaned = _BLOCK_MARKER.sub("[marker removed]", text)
     return f"{authz.disclaimer}\n\n{cleaned}"
@@ -781,7 +786,18 @@ def log_agent_inventory(identity: IdentityConfig, agents: tuple[str, ...]) -> No
             identity.default_agent_id,
             available,
         )
-    if not identity.default_agent_id and len(agents) > 1:
+    # Mirror resolve_agent_id: with no default_agent_id, only a role default
+    # gives a role an agent. Anonymous callers resolve to the user role.
+    unowned = [
+        role
+        for role, role_agent in (
+            ("user", identity.user_role_agent_id),
+            ("admin", identity.admin_role_agent_id),
+            *((("super_admin", ""),) if identity.super_admins else ()),
+        )
+        if not role_agent.strip()
+    ]
+    if not identity.default_agent_id.strip() and len(agents) > 1 and unowned:
         # The one broken topology used to be the only one with no diagnostic.
         # With several agents and no default, the add-on omits `agentId`, the
         # gateway cannot resolve an owner for the session, and *every* Assist
@@ -796,9 +812,11 @@ def log_agent_inventory(identity: IdentityConfig, agents: tuple[str, ...]) -> No
         # while doing it.
         _LOG.error(
             "[identity] Gateway has %d agents but default_agent_id is unset, so no agent "
-            "owns an Assist turn from an anonymous or unmapped user and those turns will "
-            "fail. Users matched by user_agent_map are unaffected. Set "
-            "identity.default_agent_id in the add-on configuration to one of: %s",
+            "owns an Assist turn for the %s role(s) (the user role covers an anonymous or "
+            "unmapped caller) and those turns will fail. Users matched by "
+            "user_agent_map are unaffected. Set identity.default_agent_id (or a role "
+            "default) in the add-on configuration to one of: %s",
             len(agents),
+            ", ".join(unowned),
             available,
         )
