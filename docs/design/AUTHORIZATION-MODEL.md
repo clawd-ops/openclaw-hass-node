@@ -364,6 +364,10 @@ turn is refused, for example conversation ids differing only by case (Assist
 accepts them), or an unqualified household turn's canonical key equal to an admin
 turn's raw key. There is no tie-break.
 
+Trade-off: two concurrent Assist conversations whose IDs differ only by letter
+case are both refused; HA generates conversation IDs, so this is not expected in
+practice.
+
 The default is one agent plus a prompt-level block, with a separate agent
 configurable per user (option 1 above).
 
