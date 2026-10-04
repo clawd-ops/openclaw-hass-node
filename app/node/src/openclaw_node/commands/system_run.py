@@ -46,9 +46,12 @@ Reference:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
+import signal
 import subprocess
+import threading
 import time
 from typing import Any, Final
 
@@ -64,6 +67,11 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 _DEFAULT_TIMEOUT_MS: Final[int] = 30_000
 _DEFAULT_MAX_TIMEOUT_MS: Final[int] = 60_000
 _MAX_OUTPUT_BYTES: Final[int] = 256 * 1024  # 256 KiB per stream
+_MAX_ARGV_BYTES: Final[int] = 128 * 1024  # total argv bytes, NUL-terminated
+_MAX_ENV_BYTES: Final[int] = 128 * 1024  # merged env, KEY=VALUE NUL-terminated
+_READ_CHUNK: Final[int] = 64 * 1024
+_POLL_S: Final[float] = 0.01
+_READER_GRACE_S: Final[float] = 1.0
 
 _SAFE_ENV_KEYS: Final[frozenset[str]] = frozenset(
     ["PATH", "HOME", "LANG", "TZ", "USER", "TERM", "LOGNAME"]
@@ -103,6 +111,25 @@ def _merge_env(caller_env: dict[str, str]) -> dict[str, str] | None:
     base = _base_env()
     base.update(caller_env)
     return base
+
+
+def _encoded_size(items: list[str]) -> int:
+    return sum(len(item.encode(errors="surrogateescape")) + 1 for item in items)
+
+
+def _drain(stream: Any, out: bytearray, over_cap: threading.Event) -> None:
+    """Read ``stream`` into ``out``, flagging ``over_cap`` past the byte cap."""
+    while chunk := stream.read(_READ_CHUNK):
+        room = _MAX_OUTPUT_BYTES - len(out)
+        out += chunk[:room]
+        if len(chunk) > room:
+            over_cap.set()
+            return
+
+
+def _kill_group(proc: subprocess.Popen[bytes]) -> None:
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(proc.pid, signal.SIGKILL)
 
 
 def _max_timeout_ms() -> int:
@@ -332,6 +359,9 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     if raw_env is not None:
         caller_env = dict(raw_env)
 
+    if _encoded_size(argv) > _MAX_ARGV_BYTES:
+        return _error("ARGV_TOO_LARGE", f"command exceeds {_MAX_ARGV_BYTES} total argv bytes")
+
     merged_env = _merge_env(caller_env)
     if merged_env is None:
         return _error(
@@ -339,6 +369,9 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "env contains a key matching a blocked pattern "
             "(TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, PWD)",
         )
+
+    if _encoded_size([f"{k}={v}" for k, v in merged_env.items()]) > _MAX_ENV_BYTES:
+        return _error("ENV_TOO_LARGE", f"env exceeds {_MAX_ENV_BYTES} total bytes")
 
     timeout_ms, timeout_error = _resolve_timeout_ms(params)
     if timeout_error is not None:
@@ -356,15 +389,49 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
     )
     t0 = time.monotonic()
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             argv,
-            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             cwd=resolved_cwd,
             env=merged_env,
-            timeout=timeout_s,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired:
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
+    except FileNotFoundError:
+        return _error("NOT_FOUND", f"Binary not found: {argv[0]!r}")
+    except OSError as exc:
+        return _error("EXEC_ERROR", f"Execution failed: {exc}")
+
+    assert proc.stdout is not None
+    assert proc.stderr is not None
+    out, err = bytearray(), bytearray()
+    over_cap = threading.Event()
+    readers = [
+        threading.Thread(target=_drain, args=(proc.stdout, out, over_cap), daemon=True),
+        threading.Thread(target=_drain, args=(proc.stderr, err, over_cap), daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+
+    deadline = t0 + timeout_s
+    timed_out = False
+    while proc.poll() is None and not over_cap.is_set():
+        if time.monotonic() >= deadline:
+            timed_out = True
+            break
+        over_cap.wait(_POLL_S)
+    # Killing the whole session group also reaps grandchildren that would
+    # otherwise outlive the command (and hold the pipes open).
+    _kill_group(proc)
+    returncode = proc.wait()
+    for reader in readers:
+        reader.join(_READER_GRACE_S)
+    proc.stdout.close()
+    proc.stderr.close()
+
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    if timed_out:
         _LOG.warning("system.run timed out after %dms argv=%r", elapsed_ms, argv)
         return {
             "ok": True,
@@ -376,28 +443,25 @@ def handle_system_run(params: dict[str, Any]) -> dict[str, Any]:
             "error": f"Command timed out after {timeout_ms}ms",
             "elapsed_ms": elapsed_ms,
         }
-    except FileNotFoundError:
-        return _error("NOT_FOUND", f"Binary not found: {argv[0]!r}")
-    except OSError as exc:
-        return _error("EXEC_ERROR", f"Execution failed: {exc}")
-
-    elapsed_ms = int((time.monotonic() - t0) * 1000)
-
-    stdout = result.stdout[:_MAX_OUTPUT_BYTES].decode(errors="replace")
-    stderr = result.stderr[:_MAX_OUTPUT_BYTES].decode(errors="replace")
 
     _LOG.info(
         "system.run finished argv=%r exitCode=%d elapsed_ms=%d",
         argv,
-        result.returncode,
+        returncode,
         elapsed_ms,
     )
-    return {
+    payload: dict[str, Any] = {
         "ok": True,
-        "success": result.returncode == 0,
-        "exitCode": result.returncode,
+        "success": returncode == 0,
+        "exitCode": returncode,
         "timedOut": False,
-        "stdout": stdout,
-        "stderr": stderr,
+        "stdout": out.decode(errors="replace"),
+        "stderr": err.decode(errors="replace"),
         "elapsed_ms": elapsed_ms,
     }
+    if over_cap.is_set():
+        _LOG.warning("system.run output cap exceeded argv=%r", argv)
+        payload["success"] = False
+        payload["outputTruncated"] = True
+        payload["terminated"] = "output_cap"
+    return payload
