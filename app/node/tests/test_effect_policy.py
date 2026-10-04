@@ -181,3 +181,20 @@ def test_role_refusal_is_permission_denied_not_service_denied() -> None:
     assert (
         _code(check(UNTRUSTED, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
     )
+
+
+def test_removed_user_forbidden_command_stays_in_disclaimer_and_refused() -> None:
+    identity = IdentityConfig(
+        forbidden_commands={
+            "user": ForbiddenCommandPatch(
+                add=frozenset({"ha.get_state"}),
+                remove=frozenset({"ha.addon_update"}),
+            )
+        }
+    )
+    authz = resolve_turn_authz(identity, None)
+    caller = Caller(role="user", actor_id="u", forbidden=authz.forbidden)
+
+    for command in ("ha.addon_update", "ha.get_state"):
+        assert f"  - {command}" in authz.disclaimer
+        assert _code(check(caller, command, {})) == "PERMISSION_DENIED"

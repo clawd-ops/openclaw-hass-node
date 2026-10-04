@@ -223,6 +223,11 @@ That computed set becomes an enforced allowlist at the dispatcher, refusing the
 command before any handler runs. It is not advisory, and it cannot be relaxed by
 anything the requesting user says.
 
+For the `user` role, the entries of `USER_FORBIDDEN_COMMANDS` are
+non-removable: a config `remove` naming one is ignored with a warning, so the
+disclaimer always renders the refused set the gate enforces. `add`, and removal
+of `ha.call_service:*` or other added entries, still work.
+
 **One source of truth, two consumers.** The same `forbidden_for_role` result
 feeds both the enforcement gate and the prompt disclaimer. Enforcement and
 disclosure cannot drift, which is the usual failure mode when a policy is

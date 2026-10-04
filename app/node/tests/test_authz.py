@@ -135,7 +135,7 @@ def test_forbidden_patches_add_and_remove_defaults() -> None:
         forbidden_commands={
             "user": ForbiddenCommandPatch(
                 add=frozenset({"ha.call_service:lock.unlock"}),
-                remove=frozenset({"fs.write"}),
+                remove=frozenset({"ha.call_service:*"}),
             )
         }
     )
@@ -143,7 +143,7 @@ def test_forbidden_patches_add_and_remove_defaults() -> None:
     authz = resolve_turn_authz(identity, None)
 
     assert "ha.call_service:lock.unlock" in authz.forbidden
-    assert "fs.write" not in authz.forbidden
+    assert "ha.call_service:*" not in authz.forbidden
 
 
 def test_log_agent_inventory_reports_misconfig(caplog: LogCaptureFixture) -> None:
@@ -450,3 +450,23 @@ def test_disclaimer_exception_reflects_patched_light_prohibitions() -> None:
     assert "may still be called are: light.turn_on." in one.disclaimer
     assert "light.turn_off." not in one.disclaimer
     assert "may still be called are: none." in both.disclaimer
+
+
+def test_user_forbidden_commands_are_non_removable(caplog: LogCaptureFixture) -> None:
+    identity = IdentityConfig(
+        forbidden_commands={
+            "user": ForbiddenCommandPatch(
+                add=frozenset({"ha.get_state"}),
+                remove=frozenset({"ha.addon_update"}),
+            )
+        }
+    )
+
+    with caplog.at_level("WARNING"):
+        authz = resolve_turn_authz(identity, None)
+
+    assert "ha.addon_update" in authz.forbidden
+    assert "ha.addon_update" in authz.disclaimer
+    assert "ha.get_state" in authz.forbidden
+    assert "ha.get_state" in authz.disclaimer
+    assert sum("ha.addon_update" in r.getMessage() for r in caplog.records) == 1
