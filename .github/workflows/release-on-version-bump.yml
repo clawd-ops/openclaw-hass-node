@@ -36,6 +36,8 @@ on:
       - "app/node/pyproject.toml"
       - "app/node/src/openclaw_node/__init__.py"
       - "custom_components/openclaw_hass_node_assist/manifest.json"
+      - "plugins/openclaw-hass-node-assist-tools/package.json"
+      - "skills/openclaw-hass-node-skill/SKILL.md"
       - ".github/workflows/release-on-version-bump.yml"
 
 jobs:

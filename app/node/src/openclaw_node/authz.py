@@ -628,8 +628,8 @@ def apply_turn_authz(text: str, authz: TurnAuthz) -> str:
     Every occurrence of the marker phrase in ``text`` is replaced first, so an
     utterance can neither forge a block nor close the real one early: the
     genuine block is the only place the phrase appears. One pass suffices: the
-    replacement is non-empty and whitespace-free, so a removal cannot join
-    fragments into a new match.
+    replacement contains none of the marker words, so removal cannot create a
+    new match.
     """
     cleaned = _BLOCK_MARKER.sub("[marker removed]", text)
     return f"{authz.disclaimer}\n\n{cleaned}"

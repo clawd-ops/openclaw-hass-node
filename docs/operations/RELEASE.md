@@ -181,13 +181,13 @@ PR title: `release: 2026.6.20b8 — <one-line summary>`. Merge it.
 ### Step 4 — CI cuts the release (no human action)
 
 `.github/workflows/release-on-version-bump.yml` triggers on push to
-`main` when any of five watched paths changes: `app/config.yaml`,
+`main` when any of the seven version sources changes: `app/config.yaml`,
 `app/build.yaml`, `app/node/pyproject.toml`,
 `app/node/src/openclaw_node/__init__.py`,
-`custom_components/openclaw_hass_node_assist/manifest.json` (or the workflow
-file itself). `scripts/bump-version.py` always updates all seven version
-files together, so a normal bump triggers it; a change to only the plugin
-package or the skill version would not. It:
+`custom_components/openclaw_hass_node_assist/manifest.json`,
+`plugins/openclaw-hass-node-assist-tools/package.json`,
+`skills/openclaw-hass-node-skill/SKILL.md` (or the workflow file itself).
+`scripts/bump-version.py` updates all seven together. It:
 
 1. Reads the current synced version via `scripts/bump-version.py --get`.
 2. Validates the base-to-head command shipment transition before tagging.
