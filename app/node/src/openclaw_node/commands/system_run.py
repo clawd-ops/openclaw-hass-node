@@ -118,8 +118,14 @@ def _encoded_size(items: list[str]) -> int:
 
 
 def _drain(stream: Any, out: bytearray, over_cap: threading.Event) -> None:
-    """Read ``stream`` into ``out``, flagging ``over_cap`` past the byte cap."""
-    while chunk := stream.read(_READ_CHUNK):
+    """Read ``stream`` into ``out``, flagging ``over_cap`` past the byte cap.
+
+    ``os.read`` returns whatever is available, so short output is captured
+    even while a background descendant keeps the pipe open (a buffered
+    ``stream.read(n)`` would wait for ``n`` bytes or EOF).
+    """
+    fd = stream.fileno()
+    while chunk := os.read(fd, _READ_CHUNK):
         room = _MAX_OUTPUT_BYTES - len(out)
         out += chunk[:room]
         if len(chunk) > room:

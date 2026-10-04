@@ -759,3 +759,17 @@ def test_cap_after_child_exit_reports_truncation_not_termination(
     assert result["exitCode"] == 0
     assert result["outputTruncated"] is True
     assert "terminated" not in result
+
+
+def test_short_output_kept_when_background_child_holds_pipe(tmp_path: Path) -> None:
+    pidfile = tmp_path / "bg.pid"
+    script = f"echo foreground; sleep 10 & echo $! > {pidfile}"
+    result = handle_system_run(_params(command=["sh", "-c", script], timeoutMs=20_000))
+    pid = int(pidfile.read_text())
+    try:
+        assert result["success"] is True
+        assert "foreground" in result["stdout"]
+        assert result["elapsed_ms"] < 5_000
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(pid, signal.SIGKILL)
