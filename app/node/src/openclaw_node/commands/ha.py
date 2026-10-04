@@ -316,6 +316,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
     ):
         return _error("INVALID_PARAM", "data and service_data must agree when both are supplied")
 
+    if _unencodable_target(target):
+        return _error("INVALID_PARAM", "target strings must be valid UTF-8 text")
+
     if denial := _interim_service_denial(domain, service):
         return _error(
             "SERVICE_DENIED",
@@ -336,13 +339,7 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")
-    changed = result
-    extra: dict[str, Any] = {}
-    if not changed:
-        entity_id_val = target.get("entity_id") if target is not None else None
-        if entity_id_val and isinstance(entity_id_val, (str, list)):
-            changed, extra = await _fetch_entity_states(entity_id_val)
-    return {"ok": True, "changed_states": changed, **extra}
+    return await _with_observed_states(result, target)
 
 
 async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:
@@ -645,24 +642,15 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "domain": _RELOAD_CORE_DOMAIN}
 
 
-async def _fetch_entity_states(
-    entity_ids: str | list[str],
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+async def _fetch_entity_states(entity_ids: list[str]) -> list[dict[str, Any]]:
     """Fetch current states for named entity IDs after a service call.
 
     HA's REST service endpoint no longer reliably returns changed states in
-    newer versions; this provides a post-call snapshot when the caller named
-    explicit entity IDs.  area_id and device_id targets are not handled here
-    because enumerating their members requires additional registry calls.
-    The reads run concurrently under one ``_OBSERVATION_BUDGET_SECONDS``
-    deadline and never raise: the service call already succeeded, so a failed
-    or slow observation only lowers completeness.  At most
-    ``_MAX_ENTITY_STATE_FETCHES`` IDs are read.  The second return value carries
-    ``changed_states_complete`` (every targeted ID returned a state) and
-    ``targeted_entity_count`` so a partial snapshot is never presented as whole.
+    newer versions; this provides a post-call snapshot of the named IDs.  The
+    reads run concurrently under one ``_OBSERVATION_BUDGET_SECONDS`` deadline;
+    a failed or slow read is skipped.  At most ``_MAX_ENTITY_STATE_FETCHES``
+    IDs are read.
     """
-    if isinstance(entity_ids, str):
-        entity_ids = [entity_ids]
     paths = [
         f"/api/states/{encoded}"
         for eid in entity_ids[:_MAX_ENTITY_STATE_FETCHES]
@@ -679,8 +667,57 @@ async def _fetch_entity_states(
             continue
         elif isinstance(state := task.result(), dict):
             states.append(state)
-    complete = len(states) == len(entity_ids) <= _MAX_ENTITY_STATE_FETCHES
-    return states, {"changed_states_complete": complete, "targeted_entity_count": len(entity_ids)}
+    return states
+
+
+def _unencodable_target(target: dict[str, Any] | None) -> bool:
+    """True when any target string cannot be UTF-8 encoded (e.g. a lone surrogate)."""
+    try:
+        for value in (target or {}).values():
+            for item in value if isinstance(value, list) else [value]:
+                if isinstance(item, str):
+                    item.encode("utf-8")
+    except UnicodeEncodeError:
+        return True
+    return False
+
+
+async def _with_observed_states(
+    changed: list[dict[str, Any]], target: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Build the success result, adding a post-call snapshot when HA returned none.
+
+    Shared by every service handler.  The snapshot reads only explicitly named
+    entity IDs, so ``changed_states_complete`` is ``True`` only when the target
+    is exclusively those IDs, every one returned a state, and none exceeded the
+    fetch cap; ``area_id``/``device_id`` members are never enumerated.  With no
+    entity IDs nothing is read and the count is 0.  The mutation already
+    succeeded, so any observation failure only lowers completeness and never
+    alters the result.
+    """
+    if changed:
+        return {"ok": True, "changed_states": changed}
+    states: list[dict[str, Any]] = []
+    complete = False
+    count = 0
+    try:
+        tgt = target or {}
+        raw = tgt.get("entity_id")
+        ids = [raw] if isinstance(raw, str) else raw if isinstance(raw, list) else []
+        ids = [eid for eid in ids if isinstance(eid, str) and eid]
+        count = len(ids)
+        if ids:
+            states = await _fetch_entity_states(ids)
+            composite = bool(tgt.get("area_id") or tgt.get("device_id"))
+            complete = len(states) == count <= _MAX_ENTITY_STATE_FETCHES and not composite
+    except Exception:  # observation is best-effort after a successful call
+        states, complete = [], False
+    return {
+        "ok": True,
+        "changed_states": states,
+        "changed_states_complete": complete,
+        "targeted_entity_count": count,
+    }
 
 
 def _build_light_target(params: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
@@ -729,6 +766,8 @@ async def handle_ha_light_turn_on(params: dict[str, Any]) -> dict[str, Any]:
     target, err = _build_light_target(params)
     if err is not None:
         return _error("MISSING_PARAM", err)
+    if _unencodable_target(target):
+        return _error("INVALID_PARAM", "target strings must be valid UTF-8 text")
 
     data: dict[str, Any] = {}
     for key in ("brightness", "brightness_pct", "color_temp_kelvin", "rgb_color", "transition"):
@@ -746,13 +785,7 @@ async def handle_ha_light_turn_on(params: dict[str, Any]) -> dict[str, Any]:
     except HAClientError as exc:
         return _to_error(exc)
 
-    changed: list[dict[str, Any]] = result if isinstance(result, list) else []
-    extra: dict[str, Any] = {}
-    if not changed:
-        entity_id_val = params.get("entity_id")
-        if isinstance(entity_id_val, (str, list)):
-            changed, extra = await _fetch_entity_states(entity_id_val)
-    return {"ok": True, "changed_states": changed, **extra}
+    return await _with_observed_states(result if isinstance(result, list) else [], target)
 
 
 async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
@@ -772,6 +805,8 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
     target, err = _build_light_target(params)
     if err is not None:
         return _error("MISSING_PARAM", err)
+    if _unencodable_target(target):
+        return _error("INVALID_PARAM", "target strings must be valid UTF-8 text")
 
     body: dict[str, Any] = {}
     if "transition" in params:
@@ -784,13 +819,7 @@ async def handle_ha_light_turn_off(params: dict[str, Any]) -> dict[str, Any]:
     except HAClientError as exc:
         return _to_error(exc)
 
-    changed: list[dict[str, Any]] = result if isinstance(result, list) else []
-    extra: dict[str, Any] = {}
-    if not changed:
-        entity_id_val = params.get("entity_id")
-        if isinstance(entity_id_val, (str, list)):
-            changed, extra = await _fetch_entity_states(entity_id_val)
-    return {"ok": True, "changed_states": changed, **extra}
+    return await _with_observed_states(result if isinstance(result, list) else [], target)
 
 
 _LIST_AUTOMATIONS_ALLOWED_PARAMS: Final[frozenset[str]] = frozenset(

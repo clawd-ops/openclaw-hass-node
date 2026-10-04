@@ -2565,3 +2565,79 @@ async def test_update_install_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
             {"entity_id": "update.hacs", "admin_token": "secret"}
         )
     assert result["error"] == "HA_HTTP_ERROR"
+
+
+async def test_call_service_entity_plus_area_fallback_incomplete() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", AsyncMock(side_effect=_ok_get)),
+    ):
+        result = await handle_ha_call_service(
+            {
+                "domain": "light",
+                "service": "turn_on",
+                "target": {"entity_id": "light.x", "area_id": "kitchen"},
+            }
+        )
+    assert [s["entity_id"] for s in result["changed_states"]] == ["light.x"]
+    assert result["changed_states_complete"] is False
+    assert result["targeted_entity_count"] == 1
+
+
+async def test_light_turn_off_entity_plus_device_fallback_incomplete() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", AsyncMock(side_effect=_ok_get)),
+    ):
+        result = await handle_ha_light_turn_off({"entity_id": "light.x", "device_id": "d1"})
+    assert result["changed_states_complete"] is False
+    assert result["targeted_entity_count"] == 1
+
+
+async def test_light_turn_on_empty_entity_list_skips_observation() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch("openclaw_node.commands.ha.ha_get", new_callable=AsyncMock) as mock_get,
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": []})
+    mock_get.assert_not_called()
+    assert result["changed_states_complete"] is False
+    assert result["targeted_entity_count"] == 0
+
+
+async def test_observation_exception_never_alters_mutation_result() -> None:
+    with (
+        patch("openclaw_node.commands.ha.ha_post", return_value=[]),
+        patch(
+            "openclaw_node.commands.ha._fetch_entity_states",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+    ):
+        result = await handle_ha_light_turn_on({"entity_id": "light.x"})
+    assert result == {
+        "ok": True,
+        "changed_states": [],
+        "changed_states_complete": False,
+        "targeted_entity_count": 1,
+    }
+
+
+async def test_unencodable_target_refused_before_any_ha_request() -> None:
+    bad = "light.\ud800x"
+    with (
+        patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as mock_post,
+        patch("openclaw_node.commands.ha.ha_get", new_callable=AsyncMock) as mock_get,
+    ):
+        results = [
+            await handle_ha_call_service(
+                {"domain": "light", "service": "turn_on", "target": {"entity_id": bad}}
+            ),
+            await handle_ha_call_service(
+                {"domain": "light", "service": "turn_on", "target": {"area_id": bad}}
+            ),
+            await handle_ha_light_turn_on({"entity_id": [bad]}),
+            await handle_ha_light_turn_off({"device_id": bad}),
+        ]
+    mock_post.assert_not_called()
+    mock_get.assert_not_called()
+    assert all(r["ok"] is False and r["error"] == "INVALID_PARAM" for r in results)
