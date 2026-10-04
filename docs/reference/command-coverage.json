@@ -1291,12 +1291,14 @@
               "source": "dispatcher + node connect frame"
             },
             {
+              "fixed_in_pr": 358,
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
               "observation": "On the deployed build, fs.restore accepted version=0 and clamped it to entry 0 instead of rejecting it. version=1 returning entry 0 and version=4 returning entry 3 is the documented 1-indexed selection over the 0-indexed history array, not a defect. Current source rejects version=0 as out of range and adds a version_id selector (the sha256 fs.history returns); this observation predates that fix.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
+              "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -2324,12 +2326,14 @@
               "source": "dispatcher + node connect frame"
             },
             {
+              "fixed_in_pr": 375,
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
               "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
+              "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -6213,12 +6217,14 @@
               "source": "dispatcher + node connect frame"
             },
             {
+              "fixed_in_pr": 362,
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
               "observation": "ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
+              "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -9909,12 +9915,14 @@
               "source": "dispatcher + node connect frame"
             },
             {
+              "fixed_in_pr": 373,
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.7.23b1",
               "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
               "observed_at": "2026-09-11",
               "outcome": "fail",
               "plugin_version": "not recorded",
+              "reprobe_owed": true,
               "source": "docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding",
               "stale": true
             }
@@ -11180,12 +11188,14 @@
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
             },
             {
+              "fixed_in_pr": 362,
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
               "observation": "COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
+              "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11621,12 +11631,14 @@
               "source": "dispatcher + node connect frame"
             },
             {
+              "fixed_in_pr": 373,
               "method": "PRODUCTION-LIVE",
               "node_version": "2026.9.13b1",
               "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
+              "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
