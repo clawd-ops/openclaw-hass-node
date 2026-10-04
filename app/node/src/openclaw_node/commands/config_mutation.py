@@ -70,18 +70,49 @@ def _utf16_key(key: str) -> bytes:
     return key.encode("utf-16-be", "surrogatepass")
 
 
+_ES_ESCAPES: Final[dict[str, str]] = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+
+def _es_string(value: str) -> str:
+    r"""Serialize a string exactly like well-formed ECMAScript ``JSON.stringify``.
+
+    Control characters and lone surrogates become lowercase ``\uXXXX``; every
+    other character is emitted literally, so the result is always valid UTF-8.
+    """
+    out = ['"']
+    for ch in value:
+        code = ord(ch)
+        if ch in _ES_ESCAPES:
+            out.append(_ES_ESCAPES[ch])
+        elif code < 0x20 or 0xD800 <= code <= 0xDFFF:
+            out.append(f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    out.append('"')
+    return "".join(out)
+
+
 def _canonical(value: Any) -> str:
     """Canonical JSON: keys sorted by UTF-16 code unit, no whitespace, ES numbers."""
     if isinstance(value, dict):
         items = ",".join(
-            f"{json.dumps(k, ensure_ascii=False)}:{_canonical(value[k])}"
-            for k in sorted(value, key=_utf16_key)
+            f"{_es_string(k)}:{_canonical(value[k])}" for k in sorted(value, key=_utf16_key)
         )
         return "{" + items + "}"
     if isinstance(value, list):
         return "[" + ",".join(_canonical(v) for v in value) + "]"
-    if isinstance(value, bool) or value is None or isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, str):
+        return _es_string(value)
+    if isinstance(value, bool) or value is None:
+        return json.dumps(value)
     if isinstance(value, int):
         return str(value)
     return _es_number(value)

@@ -123,7 +123,7 @@ const FS_VERBS: Readonly<Record<string, string>> = {
 };
 const TARGET_KEYS = ["slug", "id", "entity_id", "device_id", "area_id", "entry_id", "url_path", "url", "name", "path", "src", "dst"];
 
-/** Sorted keys, no whitespace; identical to Python `json.dumps(sort_keys=True, separators=(",", ":"), ensure_ascii=False)`. */
+/** Sorted keys, no whitespace; matches the node's ES-compatible canonical serializer (config_mutation.py). */
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value !== null && typeof value === "object") {

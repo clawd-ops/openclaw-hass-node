@@ -1,0 +1,2105 @@
+{
+  "comment": "Generated cross-language fixture. Do not edit; regenerate with UPDATE_APPROVAL_FIXTURE=1 (see approval-bind-fixture-gen.ts). params_json is raw JSON text; canonical and bind are the TypeScript outputs the Python node must reproduce exactly.",
+  "cases": [
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"]㚆/룾񎮠\\udaad\":1e21,\"\\t\\ud950\\u0018P󑧻\":[4.35,{\"\\n칧\\u0000w\\udab75\\u001d\":1877012840972288,\"\":\"\\udfff\"},-65393.90445686877,{\"\":false,\"㓭잾\\u0006禖\":{\"񆎟򴂯󮊧븻\":null,\"\\ud92aŦ쿴\\ud8acF\\u0006骄\":0.5},\"򼧮񢒕@\":{\"\":null}}],\"_openclaw_caller\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\t\\ud950\\u0018P󑧻\":[4.35,{\"\":\"\\udfff\",\"\\n칧\\u0000w\\udab75\\u001d\":1877012840972288},-65393.90445686877,{\"\":false,\"㓭잾\\u0006禖\":{\"񆎟򴂯󮊧븻\":null,\"\\ud92aŦ쿴\\ud8acF\\u0006骄\":0.5},\"򼧮񢒕@\":{\"\":null}}],\"]㚆/룾񎮠\\udaad\":1e+21}}",
+      "bind": "b9c5af82618c9d9a397c7ec03f4b5625005777605491518695590a7e349ab1b5"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\":null,\"\\\"\\\\/\":1e300,\"\\n\\\\\":null,\"\\udafcJ⚶\\u0018\\t\\t\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\":null,\"\\n\\\\\":null,\"\\\"\\\\/\":1e+300,\"\\udafcJ⚶\\u0018\\t\\t\":null}}",
+      "bind": "17da5fff30d31bc518bd394022cbcd241040cff76cdce7d9dc3935e52a4f77c5"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"m륐\":true,\"\\b\\f\\n\\r\\t\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\b\\f\\n\\r\\t\":null,\"m륐\":true}}",
+      "bind": "c728adbf7cceb635bda229ec4223d3ce773e2c0f9532dd887e890e6f71449c1c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"café ☃\":3.103815147187561,\"ꔶ⹆󣐫G\\u000bd\\u0010\":[]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"café ☃\":3.103815147187561,\"ꔶ⹆󣐫G\\u000bd\\u0010\":[]}}",
+      "bind": "f83b9276d45c07eb6e531c3910d2a252cb1935074f754b009d239b093edf8884"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\":-3.334983177483082e-9,\"\":0.0030106371268630028}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\":0.0030106371268630028,\"\":-3.334983177483082e-9}}",
+      "bind": "345531f5e1ff8ae55de8c8906465c5124f1a1f3f35334ff312c28ef3b7ca913d"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\b\\f\\n\\r\\t\":false,\"\\udf41p\":\"&𥌡\\u001as\\f\\\\\",\"䁂\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\b\\f\\n\\r\\t\":false,\"䁂\":null,\"\\udf41p\":\"&𥌡\\u001as\\f\\\\\"}}",
+      "bind": "465d8ecde738b71c2f1943d1a98413078b36fa5a2c06395e65e1b7a8d456c4a6"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\udfff\":\"\\f򸁶/\\u0012\\u0010\\ud995乣\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\udfff\":\"\\f򸁶/\\u0012\\u0010\\ud995乣\"}}",
+      "bind": "5a72caeefc5d2c55a95034d9350d4d33aa77f423f0a4f6a5deaf9231a649207f"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\fa\\u0007\":3130316109643776,\"\\f򙙵𜡏\\n\\u0017\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\fa\\u0007\":3130316109643776,\"\\f򙙵𜡏\\n\\u0017\":null}}",
+      "bind": "5a0405fc86209b010115b79c0cfd319332c05c7bb89cdbcda88cd4707724ccf3"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\\ud99e󒆊鴆0򑔟\\\\\\r\":{\"\\\"\\\\/\":479.76841125637293,\"\\uda69\\u0015􆨙\":\"底򄁒乏𗼮竷\"},\"X\\t\":[1e21,-40227860026.06154,[[],{\"ꆼ\":-0,\"😀\":null},-1.1271434742957354e-20,false]],\"a\\u001f񫸐\":{},\"_openclaw_approval\":5e-324}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"X\\t\":[1e+21,-40227860026.06154,[[],{\"ꆼ\":0,\"😀\":null},-1.1271434742957354e-20,false]],\"a\\u001f񫸐\":{},\"\\ud99e󒆊鴆0򑔟\\\\\\r\":{\"\\\"\\\\/\":479.76841125637293,\"\\uda69\\u0015􆨙\":\"底򄁒乏𗼮竷\"}}}",
+      "bind": "1c790c7c5ae304f032dd26f94030d7f514b54789d15783f0c1496dcb02f15764"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\":[1084782.3461517692],\"\\ude00\\ud83d\":-4.992432137951255e-15,\"_openclaw_approval\":[\"😀\",0.1,-1774554374471680],\"_openclaw_caller\":[null,\"\\r\\u0005\"]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\":[1084782.3461517692],\"\\ude00\\ud83d\":-4.992432137951255e-15}}",
+      "bind": "a8a59c3a384ef0a2c8bd2394449a0e674d35f57350610a5729ee32fd55ee1612"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"j\\t7\\udafb\\u000e\\ude69\":false,\"t\\u001e\\u0015\\udc9b\\u0000Z\":{\"񂍧/\\r\\ud9b4\":\"􏿿\",\"ni4\\u000b򞹎\":{\"\":null,\"򝼶\\uda00\\fl錧\":false,\"\\ud83d\":4.316022964194417e-17},\"\":[false],\"\\ud800\":\"café ☃\"},\"\":null,\"a\\ud800b\":-222058.27641300857,\"_openclaw_approval\":2471888861265920,\"_openclaw_caller\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\":null,\"a\\ud800b\":-222058.27641300857,\"j\\t7\\udafb\\u000e\\ude69\":false,\"t\\u001e\\u0015\\udc9b\\u0000Z\":{\"\":[false],\"ni4\\u000b򞹎\":{\"\":null,\"\\ud83d\":4.316022964194417e-17,\"򝼶\\uda00\\fl錧\":false},\"\\ud800\":\"café ☃\",\"񂍧/\\r\\ud9b4\":\"􏿿\"}}}",
+      "bind": "f1d1b1184611b37989bda7aba63e67073b579cecea0d93476c5a37f409d82249"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\\u001f\":1.5e-7,\"_openclaw_approval\":2762227281035264,\"_openclaw_caller\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\u001f\":1.5e-7}}",
+      "bind": "ae56b5ede70ca4a2b833b8fc83673e605595becf9040da8990cc72e274a4d66e"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"r\":{}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"r\":{}}}",
+      "bind": "f688e61b9905f24a6d86c74c8b87a607b8cf41b05c881f539ec42363857d1067"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"😀\":{\"\\ud965\\ud939\\u000b\\\\費䌵\\u0010\":null,\"匴\\b\\\\󕔞\\\\\\udd35\":[null,{},{\"\\udf51๷\\u0019񾴑犧\":\"䪦g\\f\\udf05\",\"\\\"\\\\/\":\"\\u0015\\udda7\\b\\f\\u001a\\udfe9\\u0007\",\"\\uda0aF\\n\\\"\":false,\"\":-521789.6169051528}],\"\":19543.811678886414,\"\\u0013􌳞Q򛝺\":\"\"}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"😀\":{\"\":19543.811678886414,\"\\u0013􌳞Q򛝺\":\"\",\"匴\\b\\\\󕔞\\\\\\udd35\":[null,{},{\"\\\"\\\\/\":\"\\u0015\\udda7\\b\\f\\u001a\\udfe9\\u0007\",\"\":-521789.6169051528,\"\\uda0aF\\n\\\"\":false,\"\\udf51๷\\u0019񾴑犧\":\"䪦g\\f\\udf05\"}],\"\\ud965\\ud939\\u000b\\\\費䌵\\u0010\":null}}}",
+      "bind": "b8ffd86f290f96b089470829d35c269b5e1d724c9a7f75d1a0cd805b89b9f598"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"嬓񊣧񥤉\":[null,-237460.97134426236,\"\\\"󝐔\\ud8bdb_\",9007199254740991],\"򮃙\\n衡g\\ud8f5\\rk\":{\"翛\\uda17肨\\r\":null,\"\\b艤\":null,\"=\\u000f჻\":null,\"􏿿\":9007199254740991},\"\\u0019򺾂\\uda41ꏹ󣖊\":null,\"\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\":null,\"\\u0019򺾂\\uda41ꏹ󣖊\":null,\"嬓񊣧񥤉\":[null,-237460.97134426236,\"\\\"󝐔\\ud8bdb_\",9007199254740991],\"򮃙\\n衡g\\ud8f5\\rk\":{\"\\b艤\":null,\"=\\u000f჻\":null,\"翛\\uda17肨\\r\":null,\"􏿿\":9007199254740991}}}",
+      "bind": "dd2dc1fde54d9dc0e2dc141deb982746227f9aba0a715331008990dba43d1bf0"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"䶅\\r𲗹\\n񂄕\\udd64򛀅\":{\"\\ude00\\ud83d\":\"\\u001a'\\udcb7J\",\"􏿿\":{}},\"𺩽𻌣\":{\"\\u0011s\\u0016\":{},\"﻿\":true,\"\\u001f\":null},\"㧛^\":0.0046008570119738575,\"_openclaw_caller\":\"  \"}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"㧛^\":0.0046008570119738575,\"䶅\\r𲗹\\n񂄕\\udd64򛀅\":{\"􏿿\":{},\"\\ude00\\ud83d\":\"\\u001a'\\udcb7J\"},\"𺩽𻌣\":{\"\\u0011s\\u0016\":{},\"\\u001f\":null,\"﻿\":true}}}",
+      "bind": "d6ec8c7796e7905f69c4e609026bbbf3501ab1fbabbfb35712da96ab87bc28a2"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\ud978ậ\\b\\r𸅨\\u0007%\":null,\"󯒁󈩱\":{\"\\u0001VJ\\udd8e󭪇󯋧\\u0001\":\"\",\"a\\ud800b\":{\"\\\"V1쪱㉩\":3336601237192704,\"u)\\r\\u0002䷋򢇾\":0.1},\"N뉦ٝ\\u0015'\":null},\"_openclaw_approval\":false,\"_openclaw_caller\":5e-324}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\ud978ậ\\b\\r𸅨\\u0007%\":null,\"󯒁󈩱\":{\"\\u0001VJ\\udd8e󭪇󯋧\\u0001\":\"\",\"N뉦ٝ\\u0015'\":null,\"a\\ud800b\":{\"\\\"V1쪱㉩\":3336601237192704,\"u)\\r\\u0002䷋򢇾\":0.1}}}}",
+      "bind": "a98a14103317c1ca26960fbb9b226b61f45149179f39874a186e5ae4be1d0ca6"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\\\钩񊲮+\":1.720103630796075e+33,\"\\u0002򞍾\":\"\",\"\\\\\":[100.0,[false,{}]],\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0002򞍾\":\"\",\"\\\\\":[100,[false,{}]],\"\\\\钩񊲮+\":1.720103630796075e+33}}",
+      "bind": "939365f2035bfed1bc7779194d11bd53ff7004aa2f3c371450a0e530c1ad3825"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"😀\":null,\"\\\"\\\\/\":5e-324,\"\\u0001c\\ud856򡒩\\udcf5\":{\"\\ud9ca\":1.5e-7,\"\\ud913\\t0\":false,\"w򙸍lk㋵/\\udfd0\":\"\",\"X\\r򂑾\\t\":{\"Kv酢ꢪ\\u001b\\t\":{\"\\u0013\":0.5,\"t1\\u001f\\u0001肹񍐑\":null,\"\\u0002\":\"\\udf3f\\udacd\",\"﻿\":null},\"?󻠀\":\"8}o/\\u0004\\udbba\"}}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0001c\\ud856򡒩\\udcf5\":{\"X\\r򂑾\\t\":{\"?󻠀\":\"8}o/\\u0004\\udbba\",\"Kv酢ꢪ\\u001b\\t\":{\"\\u0002\":\"\\udf3f\\udacd\",\"\\u0013\":0.5,\"t1\\u001f\\u0001肹񍐑\":null,\"﻿\":null}},\"w򙸍lk㋵/\\udfd0\":\"\",\"\\ud913\\t0\":false,\"\\ud9ca\":1.5e-7},\"\\\"\\\\/\":5e-324,\"😀\":null}}",
+      "bind": "b4e407253b50072fac69cf4c67055291c0cf01bf2f14d02958a6bac2e2651f7c"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\n\\ud859\":null,\"\":-3646086929448960,\"_openclaw_approval\":1.9600939680822194}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\":-3646086929448960,\"\\n\\ud859\":null}}",
+      "bind": "4e8999e228d441b735d6b0b040cfa9c1c13dea20aa661af24e4f5e8184e8a39b"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\f⪣\\ud90c\":{\"ꆪs誯G\\u0001\\\"\":true,\"䙱K\":null,\"\\ud83d\":123456789012345680000,\"^\":{\"\\ud800\":null,\"\\udbaa\\\"\\udb718\\\"F\\u0012\":false}}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\f⪣\\ud90c\":{\"^\":{\"\\ud800\":null,\"\\udbaa\\\"\\udb718\\\"F\\u0012\":false},\"䙱K\":null,\"ꆪs誯G\\u0001\\\"\":true,\"\\ud83d\":123456789012345680000}}}",
+      "bind": "f2c8881c726792948e42e13df060b85cf7aa6bec437c45304962b92003f98c8e"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"😀\":-2782403036708864,\"\\b\\f\\n\\r\\t\":100.0,\"\\udd1c\\ud9a3\\r\\udda7\\udd23\\r\":{\"㸸\\u000b\\nL\":100.0,\"𳡀ⴘ\":{\"򭄍涆󭮣⊆{󕶞\\ud87b\":true,\"😌\\b\":{\"\":null,\"\\udcde󨆻\":false,\"[\\uda2b\":1e+22},\"\":null},\"\\uda3fx\\ud991/\\u0014񓟹\":null,\"\\f鮵\\u0001)󃬞\\uda00\":false},\"\\udd0d\\u0010k\\ud9df\\b\":\"\\ude00\\ud83d\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\b\\f\\n\\r\\t\":100,\"😀\":-2782403036708864,\"\\udd0d\\u0010k\\ud9df\\b\":\"\\ude00\\ud83d\",\"\\udd1c\\ud9a3\\r\\udda7\\udd23\\r\":{\"\\f鮵\\u0001)󃬞\\uda00\":false,\"㸸\\u000b\\nL\":100,\"𳡀ⴘ\":{\"\":null,\"😌\\b\":{\"\":null,\"[\\uda2b\":1e+22,\"\\udcde󨆻\":false},\"򭄍涆󭮣⊆{󕶞\\ud87b\":true},\"\\uda3fx\\ud991/\\u0014񓟹\":null}}}",
+      "bind": "05d86e44f36ea8595bc4f8fe4214880d9fc8f062b8a3836aff4f4fef8eecf006"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"󄵨\":9007199254740991,\"_openclaw_approval\":[null]}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"󄵨\":9007199254740991}}",
+      "bind": "eaf97511ab5e815719a9aa6ad93b0ed6e7c4b8e01839063eda5f87923dc599b6"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\\b\\u001a\":{\"|\\b\\u000f\":2047.2526922821999},\"\\b\\f\\n\\r\\t\":[],\"\\udec1ࡄ\\ude47\":2.6742418832145634e+29,\"k\\udcbf\\n􉺾\\u0004\":false,\"_openclaw_approval\":{}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\\b\\f\\n\\r\\t\":[],\"\\b\\u001a\":{\"|\\b\\u000f\":2047.2526922821999},\"k\\udcbf\\n􉺾\\u0004\":false,\"\\udec1ࡄ\\ude47\":2.6742418832145634e+29}}",
+      "bind": "d4a536f6c4cbb53e62b0215fe4a03c64504c3bbf9c123c41ba5c356c954e80c4"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\ud89a\":true}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\ud89a\":true}}",
+      "bind": "b0439a5d5c570cd61eae3850fba2721837c027ec7cd7bec0f21760c0cc97fdf7"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"?./\\u001d\":[2065117978034176,0.000001],\"\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\":true,\"?./\\u001d\":[2065117978034176,0.000001]}}",
+      "bind": "909bb4803ed8f7dc18236b5a7cb389e788a1b5837db8e7482cad614d43f88917"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"鱟x򨬜\\r\\u0013\":[],\"Ẩ\\udf95\\\\\":\")\\udc87썺\\udaeb\\udbf2T󇀋\",\"\\ude00\\ud83d\":{\"\":null,\"\\ud93e󓴖汆顏\":0.1,\"㹕\\b\":{\"\\udf78爟\":1.5e-7,\"\":{},\"򊥹񢖈మ뭈\\u0017\":{},\"￿\":\"\\\"ߙ\\udd3f\\r\"}},\"\\f筓矈.屒i\":{\"繡\":\"\\u0012󏆳(K璸倳𾎁\"},\"_openclaw_caller\":[[]]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\f筓矈.屒i\":{\"繡\":\"\\u0012󏆳(K璸倳𾎁\"},\"Ẩ\\udf95\\\\\":\")\\udc87썺\\udaeb\\udbf2T󇀋\",\"鱟x򨬜\\r\\u0013\":[],\"\\ude00\\ud83d\":{\"\":null,\"㹕\\b\":{\"\":{},\"򊥹񢖈మ뭈\\u0017\":{},\"\\udf78爟\":1.5e-7,\"￿\":\"\\\"ߙ\\udd3f\\r\"},\"\\ud93e󓴖汆顏\":0.1}}}",
+      "bind": "15c3fdec157ebee055cf04eac8013a10c5c54af81f92f105e717c8d920d86f57"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"1񎋪\":false,\"ߵ\\ud8d7;3\\ude4f\":\"P\\b\\ud805󮌗\\f\\udc08\\r\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"1񎋪\":false,\"ߵ\\ud8d7;3\\ude4f\":\"P\\b\\ud805󮌗\\f\\udc08\\r\"}}",
+      "bind": "769d2162e2e7f8331f1c18448d2f94d74d3a82fea829918059154f634206faad"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"k\":\"\\u0000\",\"5\\r\\u0011\":null,\"café ☃\":916600601444352}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"5\\r\\u0011\":null,\"café ☃\":916600601444352,\"k\":\"\\u0000\"}}",
+      "bind": "4ced6996faab57ea645c42d15e41f2b49759eaca19b2f70cfd4091f66f9bbaed"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"鎎/\\u0003\\b𺢔B\":0.000001,\"  \":null,\"\\u0004\\uddd6\":2.5e-10,\"񆪫=\\r\":[],\"_openclaw_caller\":\"v\\udd33∜\\t\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0004\\uddd6\":2.5e-10,\"  \":null,\"鎎/\\u0003\\b𺢔B\":0.000001,\"񆪫=\\r\":[]}}",
+      "bind": "e6ef8a90cd8856d87521262fc0b3be471d9f0412a8594950a3c580d8b2b4e578"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"/񖽽\\u0013󐐽\\\\틵\\r\":[1e300]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"/񖽽\\u0013󐐽\\\\틵\\r\":[1e+300]}}",
+      "bind": "51930e20b4d8393a9d845d2f7008d7038c0c95aee9d0b79b7699234747f523b0"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\\u0000\":null,\"\":false,\"﻿\":-9007199254740991}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\":false,\"\\u0000\":null,\"﻿\":-9007199254740991}}",
+      "bind": "64189987f9d3d291e8757854cea84f6d0bff8ff504642c01a208673959170c21"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\":true,\"󫣬ع\\b\\\\\":null,\"\\t勺\\u001a򉅟졀\\udd43\":{\"ဣ\\uda8c\\n\":-4237937583587328,\"\\b\":{\"😀\":[0.1,null]}}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":true,\"\\t勺\\u001a򉅟졀\\udd43\":{\"\\b\":{\"😀\":[0.1,null]},\"ဣ\\uda8c\\n\":-4237937583587328},\"󫣬ع\\b\\\\\":null}}",
+      "bind": "9850e2481e1af18bfbb8522d90e1696731f0c015d169455e3440e2b46c781db7"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"ꤒ쉲饖㟝𽞝\":[null,true,-0.0000045969990547746425],\"훨/\\n\":\"\\\\\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"ꤒ쉲饖㟝𽞝\":[null,true,-0.0000045969990547746425],\"훨/\\n\":\"\\\\\"}}",
+      "bind": "12a880fbae76af7bf967b494162abb54368d4410e9a726658be74d7988b39c35"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\ude00\\ud83d\":false,\"􏿿\":true,\"|Ვ떮\":9007199254740991,\"_openclaw_approval\":0.000001}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"|Ვ떮\":9007199254740991,\"􏿿\":true,\"\\ude00\\ud83d\":false}}",
+      "bind": "b91f5a647ee9dac5a5ef11f9daa9b5cca3b1e6197a41bdf555fa50336ccf7cdb"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\udb94\":null,\"\\n1\\b򭂤\":[-491.2815240677446,[[-3208442231652352,\"\",1307828207747072],{\"\\r󤆣⪷\\udcbc\":null},-2672294287638528,{\"﻿\":3831227417100288,\"\\t𴦍C\":\"\\ude00\\ud83d\",\"\\ud8d2\":\"􏿿\"}],{}]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\n1\\b򭂤\":[-491.2815240677446,[[-3208442231652352,\"\",1307828207747072],{\"\\r󤆣⪷\\udcbc\":null},-2672294287638528,{\"\\t𴦍C\":\"\\ude00\\ud83d\",\"\\ud8d2\":\"􏿿\",\"﻿\":3831227417100288}],{}],\"\\udb94\":null}}",
+      "bind": "c668aa1b73b40daa70a3c6d34023c02ab0d6e4d74f9e299eec558523b6326294"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\":false,\"𼇞ϧ쁕%񖩃j\":null,\"_openclaw_approval\":null,\"_openclaw_caller\":[[23.800348164513707,123456789012345680000],\"😀\",-0.000007215848262421786]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":false,\"𼇞ϧ쁕%񖩃j\":null}}",
+      "bind": "2132806f9d22ac164d291e11b94a1378c980578271e5327f9b37b090e37b59a2"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"⤞vfV\\\\s\":[[],1.7976931348623157e308,null,true],\"뉱菡仴\":100.0,\"\":{\"䕱\":null},\"_openclaw_caller\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\":{\"䕱\":null},\"⤞vfV\\\\s\":[[],1.7976931348623157e+308,null,true],\"뉱菡仴\":100}}",
+      "bind": "8acc24eb6b0d73ad753111acb84c3e15c8dcdc938e2cecc81abbd7f1264778b6"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"w\\b籠/\\n\\udd5f/\":100.0}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"w\\b籠/\\n\\udd5f/\":100}}",
+      "bind": "83c6b7e93ddbf2080668bd85af15ea699d1bb008642a8ad7b01ff3a996b48e0b"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"/┦\\u00008\":[null],\"/#\\t\\u0014Bn\":[[null]],\"\\u001d\":[],\"\\ud895\\r\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\u001d\":[],\"/#\\t\\u0014Bn\":[[null]],\"/┦\\u00008\":[null],\"\\ud895\\r\":null}}",
+      "bind": "a17f8a8e68c253326bfe60c2d62e4b2001805bbec3c066816b2c34843e4182c9"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"1Π\\ud9f0\\b\\udbf0\\u0015\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"1Π\\ud9f0\\b\\udbf0\\u0015\":null}}",
+      "bind": "838d32e819494000f513cc1d246cb3f61b12cc28468cfc065cd8b905aa10d274"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\udab4\\u001b\\u000b\\\"\":[\"﻿\"],\"\\udbe6\":31.06887962203473}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\udab4\\u001b\\u000b\\\"\":[\"﻿\"],\"\\udbe6\":31.06887962203473}}",
+      "bind": "989ee835efe8a970718def11cfe33ec173b360e7f759dbf6e0c29b9f05fd58e2"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"씌쌩䰷\":2.5646535144187508e-23,\"/\\b\":false,\"\\f񴡀\":100.0,\"﻿\":null,\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\f񴡀\":100,\"/\\b\":false,\"씌쌩䰷\":2.5646535144187508e-23,\"﻿\":null}}",
+      "bind": "9226ecdaece792aef48d6b72ac3219f8349f0df0be67ad9bc00cd8579b938fdd"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"񙐫\":[],\"򦞹k룗\\ud92c򊪪\":true}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"񙐫\":[],\"򦞹k룗\\ud92c򊪪\":true}}",
+      "bind": "e3bec5d1cf8a287dfb6fcfdebd3cba36d39bf4655336a1c252b45a494d46d890"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\rA\\u00103\":{\"뎥\\t\\n\\udb87\\u001aa\":[0.000004454824631102383,-0.0,9007199254740991]},\"셔앞㬱B\\ude03䁕]\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\rA\\u00103\":{\"뎥\\t\\n\\udb87\\u001aa\":[0.000004454824631102383,0,9007199254740991]},\"셔앞㬱B\\ude03䁕]\":false}}",
+      "bind": "3acd27869501a65045a8f454e62e1fbd86005cff1a33659a7150b07dcb06aca3"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"򛶧\\b䷬rڸ\\\"\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"򛶧\\b䷬rڸ\\\"\":true}}",
+      "bind": "a7461f61f1964871d47ddcdcea0be33b0a1c4205eb3de5b7fdb5e3975e57aab3"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\u0016󏓽'ᕫi󮦡\\t\":[{},null,null],\" \\ud974\\u0005胖\\n\":2.3119851225055752e-12,\"\\u0010\\\"򍨮\\udaf7\":4382270750195712,\"_openclaw_approval\":205.87851549498737,\"_openclaw_caller\":2.828030874952674e-8}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0010\\\"򍨮\\udaf7\":4382270750195712,\"\\u0016󏓽'ᕫi󮦡\\t\":[{},null,null],\" \\ud974\\u0005胖\\n\":2.3119851225055752e-12}}",
+      "bind": "e9c8b9ba262edc31003167fe04dc6c8bb03772c7d5d9446a79976ad23966e6a5"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\";򽻇󪻎\":true,\"\\u0002\\b񁰿\":null,\"\":true,\"􏿿\":\"󊻅\\udec1z\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\":true,\"\\u0002\\b񁰿\":null,\";򽻇󪻎\":true,\"􏿿\":\"󊻅\\udec1z\"}}",
+      "bind": "4fc4b071403a22988cbd25ea918e361abed37e3faa7c8f4f845efe6d5caeb2eb"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"}\\n⣸ᚘ-\":[null,\"\"],\"😀\":1e-7,\"\":null,\"_openclaw_approval\":0.0002572971512563527}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\"}\\n⣸ᚘ-\":[null,\"\"],\"😀\":1e-7}}",
+      "bind": "21cb045bb212f07c37445e6f21d091becfae9898d4acc9249be079299ba5d834"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\\u0011渘\":null,\"_openclaw_caller\":[]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0011渘\":null}}",
+      "bind": "0098116c9310d275178c453277f9b41f156789b394d4796c5c7828b4ad760aed"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\\u001f\":\"d\\r\",\"\\n򮻝\\u001cY󛅾\\r \":\"\\n^\\udc76磊H\\b㎴\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\n򮻝\\u001cY󛅾\\r \":\"\\n^\\udc76磊H\\b㎴\",\"\\u001f\":\"d\\r\"}}",
+      "bind": "9fbfbe33fc2ade7ef5cbc1a2cefc627e2799ab051994fe3a48c274d05a336157"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"􏿿\":55692.42057390511,\"/\\n󌥉򏼧̄\":0.000001,\"\\u0000\":[[123456.789e3,{\"a\\ud800b\":100.0,\"\\f󥁓\\u0017\":\"\\u0000\",\"\":\"a\\ud800b\"},1e300],\"\",\"𰭽\\\\𐚀򼴵\\b\\n\"],\"\\u0011\":true,\"_openclaw_caller\":{\"\\u0017\\ude85筧\\n\":[]}}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0000\":[[123456789,{\"\":\"a\\ud800b\",\"\\f󥁓\\u0017\":\"\\u0000\",\"a\\ud800b\":100},1e+300],\"\",\"𰭽\\\\𐚀򼴵\\b\\n\"],\"\\u0011\":true,\"/\\n󌥉򏼧̄\":0.000001,\"􏿿\":55692.42057390511}}",
+      "bind": "ac375d011e56fd7a7fbc543bbd2a976d9df28910d452cae1bb8ef21e75dc788b"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\\ude00\\ud83d\":\"\",\"􏿿\":false,\"\\u0010\\f恷񎱜\":2.5e-10}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0010\\f恷񎱜\":2.5e-10,\"􏿿\":false,\"\\ude00\\ud83d\":\"\"}}",
+      "bind": "3e9d143646f5daf13bba963b484257a53b9bfb0049d2445740fe6b7dce2d83f6"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\uda02\\u0007\\u0010\":-2601083.528716117,\"\\u0000\":[false,{\"\\ud83d\":[1.5e-7,-4425183133696000,false,-0]},null,\"\\\"$\"],\"\\\"\\\\/\":37242.221110500395,\"郐a\\b\\ud8d4򚪠񁄼\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0000\":[false,{\"\\ud83d\":[1.5e-7,-4425183133696000,false,0]},null,\"\\\"$\"],\"\\\"\\\\/\":37242.221110500395,\"郐a\\b\\ud8d4򚪠񁄼\":null,\"\\uda02\\u0007\\u0010\":-2601083.528716117}}",
+      "bind": "0f53663ad02ca3156d3b68e45ef547ebcbd051584b1868c3b1486b0564d53482"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\":null,\"뇽+\\ude2eO\":9.998230799101292e-23,\".}񡐂\\t󹅗᭕B\":\"􏿿\",\"\\f\\ud886\\uda12Gh\\u0018\\u0013\":{\"😀\":\"￿\",\"\\u0011򛦯ঈ𜓩.\\udbd4\":[\"\\ude9c_陏Ꞑ\\\\l㛻\",[\"\",2.2588303103111684,-676831990644736,1e-7],null],\"\":0.1,\"𿹻𞧚\":-4.1096636559814216e+27}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\"\\f\\ud886\\uda12Gh\\u0018\\u0013\":{\"\\u0011򛦯ঈ𜓩.\\udbd4\":[\"\\ude9c_陏Ꞑ\\\\l㛻\",[\"\",2.2588303103111684,-676831990644736,1e-7],null],\"\":0.1,\"😀\":\"￿\",\"𿹻𞧚\":-4.1096636559814216e+27},\".}񡐂\\t󹅗᭕B\":\"􏿿\",\"뇽+\\ude2eO\":9.998230799101292e-23}}",
+      "bind": "347b9fba67f98a1aaa19696ba3712c69f4414bdb9231fe89ba411272db3f0be5"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"￿\":null,\"\\\"\\\\/\":{\"😀\":null,\"𤓢/K࢛𺫶W\":\"\\udb11\\u001e\\\"\\u001c\\udd98\\n\",\"᫃\\u0011\\udb49G\\uda02󒨔\\b\":\"耞\\u0018򄘗\"},\"󣜖\":null,\"_openclaw_approval\":-4462796064423936}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\\"\\\\/\":{\"᫃\\u0011\\udb49G\\uda02󒨔\\b\":\"耞\\u0018򄘗\",\"😀\":null,\"𤓢/K࢛𺫶W\":\"\\udb11\\u001e\\\"\\u001c\\udd98\\n\"},\"󣜖\":null,\"￿\":null}}",
+      "bind": "d2539c2dd90c6e1157e7d2d70eba0f8f19bce61aecc464ecee2bfcc21bf4c485"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\\"򵵴s\":[{\"F*\":{\"café ☃\":null,\"\\ud800\":true},\"󮙕\\b\\n񈢯\\\\\\u00060\":[\"\"],\"p\\r𶸍\":null},null,123456789012345680000],\"ഢ\":2527687243464704,\"俎s\":{\"\\u001b忷\\ud970v*񫬌\":{\"\":null,\"􏭵廁w\":-76.90551062114537,\"\\uda70/\":true,\"\\u0011ꏡ\\uda7e􁂑\":false},\"\\ud93eq\\n񫩆\":null}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\\"򵵴s\":[{\"F*\":{\"café ☃\":null,\"\\ud800\":true},\"p\\r𶸍\":null,\"󮙕\\b\\n񈢯\\\\\\u00060\":[\"\"]},null,123456789012345680000],\"ഢ\":2527687243464704,\"俎s\":{\"\\u001b忷\\ud970v*񫬌\":{\"\":null,\"\\u0011ꏡ\\uda7e􁂑\":false,\"\\uda70/\":true,\"􏭵廁w\":-76.90551062114537},\"\\ud93eq\\n񫩆\":null}}}",
+      "bind": "dfc5958bdc918951aa36f400535bef6400d9b585cb0d0799279d2a05acdc261c"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"𾧊𒏊!\\u0003\\udb22\":{\"젮\\u001f򚚿\\udfe43󘺀\\b\":null,\"\\\"\\\\/\":\"a\\ud800b\"},\"\\udfff\":1593095.7486853004}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"𾧊𒏊!\\u0003\\udb22\":{\"\\\"\\\\/\":\"a\\ud800b\",\"젮\\u001f򚚿\\udfe43󘺀\\b\":null},\"\\udfff\":1593095.7486853004}}",
+      "bind": "c97701c03ff4d75a49c9699a36dd5c8b311d11b3f41b399f40333e4d9c845869"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\":null,\"/\\f\":true,\"󞸍꿉䏺/\":\"2\\u0003?\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\":null,\"/\\f\":true,\"󞸍꿉䏺/\":\"2\\u0003?\"}}",
+      "bind": "ac5b663f2328298b3d09a8cca3d20ef15d88948e5cf99335afbbf071dfa761b3"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"羉\\u001d􉿝챹򧱎󘽅\":2721545199812608,\"\\b\\f\\n\\r\\t\":\"\\\"\\\\/\",\"\\u001e\":{\"😀\":3011557837016.8804,\"\\r񀑖K\\b\":3.290211430285126e-17,\"/hv᠘󻄛\\u000e疷\":false},\"﻿\":\"\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\b\\f\\n\\r\\t\":\"\\\"\\\\/\",\"\\u001e\":{\"\\r񀑖K\\b\":3.290211430285126e-17,\"/hv᠘󻄛\\u000e疷\":false,\"😀\":3011557837016.8804},\"羉\\u001d􉿝챹򧱎󘽅\":2721545199812608,\"﻿\":\"\"}}",
+      "bind": "ff20c89d9da9297a6489e8b843ffaaa498404c1e054395b7354c82048dc4b6f2"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"g\\udec5\\u0014\":{\"\":3595668639711232,\"􋗅c\":false},\"\\u0018𱄼3񱞝\\ud865\":true,\"\\u0004\\uda0a󸝨籠򆌷\":\"􀐐\\udf8c\",\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0004\\uda0a󸝨籠򆌷\":\"􀐐\\udf8c\",\"\\u0018𱄼3񱞝\\ud865\":true,\"g\\udec5\\u0014\":{\"\":3595668639711232,\"􋗅c\":false}}}",
+      "bind": "2fef7d9943ea8924dc6a41ffda68b41deb4f31f334975ac4ba5b26a9414c9a6b"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\udde3똻砫)\":-0.0,\"\\u0001\":4.35,\"\\u0012\\uda51\\u0016\\b񠃠\\t\":-2.2892390494234857e-19,\"\":null,\"_openclaw_caller\":\"\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0001\":4.35,\"\\u0012\\uda51\\u0016\\b񠃠\\t\":-2.2892390494234857e-19,\"\":null,\"\\udde3똻砫)\":0}}",
+      "bind": "5a00430353050e17b1a21de962e05109e04c4a49dcf0a64743e42825b60e8048"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\b\\f\\n\\r\\t\":2893.2028939016163,\"\":[-9007199254740991,{\"O򑏜\":-0}],\"\\f𖮸\\udb77\\u000e񶼗\\u0019\":{\"\\t\\n񃤬\\udc07\\u0019\":false}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\":[-9007199254740991,{\"O򑏜\":0}],\"\\b\\f\\n\\r\\t\":2893.2028939016163,\"\\f𖮸\\udb77\\u000e񶼗\\u0019\":{\"\\t\\n񃤬\\udc07\\u0019\":false}}}",
+      "bind": "671755395173c8b6ed3603ae620a53ff4db6b789532f4e6b73827bced5756c9f"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"􏿿\":-2033999755083776,\"Z\\n\\r򽱩$\":-59740.69540388882,\"󷙎\":[[{},{\"[\\\\w\\udb47\\u0000\":null}],true]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"Z\\n\\r򽱩$\":-59740.69540388882,\"󷙎\":[[{},{\"[\\\\w\\udb47\\u0000\":null}],true],\"􏿿\":-2033999755083776}}",
+      "bind": "ba27892da31ad2b7836c7030a0fd368b9f99336fbccb4bc5b0c83bd533574633"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"싺𧧕\":\"\\f\",\"`\\ud803붐㩶\\uda3a𠳇\":2.5e-10,\"\\f\\\",\\udf45\":123456.789e3,\"\":\"\\udd53􋞝\\u0012\",\"_openclaw_caller\":[]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\":\"\\udd53􋞝\\u0012\",\"\\f\\\",\\udf45\":123456789,\"`\\ud803붐㩶\\uda3a𠳇\":2.5e-10,\"싺𧧕\":\"\\f\"}}",
+      "bind": "8da0fda8bc0367441e4178e9449e8cdd71dcc6105e19aeabe28c0b26b3c66bc3"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\\u0004\":29130756808444856,\"_openclaw_caller\":3.482502500992268e+34}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0004\":29130756808444856}}",
+      "bind": "34d6430d8e203cca2a07d712a74aed7f561a0e9d683f638cb164957e01587070"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\":{\"\\udf86񺝎\":[\"\\udcc5V󃩍\\f\",\"\"],\"\\n\\u0007沾\\u0006\":null,\"￿\":-4690930.841024965},\"_openclaw_caller\":true}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\":{\"\\n\\u0007沾\\u0006\":null,\"\\udf86񺝎\":[\"\\udcc5V󃩍\\f\",\"\"],\"￿\":-4690930.841024965}}}",
+      "bind": "7e68cbd54845e0a0fab4f53ebb0876779aa39421480148fcbd1d6ede2db5ff61"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\t񓔿]\\fQ/𤜀\":null,\"p겑󞈀\":[null,false],\"\\\"\":-1.2897418043576181e-8,\"򧫛\":[]}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\t񓔿]\\fQ/𤜀\":null,\"\\\"\":-1.2897418043576181e-8,\"p겑󞈀\":[null,false],\"򧫛\":[]}}",
+      "bind": "b159e4a53d6e02f0816c4d20ba64ba238629415ababf1f221bfaf2f0a6ce544a"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\udc4cZ\\b\\udae8\\r1\\u0014\":9007199254740991,\"\\u0003\\u001c\\n󻶌%\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0003\\u001c\\n󻶌%\":true,\"\\udc4cZ\\b\\udae8\\r1\\u0014\":9007199254740991}}",
+      "bind": "53bb2fc0ee95af4da132ecbc2a2be18cc6ed7b88514663615abdabf002bd44ff"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\r婃\":[true,[-1],[null,-2.177367319818586e-18,null],false],\"\\f❱碅\":{\"_m𘎤\\\\Z\\udb0f\":-11.683691828511655,\".\\uda8d񯐿\\u001e\":-0.3389237471856177},\"󩑕訐\\n\":false,\"񠼉暙\\u001f\\u0014//\\b\":[null,-1076374232104960,{\"\\ud800\":{},\"\\b\\f\\n\\r\\t\":{\"𽾻:򴔻\\u0014\\\\\":23904640134.423973,\"\\u0017\\ude44&\":4.7268478129990396e-15},\"\\b\\f\\\\񿁣%\":null},false],\"_openclaw_caller\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\f❱碅\":{\".\\uda8d񯐿\\u001e\":-0.3389237471856177,\"_m𘎤\\\\Z\\udb0f\":-11.683691828511655},\"\\r婃\":[true,[-1],[null,-2.177367319818586e-18,null],false],\"񠼉暙\\u001f\\u0014//\\b\":[null,-1076374232104960,{\"\\b\\f\\n\\r\\t\":{\"\\u0017\\ude44&\":4.7268478129990396e-15,\"𽾻:򴔻\\u0014\\\\\":23904640134.423973},\"\\b\\f\\\\񿁣%\":null,\"\\ud800\":{}},false],\"󩑕訐\\n\":false}}",
+      "bind": "c712aa78cbde7a3e96c8b8730db7b5f633a15e8c54a3e4ae256ae0ce67b76cb4"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"𪮡ᙱ舦\\udaf9\":\"񙲏蘟ݶ򠲮\\ud85c\\ud9dc\",\"/\\u0002\":true,\"񌂴\\\\񾞌\":\"café ☃\",\"\\b\\f\\b\\udf52\":-4395587.530452758}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\b\\f\\b\\udf52\":-4395587.530452758,\"/\\u0002\":true,\"𪮡ᙱ舦\\udaf9\":\"񙲏蘟ݶ򠲮\\ud85c\\ud9dc\",\"񌂴\\\\񾞌\":\"café ☃\"}}",
+      "bind": "b80bd9e4de8a0e8541208edffc377ed8b16639e5bdefbe2cc96c7432f1c2fc04"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"1,\\r󋥋\\\\\\udbf9<\":null,\"\":\"  \",\"\\\\\\ud856\":false,\"\\udfff\":123456.789e3,\"_openclaw_approval\":null,\"_openclaw_caller\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":\"  \",\"1,\\r󋥋\\\\\\udbf9<\":null,\"\\\\\\ud856\":false,\"\\udfff\":123456789}}",
+      "bind": "da561f54efd850b89ca299fb743a27b5dff327b7f0e3dff61d2168794adb0ca5"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\ud8a4\":-1809320754806784,\"\\u001f\":{}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\u001f\":{},\"\\ud8a4\":-1809320754806784}}",
+      "bind": "d2c0e9294b5899b562ac1c34899a4df81ed27becaeae09be7042f69fff8f9e7e"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"\\ud83d\":true,\"􋷰\":{\"😀\":-2.0673230919055642e+31,\"café ☃\":\"f\\u000e\\u0006Q\",\"a\\ud800b\":[false,-0.25426376331597567],\"\":false},\"\\udfac\\u0019e񨡟䖐\\udf3c\":{\"񸢟\\udc65\\\"峅\\u001d\\u001a\":0.3145065892022103},\"_openclaw_caller\":[]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\\ud83d\":true,\"􋷰\":{\"\":false,\"a\\ud800b\":[false,-0.25426376331597567],\"café ☃\":\"f\\u000e\\u0006Q\",\"😀\":-2.0673230919055642e+31},\"\\udfac\\u0019e񨡟䖐\\udf3c\":{\"񸢟\\udc65\\\"峅\\u001d\\u001a\":0.3145065892022103}}}",
+      "bind": "551de37b1c6875442c30283cfc6fc985b794393d68e44bdfc3e98fa31c4974eb"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"  \":-1,\"😀\":null,\"\\udfff\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"  \":-1,\"😀\":null,\"\\udfff\":false}}",
+      "bind": "9f090b17ec18f37fdc4f40761d52d53573568bc74c84da84b085e63a80aa82fa"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\n@砳m\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\n@砳m\":true}}",
+      "bind": "61134849e084547f283afa0a8739538376320d2ce971130cffef75031a7486d1"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\ud942𷲳ⵑ\":{},\"\\u0000\":[null,1.7976931348623157e308,\"  \",null],\"\":19337.892020121217,\"􏿿\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\":19337.892020121217,\"\\u0000\":[null,1.7976931348623157e+308,\"  \",null],\"\\ud942𷲳ⵑ\":{},\"􏿿\":null}}",
+      "bind": "d6526359615394319b64cb50e9466927879ec73d49cb7d707df1db3a1232f440"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\u001c\":null,\"򥊴\\ud860䒦\\u0012\":\"\\u0000\",\"\\udab7\\u0011\":9007199254740991,\"`\":null,\"_openclaw_approval\":[false,-4400706561769472,[\"\\u001dw\\b蕎痆\\u0004\"]]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\u001c\":null,\"`\":null,\"򥊴\\ud860䒦\\u0012\":\"\\u0000\",\"\\udab7\\u0011\":9007199254740991}}",
+      "bind": "78095c162ec18d0a614b4089f41ea91499b7254e3c8e3b8f335027f86ae11e3c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\f逢躦\\u0005󗲉򳪉&\":\"\\f\\\"\\u0013\\r\",\"\\n\\\\\\u0011\":true,\"씚M\":false}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\n\\\\\\u0011\":true,\"\\f逢躦\\u0005󗲉򳪉&\":\"\\f\\\"\\u0013\\r\",\"씚M\":false}}",
+      "bind": "dfe317d9d9b1985e5f3e26541b6a2c026b12fef922515ea6667dedc3e955b3ab"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"󠬣㮰\":0.000001,\"\\\"\\u001f\\n\\t򽖸󧡜\\u0005\":{},\"Q\\udd1c\\ud8e8\":true,\"\":{\"\\r\\b󄄂򗮲򋟗\":null,\"﻿\":-306823722696704},\"_openclaw_approval\":[0.23473524022847414,{\"  \":null,\"\\u000fL\\ud890\\u001f\\udd43\\uda8f󡡗\":\"\\u001a\"}]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\":{\"\\r\\b󄄂򗮲򋟗\":null,\"﻿\":-306823722696704},\"\\\"\\u001f\\n\\t򽖸󧡜\\u0005\":{},\"Q\\udd1c\\ud8e8\":true,\"󠬣㮰\":0.000001}}",
+      "bind": "1914937ac8388362ea38e06f0c81f5876cd32cdd0f47238c27d1c08060f4470e"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"􏿿\":\"\\u0012\\udb4c\",\"\\\\\\udf3a\\u0001\\\\\":5e-324}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\\\\\\udf3a\\u0001\\\\\":5e-324,\"􏿿\":\"\\u0012\\udb4c\"}}",
+      "bind": "0d20aaab12de1e0501abce813bff01484d199dee21dd55d2593b572e6a6b3290"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\\ude00\\ud83d\":\"😀\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\ude00\\ud83d\":\"😀\"}}",
+      "bind": "54310f5837988b88d367d021c4020297a902944b5d7c1b529101d98b7ef2f8ab"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\u0018󂆊񢙰\":9007199254740991,\"%/򸷯\\u00031j\":-3.3622268820181486e-27,\"_openclaw_caller\":-3250.241845380515}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\u0018󂆊񢙰\":9007199254740991,\"%/򸷯\\u00031j\":-3.3622268820181486e-27}}",
+      "bind": "51c5fbf0b92beeb26bc4640dd23d6102218a2d10d8c87e040b0427073e4fe44a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"ᐴ\\u0011\\ude15\\u0015꼉碬\\t\":true,\"\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\"ᐴ\\u0011\\ude15\\u0015꼉碬\\t\":true}}",
+      "bind": "7fa1b2cacaca248846c1fcf0df692721adf1c9e76c99595e1f2c0fe928146f1f"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\u0000\":[]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0000\":[]}}",
+      "bind": "d319df60df2bcbf896ef26f4d5de69f7523591344077a34b2d0cdeeac8502d11"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\u001f\":[],\"󈈝ʞ\\u0003⃖\":{\"\":false}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u001f\":[],\"󈈝ʞ\\u0003⃖\":{\"\":false}}}",
+      "bind": "60d176ef16199a81013402683aafa9e93c37456819fa2771d5ef684b072d2f57"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\udaee󷔐oeTW\":true,\"ꨀ8\\u000ff\":{\"𑠞\\u0016\\r\":[]}}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"ꨀ8\\u000ff\":{\"𑠞\\u0016\\r\":[]},\"\\udaee󷔐oeTW\":true}}",
+      "bind": "0dd43e364cb922ff5aacab523d44d1f58c55fae832df3fe550d9fc0c6f8a2aa2"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":null,\"\\ude00\\ud83d\":null,\"檟\\u001a\\n/r\\udca2\":\"\",\"𱾄\\u0015%\":-2.714856225065887e-26}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\"檟\\u001a\\n/r\\udca2\":\"\",\"𱾄\\u0015%\":-2.714856225065887e-26,\"\\ude00\\ud83d\":null}}",
+      "bind": "071888be47750bab7cd7e49197970b813182abd8fa58bd51e7f5ebc3b1255069"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"ᅱ󊥔\\bB🼂\\u001b\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"ᅱ󊥔\\bB🼂\\u001b\":null}}",
+      "bind": "37400f3f23723f4cc01cd733e8c981c042a3d7bceb7e2e305ef328354a3951d6"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\":\"\\r)\",\"\\udead\\u0014/ヵ\":{\"a\\ud800b\":null,\"􏿿\":false},\"ⱸ񢢥\":null,\"了\":\"\\uda2d\\ud995g\\r\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":\"\\r)\",\"ⱸ񢢥\":null,\"了\":\"\\uda2d\\ud995g\\r\",\"\\udead\\u0014/ヵ\":{\"a\\ud800b\":null,\"􏿿\":false}}}",
+      "bind": "374a3811c28fca686ff41b643ad08d187c542965b6fcea4c5abdee1cddbfbb2e"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\u001b\\u0004\\u0014񰭇\\u0014󷴅b\":[true,{\"\\t\\\"Q;\":1.5e-7,\"󶡧\\f\\r\\r㗥\":-0},-3005838809628672],\"\\u001f\":\"/\",\"\":\"\\b\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\":\"\\b\",\"\\u001b\\u0004\\u0014񰭇\\u0014󷴅b\":[true,{\"\\t\\\"Q;\":1.5e-7,\"󶡧\\f\\r\\r㗥\":0},-3005838809628672],\"\\u001f\":\"/\"}}",
+      "bind": "4d1d894a3c218ef7939aa1fd3558b95b107f8d519bd6253da1650aa923f69d76"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"Ҝ쀰\\udb1f\\\"䗔\\f\\t\":null,\"\\udc35\\udb0b\":100.0,\"￿\":1.5e-7}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"Ҝ쀰\\udb1f\\\"䗔\\f\\t\":null,\"\\udc35\\udb0b\":100,\"￿\":1.5e-7}}",
+      "bind": "b2d07ea44d07fa49528b48095969f512ba84999903081a7fc39f7bd2614069d6"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":\"ᕻ\",\"\\ud83d\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":\"ᕻ\",\"\\ud83d\":null}}",
+      "bind": "891cfa4db855d25d0a3c248a5f86963ebe523051070f6be3ff49f49f71ae899f"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\ud87f`\\r\\t񽢂\":null,\"\\ud9ac궿\\u0014\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\ud87f`\\r\\t񽢂\":null,\"\\ud9ac궿\\u0014\":null}}",
+      "bind": "c7fbc8a029a1645e6f7d325c9f9ca9ac0d5b9994d925a2f3a6b414427b108522"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\udfe7宅\\u0005\\u0010菢\":{\"\\\"\\\\/\":123456.789e3,\"􉐖\\udd3a\\u0014\":4.35,\"磹̭󻞅\\u0006$\\n\":true},\"😀\":[-4300656015835136,null],\"\\udb82\\r\\f\\u0011񬊍엓\\uda02\":true,\"_openclaw_approval\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"😀\":[-4300656015835136,null],\"\\udb82\\r\\f\\u0011񬊍엓\\uda02\":true,\"\\udfe7宅\\u0005\\u0010菢\":{\"\\\"\\\\/\":123456789,\"磹̭󻞅\\u0006$\\n\":true,\"􉐖\\udd3a\\u0014\":4.35}}}",
+      "bind": "5f55414b802ca3c046817778aac79944f24d8fcc6dbba0d739e33e5b9326a62d"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\":{\"h_\\tZ\\u0016\":[{\"\\u0013𓙎\":-169439.88506682217},false,[null]],\"󟉎󽉻BG\\udefc򦎥P\":\"\\u0019B\\u001f\"},\"⬏𕄤#\\u001b\":{\"扵X򤦗棚\\udc06\":false,\"café ☃\":true},\"_openclaw_approval\":0.23756736214272678}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\":{\"h_\\tZ\\u0016\":[{\"\\u0013𓙎\":-169439.88506682217},false,[null]],\"󟉎󽉻BG\\udefc򦎥P\":\"\\u0019B\\u001f\"},\"⬏𕄤#\\u001b\":{\"café ☃\":true,\"扵X򤦗棚\\udc06\":false}}}",
+      "bind": "1ccd17922c4dc39494a8aad5464256534e0c15a0d540507a51a7f0a08dbfdb26"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":-2.4362835800275206e+22,\"c\\u0005\":[\"\"],\"\\udb1c򾫤胧\\f\\u000e\\ud82c\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"c\\u0005\":[\"\"],\"\":-2.4362835800275206e+22,\"\\udb1c򾫤胧\\f\\u000e\\ud82c\":null}}",
+      "bind": "ee3fe92292c78d9f4523b3920fa3da03b60b71ed70d949bc20f6672f5e8b21e2"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\":null,\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null}}",
+      "bind": "d4cb8af3444fee067ecb822c48fb7a486d62a3b6ed61b318306146595838f135"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\":{\"񵶱ꝯ\":false,\"񖧾䝲\\ud90a\\u0000\\udf88\":false,\"\\u001f\":null},\"鄊\":null,\"򎳺\\n\":null,\"￿\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\":{\"\\u001f\":null,\"񖧾䝲\\ud90a\\u0000\\udf88\":false,\"񵶱ꝯ\":false},\"鄊\":null,\"򎳺\\n\":null,\"￿\":null}}",
+      "bind": "88807b2236ae234ccf7e944b5495644539bd09fa1b98d8da36027c43d8a241d7"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"􏿿\":null,\"\\ud800\":\"\\ud83d\",\"\\\"\\\\/\":\"café ☃\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\\"\\\\/\":\"café ☃\",\"\\ud800\":\"\\ud83d\",\"􏿿\":null}}",
+      "bind": "bd6b88809c2ffde56884774c7b9d036717af0e00034ede23e5223302c1662b4a"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\udf78\\u0007듳l(\\b\\t\":{},\"\\u0016\\udfad\\f\\u0007\":\"􅥅\\\"\\u0017\\ud933𫵴\\f\\u0001\",\"򆤀\\u0005|\\u0004*\":-0,\"_openclaw_caller\":314.4614284392446}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0016\\udfad\\f\\u0007\":\"􅥅\\\"\\u0017\\ud933𫵴\\f\\u0001\",\"򆤀\\u0005|\\u0004*\":0,\"\\udf78\\u0007듳l(\\b\\t\":{}}}",
+      "bind": "b845f72383584013db547e6094ffd854eea0198f1f61d163920763cd8c8f2b1e"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\":[false],\"\\f\\u001b\\u0013󥰾\":\"😀\",\"\\rР\\n\\\"\\r󺞙\":null,\"PS\\u0005\\u001e臖逮\\u000f\":{},\"_openclaw_approval\":\"\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\":[false],\"\\f\\u001b\\u0013󥰾\":\"😀\",\"\\rР\\n\\\"\\r󺞙\":null,\"PS\\u0005\\u001e臖逮\\u000f\":{}}}",
+      "bind": "eefbfeab0f2c338087c750934ad41a8200614917f9e2a5d0b092eee3bb7887b2"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"ㅺ\\ud9cd\\\\/\":true,\"巩\":[null,\"\\u001c\\\"\\udf94󐶵\",-9007199254740991,[1e-7,\"8ಈAI\\udfe9ᝑ\"]]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"ㅺ\\ud9cd\\\\/\":true,\"巩\":[null,\"\\u001c\\\"\\udf94󐶵\",-9007199254740991,[1e-7,\"8ಈAI\\udfe9ᝑ\"]]}}",
+      "bind": "4328af1eb32d2b0701105b98c179e2c5fcf68ca31ab33bba5d193a65e8ef5dad"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"򚴩\":[-1],\"\\\\\\\"\\udee8󫷡\\ud889\":null,\"_openclaw_approval\":\"􏿿\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\\\\\\\"\\udee8󫷡\\ud889\":null,\"򚴩\":[-1]}}",
+      "bind": "4183beffdd578904919177891f83c89d1d89a80c20bb7a809110590630a08d2d"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"\":4.35}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\":4.35}}",
+      "bind": "d26ac155510c9cdb344f3f184f8853765a7ae6fb318d41bf884aee6d768a09f7"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\f\\r\":{\"𻜤\":[],\"\\u0012嫑\\udf03\\t\\n􄏌\":[[-4460553007267840,9007199254740991,true,\"喬\"],{},[]]},\"\\ude00\\ud83d\":false,\"䯥\\udf7c挃\\u0016\\ud899\":{\"\\u0000\":\"\",\"ࠌ򩣰\":null,\"τ/򺫠\":\"\",\"\":{\"café ☃\":false,\"\\udfbe󘨡\":[20393.25360674411,-8748.717908747494],\"\\u0016)友𦟋󛛓\\t\":false}},\"򨜖5\\u0006\\r\":-0.0,\"_openclaw_approval\":\"\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\f\\r\":{\"\\u0012嫑\\udf03\\t\\n􄏌\":[[-4460553007267840,9007199254740991,true,\"喬\"],{},[]],\"𻜤\":[]},\"䯥\\udf7c挃\\u0016\\ud899\":{\"\":{\"\\u0016)友𦟋󛛓\\t\":false,\"café ☃\":false,\"\\udfbe󘨡\":[20393.25360674411,-8748.717908747494]},\"\\u0000\":\"\",\"τ/򺫠\":\"\",\"ࠌ򩣰\":null},\"򨜖5\\u0006\\r\":0,\"\\ude00\\ud83d\":false}}",
+      "bind": "32c8a07bd1366b284338a41b7465b14a8c7c2656469ae5c896c4a832d33dc904"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\")\\u0004\":[[],\"\\u001f􋯊ED\\b\\udc66\"]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\")\\u0004\":[[],\"\\u001f􋯊ED\\b\\udc66\"]}}",
+      "bind": "992e4f84cdadc2f6a507d808dcb8498e520f8a0613f48df7f73b54e29ab2e3b6"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"ᅍ \\u0011㠈\":-4762946.255505085,\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"ᅍ \\u0011㠈\":-4762946.255505085}}",
+      "bind": "ecfdad0af6c404ee44ab75a823d26db182091c94d2281634d777a76d6188b0d5"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"<򄼡\\t\\u0007\":true,\"\":null,\"񄙊\":1e300}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\":null,\"<򄼡\\t\\u0007\":true,\"񄙊\":1e+300}}",
+      "bind": "91ca6218c4412fdb44b5f7f434e20ae62853eec25abfe846bea93995cd48a443"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"􏿿\":null,\"\\u0004\":170993.7914274633,\"\\u0000\":{},\"_openclaw_caller\":\"\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0000\":{},\"\\u0004\":170993.7914274633,\"􏿿\":null}}",
+      "bind": "473ac9761a3500d2cd293d9d4e8786c4e60270720e1093785ba6c720119736b4"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"TGeඕ\\u000b\":-0.019316639844328166,\"\":[1132083669893120,false,-1],\"\":0.1}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":0.1,\"TGeඕ\\u000b\":-0.019316639844328166,\"\":[1132083669893120,false,-1]}}",
+      "bind": "283903aef3874ad85b3ab945a6c8b9ce4aec68eae69c9f889de9b2ad05e9648d"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\":[87445.79390622675,2778306084601856],\"\\\"\\ud94d꿭\":false,\"_openclaw_caller\":\"\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":[87445.79390622675,2778306084601856],\"\\\"\\ud94d꿭\":false}}",
+      "bind": "4287b586c2a19e70f1482d3eabc95f067ce4c79b1dcd50439f09981fd72765b6"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"紥l\\udd96㳐\\tዀ\\uddd1\":{\"\":0},\"󿪈\\u000b\":null,\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"紥l\\udd96㳐\\tዀ\\uddd1\":{\"\":0},\"󿪈\\u000b\":null}}",
+      "bind": "8b8b87bbeeceb90f432abc90f4652bb845c6eb0d41b03b698282d4896d12074c"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"😀\":123456.789e3,\"\\ude80󷵷공\":false,\"ꗎ\\udb21𿏄\\u0018\\t\":false,\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"ꗎ\\udb21𿏄\\u0018\\t\":false,\"😀\":123456789,\"\\ude80󷵷공\":false}}",
+      "bind": "e75d380833d156df051e2d7fa077435e0d561a98687ed47c572ad335c6eeb147"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\":[null,true],\"m昹U\\r\":-461.67227695696056}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\":[null,true],\"m昹U\\r\":-461.67227695696056}}",
+      "bind": "117a3f5e3480f95e921f6d7e3941c8fcdddc0b3e35b66f15903199fa0abcf7bf"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\u001b򍍅\":-4.458485518116504e-10,\"\\\"覫\":\"\",\"\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\":null,\"\\u001b򍍅\":-4.458485518116504e-10,\"\\\"覫\":\"\"}}",
+      "bind": "c8b4769a9af6e333bb8c1d936c870c705290e3089a759f51f1d6964f871d6b2a"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\uddcc\\bႰ\":[\"\\u0006\\r\\f\\udd83纥\",\"T\\f\\\"򳩎\\b\",false]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\uddcc\\bႰ\":[\"\\u0006\\r\\f\\udd83纥\",\"T\\f\\\"򳩎\\b\",false]}}",
+      "bind": "2d118f2784672924c2c92acb494fff8c8671500d3fd4df0f3bb3caf9d3e06319"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"a\\ud800b\":false,\"\\b\\b\":64374114877440}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\b\\b\":64374114877440,\"a\\ud800b\":false}}",
+      "bind": "90283c50e5b94b7c44faf13dc27175972418a0cf2b013ec5e859e1dcaf9289cb"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\u001cȋ𮟯\\\\o\":[-2.945857010781765e+26,[{}]],\"\\b𛥌}󉀹𦽜\\udc36\\udbab\":100.0,\"_openclaw_caller\":1e21}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\b𛥌}󉀹𦽜\\udc36\\udbab\":100,\"\\u001cȋ𮟯\\\\o\":[-2.945857010781765e+26,[{}]]}}",
+      "bind": "04db8a745a42ae1c40d9f1daa4d41eb1b8a8768664921478945865fbfe6b414a"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\b\\f\\n\\r\\t\":1150968668356608,\"😀\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\b\\f\\n\\r\\t\":1150968668356608,\"😀\":null}}",
+      "bind": "e6ecdb5a1303f827d802dc711e55efe75c06d67908b3d72c580aa1a46f02e151"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"😀\":[-3.436953756026924e-14],\"\\t\\f/\\ud874򅢙󈚆\":null,\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\t\\f/\\ud874򅢙󈚆\":null,\"😀\":[-3.436953756026924e-14]}}",
+      "bind": "4cfe66c6900cefaf12f3cae424c790cb1e7edec892eea899913beae1081b4161"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\f\":null,\"񋫐g更􎰠\\to\\b\":0,\"_openclaw_caller\":[[],false,null]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\f\":null,\"񋫐g更􎰠\\to\\b\":0}}",
+      "bind": "699acd681a424cd295d4c29873cebebaf08819ffc274de194b47bdeca512a8e3"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\\r\\b(\\udb94𚲯\":true,\"_openclaw_approval\":\"𐉑󋏯\\u0015%鍉|\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\r\\b(\\udb94𚲯\":true}}",
+      "bind": "eeedee4c609e821345cdcf76f86e51f87f2128e9065a7a60df683389d8fdd12c"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"'=䭜m\\t\":null,\"􏿿\":null,\"/\\udee8\\n󂀛\\\\ꭢ\\\"\":0.1,\"😀\":{\"󨟀\\r񢓵\\r\\u0005򊪋\":{\"\\udc1b񦺞\\u001e䜺z󕖾P\":null,\"\\b@\\\\૗\":null,\"\\u0015\\u00076󻬕\\\\\\udff5\\f\":null}},\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"'=䭜m\\t\":null,\"/\\udee8\\n󂀛\\\\ꭢ\\\"\":0.1,\"😀\":{\"󨟀\\r񢓵\\r\\u0005򊪋\":{\"\\b@\\\\૗\":null,\"\\u0015\\u00076󻬕\\\\\\udff5\\f\":null,\"\\udc1b񦺞\\u001e䜺z󕖾P\":null}},\"􏿿\":null}}",
+      "bind": "124bed8a0ffa543eff52b6c8597931791737261a46ca33adb409ee158e341f2a"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\":[true],\"#[\\udfff󳒈\":{},\"😀\":\"\\\\>*\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\":[true],\"#[\\udfff󳒈\":{},\"😀\":\"\\\\>*\"}}",
+      "bind": "889ee99ab1977b7f0adbdf54f47b82f0e41829cacec4e7997cc36b84734836da"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\u0000\":-43361.356924287975}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0000\":-43361.356924287975}}",
+      "bind": "70c34356492e50101e3a936d28cc6f2b333caac50e5ac921b77c2d8b57b1ca3c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"犧\\u0001\\udd23\":true,\"﻿\":null,\"_openclaw_caller\":[-0.011333697754889727]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"犧\\u0001\\udd23\":true,\"﻿\":null}}",
+      "bind": "2a86894c308ab7f28474e6fb000dfc006d8d3b3fbdf830bea31961d10eeb879d"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"café ☃\":-2366563703324672,\"\\b\\ud983\\u001dL퀶\":{\"\\ud83d\":null},\"_openclaw_approval\":1e300,\"_openclaw_caller\":[5e-324]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\b\\ud983\\u001dL퀶\":{\"\\ud83d\":null},\"café ☃\":-2366563703324672}}",
+      "bind": "9b6a7f532b39b49d34c039f4841555535e5dc57c2e4a458efe3d4c407d4ff27c"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\b\\udd6e\\f\":null,\"\\n/\\ud8df󈥈Q\":614358530916352}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\b\\udd6e\\f\":null,\"\\n/\\ud8df󈥈Q\":614358530916352}}",
+      "bind": "7e88321b86e6ccc5036ed4e28340dfa93e46f145d3277d983cac1529de8509cd"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\u001f\":true,\"􏿿\":\"/\",\"򬷥𧆢\":-4.98817766783759e-19,\"\":0}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\":0,\"\\u001f\":true,\"򬷥𧆢\":-4.98817766783759e-19,\"􏿿\":\"/\"}}",
+      "bind": "4f9b3cf33c59eb48ae91f6a5c4be3c5a6094dd34b09ebfcedd095eca3513f84b"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\\"\":[1.7976931348623157e308,-1.6033657384105027e-19]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\\"\":[1.7976931348623157e+308,-1.6033657384105027e-19]}}",
+      "bind": "c1eb35370ceca620d66afd0457420acf16c04369a01c244ada2b7ef7a791c1bc"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"café ☃\":null,\"\\u0000\":\"\\\"\\\\/\",\"󰆌\\u0011򤵙\\b\\u0005\\uda72-\":{\"E\\udcef󣑅\\n\":-0.8835282176733017,\"\":[],\"﻿\":null},\"_openclaw_caller\":[{\"﻿\":-1}]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\u0000\":\"\\\"\\\\/\",\"café ☃\":null,\"󰆌\\u0011򤵙\\b\\u0005\\uda72-\":{\"\":[],\"E\\udcef󣑅\\n\":-0.8835282176733017,\"﻿\":null}}}",
+      "bind": "ead0def0c3694d2f691ab524d9a725ed41a184a0d092b865bbcbad987cc34090"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\udbbd&\\\\\":false,\"\\u0010\\t \\u0017\":\"\\u0006\\f\",\"󲪿\\ud9b7/0򆩎\\ude42\":[5e-324],\"\\u0007\\u001f\\f򿼃崢\":\"C𩪗'\\ud9b9\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\u0007\\u001f\\f򿼃崢\":\"C𩪗'\\ud9b9\",\"\\u0010\\t \\u0017\":\"\\u0006\\f\",\"󲪿\\ud9b7/0򆩎\\ude42\":[5e-324],\"\\udbbd&\\\\\":false}}",
+      "bind": "579e82aae5d20b93897e45e5aa059cb1201702d26c3dad2b1b1a3daadcc36a56"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\":{\"\\b𐒂⪋\\u0013\\f\\b\":1e+22},\"\\\"\":{\"󂿅񽫱\\u0018\":{},\"h\\\"㿠񷎂\":[false]},\"﻿\":{},\"ᄏ\\r\\b\\ud933\\r=򁷚\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\":{\"\\b𐒂⪋\\u0013\\f\\b\":1e+22},\"\\\"\":{\"h\\\"㿠񷎂\":[false],\"󂿅񽫱\\u0018\":{}},\"ᄏ\\r\\b\\ud933\\r=򁷚\":true,\"﻿\":{}}}",
+      "bind": "3977f041e22313fa53e622c965ef46ab841c56b0f7c5034aac0c4514ac78633a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":{\"\":0.5,\"`驂x񳞍\\r\":\"<\\u0011򙪨񾠹\\\\\\u0002蓄\",\"\\u001d\\u001a򙈌\\n\\ude80\":[]},\"😀\":2989.10700250417,\"\\udc02\":-9007199254740991,\"򮳐\\r\\ud83d󵩪\\u0002\":1.5e-7}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":{\"\":0.5,\"\\u001d\\u001a򙈌\\n\\ude80\":[],\"`驂x񳞍\\r\":\"<\\u0011򙪨񾠹\\\\\\u0002蓄\"},\"😀\":2989.10700250417,\"򮳐\\r\\ud83d󵩪\\u0002\":1.5e-7,\"\\udc02\":-9007199254740991}}",
+      "bind": "f30b9f67c6fbd2eb3c4f344874141e38d4eb8db235f70d6dbb80213746498b0c"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"]\":\"\\u001f\",\"􁘌ꂾ\":123456789012345680000,\"\\udc3c[\\u0018\":{\"훮\\u0014\":false},\"_openclaw_caller\":\"\\ud98e5\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"]\":\"\\u001f\",\"􁘌ꂾ\":123456789012345680000,\"\\udc3c[\\u0018\":{\"훮\\u0014\":false}}}",
+      "bind": "2112d4d87cb638ea1a89e89c9df2aeae798da7233ca7a83d56fdef93a8fa9878"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"Z𻠭\\r\\u0006\":\"d\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"Z𻠭\\r\\u0006\":\"d\"}}",
+      "bind": "b4199079ca14b4272a50c5d31b96a8f0ccf7d8518549c0581cdc146643b79486"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"$_\":{\"\\u0002\\r\":[true,1.8625868251547218e-14,\"񘰢A\\ude58\\r\",{\"\\u000e򐳭\":true}],\"\\ude00\\ud83d\":{\"café ☃\":-1.2496987753547728e-14},\"\\ud800\":[\"蕣󰠄\\u0014\",\"\\ud83d\"]},\"ꦻ\\u0003\":3382167449108480,\"_openclaw_caller\":\"|\\u0000\\u0003*\\udce8󂧆\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"$_\":{\"\\u0002\\r\":[true,1.8625868251547218e-14,\"񘰢A\\ude58\\r\",{\"\\u000e򐳭\":true}],\"\\ud800\":[\"蕣󰠄\\u0014\",\"\\ud83d\"],\"\\ude00\\ud83d\":{\"café ☃\":-1.2496987753547728e-14}},\"ꦻ\\u0003\":3382167449108480}}",
+      "bind": "569eb63cf29676e3629c17ecef08064024424c5f78ece3aa6a61ded86c993b0a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"a\\ud800b\":true,\"😀\":false,\"淜󣇴\":{\"򳸿𲸁\\\\\\f𓬞댒㝽\":\"\",\"\\ude00\\ud83d\":\"\\\"\\udbee\\\"\\u0003\\uda8c\\\"\\t\",\"\":-31.364266388118267,\"Z\\b\":5e-324},\"_openclaw_caller\":[]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"a\\ud800b\":true,\"淜󣇴\":{\"\":-31.364266388118267,\"Z\\b\":5e-324,\"򳸿𲸁\\\\\\f𓬞댒㝽\":\"\",\"\\ude00\\ud83d\":\"\\\"\\udbee\\\"\\u0003\\uda8c\\\"\\t\"},\"😀\":false}}",
+      "bind": "ac3df88337b11b04a3fc90e52026a06a37088d38fc263bea1f4248c953f3fcab"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"󌷺\":null,\"\\u000b\\uda2c\\n\\\"\\udf4f􆨟񠈙\":123456.789e3,\"\":1.5e-7,\"F\":null,\"_openclaw_approval\":\"쵘\\u0006緰\\u001c𹫾\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\":1.5e-7,\"\\u000b\\uda2c\\n\\\"\\udf4f􆨟񠈙\":123456789,\"F\":null,\"󌷺\":null}}",
+      "bind": "83591a4126bf4bfd22576429e17e05651517da7edf8825a04f644d941d6168e7"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\\\\\u0006\":[null,-0.49368930724449456],\"_openclaw_approval\":\"￿\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\\\\\u0006\":[null,-0.49368930724449456]}}",
+      "bind": "81e2576ea11130cefc95becfba7eefee1e215563f223939e157d2ef0f5f8ce30"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\f\\n\":null,\"café ☃\":\"_Z񘠍℞󼂤\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\f\\n\":null,\"café ☃\":\"_Z񘠍℞󼂤\"}}",
+      "bind": "0b7551ac1de736ff27f06ee86c1f7dcc440cd544b7e48c475daf6f17b9dfa9a3"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"輨⦭\\r/ྫྷ\\udc4f\":2.5e-10,\"@r<\":4.188874051906168e-12,\"\\udb3f6\\r\\\\\\u0006\":-94270656610304,\"\\ude00\\ud83d\":true,\"_openclaw_approval\":true,\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"@r<\":4.188874051906168e-12,\"輨⦭\\r/ྫྷ\\udc4f\":2.5e-10,\"\\udb3f6\\r\\\\\\u0006\":-94270656610304,\"\\ude00\\ud83d\":true}}",
+      "bind": "df9c0f2324b14da691e74600875cb9c3131114bc86a127e1e661d3285935fd79"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"😀\":[\"\\u001e\\t䡤\\udb48r\",\"\\ud83d\",0.5],\"_openclaw_caller\":\"𞥅\\\"\\uda94\\u0014꜠ \"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"😀\":[\"\\u001e\\t䡤\\udb48r\",\"\\ud83d\",0.5]}}",
+      "bind": "117ea441ff07f8fb1d7e3f6df395dd09264a8429abcfac683e4b91e2f97e4514"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\r\\ude86\":null,\"_openclaw_approval\":\"\\udcff◝\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\r\\ude86\":null}}",
+      "bind": "92cc33cd83513ed854ac93108a04aa2d72b80a532a601506ef48a6185919133e"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\u001f\":{\"\\ud800\":null,\"G\\u0015e\\\\2\\f\":false},\"\\r\\u0010gP\\udb33\":null,\"䷼򱝇\\u0019\\u0015\":\"𠂚\\udd71l\",\"Z\\u0005\\\"<\\ud826񡀴痌\":-1,\"_openclaw_approval\":1e21,\"_openclaw_caller\":true}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\r\\u0010gP\\udb33\":null,\"\\u001f\":{\"G\\u0015e\\\\2\\f\":false,\"\\ud800\":null},\"Z\\u0005\\\"<\\ud826񡀴痌\":-1,\"䷼򱝇\\u0019\\u0015\":\"𠂚\\udd71l\"}}",
+      "bind": "020fa927b4bcfa4598bf9fe327dc31d74ab708b8292def97f6805bdf89da37a9"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"Ⰻ\\\\\\u0003//\":[{\"񡹆񜄓盤􁀀蜃\\udc6e\\ud89d\":[0,-2.17735490296036e+27,\"똴\\uda87#옂\\u000b\",null]},null,4.35],\"\\\"\\f\\udb2d\\ud8a6\":true,\"_openclaw_approval\":{\"\":null,\"\\\"\\uda76ꊨ,򱁔\":false}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\\"\\f\\udb2d\\ud8a6\":true,\"Ⰻ\\\\\\u0003//\":[{\"񡹆񜄓盤􁀀蜃\\udc6e\\ud89d\":[0,-2.17735490296036e+27,\"똴\\uda87#옂\\u000b\",null]},null,4.35]}}",
+      "bind": "1bfd81f862c9faca63226df6a203adaad80dcc5c5c2dd30360024d92ca9b6bdd"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"󴌽\":4.421241402160376e-23,\"\":{\"\":\"\\udae7􄓯\",\"\\\"󌭤\":[null,null],\"𛟧\\udb0a\\b\":[false,null,[1766028329615360,123456.789e3,0.1]],\"\\ud800\":true},\"\\udef3\":true}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":{\"\":\"\\udae7􄓯\",\"\\\"󌭤\":[null,null],\"\\ud800\":true,\"𛟧\\udb0a\\b\":[false,null,[1766028329615360,123456789,0.1]]},\"󴌽\":4.421241402160376e-23,\"\\udef3\":true}}",
+      "bind": "92e20043fa6162bba0a30f4e52d4999ff578a5174413e499b4973f3ff159bd5f"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"񊑶\\n>\\f몤\":null,\"쳯󹯺\\\\\":null,\"\\u001f\":\"\\u001f\",\"_openclaw_approval\":{\"𤢎\\udd85\":false,\"[7\\ud949\\rᣮ\":true}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\\u001f\":\"\\u001f\",\"쳯󹯺\\\\\":null,\"񊑶\\n>\\f몤\":null}}",
+      "bind": "c5e67a2a50e3efd213aa99cd175daa51b65281382721105f2fd3c55cbfcacaac"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\udfff\":true,\"瘋\":null,\"\\udb07-\\udd38\\u001cn\":null,\"😀\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"瘋\":null,\"😀\":null,\"\\udb07-\\udd38\\u001cn\":null,\"\\udfff\":true}}",
+      "bind": "3f0014a25f3e364b03b940bf737f44061fbf06cfa5eebb6544681d93362a9446"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":{\"󘰰򶶔\\\"񥷔\":false,\"\":-157.65291405841708},\"\":\"蚱Sm\\ud81d\\ud8cb\",\"\\udfff\":true,\"  \":{\"😀\":null},\"_openclaw_approval\":1e21}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":\"蚱Sm\\ud81d\\ud8cb\",\"\":{\"\":-157.65291405841708,\"󘰰򶶔\\\"񥷔\":false},\"  \":{\"😀\":null},\"\\udfff\":true}}",
+      "bind": "05e63e5d7492b06806071efd1b9643e61645a52d191f9b9932b4c96379c7deef"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"򫢒\\\\湺\\udf3bM\\u000e내\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"򫢒\\\\湺\\udf3bM\\u000e내\":true}}",
+      "bind": "2565bb0a97654822fed7bed3d0cbe9c42872f63762b345d5de794370b9124124"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"8\\u0007\\n󰬊\":-1}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"8\\u0007\\n󰬊\":-1}}",
+      "bind": "53047736d39fc0df0d9da73d2476152004f465bea07c563b6c1fbcc5ba4c9849"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\u0000\":{\"\\by\\ud899\":true,\"\":\"򂴘\\r\",\"\\u000e򚜽\\ude75\":null,\"\\udfff\":null},\"_openclaw_approval\":0.000003690284094773233}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0000\":{\"\":\"򂴘\\r\",\"\\by\\ud899\":true,\"\\u000e򚜽\\ude75\":null,\"\\udfff\":null}}}",
+      "bind": "ab6250ab38e0051aa22732a7b5400c82816b6f43c0805d5b4ba35ee94507066f"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"￿\":\"\\udb95䢲\",\"\":false,\"\\u001f\":-26084.988145157695,\"_openclaw_approval\":2.4483592598699032e-8,\"_openclaw_caller\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\":false,\"\\u001f\":-26084.988145157695,\"￿\":\"\\udb95䢲\"}}",
+      "bind": "fde87979a433785fd3cec02a8aa6303f65caa86217e96ed2fd4768976a7a30bb"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"-󡴳\\u0007\\no򢐯፠\":{},\"\\ud951\":true,\"\":[0.29751687753014266]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\":[0.29751687753014266],\"-󡴳\\u0007\\no򢐯፠\":{},\"\\ud951\":true}}",
+      "bind": "c5cb49c570a4d7cea194fb24b841932b30dd3726113a6815cc89151fac48f377"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\ud83d\":null,\"/囄\\u001d\\u001f\\u001f\":false,\"\\b\\f\\n\\r\\t\":2.5e-10}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\b\\f\\n\\r\\t\":2.5e-10,\"/囄\\u001d\\u001f\\u001f\":false,\"\\ud83d\":null}}",
+      "bind": "2e19818b0d3c6d2e3c0eddba5e232a9250d595c52eef9e917a276055921b35d2"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\udfff\":-0.0,\"\\u0007\":\"䕈𣪩X𽱹\",\"\":\"􏿿\",\"񢦶\\\\􉎟/.@/\":null,\"_openclaw_approval\":1e300}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":\"􏿿\",\"\\u0007\":\"䕈𣪩X𽱹\",\"񢦶\\\\􉎟/.@/\":null,\"\\udfff\":0}}",
+      "bind": "424948a026817551efeb7e5510ca99d5f3604631eb0b5c6d3e428e2740e915fa"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\u0000\":[true,{\"\\\"\\\\/\":1610724640030720},0],\"\\u0004\":1.5e-7,\"a\\ud800b\":[\"\"],\"_openclaw_caller\":[false,-2.8262905380688608e+23]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0000\":[true,{\"\\\"\\\\/\":1610724640030720},0],\"\\u0004\":1.5e-7,\"a\\ud800b\":[\"\"]}}",
+      "bind": "0d0e375b18bfff40af5cc8aa94f940a0dd06ef5028e005f377394053c455c787"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\\\\\udea9󗔠q\\udba2\":false,\"!/蜥\\b\\t\":{\"\\u001f\":2.5e-10,\"😀\":null,\"񩨈/\\n鎷\":\"󞃒\\ud971䉛񩐠\\u0007\\bᕝ\"},\"\":null,\"좴࿾\\u0000\":{\"\\u0018񢙥\\udb56\\u0006\\u0001\\\\\":null,\"X\\r󎦲\\u000b\\udb5e\":\"\"}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\":null,\"!/蜥\\b\\t\":{\"\\u001f\":2.5e-10,\"😀\":null,\"񩨈/\\n鎷\":\"󞃒\\ud971䉛񩐠\\u0007\\bᕝ\"},\"\\\\\\udea9󗔠q\\udba2\":false,\"좴࿾\\u0000\":{\"\\u0018񢙥\\udb56\\u0006\\u0001\\\\\":null,\"X\\r󎦲\\u000b\\udb5e\":\"\"}}}",
+      "bind": "640325b83345841f56f7b0fba0beddb04eb94250ade505e1587d017662255330"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\\"򒟀\\uda92򏄎\":123456789012345680000,\"_openclaw_caller\":-2133276066054144}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\\"򒟀\\uda92򏄎\":123456789012345680000}}",
+      "bind": "5101c0c4fa22f0f35b19a98c24f5fd017af36cf0df1406e1b4cace8b95aae759"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\":false,\"\\ude00\\ud83d\":{\"2\\\"\\\\󓴮񐒨𣺨\":{\"/󯣮⼟\":{\"😀\":36.31344840396196,\"/a\\r򥷤\":\"\\u000b򅳕\\u0010򀱗E\",\"￿\":true,\"W\\u0018񾱚猎/\":1e+22},\"\":\"Qꙫ\\ud8c9\\bC\",\"\\udced;\":[null],\"\\\"\\\\/\":null}},\"\":false,\"\\t9\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\":false,\"\\t9\":null,\"\":false,\"\\ude00\\ud83d\":{\"2\\\"\\\\󓴮񐒨𣺨\":{\"\":\"Qꙫ\\ud8c9\\bC\",\"\\\"\\\\/\":null,\"/󯣮⼟\":{\"/a\\r򥷤\":\"\\u000b򅳕\\u0010򀱗E\",\"W\\u0018񾱚猎/\":1e+22,\"😀\":36.31344840396196,\"￿\":true},\"\\udced;\":[null]}}}}",
+      "bind": "8c3661125f3a2aa83192764021a52dd0f48ad8919bb5aa4af546e8404708c65d"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\":2.5e-10}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\":2.5e-10}}",
+      "bind": "348a7147440a02db80b5a59f951e2e7f0fd90fc8f90b4311aea1db20353ffd4b"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\\\L\\uddb4\\\"񬋣\":\"\\b\\f\\n\\r\\t\",\"\\ud8d3\\u0019\\\\콢\":null,\"_openclaw_approval\":3.7036187760531907e-16}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\\\L\\uddb4\\\"񬋣\":\"\\b\\f\\n\\r\\t\",\"\\ud8d3\\u0019\\\\콢\":null}}",
+      "bind": "e515efe7e0ce27906805911ccffcc81c6f8dd375ed296c5c59fab9165c1364e1"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\ud83d\":null,\"\\ude00\\ud83d\":false,\"\\b\\u000e\":{}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\b\\u000e\":{},\"\\ud83d\":null,\"\\ude00\\ud83d\":false}}",
+      "bind": "a9623697bf34cf51265360eaa187fd00914453307129db6172dd8f556280398a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"𗭱🀤\\udd46坃\\udd41󭄧\":-4.046789053827524e-10,\"􏿿\":false,\"\\ud9ef\\u0016񋼤\\uda48\":\"\\u000eꑲ.\\ud952򝑵\\udfbde\",\"n\\udd73򙍷\":false,\"_openclaw_caller\":[]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"n\\udd73򙍷\":false,\"𗭱🀤\\udd46坃\\udd41󭄧\":-4.046789053827524e-10,\"\\ud9ef\\u0016񋼤\\uda48\":\"\\u000eꑲ.\\ud952򝑵\\udfbde\",\"􏿿\":false}}",
+      "bind": "6dda3b0d352f9e9551fa8f2b0836a69e1faac2c8f1972e237fec92452245bb33"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\tG\\\"\\u0015T\\r\":null,\"\\u0017𼯕󿕏\\uddda\":-0}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\tG\\\"\\u0015T\\r\":null,\"\\u0017𼯕󿕏\\uddda\":0}}",
+      "bind": "8498ee0f8e531a5df48b5f570ff379e23914494318c0f5e02b4442d6477d0ba2"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\\\\\\\"𾞒\":-0.0019095542747527361,\"𙫆\\b2𐔩\":-3246107616346112,\"\":null,\"\\f\":168501926818.86255}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\f\":168501926818.86255,\"\\\\\\\"𾞒\":-0.0019095542747527361,\"\":null,\"𙫆\\b2𐔩\":-3246107616346112}}",
+      "bind": "57f5aef9ca8bad678f7f9d0f9b5090fb91308b23956b93b970b090c30ef5c065"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\\u001b髖Ꜳ\":{\"\\udb7d\\u001c\\b\\\"\":{},\"\\by\\ud970񥉳\\b򝃃\":327279.8308171332,\"\\t󎕽\\\"[\\ud8c6\":{\"4S\":null},\"\\b詡\\u0016\":null},\"_openclaw_approval\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u001b髖Ꜳ\":{\"\\by\\ud970񥉳\\b򝃃\":327279.8308171332,\"\\b詡\\u0016\":null,\"\\t󎕽\\\"[\\ud8c6\":{\"4S\":null},\"\\udb7d\\u001c\\b\\\"\":{}}}}",
+      "bind": "cab32d3509080b5a45c4a49544f5f32289d4466f0567d3f88372fe028e830032"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"\\udfff\":[\"\\ud929\\f\\t\"]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\udfff\":[\"\\ud929\\f\\t\"]}}",
+      "bind": "7498716d5858a0985c30c6be909d9c118c36fc2fea082e8f9b2989084552e6f5"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"񔔐\\udc1d\\\\\\r\\n\":\"\\ude7a񜫦\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"񔔐\\udc1d\\\\\\r\\n\":\"\\ude7a񜫦\"}}",
+      "bind": "055e02207f12c634dbeac53fa65fffa4cb4f2d086cb29089efcc37c135c9a2c9"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"󓘥\":4.35}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"󓘥\":4.35}}",
+      "bind": "79a402810743f88cca6996392355ddf3ff6c18c9cfa2b67303222d39d78c7f91"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\\\"\\\\/\":[null,{\"\":{\"😀\":null,\"\\u0000\":true,\"|\\r\":true,\"\\b\\f\\n\\r\\t\":false},\"򇟭\\u0012駂𑫷A\\uddc4\":false},-0.0]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\\"\\\\/\":[null,{\"\":{\"\\u0000\":true,\"\\b\\f\\n\\r\\t\":false,\"|\\r\":true,\"😀\":null},\"򇟭\\u0012駂𑫷A\\uddc4\":false},0]}}",
+      "bind": "0dc7ada3641b4015e21c9bdcbd31127b22f268b34444f84694b86331841fd0dd"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"񛵓󖌤/ⴐ\\ud8ee\":null,\"\\u0000\":null,\"ဝ\\rໟ\\u0007\":null,\"\\\"⒎\\u0001\\udef5\\udf45\":false}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0000\":null,\"\\\"⒎\\u0001\\udef5\\udf45\":false,\"ဝ\\rໟ\\u0007\":null,\"񛵓󖌤/ⴐ\\ud8ee\":null}}",
+      "bind": "d6b291e7c140ab5790813f381d8191bc91c7277a604bc4c5158be20002bc8d75"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\";󩇫wQ\":\"\\uddf6\\u0012\\b\\n𪬗\",\"t᾵\\uda5d\\u0001헾\":5e-324,\"_openclaw_approval\":-3.101305989548564e-14}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\";󩇫wQ\":\"\\uddf6\\u0012\\b\\n𪬗\",\"t᾵\\uda5d\\u0001헾\":5e-324}}",
+      "bind": "7a0d6132db5bdcf0a472b484e1c5d5e7795385f31fc6ba29a41016c4a70d0efd"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\udbeb\\ud99b\\t▟\\udc82󸣔\\t\":[\"\\ud83d\",null,true],\"_openclaw_approval\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\udbeb\\ud99b\\t▟\\udc82󸣔\\t\":[\"\\ud83d\",null,true]}}",
+      "bind": "250a3b22f57d925a150d925d9a257ee038c9362f3c525e2f7a344fac25ffe8f6"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"1\\f\\u0005𾛰\\ud90b汭\":false,\"K\":null,\"_openclaw_approval\":{\"\\fj\\u0002d\\n\":{\"󚠠\":true,\"\\u0013\":false},\"\":true,\"\\udfff\":{\"\\ud83d\":\"魢󐒊*\",\"\\n𾙈7쥾𓪐\":-0.01264707613736391,\"\":2.8699000249616804e-28},\"璵\\u0019\\udfb2\":-9007199254740991}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"1\\f\\u0005𾛰\\ud90b汭\":false,\"K\":null}}",
+      "bind": "0464f129f4b6719ad4937225458b88b521d1d0d94592ef4adc90e6a99f9e2e46"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\udb34m\\n\\b暚\\u0010\":false,\"\\f𛆃\\ud8b6횋\":{\"몔\\tZ/\\udf15\\u000f񚗣\":null,\"󚍫\\r󼏬\\udfe4\\f򚿢\\\"\":{\"\\u0012亽ٰ\\\"\\u00066\":false,\"բ\\uddd9⮬\":[\"챳򋓥ㅚ菺#\\udfb4\",\"\\\\\\u0003\\ude2e\\u0018\"],\"a\\ud800b\":null},\"\":true,\"  \":1e21},\"﻿\":\"@\\udf93\",\"\\ude00\\ud83d\":null,\"_openclaw_caller\":[true,true]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\f𛆃\\ud8b6횋\":{\"\":true,\"  \":1e+21,\"몔\\tZ/\\udf15\\u000f񚗣\":null,\"󚍫\\r󼏬\\udfe4\\f򚿢\\\"\":{\"\\u0012亽ٰ\\\"\\u00066\":false,\"a\\ud800b\":null,\"բ\\uddd9⮬\":[\"챳򋓥ㅚ菺#\\udfb4\",\"\\\\\\u0003\\ude2e\\u0018\"]}},\"\\udb34m\\n\\b暚\\u0010\":false,\"\\ude00\\ud83d\":null,\"﻿\":\"@\\udf93\"}}",
+      "bind": "e6c400d65a072d9ba8487dc563acf2fda394e2712accc3283ee8ea68a1b0694a"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"梦\\r㷥\":[{\"\\ud842\":0.34479569643735886,\"\\u001d񣾋\\u0000/\":{},\"café ☃\":\"\\u000f轧\\b\\\"E\",\"풶\\b\":{}},null,{}],\"\\ude41\":\"2\",\"\\udaa4\":null,\"\\ude00\\ud83d\":false,\"_openclaw_approval\":[\"瞫\",\"\",\"\\n򩥈&\"]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"梦\\r㷥\":[{\"\\u001d񣾋\\u0000/\":{},\"café ☃\":\"\\u000f轧\\b\\\"E\",\"풶\\b\":{},\"\\ud842\":0.34479569643735886},null,{}],\"\\udaa4\":null,\"\\ude00\\ud83d\":false,\"\\ude41\":\"2\"}}",
+      "bind": "da1256c8e156bcecbd6a115dc5300ed5498afdc477d83203bcb8b03e7b995145"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"㽼ㇸ\":[\"\\ud83d\",null,[[null,4.3762574647553265,\"𫄺􂜨\",null],-0.0000400105215376243],9007199254740991],\"Y\":{\"\\ud9bc\":1e300}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"Y\":{\"\\ud9bc\":1e+300},\"㽼ㇸ\":[\"\\ud83d\",null,[[null,4.3762574647553265,\"𫄺􂜨\",null],-0.0000400105215376243],9007199254740991]}}",
+      "bind": "f3b8cfefdd66faa414b9b7aeeb3a4f63c79684c72b78162fba752a9c18928768"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"café ☃\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"café ☃\":null}}",
+      "bind": "7513dc978160cd3856da7fa1b153c954fc8771c61171c30c5783ec7fdacd1ed7"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"⅖\\\\\\tHY\":[0.1,false,0.1,-3.503538900986314e-18]}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"⅖\\\\\\tHY\":[0.1,false,0.1,-3.503538900986314e-18]}}",
+      "bind": "3e721657469c5f1428277df61fe0cf539ee3249ada39a042c88f8dfd05722d9b"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"  \":123456789012345680000,\"\\b\\u00149\\r\\n󪵓\":1e+22,\"\\udb48\":-4.175004940479994e-19,\"\\r񥿸lO\":true}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\b\\u00149\\r\\n󪵓\":1e+22,\"\\r񥿸lO\":true,\"  \":123456789012345680000,\"\\udb48\":-4.175004940479994e-19}}",
+      "bind": "d4ac2dde49536777bd8e2bf5429bb0e8f27a08b5f61700e663e0a383f4786bb0"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"\\n銟\\ud9d7\\u0004\\u001f\":[],\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\\n銟\\ud9d7\\u0004\\u001f\":[]}}",
+      "bind": "1a2f5a5abc719362a7e99205ebfb8286bf7a0f4bf25ee2f6e2911c3d06f13844"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\\bआ쥬񟜗\\u0004򇨅\":null,\"\":[0.5],\"𺎚\\ud9a6򄏛\":{}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":[0.5],\"\\bआ쥬񟜗\\u0004򇨅\":null,\"𺎚\\ud9a6򄏛\":{}}}",
+      "bind": "91178cd549b89df24b4ca4d1ca33f817fcabb27bb9f17695cfdfb73aeea9fc71"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"n=\\ud9ae\":0.000001}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"n=\\ud9ae\":0.000001}}",
+      "bind": "62f4ece9eed59a8a5b34a0d3254e2afd1f3a5407c787889c01a585e48f86bfc6"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"십/\":\"{\\u0014\\udd47\\udb6f\\r[򲵖\",\"\\ud83d\":4.35,\"ṑ\":\"0\\ud8cd񹖻\",\"\":true}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\":true,\"ṑ\":\"0\\ud8cd񹖻\",\"십/\":\"{\\u0014\\udd47\\udb6f\\r[򲵖\",\"\\ud83d\":4.35}}",
+      "bind": "05a3813ffd509d84610c94e9a9fb887c0939cd6a6511f59f054a6fc6496ffe6f"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\udb84☢쏕\":{},\"퀥\\u001bH\":1.90006866119802e-8,\"_openclaw_approval\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"퀥\\u001bH\":1.90006866119802e-8,\"\\udb84☢쏕\":{}}}",
+      "bind": "7caf8d8c515341a39bae251e96d73e6a6a0eae5f29a49a48a81548dd4cdb7d15"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"\":null,\"\\u001f\":0.0036145910690538584,\"\\u0000\\u001fn\\udb35\\u0015\":[3.943933283444494e-13,-1.494408727157861e-11,\"\\u0004\\f/󪸉𼯥\\u0015\",-41.06985474936664]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\"\\u0000\\u001fn\\udb35\\u0015\":[3.943933283444494e-13,-1.494408727157861e-11,\"\\u0004\\f/󪸉𼯥\\u0015\",-41.06985474936664],\"\\u001f\":0.0036145910690538584}}",
+      "bind": "654e03553fc81caeecf77159232e239db18715f4ed88e350abb8101b81f6b0ac"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"Y\\u001d\":true,\"\":null,\"㏝O2\\\"鄗\":-0.3942235086578876}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\":null,\"Y\\u001d\":true,\"㏝O2\\\"鄗\":-0.3942235086578876}}",
+      "bind": "2ac14b6fdebc13ee831677f8cf55a5a70a4c964e6a483579714e4e93902b1a30"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"\\t\\f\\t𲼩\":{\"\\b\":[[],{\"'򱖷\":-0.0,\"\":\"\"}],\"﻿\":false,\"\\ud8c5'ɗ𪺵\\udee6\":\"\\t񪁝\",\"\":[]},\"񳱣\\u0011㱸\":true,\"񾭨0㤈\":{},\"_openclaw_caller\":\"\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\t\\f\\t𲼩\":{\"\":[],\"\\b\":[[],{\"\":\"\",\"'򱖷\":0}],\"\\ud8c5'ɗ𪺵\\udee6\":\"\\t񪁝\",\"﻿\":false},\"񳱣\\u0011㱸\":true,\"񾭨0㤈\":{}}}",
+      "bind": "a993ffc75ed743e1c1229023cb82447c0da8ab77cf9c42f8586f1a25dddddf5c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"\\u0000\":\"꛼/\\ud8e6\\b[\",\"\\udb7c\\u001a;\":435924.5782252401,\"a\\ud800b\":{\"\\b\":\"\\b\\n\\t󅰥\\udd25\\udedb󸢽\",\"\\udda8񎛤𑏳禀\\ud804\\u0013\":\"café ☃\",\"\\ude00\\ud83d\":null,\"\\r󺌐u;\\tࠉ\":[\"򻂍䳲\\u0003\"]},\"德\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0000\":\"꛼/\\ud8e6\\b[\",\"a\\ud800b\":{\"\\b\":\"\\b\\n\\t󅰥\\udd25\\udedb󸢽\",\"\\r󺌐u;\\tࠉ\":[\"򻂍䳲\\u0003\"],\"\\udda8񎛤𑏳禀\\ud804\\u0013\":\"café ☃\",\"\\ude00\\ud83d\":null},\"德\":null,\"\\udb7c\\u001a;\":435924.5782252401}}",
+      "bind": "db805061c6bf2b5fc5d6bc3ea33f3609eb9abf4ed0456a17eaef9674e2a05e2c"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"􏿿\":\"񐪤\\u000e3\\u0017mⱻ\",\"﻿\":{},\"兾掓\\u0013\\udd25\\u0005\\u0014\":{\"𣟹񪫃󛏑&/\":null,\"\\u0014ؘ\":\"\\ud9bb\"},\"_openclaw_approval\":[\"\\u0019\\u000f\\udc04\\udc82篿5\",false,-3.452479804400355e-21,{\"￿\":\"򶋐\\udd28\",\"\\udfff\":\"\\r&ⓖ\\\\\"}],\"_openclaw_caller\":[true,{}]}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"兾掓\\u0013\\udd25\\u0005\\u0014\":{\"\\u0014ؘ\":\"\\ud9bb\",\"𣟹񪫃󛏑&/\":null},\"􏿿\":\"񐪤\\u000e3\\u0017mⱻ\",\"﻿\":{}}}",
+      "bind": "11e3f3b43a48a2cd78b7685caa52a2260c714a3b904a2fa973d8a8938472ae9c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "",
+      "params_json": "{\"䰻\\f쮸z\":2.5e-10,\"\\fⵛ쏾꽛\\udc41򿅷\":1526947022635008}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.helpers\",\"params\":{\"\\fⵛ쏾꽛\\udc41򿅷\":1526947022635008,\"䰻\\f쮸z\":2.5e-10}}",
+      "bind": "105ea55ceecd76db22cdbe293f5658efff91237b9510c34ed1b8108567ae1683"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\":\"\\u001d\\\"򶤊\\fh\\udca1\\u000f\",\"\\u0016\\t/\\udd60\":{\"a\\ud800b\":null},\"😀\":null,\"_openclaw_caller\":\"󏐚\\f=\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0016\\t/\\udd60\":{\"a\\ud800b\":null},\"\":\"\\u001d\\\"򶤊\\fh\\udca1\\u000f\",\"😀\":null}}",
+      "bind": "35917ac60b2df6505835f66523179f517c968dcd64d230cc67846d6a88a10c4b"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"衻\\r󥗟\\f\":null}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"衻\\r󥗟\\f\":null}}",
+      "bind": "daa5bd4308b0c0656ca3bf97f92f512b107d658130aeff2ebf9b7f93ee623739"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\uded4񧯂\\ud846\":\"\\u001f\",\"\\u0000\":1e21,\"\":null,\"_openclaw_approval\":2909.0876993723214}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\"\\u0000\":1e+21,\"\\uded4񧯂\\ud846\":\"\\u001f\"}}",
+      "bind": "dcd4e77e8fb0578f75d7ab8de4a547490d9309607184889b61f4b14b4003d865"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\ude00\\ud83d\":[true,true],\"㖒\\\"\\u001e問ᕡ𙀛\":\"\\ude40蠔\\bY㔅\\b\",\"𥀊\\bT򻙔\\t\":{\"\\ud9f2\":123456789012345680000},\"\\\"\\\\/\":[100.0,0.5017069703899324,-3.78140052780509e-7,{\"\\udfff\":{\"𜰾窔\":\"\\u0004\\u000f񉈃⏓\\udb2d/\\t\",\"󆕋𤁄򉂀򎍵\\udcde\":null,\"😀\":\"\\udfff\",\"oꃃ\\u0005\\u001a\\uda8a\":2.1205699373967944e-9},\":\\udd2e\\f歞\":-9007199254740991}],\"_openclaw_caller\":{\"餎/\\t\\ud9a4\":4.35}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\\"\\\\/\":[100,0.5017069703899324,-3.78140052780509e-7,{\":\\udd2e\\f歞\":-9007199254740991,\"\\udfff\":{\"oꃃ\\u0005\\u001a\\uda8a\":2.1205699373967944e-9,\"𜰾窔\":\"\\u0004\\u000f񉈃⏓\\udb2d/\\t\",\"😀\":\"\\udfff\",\"󆕋𤁄򉂀򎍵\\udcde\":null}}],\"㖒\\\"\\u001e問ᕡ𙀛\":\"\\ude40蠔\\bY㔅\\b\",\"𥀊\\bT򻙔\\t\":{\"\\ud9f2\":123456789012345680000},\"\\ude00\\ud83d\":[true,true]}}",
+      "bind": "c206e32bb2da64f29acc2dbcb925a9da8379624a9352e4732c831d6911e762ff"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\u0002\\fp𗴵򁊄\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0002\\fp𗴵򁊄\":null}}",
+      "bind": "72cb425b8d04523700edd167474219da7bed6e7ae38e84dbe971cc0184212e29"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\udca4\\b񩂗/󓦥\\\\\\u0016\":null,\"_openclaw_approval\":[\"󦓘\\u0001\",null]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\udca4\\b񩂗/󓦥\\\\\\u0016\":null}}",
+      "bind": "6ded15a85927fdedc74176086ab297e0f20650f8925431ef617f2f969b8be66e"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"J뱍\\udc3c\\u001e󅨻\":{},\"\\ud92f\\f\\udc84\\n\\u0006û\":\"}\\udafa\\\"\\\\\\\"ᗠ襌\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"J뱍\\udc3c\\u001e󅨻\":{},\"\\ud92f\\f\\udc84\\n\\u0006û\":\"}\\udafa\\\"\\\\\\\"ᗠ襌\"}}",
+      "bind": "2d4e5d7ae2a4c36485672a3d128a979c06d66c11c925e1b3370f8718cb68aed0"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"躅\\n󭡘񖺁l\":[null],\"\\r\":null,\"񈟍庇\":1e+22}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\r\":null,\"躅\\n󭡘񖺁l\":[null],\"񈟍庇\":1e+22}}",
+      "bind": "101fd72a139c0f621926e35e7dbfe81436e2816b37afdd8e1ccec7d8fec37e2d"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\":1842572523732992}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\":1842572523732992}}",
+      "bind": "a8ad890b3466ce96dc17b9b3c1dab7a09b273196d8c53b9a98e104c2df3cfaf6"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"񟖔嗎\\t\\u0013\\ude90꞉\":-9007199254740991}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"񟖔嗎\\t\\u0013\\ude90꞉\":-9007199254740991}}",
+      "bind": "5a442788d5ec3a4d3e89db49721512a87e50fad97d8c01c27e71ae574f5cef07"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\":true,\"/\\ud927𔨪\\\\禣\\u0007\\u001e\":1.854056236334145e+28,\"\\u0000\":null,\"/赃\\uda99\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\":true,\"\\u0000\":null,\"/赃\\uda99\":false,\"/\\ud927𔨪\\\\禣\\u0007\\u001e\":1.854056236334145e+28}}",
+      "bind": "d3c1eed3c9812019b0ff7a140d03131ad8683d3c1cbf4a7d502a4afa92ed16fd"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\ud83d\":0.5,\"󇪌򊲼㩋\":{},\"󅋇#\":{\"򗰼y\\r鿪Q꜒\":4.35}}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\ud83d\":0.5,\"󅋇#\":{\"򗰼y\\r鿪Q꜒\":4.35},\"󇪌򊲼㩋\":{}}}",
+      "bind": "61fb825ae2a056e6cd1503cc395a98adf7a72fbfbac11591b02998e38715e03e"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\\b\\r엊倏\\u0015񪃞\":{\"䨇\":null,\"\\u001f\":\"\",\"  \":null,\"񫩅\":null},\"\\\\峿$\":14.963581436313689}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\b\\r엊倏\\u0015񪃞\":{\"\\u001f\":\"\",\"  \":null,\"䨇\":null,\"񫩅\":null},\"\\\\峿$\":14.963581436313689}}",
+      "bind": "9a480daf066478344524c0a6585d017f6eeb1818598554d904024efde73ffa72"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"񆟄\\t⺳7(\":[],\"󻘮芷\\u001d\":null,\"\\u0013\\n႑\\u000f\":\"\",\"\\u0005򣟪a􊵒\\ude95\\u0010󌄟\":{\"󇕱񫼷\\n<\":123456789012345680000,\"\\n񔕼H\\udff6𿕔\\r\":-1}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\u0005򣟪a􊵒\\ude95\\u0010󌄟\":{\"\\n񔕼H\\udff6𿕔\\r\":-1,\"󇕱񫼷\\n<\":123456789012345680000},\"\\u0013\\n႑\\u000f\":\"\",\"񆟄\\t⺳7(\":[],\"󻘮芷\\u001d\":null}}",
+      "bind": "4774b735a730c88e6c95f35c73aef8887b992d22fb3bc657a522926bdfa6a30d"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"뛺F\":\"\\ud800\",\"_openclaw_caller\":{\"񲧿󶃬G񥳤잧\\\\繴\":null}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"뛺F\":\"\\ud800\"}}",
+      "bind": "2380ddaafa2d2eb5b2f5ad9cba3cb3ddf4ecf75f43418aedcef0a6c6a41362ea"
+    },
+    {
+      "command": "fs.write",
+      "action": "create",
+      "params_json": "{\"]{򅘭Dw\":100.0,\"\\udc8b膑\":\"󾔒\\uda42註9\\u0015\",\"\\t󢞂\\u0003/\\udf74\\ud809G\":[[0.1,[],\"\"],1e-7,\"\",[9007199254740991,false,true]],\"﻿\":0.5}",
+      "canonical": "{\"action\":\"create\",\"command\":\"fs.write\",\"params\":{\"\\t󢞂\\u0003/\\udf74\\ud809G\":[[0.1,[],\"\"],1e-7,\"\",[9007199254740991,false,true]],\"]{򅘭Dw\":100,\"\\udc8b膑\":\"󾔒\\uda42註9\\u0015\",\"﻿\":0.5}}",
+      "bind": "208d4686e4b5ace1feab414889cc25f8d9c381920d3fae1ed82bada14e9c4ba4"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"\":[null,[{\"\\ud8db\\r\\u000b\\u0014\\ude44\\r\":\"\\u0005\\u0000\"}],3207464717647872,false],\"\":-1536817935417344,\"\\udf05w󺣔\\udc08趻\\u001c1\":-1733357549387776,\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\":-1536817935417344,\"\":[null,[{\"\\ud8db\\r\\u000b\\u0014\\ude44\\r\":\"\\u0005\\u0000\"}],3207464717647872,false],\"\\udf05w󺣔\\udc08趻\\u001c1\":-1733357549387776}}",
+      "bind": "01199c67c9f060891aa48ae7ce642f603cc56529df849c1aac8f7156bf92a19b"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\":true,\"\\udbaf\\u000fs\\u001d\":true,\"\\u001f\":1e+22,\"䖪\":-1926627.4408437312}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\":true,\"\\u001f\":1e+22,\"䖪\":-1926627.4408437312,\"\\udbaf\\u000fs\\u001d\":true}}",
+      "bind": "a96551d1146a3c8c7471b4884c0d3acc50bd8272bf2c574ae9a94b80fef85c74"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"쬚\":1e+22,\"\":-9007199254740991,\"\\\"\":[1e21],\"𽅿⟦\\f\":[],\"_openclaw_approval\":true}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":-9007199254740991,\"\\\"\":[1e+21],\"쬚\":1e+22,\"𽅿⟦\\f\":[]}}",
+      "bind": "7710c324cceacb7e2724a99a4dc9344579b5e2abbe982a967b3c1902bbedb434"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"￿\":null,\"\\udcbf\\u0004\\u000f\\\\\\\"\\u0005\\ud9fd\":\"\",\"\\ud83d\":9007199254740991,\"_openclaw_approval\":-3.69339058175683e-15,\"_openclaw_caller\":-0.1575533812865615}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\ud83d\":9007199254740991,\"\\udcbf\\u0004\\u000f\\\\\\\"\\u0005\\ud9fd\":\"\",\"￿\":null}}",
+      "bind": "74b77e66e4f097989d8106a1b6bbc73890e9f3e48f0664e9ef6bef1df4349cf3"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"/\\u0002\\\"᤬𓴥\":false,\"  \":0,\"\":[null,{\"\\\"󴙡\\udb9c\\ud894)\\udeef\\n\":null,\"😀\":{\"\\udda9\\u001e/居\\t\\r\":2752982.6620593667},\"\":\"\\ud83d\"}]}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\":[null,{\"\":\"\\ud83d\",\"\\\"󴙡\\udb9c\\ud894)\\udeef\\n\":null,\"😀\":{\"\\udda9\\u001e/居\\t\\r\":2752982.6620593667}}],\"/\\u0002\\\"᤬𓴥\":false,\"  \":0}}",
+      "bind": "9288ecd98ecc5406dfc3cccfd9fc7544a00caaa7b7536199c114619771dd2df9"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\udd0f\\ud895󟨓䯩\\u0000ブ烥\":false,\"😀\":-4.29088446777314e-14,\"\":-282.1679504122585,\"叏D\\udffe莩\":-44770.442973822355}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":-282.1679504122585,\"叏D\\udffe莩\":-44770.442973822355,\"😀\":-4.29088446777314e-14,\"\\udd0f\\ud895󟨓䯩\\u0000ブ烥\":false}}",
+      "bind": "69564c7e4677805f7b622112b032953ea7215b5e66058bf90d403350b78c8faa"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\":null,\"a\\ud800b\":null,\"_openclaw_caller\":{\"\\u0003㛂ᶐ␥ㆠ\":1.5245409891940653e-15,\"씽\":{},\"𣖫\\u0018\\\\\":-128.37327201850712}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\":null,\"a\\ud800b\":null}}",
+      "bind": "acccb11c931c63cb034d3864bbe35b67cf38bd5251b4ac36aa2ccc357b625a85"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\fV\\b远\\n풱\":9007199254740991,\"𺚰\\u0006󰞍\":{\"r\\udb09\":null,\"􏿿\":[-550306425339904,\"\\t\\\\\\f󸲟\\uda2d\\\"\",true,2.5e-10],\"|\\udbe1\":null},\"\\u001f\\u0011\\u001e\\ud81f\\n\":{\"_劓螬\":\"\\b𣴭\\udba0󛔐\\u0013\"},\";럕\\u000f\\f㮆\\\\O\":null,\"_openclaw_approval\":1e300,\"_openclaw_caller\":1e21}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\fV\\b远\\n풱\":9007199254740991,\"\\u001f\\u0011\\u001e\\ud81f\\n\":{\"_劓螬\":\"\\b𣴭\\udba0󛔐\\u0013\"},\";럕\\u000f\\f㮆\\\\O\":null,\"𺚰\\u0006󰞍\":{\"r\\udb09\":null,\"|\\udbe1\":null,\"􏿿\":[-550306425339904,\"\\t\\\\\\f󸲟\\uda2d\\\"\",true,2.5e-10]}}}",
+      "bind": "8a90d518d4da1c22ee6a47344d3dc38a8adcd3583100e0147a620b7de86a287c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"😀\":2.5e-10,\"_openclaw_approval\":\"😀\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"😀\":2.5e-10}}",
+      "bind": "915233bce8de5a3ab8295cd87f6d1bee2f98e4124a9bea1fd6cbb9a39cadb9fe"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\udace헗\\u0019\\n\\b\\u0000\":null,\"\\u0000\":null,\"\\ude00\\ud83d\":9007199254740991,\"\\\"\\u0000/ꎫ\\u0019\\u0018\":[9007199254740991,{\"a\\ud800b\":false,\"\\b\\f\\n\\r\\t\":\"똄\\udfb9\\u001e\\uda2d૦臖U\"},[1.5e-7,null,[1.144649877678603e-16,\"򔤹ꇧ\\u001e?\\u001a\"]]]}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0000\":null,\"\\\"\\u0000/ꎫ\\u0019\\u0018\":[9007199254740991,{\"\\b\\f\\n\\r\\t\":\"똄\\udfb9\\u001e\\uda2d૦臖U\",\"a\\ud800b\":false},[1.5e-7,null,[1.144649877678603e-16,\"򔤹ꇧ\\u001e?\\u001a\"]]],\"\\udace헗\\u0019\\n\\b\\u0000\":null,\"\\ude00\\ud83d\":9007199254740991}}",
+      "bind": "5c35587b16d1e72bc1c71568448a3b091d1f65276af320430c3a95b593d67407"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\":true,\"򔯦\\f\\ud945𗈲\\ude32\":\"󨬑\\u001e󉻃&땎愌\",\"_openclaw_approval\":null,\"_openclaw_caller\":\"\\udab9践\\udb8e\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\":true,\"򔯦\\f\\ud945𗈲\\ude32\":\"󨬑\\u001e󉻃&땎愌\"}}",
+      "bind": "4321d7d1a55468e905d613a9e4926d04b6044e33b8121d0f6b686708a1fdae8b"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\udac9u㓮\\u001f\":\"\\t\\ude02H\\t\\udb8f\",\"\":5e-324,\"*p麺\\t\\r浭\":1e21}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":5e-324,\"*p麺\\t\\r浭\":1e+21,\"\\udac9u㓮\\u001f\":\"\\t\\ude02H\\t\\udb8f\"}}",
+      "bind": "03d0572f874ae2ab1e0b67d3a7492edb10c4b26fd480489ac208450a46dc8842"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"d\\u0012莗૗\":1e300,\"_openclaw_approval\":{}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"d\\u0012莗૗\":1e+300}}",
+      "bind": "ade4acea5ecd976b4c5113503fba5a9e54554e7ff253fe1fe03a4f515c993a3d"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"￿\":[],\"鐙\\udfa3\\r\\\\q\":null,\"\\u0007\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0007\":null,\"鐙\\udfa3\\r\\\\q\":null,\"￿\":[]}}",
+      "bind": "35537f5152968f58b1ecdbc8d005f7fb90245d93268d1d86e02e675d06f10c8a"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\\uddc8r/򣚔g\\t򗠽\":false,\"O욾\\u0017`\\t򒀆\\t\":[[\"盲\\ud88d\\bx\\udbc6H\",true]],\"\":\"\\u0006\",\"\\b\\f\\n\\r\\t\":{\"\\u0000\":\"򑮋\",\"\\udc03䵂\\b⑼\":null}}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\":\"\\u0006\",\"\\b\\f\\n\\r\\t\":{\"\\u0000\":\"򑮋\",\"\\udc03䵂\\b⑼\":null},\"O욾\\u0017`\\t򒀆\\t\":[[\"盲\\ud88d\\bx\\udbc6H\",true]],\"\\uddc8r/򣚔g\\t򗠽\":false}}",
+      "bind": "ccf0ed05a994677d17d3c6bbb9861b343d9b3588ef5bd4a6faea3191b7e39a3d"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\\u0004\\udedd\":4.772072990890593e+31,\"\\u0018񋄎򱪇\\u0013\":[{\"\\fe\\udb5bS\\ude30\":{}},\"\\u0000\",-49417.23523661494,[false,-0.0,\"\\u0019Z\\b<\\ud937\",[\"波򹪉旓卖\\ud8d2\"]]],\"\\u0006\\udb47X\\udc85E񟗸\":{\"\":{\"﻿\":-582249577709568,\"\\ud83d\":[-538594854830080,null],\"\\u0000\":1.7976931348623157e308},\"/9𥲔\\r\\u0001ℶ\":\"\\u0016\",\"~\\t\\udccb\":{\"ꡮ\\\"裊)񶂀퀅{\":\"\\u001f\",\"café ☃\":[8.363811299204826e+23,false,null,null],\"\\udaa5켢\":{\"\\u0013\\u0019\\ud9b3\\t\":19.182057352736592,\"\\ud9b1񯸻\\u0001\\ud9ce\\r\":\"\\ud83d\",\"䭰V\":\"￿\",\"\":false}}}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0004\\udedd\":4.772072990890593e+31,\"\\u0006\\udb47X\\udc85E񟗸\":{\"\":{\"\\u0000\":1.7976931348623157e+308,\"\\ud83d\":[-538594854830080,null],\"﻿\":-582249577709568},\"/9𥲔\\r\\u0001ℶ\":\"\\u0016\",\"~\\t\\udccb\":{\"café ☃\":[8.363811299204826e+23,false,null,null],\"ꡮ\\\"裊)񶂀퀅{\":\"\\u001f\",\"\\udaa5켢\":{\"\":false,\"\\u0013\\u0019\\ud9b3\\t\":19.182057352736592,\"䭰V\":\"￿\",\"\\ud9b1񯸻\\u0001\\ud9ce\\r\":\"\\ud83d\"}}},\"\\u0018񋄎򱪇\\u0013\":[{\"\\fe\\udb5bS\\ude30\":{}},\"\\u0000\",-49417.23523661494,[false,0,\"\\u0019Z\\b<\\ud937\",[\"波򹪉旓卖\\ud8d2\"]]]}}",
+      "bind": "3380c572000774cc21a7185aff02b8465266ba14e27e680f15ee73a9a7afc48b"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\\u001c\\u001fD\\b'\\udedbe\":[],\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u001c\\u001fD\\b'\\udedbe\":[]}}",
+      "bind": "0ea0436bd289bac11c52fa14bdf7e81967892b2c09d19be494b76639edfeba67"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\\"\\\\/\":1e300,\"😀\":4424.134090077132,\"\\udf0d!\\u0006䗡\\uda2f󈣟\":\"\\f\\u0017v򗟏z\\\\\",\"\\t\\ude1d됩񗝁\\ude3c\":false}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\t\\ude1d됩񗝁\\ude3c\":false,\"\\\"\\\\/\":1e+300,\"😀\":4424.134090077132,\"\\udf0d!\\u0006䗡\\uda2f󈣟\":\"\\f\\u0017v򗟏z\\\\\"}}",
+      "bind": "1021283204f7e744ead22982f700faab7bd8a8b1aea93a73bd64f37465ebacf6"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\u0000\":[0,[\"\\u0016\\udbe0󘐟⊿\\t\",5e-324]],\"\\ud8d4\\ud80dU\\n񥀩򻗄\":{\"/񃸃\\udabc遲\\ude4e\\u0012\":false},\"😀\":-9007199254740991,\"\":-341.8296135496348,\"_openclaw_approval\":\"\\u0000\\ud8c4T\\bඎ\\\"\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":-341.8296135496348,\"\\u0000\":[0,[\"\\u0016\\udbe0󘐟⊿\\t\",5e-324]],\"😀\":-9007199254740991,\"\\ud8d4\\ud80dU\\n񥀩򻗄\":{\"/񃸃\\udabc遲\\ude4e\\u0012\":false}}}",
+      "bind": "e52f65b4691b36b06e544fd1800e8c5af72ff54d032f95bee18b510e63f55cb5"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\b\\udc68\":false,\"\\ud83d\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\b\\udc68\":false,\"\\ud83d\":false}}",
+      "bind": "b8d5bd3860aa3182666f15d5418bf1de8f4d536f8c2c03d18f14696fe173499d"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\udb76\\uda22񬩱\":-4.885110817849636e-13}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\udb76\\uda22񬩱\":-4.885110817849636e-13}}",
+      "bind": "906bb2ec8abba196b5868b6420d54b6846004a618583f1977c253f2bbb3667ad"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\ud813\\r嶞(\":9.876549476757646e-27,\"\\u001a⽰Gⴡ/\\u0005\":0}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\u001a⽰Gⴡ/\\u0005\":0,\"\\ud813\\r嶞(\":9.876549476757646e-27}}",
+      "bind": "bbfc96235f771e7007dc9f78a57ece59d77fb11d9bfad894819d8e05a5e9953d"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\uddde\\ud966\\u0010\":null,\"􏿿\":false,\"ȳ\\udd6d润\\t\\b\\u0012譄\":null,\"\\u001c񿣂\\udf3f\\b⋹D\\n\":-29296.23960517347}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\u001c񿣂\\udf3f\\b⋹D\\n\":-29296.23960517347,\"ȳ\\udd6d润\\t\\b\\u0012譄\":null,\"􏿿\":false,\"\\uddde\\ud966\\u0010\":null}}",
+      "bind": "afdca3a3630eed1b69d0941ffa60eb84218f28d14ddc36a9c709b385a4b3bce2"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\\u0000\":false,\"񄧤𛇾\":{\"\\u0013򂫣\\uddc3\\r◼뺆\\uda51\":1e21,\"\\u0017\\u0011򀭍\\udf81\":1e300,\"\\b끯\\n\":{\"冰󯻸\\udf8c놮\\\"\":\"\\ud98f\"}},\"Z\\u0016\\u001a\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\u0000\":false,\"Z\\u0016\\u001a\":false,\"񄧤𛇾\":{\"\\b끯\\n\":{\"冰󯻸\\udf8c놮\\\"\":\"\\ud98f\"},\"\\u0013򂫣\\uddc3\\r◼뺆\\uda51\":1e+21,\"\\u0017\\u0011򀭍\\udf81\":1e+300}}}",
+      "bind": "c292be2800a26a81670569f35edd79ec1b7661d81c4a5acded8402b3f2441c9e"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"\":{\"\\udda9/󅮠뫺C,\\udf1d\":null,\"᫁\":{},\"\":0.000001},\"򍱇\\u0015/񖍢\":{\"񐟘FU􃫚\\u0014\\b\\udf23\":\"􏿿\"}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\":{\"\":0.000001,\"᫁\":{},\"\\udda9/󅮠뫺C,\\udf1d\":null},\"򍱇\\u0015/񖍢\":{\"񐟘FU􃫚\\u0014\\b\\udf23\":\"􏿿\"}}}",
+      "bind": "94819c1f605d6e62a7255bf6d67e7b1d8f5db6134a9972f4fb7ca917a73495e3"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"嬛\\u001d\":{}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"嬛\\u001d\":{}}}",
+      "bind": "debcbda522e8cd50d10776d8c58f8cdd09e30b8461fa98aaf7420caace0b530c"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"￿\":\"\\b򟕄\\b\",\"'񫣐❸폾$򣫾<\":null,\"\\ude00\\ud83d\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"'񫣐❸폾$򣫾<\":null,\"\\ude00\\ud83d\":null,\"￿\":\"\\b򟕄\\b\"}}",
+      "bind": "1766314d0ac44a8a59ed3e27adb5e9ff6240c71d894c03529f743d7900134288"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"😀\":{\"\\u001f䪥\\udb40鶅\\u0016\\n\":null,\"X\\t㱔\\\"\\\\횳|\":null},\"褨\\u0010\":[1e+22],\"  \":false,\"`\\r\\\"樠\\u0004\\u0015\\f\":{\"\\u0014V\\ud84a\":\"￿\",\"㕩\\t컇\\udb30\\t󅯸툂\":[2050892849217536,null,{\"0\":2.5e-10,\"\\\"F\\uddc6\":null},{\"츷鱻\":\"W\\ud8cd񗟟\\ude84\",\"\\\"\\r회򢎖\\ud838񯎊\":null}],\"\\ude00\\ud83d\":\"\",\"￿\":[false,[\"😀\",null,\"󟘟\\u001e\",true],-23321891436.353325]}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"`\\r\\\"樠\\u0004\\u0015\\f\":{\"\\u0014V\\ud84a\":\"￿\",\"㕩\\t컇\\udb30\\t󅯸툂\":[2050892849217536,null,{\"\\\"F\\uddc6\":null,\"0\":2.5e-10},{\"\\\"\\r회򢎖\\ud838񯎊\":null,\"츷鱻\":\"W\\ud8cd񗟟\\ude84\"}],\"\\ude00\\ud83d\":\"\",\"￿\":[false,[\"😀\",null,\"󟘟\\u001e\",true],-23321891436.353325]},\"  \":false,\"褨\\u0010\":[1e+22],\"😀\":{\"\\u001f䪥\\udb40鶅\\u0016\\n\":null,\"X\\t㱔\\\"\\\\횳|\":null}}}",
+      "bind": "bf97ae74ef3dcdc51368565c27870d22ee5c2ff67ae6be4c6d1fe43318f14aa7"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\\u0001򺏺񇐓\":{\"򏥈O\\t𯾦\":[\"񽶿P򠙷\\ude99\\u001f\\t\",false],\"񨌛늮\":[null]},\"\":{\"8뫀\":null},\"\\u0000\":false,\"\\udba6囃꤭󸃉\\ude7b\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\":{\"8뫀\":null},\"\\u0000\":false,\"\\u0001򺏺񇐓\":{\"񨌛늮\":[null],\"򏥈O\\t𯾦\":[\"񽶿P򠙷\\ude99\\u001f\\t\",false]},\"\\udba6囃꤭󸃉\\ude7b\":null}}",
+      "bind": "85c90e571c5bd2b4757ac46eac9c60df8f876c49d880ce241f33fa0dfb47f8b6"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":\"z\\tந𷙱\",\"򉈍򦮸\\\"\\u001c\\u001c\\u001f\\t\":true,\"捁𚊎\\\\\":100.0}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":\"z\\tந𷙱\",\"捁𚊎\\\\\":100,\"򉈍򦮸\\\"\\u001c\\u001c\\u001f\\t\":true}}",
+      "bind": "41c2981b0d9c6f7cce60d6246ec8365a5b64a3c098b74d1f0c5d8a96ec77341c"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\n\\\"\\u0013\\uda08򀬺侢\\u0004\":\"\\f\\r\\\"\\t񠅖\\\\\",\"\\u0000\":true,\"񫺒껌\\udbb6\\r򧆜𽗟\":\"\\udfff\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\u0000\":true,\"\\n\\\"\\u0013\\uda08򀬺侢\\u0004\":\"\\f\\r\\\"\\t񠅖\\\\\",\"񫺒껌\\udbb6\\r򧆜𽗟\":\"\\udfff\"}}",
+      "bind": "73042a5f27ac5db5088874f9ef210df2c7f267df84c23bb5fe372fd645232173"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"􏿿\":1e-7,\"什蒸G\\u0005\\\\\":{\"\\u0007\\udec8򖤜黝\\udea7\":[\"\\u001f\",190437346246656],\"\\u0013W\\b\\rc䈚\\\"\":\"café ☃\"},\"a\\ud800b\":true,\"\\u001e\\u0001N\\u0004\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\\u001e\\u0001N\\u0004\":null,\"a\\ud800b\":true,\"什蒸G\\u0005\\\\\":{\"\\u0007\\udec8򖤜黝\\udea7\":[\"\\u001f\",190437346246656],\"\\u0013W\\b\\rc䈚\\\"\":\"café ☃\"},\"􏿿\":1e-7}}",
+      "bind": "9a20bdc31016aca3298804920c996dbfb0fd796b2a2874ba4f362090e4de898d"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"𢄈\\udc19󒷜햷\\f\":\"\\udc63\\u0017󰚻\\udd1b\\ud8c8\",\"뵕\\udcc1\":242215145146474230000,\"􋃷q\\\"\":\"D앟鑣\\ude7cu\\udcd1\\t\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"뵕\\udcc1\":242215145146474230000,\"𢄈\\udc19󒷜햷\\f\":\"\\udc63\\u0017󰚻\\udd1b\\ud8c8\",\"􋃷q\\\"\":\"D앟鑣\\ude7cu\\udcd1\\t\"}}",
+      "bind": "5f2b473ef9f00791ad75a35ecfb104cfcf1ae12c370cecf93a82af77273ded82"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"a\\ud800b\":100.0,\"嗊B\\b亳Ⓞ\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"a\\ud800b\":100,\"嗊B\\b亳Ⓞ\":null}}",
+      "bind": "8940dc94214ab6d31a9b5f09f5b529b4691615c237b928935505e87c416857da"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\":9007199254740991,\"\\\\\\t扳\\udb49\\n\\u001b󯍵\":-1,\"+\\n\":true,\"_openclaw_approval\":5.726669146679342e-19}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\":9007199254740991,\"+\\n\":true,\"\\\\\\t扳\\udb49\\n\\u001b󯍵\":-1}}",
+      "bind": "d04513ab8ac76d84d7ef698b4c5cf45f6b5e3e15f0a491e1dfc9d5be7911fcce"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\":{\"\\t򻶗g\\u0001\\f\":[]},\"_openclaw_caller\":false}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\":{\"\\t򻶗g\\u0001\\f\":[]}}}",
+      "bind": "34407f1fe5dd2b840b6751563559dbffca8e5f0b5cd91ff11feafba339d39ddb"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"\\udb93\\\\\\u000e󏘢\\u0005\\f\\ude9f\":\"\\\\\\\"\\u0013\\uda73\\r󱍜\",\"\\\"\\u0018\\u001c!\\uddccD\":{\"\\udfcc盄\":true,\"\\u001d[\":0.0027982390881516037,\"!򙨑\\ud86a\\u000e\\udad3ঘ\":\"᫕\\udcea\\b񒖥\",\"\\u0013񗔅\":{\"\\udf49\\u0014s\\u0017\\uddb4\":9007199254740991,\"\\\"\\udbe1𓆶!\\t鷭\":-0,\"\\u0000\":{\"񌹄\\udb77믿\\r\":true,\"\\f\\ud959wW\\u0019\":null,\"7\\ud899閟>펽\":null},\"\\udd21\\u0015\\\\\\uda17봏\":[0.5]}},\"\\\"\\\\/\":-813811068043264,\"\\udfe7\":[]}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\\\"\\u0018\\u001c!\\uddccD\":{\"\\u0013񗔅\":{\"\\u0000\":{\"\\f\\ud959wW\\u0019\":null,\"7\\ud899閟>펽\":null,\"񌹄\\udb77믿\\r\":true},\"\\\"\\udbe1𓆶!\\t鷭\":0,\"\\udd21\\u0015\\\\\\uda17봏\":[0.5],\"\\udf49\\u0014s\\u0017\\uddb4\":9007199254740991},\"\\u001d[\":0.0027982390881516037,\"!򙨑\\ud86a\\u000e\\udad3ঘ\":\"᫕\\udcea\\b񒖥\",\"\\udfcc盄\":true},\"\\\"\\\\/\":-813811068043264,\"\\udb93\\\\\\u000e󏘢\\u0005\\f\\ude9f\":\"\\\\\\\"\\u0013\\uda73\\r󱍜\",\"\\udfe7\":[]}}",
+      "bind": "7321a0612b647969948c2684bc5876075bdd0dc5d1d5bcc95183ea40c7f991fa"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"밅\":\"𮴝\\\\龜\\f\\b\\r宭\",\"\\u000b\":null,\"烟\\u000eᲊ?\\n\":false,\"\\u0006\\u0007\\udffa\\\\\\fu뼠\":-251099.5869524777}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0006\\u0007\\udffa\\\\\\fu뼠\":-251099.5869524777,\"\\u000b\":null,\"烟\\u000eᲊ?\\n\":false,\"밅\":\"𮴝\\\\龜\\f\\b\\r宭\"}}",
+      "bind": "ab928ab9248c40f2a04dee72be9ec4892736207e4593942051304dfb8cc6b980"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"\\ude00\\ud83d\":\"/\\ud9c1\\u0000\\t暜􁨞㴖\",\"󉅶2\\udfc71\":\"a\\ud800b\",\"\":null,\">\\f/\":[false,false,null,1.9448852725327015e-12],\"_openclaw_approval\":\"񳮜󒁧\\u000e\"}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"\":null,\">\\f/\":[false,false,null,1.9448852725327015e-12],\"󉅶2\\udfc71\":\"a\\ud800b\",\"\\ude00\\ud83d\":\"/\\ud9c1\\u0000\\t暜􁨞㴖\"}}",
+      "bind": "3188461d6ea1d5dec331cf1b9d9043ef4dc113dd528ac3320ddf8954b59235a8"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"፫\":-0.20358670013956726,\"\\ud800\":{},\"_openclaw_approval\":4.35}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"፫\":-0.20358670013956726,\"\\ud800\":{}}}",
+      "bind": "e17174150cc2a0416a399115d67fe6fbe8919f6f77088a8cdbb41a2bfdaa5141"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"  \":123456.789e3,\"\":null,\"\\ud9ab\":1e300}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\":null,\"  \":123456789,\"\\ud9ab\":1e+300}}",
+      "bind": "5a847a239a206ed4935598e25e0ebc2c18453a9e6c793dbbf4f44564902f54b5"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\u0019\":0.000001,\"\\f\\t\\udb84󲂤,ࢧ\\uda28\":false}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\f\\t\\udb84󲂤,ࢧ\\uda28\":false,\"\\u0019\":0.000001}}",
+      "bind": "e2cdb773f5d0f68542ad436261956a0334275f57068ac7018476fe5fc7b2a58d"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"﻿\":false,\"\\bO𷴖𝤲O\":0,\"\\u0000\":[false,[[],13108.332664705813,null],[[-1,-297234905418008600],{},true,{}],[]]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0000\":[false,[[],13108.332664705813,null],[[-1,-297234905418008600],{},true,{}],[]],\"\\bO𷴖𝤲O\":0,\"﻿\":false}}",
+      "bind": "e91e9ebe88ef22b6c4dcb52220c4a816679995c21c58c8752da4c5480c27f9f2"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"턁6ণ\":[\"_\\f􉢩\\udf3f\",466228356584906.56,0.5,2.877499936148524e+30]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"턁6ণ\":[\"_\\f􉢩\\udf3f\",466228356584906.56,0.5,2.877499936148524e+30]}}",
+      "bind": "f9b323ad4bc32cced005a287d4c8b5f9d230ac495bf320f19e39c171ed00f18a"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"/|󌜗\\udc70\":0.1}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"/|󌜗\\udc70\":0.1}}",
+      "bind": "4e95601c0d55281dc3f053586ce453121d98fbf3df4aa970df51ce4110f0ebb3"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"H򞈨\\n\":null,\"\":true,\"󨝾\\ud8af\":[1e300,true,\"b\\ud813\\u0019񗦺\",0.000017953699314966797],\"쬯󮪘\\t埘\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\":true,\"H򞈨\\n\":null,\"쬯󮪘\\t埘\":null,\"󨝾\\ud8af\":[1e+300,true,\"b\\ud813\\u0019񗦺\",0.000017953699314966797]}}",
+      "bind": "f017a68267a0033b08303ce1aa84965a34591e7d172e327a5837537e901478a0"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"\":\"򤆽\\udf22\",\"^\\ud9b7\\\\飲'1\\udd5d\":\"😀\",\"\\u001f\":{\"\":[{},[null,true,true,null],[true,\"\",true,null]],\"%\":null}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\":\"򤆽\\udf22\",\"\\u001f\":{\"\":[{},[null,true,true,null],[true,\"\",true,null]],\"%\":null},\"^\\ud9b7\\\\飲'1\\udd5d\":\"😀\"}}",
+      "bind": "a5441afdf5ab4894835e40feefeec63366c2eb0770cccc1f00cda10eb73d506e"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "",
+      "params_json": "{\"\\u0003\":null,\"򞟤䉯\\ud9bc\":-3141663740395520,\"  \":{\"󭬗稔ꤩ\":{\"񗔯\\r񬾹\":null,\"😀\":\"j\\n\\f杵\\\"臁!\",\"\":[2.117839257698506]},\"\\u001f\":[],\"\":-3.8663680362515157e-26},\"j􂟌/\\\\\\\\\\ude3e\\t\":\"\\ud83d\",\"_openclaw_caller\":{\"򀠭\\r6*쒸\":false,\"\\u0003\\\\\":false}}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0003\":null,\"j􂟌/\\\\\\\\\\ude3e\\t\":\"\\ud83d\",\"  \":{\"\":-3.8663680362515157e-26,\"\\u001f\":[],\"󭬗稔ꤩ\":{\"\":[2.117839257698506],\"😀\":\"j\\n\\f杵\\\"臁!\",\"񗔯\\r񬾹\":null}},\"򞟤䉯\\ud9bc\":-3141663740395520}}",
+      "bind": "d5e5b822ec68eb58bef05dc9ea9241c947d87a12a7e8e80b0876d3c8883261d4"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"a\\ud800b\":[0.5,false,-49.85726398881525,{\"\\u0011\\u0012󩍡u\":true,\"ᴷ\\u000b$\\udf6bZ\\t6\":-4.830912942998111e-15,\"딭/叧\":{}}],\"\\u001f\":0.000001}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\u001f\":0.000001,\"a\\ud800b\":[0.5,false,-49.85726398881525,{\"\\u0011\\u0012󩍡u\":true,\"ᴷ\\u000b$\\udf6bZ\\t6\":-4.830912942998111e-15,\"딭/叧\":{}}]}}",
+      "bind": "7b838b7936ac4d5b5bb6f02c0b4eec36d4c9d0dfbf18e7e827160dc8ed7ac45d"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\bf\\u0016\":1e300,\"\\ud800\":1e21}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\bf\\u0016\":1e+300,\"\\ud800\":1e+21}}",
+      "bind": "e6c40fe69105594c2e089faebe772bb90ba68814072e57016d9892100c018a70"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"/󵗅\\\"򂰸掎%\\u0010\":null,\"\\ude00\\ud83d\":{\"\\t\\\"\":9007199254740991,\"café ☃\":false,\"\":\"\\u001c\\udd6f\\ud85b󷗟\\udf4d\\\"\"},\"\\u0016\\\\\":1e-7}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0016\\\\\":1e-7,\"/󵗅\\\"򂰸掎%\\u0010\":null,\"\\ude00\\ud83d\":{\"\":\"\\u001c\\udd6f\\ud85b󷗟\\udf4d\\\"\",\"\\t\\\"\":9007199254740991,\"café ☃\":false}}}",
+      "bind": "9e2a07b9a315eaa31d0fb4625feabbecd8ef49b4f9bbb64e627c05947a7a82a7"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"v鐆㭫7\":1.799773792736232e-14,\"Ṍ\":null,\"倩񣲑.e\\udbd0\\\\/\":\"d󯳵󎍳񺝡\",\"_openclaw_caller\":2.993608205579221e-20}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"v鐆㭫7\":1.799773792736232e-14,\"Ṍ\":null,\"倩񣲑.e\\udbd0\\\\/\":\"d󯳵󎍳񺝡\"}}",
+      "bind": "40c3926ada9be4bb0e1a6f06e400190d44cdfeb9f3e77164893caea7807ef011"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"-\\u0011\\ude32\":{\"ᲆ\":\"𰅾\\ud90a A\"},\"䤬믷2陕/\":true,\"\":[[\"\\uda9d󙚧\",2.682374226860702e-8],0.000001],\"\\u000e\":true}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"\":[[\"\\uda9d󙚧\",2.682374226860702e-8],0.000001],\"\\u000e\":true,\"-\\u0011\\ude32\":{\"ᲆ\":\"𰅾\\ud90a A\"},\"䤬믷2陕/\":true}}",
+      "bind": "044a7d20a857e6130ea9d3413bcf574f168c857e1d37340466a6ca35f347e4a2"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"café ☃\":false,\"\\uddb6\\rTJz$\\udeb5\":1.7976931348623157e308,\"\\\"\\\\/\":\"񤝴{\\u0006򿠊\",\"_openclaw_approval\":100.0}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\\"\\\\/\":\"񤝴{\\u0006򿠊\",\"café ☃\":false,\"\\uddb6\\rTJz$\\udeb5\":1.7976931348623157e+308}}",
+      "bind": "7de659151424e7a14a739caf4ce6c37887a54a9ae3cabca5ee93c763cbae5318"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"/\\uda7e䦊/뇣崎񏿼\":1.7976931348623157e308,\"\\udb5f\":true,\"\\t񽞍,\\f\\u0013s\":[\"򇬴\\udce3\\u001e򂱲𒱪򢂲\",\"\\ud800\"],\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\t񽞍,\\f\\u0013s\":[\"򇬴\\udce3\\u001e򂱲𒱪򢂲\",\"\\ud800\"],\"/\\uda7e䦊/뇣崎񏿼\":1.7976931348623157e+308,\"\\udb5f\":true}}",
+      "bind": "2d572f16a220b9357276847c314c1b7aba16ca1ac8b29f7cd4447c379e9d73e2"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"café ☃\":{\"C\":[],\"\\n\":1.7976931348623157e308},\"󔏑}|\\udc4e㦷Vန\":false,\"\\ude00\\ud83d\":{}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"café ☃\":{\"\\n\":1.7976931348623157e+308,\"C\":[]},\"󔏑}|\\udc4e㦷Vန\":false,\"\\ude00\\ud83d\":{}}}",
+      "bind": "b484008e30c0d1064e26f09746050d3afdc329a2b57cdf55ebc6599837ec7af1"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"夲\\udc98񵷨rW\\ud885\":{\"\\udc12\\r訟࢘\":\"\\\\蠷\\u0007\\udd9f\",\"\\u000b\\b\\udf7e񇖃\":[[3176417.9072342813],\"\\ude00\\ud83d\"]},\"\\udfff\":{},\"\\u0016\":null,\"\\f񵚵⪷\\u0003\\n\\u0004\\\\\":\"\\udd26E\\u0003\\udc12\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"\\f񵚵⪷\\u0003\\n\\u0004\\\\\":\"\\udd26E\\u0003\\udc12\",\"\\u0016\":null,\"夲\\udc98񵷨rW\\ud885\":{\"\\u000b\\b\\udf7e񇖃\":[[3176417.9072342813],\"\\ude00\\ud83d\"],\"\\udc12\\r訟࢘\":\"\\\\蠷\\u0007\\udd9f\"},\"\\udfff\":{}}}",
+      "bind": "0f7d9d8567506eef0da522e682675d5498bc669914f9fd8598b140f99596dd44"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\"\\ude00\\ud83d\":false,\"騲\":[],\"\\u0011탭\\udea3䇣\\r\":4497223805042688}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0011탭\\udea3䇣\\r\":4497223805042688,\"騲\":[],\"\\ude00\\ud83d\":false}}",
+      "bind": "61b23c5bff6add03022c8aa6b8747234dbeebd53c2090581e6e967f0d912154f"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\":[\"a\\ud800b\",\"\\u0000\"]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\":[\"a\\ud800b\",\"\\u0000\"]}}",
+      "bind": "dc7dad4153bc8cc7c9a84df98e19a6c4c1cdab6ef28fe89243fe0e7c521490e3"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\uddd8\\u0016\\nTr[\\\\\":null,\"2\\ud9cdh\\u0002\\r\":-0.015801493194885552}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"2\\ud9cdh\\u0002\\r\":-0.015801493194885552,\"\\uddd8\\u0016\\nTr[\\\\\":null}}",
+      "bind": "c66612814d407d82303d45a1aba8f48db701ba1b0bc0deeeb0215dd13d3bf902"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\u0016\\u0014񾕭\\u001d\\u0011\\ud97a\":null,\"𭰧\\f\":4.9302548053674394e-20,\"\":null}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0016\\u0014񾕭\\u001d\\u0011\\ud97a\":null,\"\":null,\"𭰧\\f\":4.9302548053674394e-20}}",
+      "bind": "c97d5bba854dc710750f1e50fe5e943c0de1155ad6d39e8ecff01beeaed1cb4d"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"😀\":\" 򞰰\"}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"😀\":\" 򞰰\"}}",
+      "bind": "94e0474883e72af4bfcd3a98873c4df3176e59c77fc08d804ca7adbeebafeaea"
+    },
+    {
+      "command": "fs.write",
+      "action": "save",
+      "params_json": "{\"￿\":null,\"\\\"\\u0006\\\"U\\ud8fa󊅳\\b\":[]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"fs.write\",\"params\":{\"\\\"\\u0006\\\"U\\ud8fa󊅳\\b\":[],\"￿\":null}}",
+      "bind": "579d2bcc32b759d75a7a4b08331d93ec2becf30e46e1c7de42b7afca7428c648"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\u0007烈\":false,\"\\ud83d\":0.1}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\\u0007烈\":false,\"\\ud83d\":0.1}}",
+      "bind": "be6c96b6b59668a7bbd0867f8b563822574750179f17566105393c1b96195e9a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"͞\\u0002\\u0019\":\"\\\\򜅧\\u0013\",\"\":1e21}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\":1e+21,\"͞\\u0002\\u0019\":\"\\\\򜅧\\u0013\"}}",
+      "bind": "be9e0d8ae3e5ae9e868495ce4b0e4f24a5e371011c041f300b25435fe533cb9c"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"/\":[0.000004743120318744332,null,false],\"睜셴ࢿ򠸺\":[null,\"񓘊\\udd8a\",1e-7],\"\\ude32\\r\\\\䓦\\ude49\":[[],[null]]}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"/\":[0.000004743120318744332,null,false],\"睜셴ࢿ򠸺\":[null,\"񓘊\\udd8a\",1e-7],\"\\ude32\\r\\\\䓦\\ude49\":[[],[null]]}}",
+      "bind": "68303ebf3746175ac261abe99a29406ba74c67d170ec2b43ea6854c8945845f8"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\t\":[],\"😀\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\\t\":[],\"😀\":true}}",
+      "bind": "3f2099372850891922f6734f34f0e2ddb3db0038eed189f85b8b75ac7bddd8ea"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"^򣿗\\udbc6|\":[],\"񢵭\\uddaf\":\"󮿕񨵖\\u001f\\b󙺋璌|\",\"ꠤ\":123456.789e3}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"^򣿗\\udbc6|\":[],\"ꠤ\":123456789,\"񢵭\\uddaf\":\"󮿕񨵖\\u001f\\b󙺋璌|\"}}",
+      "bind": "140158c10c00ff2b04e080810fd9095956522dc6d29c065a466fde9ba9aeee61"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "delete",
+      "params_json": "{\";򔘶\\u0014񤇢p\":true,\"\":-3.138982360251248,\"café ☃\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.automation\",\"params\":{\"\":-3.138982360251248,\";򔘶\\u0014񤇢p\":true,\"café ☃\":null}}",
+      "bind": "5c4b18e8aaa6dcb34dd23ce247c7064c7ebddac064ce9f2d62a8d7a11ed1211f"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\uddf1󼭪\\udb77굽\\f\":4.35}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\uddf1󼭪\\udb77굽\\f\":4.35}}",
+      "bind": "67d5e0de1c5a8324edfad99f0ae1a1527fd60b513425bbcef0c557bc7f1c3d43"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"\\udf3b끨[\\u000b\":0.5,\"哪_\\u0019\\n\":-4.340446663554758e-16,\"㞚눇\\udd70\\\"\":{}}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"㞚눇\\udd70\\\"\":{},\"哪_\\u0019\\n\":-4.340446663554758e-16,\"\\udf3b끨[\\u000b\":0.5}}",
+      "bind": "53dfdc794fc0f72e2c21457628cb2d7497b20c3147e5661c0e4938287bf76a84"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "save",
+      "params_json": "{\"ꁦ⳪\":true,\"半覣\":\"瓫棕\\u0017󑣭򄂻\\ud92f\\u0014\",\"󀲵伱l\\\"ꈍ\":[null,null,1e300],\"\\u0013񹍟\\f\\udf07)ᢆ\\u0019\":327493.9355906099}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.reload_config\",\"params\":{\"\\u0013񹍟\\f\\udf07)ᢆ\\u0019\":327493.9355906099,\"半覣\":\"瓫棕\\u0017󑣭򄂻\\ud92f\\u0014\",\"ꁦ⳪\":true,\"󀲵伱l\\\"ꈍ\":[null,null,1e+300]}}",
+      "bind": "288486b2f18deb504463f9d2e566e51d2cbff3962d9df12fe5d6900a1dfa12ee"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\udcd4_\\f㙡\\u0004\":\"\",\"\\udc7e+\\u0007\\u0007\\udc19\":1.5e-7,\"\":123456789012345680000}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":123456789012345680000,\"\\udc7e+\\u0007\\u0007\\udc19\":1.5e-7,\"\\udcd4_\\f㙡\\u0004\":\"\"}}",
+      "bind": "85ed43dabb2ee35ddb453d97b93a45e1514bfe9b4db05b5b93411b8bb17aa1ae"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\\udcd4\\u0006\":[null,\"\\r\\f\",{}],\"\\u001a乼\":true,\"쪷\\f\\ude29\\u0015\":false,\"_openclaw_approval\":\"\\b\\f\\n\\r\\t\",\"_openclaw_caller\":true}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\u001a乼\":true,\"쪷\\f\\ude29\\u0015\":false,\"\\udcd4\\u0006\":[null,\"\\r\\f\",{}]}}",
+      "bind": "cdc9d6d186e04532a539a287555cc0359aa427ece3b089a0e2574019af66ec9c"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"\\uda9e\\\"𥆠鍝\\\"\":null,\"\\b\\f\\n\\r\\t\":\"򫛰\",\"￿\":-4413775.40351823,\"\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"\":false,\"\\b\\f\\n\\r\\t\":\"򫛰\",\"\\uda9e\\\"𥆠鍝\\\"\":null,\"￿\":-4413775.40351823}}",
+      "bind": "1e79ed6c44e0046e89feedfd586b09567aad06d14fb62eae48c03b801f99ff2d"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"/\\u0003\\udff7񞮹\\\\\\udd31\\udc9b\":null,\"😀\":null,\"_openclaw_approval\":true}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"/\\u0003\\udff7񞮹\\\\\\udd31\\udc9b\":null,\"😀\":null}}",
+      "bind": "d6b9235c4b426b26b454c60adae29aa890efdec4249ae00a3d8a0c0315a74fe1"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "delete",
+      "params_json": "{\"\":1e+22,\"😀\":2375865182715904}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.reload_config\",\"params\":{\"\":1e+22,\"😀\":2375865182715904}}",
+      "bind": "62c9a06567d9d118fdc3bd1d1bd373417d37ded2f555d233183e48e0b302b614"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params_json": "{\"􏿿\":null,\"a\\ud800b\":true,\"齧\":{\"\":-0.0,\"\\u001e\":-2.6001830748282375e-23},\"뛱\\r񉡶\\u0018􃏃\":true,\"_openclaw_approval\":false}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.automation\",\"params\":{\"a\\ud800b\":true,\"齧\":{\"\":0,\"\\u001e\":-2.6001830748282375e-23},\"뛱\\r񉡶\\u0018􃏃\":true,\"􏿿\":null}}",
+      "bind": "1ba43edd293261b18070ec1f552a3a641d3e975cfd1b1434b361cd0a41819626"
+    },
+    {
+      "command": "fs.write",
+      "action": "delete",
+      "params_json": "{\"\\u0013\\u0018\\t\":null,\"\\t/\":\"\\f\\udfe7\\u001d\\r\",\"\\ud83b\":false,\"\\b\\f\\n\\r\\t\":4.35}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"fs.write\",\"params\":{\"\\b\\f\\n\\r\\t\":4.35,\"\\t/\":\"\\f\\udfe7\\u001d\\r\",\"\\u0013\\u0018\\t\":null,\"\\ud83b\":false}}",
+      "bind": "509514b223cf0e0a17e4a8c12d572840b6cf9297fec276c5aaae379608b2264a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "delete",
+      "params_json": "{\"왖隳\":null,\"_openclaw_approval\":null}",
+      "canonical": "{\"action\":\"delete\",\"command\":\"ha.config.helpers\",\"params\":{\"왖隳\":null}}",
+      "bind": "1d7463d28677152358960a314e3084f443fd24a13b3f5a13e6d98887a3ab5bd7"
+    },
+    {
+      "command": "ha.reload_config",
+      "action": "create",
+      "params_json": "{\"濷\\udbd0\\u0001g\":1e300,\"`\\u001d\\u0010\":[{\"\":\"椉\\\"㒲\"},-3.091288041323423e-25],\"\\\"\\\\/\":\"﻿\",\"\":null}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.reload_config\",\"params\":{\"\":null,\"\\\"\\\\/\":\"﻿\",\"`\\u001d\\u0010\":[{\"\":\"椉\\\"㒲\"},-3.091288041323423e-25],\"濷\\udbd0\\u0001g\":1e+300}}",
+      "bind": "739af07df87a9616375284b3572c9ba5e0785fdfeb9c0c3a557c20efab06e8e0"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"￿\":[{}],\"\\udf7d槥m霙\":[null,true],\"S\\uddf7#\\udbbfi\\u0006\":true,\"㢐峟渣\\\\\\u0000𥷊\":{\"V\":{\"\":-0.00000436953000491485,\"\\\"\\\\/\":\"￿\"},\"﻿\":null,\"\\\"\\\\/\":\"򤝏鑩\\n.򅘱\\u0000\"}}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"S\\uddf7#\\udbbfi\\u0006\":true,\"㢐峟渣\\\\\\u0000𥷊\":{\"\\\"\\\\/\":\"򤝏鑩\\n.򅘱\\u0000\",\"V\":{\"\":-0.00000436953000491485,\"\\\"\\\\/\":\"￿\"},\"﻿\":null},\"\\udf7d槥m霙\":[null,true],\"￿\":[{}]}}",
+      "bind": "a0c8115cd3c9863a6751d4bf71f2adf115857f8edbfb6df34cb7e2c08c2ed9ec"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\\f\\\\完\\u00023눂\\\"\":null,\"񝎰葫󁩣Ꙝ\":\"a\\ud800b\",\"㠑 \\ud946㨵@󀟼\\u0015\":null,\"𷑅\\u0019\":\"\\udd33\\\\$\\f\"}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\\f\\\\完\\u00023눂\\\"\":null,\"㠑 \\ud946㨵@󀟼\\u0015\":null,\"𷑅\\u0019\":\"\\udd33\\\\$\\f\",\"񝎰葫󁩣Ꙝ\":\"a\\ud800b\"}}",
+      "bind": "87297e4cc800cc51cd4f955cdba800eb9568c8aa274223c5f90cda4fa37dab2c"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"뿼\\u0007򋬯\\udc48\":4.36631991295144e-15,\"\\\\\\b\\ude75\\b򎪝񎬽\\f\":null,\"\":-2409372.60678038}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\":-2409372.60678038,\"\\\\\\b\\ude75\\b򎪝񎬽\\f\":null,\"뿼\\u0007򋬯\\udc48\":4.36631991295144e-15}}",
+      "bind": "d7781ba4036508f598636927ebdcbaef77a43a6382d55db142c86af949f3b273"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\\ud9ac󱝼>\":\"café ☃\",\"鍅𞺈\\ud8ca򺄸\":{\"隣\\u0012W\\ud9d0𩙉\\udc23\\r\":true}}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"鍅𞺈\\ud8ca򺄸\":{\"隣\\u0012W\\ud9d0𩙉\\udc23\\r\":true},\"\\ud9ac󱝼>\":\"café ☃\"}}",
+      "bind": "af6712df161c5b4a17ada1faf575326c061c97975f9c30d9e2a246a3c201091b"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "create",
+      "params_json": "{\"\\udca4\\\\򯼑򮩰ao\\udd02\":true,\"􏿿\":{\"\\u000e\":{\"\\r\\ud8c6\\u0003Yu\\u0011\\udd76\":true},\"򈞷\\t\\f\\ud802\\ud927\\u001d\":0.1,\"x\\f/\\udb6e\":null},\"\":3898186571710464}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.automation\",\"params\":{\"\":3898186571710464,\"􏿿\":{\"\\u000e\":{\"\\r\\ud8c6\\u0003Yu\\u0011\\udd76\":true},\"x\\f/\\udb6e\":null,\"򈞷\\t\\f\\ud802\\ud927\\u001d\":0.1},\"\\udca4\\\\򯼑򮩰ao\\udd02\":true}}",
+      "bind": "fc6a71556491df68fa28a1a3a4d042fda466b9253d96d08200fca70975496602"
+    },
+    {
+      "command": "fs.write",
+      "action": "",
+      "params_json": "{\"񱭸牉\\f\\\\񝙮\\u0007\":false,\"+\":null,\"뿈\\u0018\\ud9be\\u0007\":null,\"3\\u0011탉\\ud939\\u001e\":1.5e-7,\"_openclaw_caller\":\"café ☃\"}",
+      "canonical": "{\"action\":\"\",\"command\":\"fs.write\",\"params\":{\"+\":null,\"3\\u0011탉\\ud939\\u001e\":1.5e-7,\"뿈\\u0018\\ud9be\\u0007\":null,\"񱭸牉\\f\\\\񝙮\\u0007\":false}}",
+      "bind": "5d7122c9771f91fa24f69ce7a6c1ff9ab67cb0507a77d261fc7eb28c06bfe128"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "",
+      "params_json": "{\"\\ud83d\":3110.6441281735897,\"󊵢\\udc3b遾񷉬\\u0005j\\uddcc\":{\"􏿿\":[1e-7],\"翔\\\\򫨰\\ud93f𖻛?\":1972.7584719657898},\"O򩉔\\udd2f\":-422661.4262443036}",
+      "canonical": "{\"action\":\"\",\"command\":\"ha.config.automation\",\"params\":{\"O򩉔\\udd2f\":-422661.4262443036,\"\\ud83d\":3110.6441281735897,\"󊵢\\udc3b遾񷉬\\u0005j\\uddcc\":{\"翔\\\\򫨰\\ud93f𖻛?\":1972.7584719657898,\"􏿿\":[1e-7]}}}",
+      "bind": "5a660207176eb61a31a6ea8fb6940d696201a23d6c5d9aa063bcce1f9be74ee9"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "create",
+      "params_json": "{\"\":298772.05775119364}",
+      "canonical": "{\"action\":\"create\",\"command\":\"ha.config.helpers\",\"params\":{\"\":298772.05775119364}}",
+      "bind": "02ca21456e98cbb9965a0ce57d209f5970d4eb230ed33cf8902ee566080f439a"
+    },
+    {
+      "command": "ha.config.helpers",
+      "action": "save",
+      "params_json": "{\"\\u0012\\udce6n\":{\"\\\"}픈\":1e-7,\"﻿\":{\"c\":null,\"\":true},\"ꋨ\\u0012灻唻\\u0004\\ud8fc\":\"󕶫󱜉򅎳󙲳𤬻\\ude0d\\udb1b\",\"\\ude00\\ud83d\":[\"\\u0013\\udfce弻\\u0006\"]},\"\\u0017񣆣\\t\":4.959513433277607e-15,\"\":-3.37388101965189e-14}",
+      "canonical": "{\"action\":\"save\",\"command\":\"ha.config.helpers\",\"params\":{\"\\u0012\\udce6n\":{\"\\\"}픈\":1e-7,\"ꋨ\\u0012灻唻\\u0004\\ud8fc\":\"󕶫󱜉򅎳󙲳𤬻\\ude0d\\udb1b\",\"\\ude00\\ud83d\":[\"\\u0013\\udfce弻\\u0006\"],\"﻿\":{\"\":true,\"c\":null}},\"\\u0017񣆣\\t\":4.959513433277607e-15,\"\":-3.37388101965189e-14}}",
+      "bind": "8c8ecbc67e2bee78935e81c228fbfdedd523dbe2bb933048c307bda66b701277"
+    }
+  ]
+}

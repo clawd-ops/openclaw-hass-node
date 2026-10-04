@@ -104,6 +104,8 @@ allowlist and HA's own auth.
 
 ### Tier B operations (native approval)
 
+> **Upgrading:** Before reinstalling after this update, remove the `nodes` block (`allowAdminOps`, `adminToken`) from `plugins.entries.openclaw-hass-node-assist-tools.config` in `~/.openclaw/openclaw.json`. The plugin config schema is now empty, so the old keys fail validation. Then run `openclaw config validate`.
+
 `ha_addon_start`, `ha_addon_stop`, `ha_addon_restart`, `ha_addon_update`,
 `ha_reload_config`, and `ha_update_install` each need a native OpenClaw
 approval. A `before_tool_call` hook on these tools (and on the core `nodes` tool

@@ -142,6 +142,8 @@ direct `callGatewayTool("node.invoke", ...)` path was affected.
 
 When a new version of the plugin ships:
 
+> **Upgrading from a release that used `nodes.*` plugin config:** Before reinstalling after this update, remove the `nodes` block (`allowAdminOps`, `adminToken`) from `plugins.entries.openclaw-hass-node-assist-tools.config` in `~/.openclaw/openclaw.json`. The plugin config schema is now empty, so the old keys fail validation. Then run `openclaw config validate`.
+
 ```sh
 # Re-run the install script — it removes the old copy before copying
 bash scripts/install-plugin-local.sh

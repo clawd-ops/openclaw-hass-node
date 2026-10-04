@@ -453,8 +453,9 @@ On every `nodes` invoke the hook also strips any marker the model supplied, and 
 The requester never approves its own call. Where approval prompts are delivered
 is gateway configuration (`approvals.plugin`) and belongs to the operator; this
 repository does not change it. The digest is implemented identically in
-TypeScript and Python and checked against one shared fixture
-(`contracts/approval-bind-fixture.json`).
+TypeScript and Python and checked against a hand-written fixture
+(`contracts/approval-bind-fixture.json`) and a generated one of 300 random
+values (`contracts/approval-bind-generated.json`).
 
 **Known gap.** The marker is not a secret. An operator-level caller that skips
 the tool hook, for example a shell `openclaw nodes invoke`, can compute a valid

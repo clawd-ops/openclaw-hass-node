@@ -15,6 +15,7 @@ import pytest
 from openclaw_node.commands.config_mutation import (
     _USED_IDS,
     APPROVAL_PARAM,
+    _canonical,
     _es_number,
     approval_bind,
 )
@@ -23,6 +24,8 @@ from openclaw_node.commands.ha_config_automation import handle_ha_config_automat
 from openclaw_node.ha_client import HAClientError
 
 _FIXTURE = Path(__file__).parents[3] / "contracts" / "approval-bind-fixture.json"
+_RESERVED_FOR_TEST = {"_openclaw_approval", "_openclaw_caller"}
+_GENERATED = Path(__file__).parents[3] / "contracts" / "approval-bind-generated.json"
 
 # ---------------------------------------------------------------------------
 # action dispatch (missing / unknown / invalid)
@@ -293,6 +296,27 @@ async def test_expired_ids_are_evicted_from_replay_cache() -> None:
     with patch("openclaw_node.commands.ha_config_automation.ha_post", mock):
         await handle_ha_config_automation(_approved(_SAVE))
     assert "stale" not in _USED_IDS
+
+
+def test_canonical_matches_generated_cross_language_fixture() -> None:
+    cases = json.loads(_GENERATED.read_text(encoding="utf-8"))["cases"]
+    assert len(cases) >= 300
+    for case in cases:
+        params = json.loads(case["params_json"])
+        body = {k: v for k, v in params.items() if k not in _RESERVED_FOR_TEST}
+        canonical = _canonical(
+            {"command": case["command"], "action": case["action"], "params": body}
+        )
+        assert canonical == case["canonical"]
+        assert approval_bind(case["command"], case["action"], params) == case["bind"]
+
+
+def test_canonical_escapes_lone_surrogates_and_never_raises() -> None:
+    assert _canonical("\ud800") == '"\\ud800"'
+    assert _canonical({"\udfff": "a\ud83db", "\x1f": "\x7f\u2028"}) == (
+        '{"\\u001f":"\x7f\u2028","\\udfff":"a\\ud83db"}'
+    )
+    assert approval_bind("c", "a", {"k": "\ud800"})
 
 
 def test_approval_bind_matches_cross_language_fixture() -> None:

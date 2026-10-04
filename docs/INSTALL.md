@@ -300,6 +300,8 @@ to work.
 
 ## Updating
 
+> **Gateway plugin, pre-upgrade step:** Before reinstalling after this update, remove the `nodes` block (`allowAdminOps`, `adminToken`) from `plugins.entries.openclaw-hass-node-assist-tools.config` in `~/.openclaw/openclaw.json`. The plugin config schema is now empty, so the old keys fail validation. Then run `openclaw config validate`.
+
 Each release re-runs the local Supervisor build. After updating the
 add-on (app) repo, **Update** the add-on (app) (or **Stop → Rebuild → Start**). The
 device token persists across restarts; you do not need to re-pair.

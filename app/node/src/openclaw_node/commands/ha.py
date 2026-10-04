@@ -946,7 +946,7 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     a different reload. ``ha.call_service`` is not a way around this: ``*.reload``
     is on the interim denylist.
 
-    Authorization: native approval, see ``design/AUTHORIZATION-MODEL.md``.
+    Requires a valid native approval marker, see ``design/AUTHORIZATION-MODEL.md``.
 
     Returns:
         ``{ok: True, domain: "core"}`` on success or an error dict.
