@@ -53,7 +53,7 @@ import re
 from typing import Any, Final
 from urllib.parse import quote
 
-from openclaw_node.authz import collect_codes, scrub_codes
+from openclaw_node.authz import collect_codes, normalise_codes, scrub_codes
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
     HAClientError,
@@ -514,6 +514,10 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         # HA REST collapses target into the body for service calls.
         body.update(target)
 
+    try:
+        body = normalise_codes(body)
+    except ValueError as exc:
+        return _error("INVALID_PARAM", str(exc))
     codes = collect_codes(body)
     try:
         result = await ha_post(f"/api/services/{domain}/{service}", body or None)

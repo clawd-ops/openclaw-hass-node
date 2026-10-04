@@ -15,9 +15,11 @@ from openclaw_node.authz import (
     Actor,
     actor_from_payload,
     actor_from_signed_body,
+    code_text,
     collect_codes,
     derive_actor_signing_secret,
     is_forbidden,
+    normalise_codes,
     redact_code,
     resolve_turn_authz,
     scrub_code,
@@ -525,36 +527,39 @@ def test_scrub_code_masks_embedded_escaped_and_nested_occurrences() -> None:
     escaped = json.dumps(code)[1:-1]
     out = scrub_code({"s": f"raw {code} esc {escaped}"}, code)
     assert out == {"s": "raw [redacted] esc [redacted]"}
-    assert scrub_code(value, None) is value
     assert scrub_code(value, "") is value
     assert scrub_code("12 apples", "12") == "[redacted] apples"
 
 
-def test_scrub_code_masks_numeric_values_and_keys_but_not_booleans() -> None:
-    value = {"a": 482913, "b": [482913.0, {"c": 482913}], "t": True, "o": 482914, "f": 1.5}
+def test_code_text_matches_ha_string_coercion() -> None:
+    assert code_text("482913") == "482913"
+    assert code_text(482913) == "482913"
+    assert code_text(1e20) == "1e+20" == json.dumps(1e20)
+    assert code_text(1.5) == "1.5"
+    bad_codes: list[object] = [True, False, float("nan"), float("inf"), None, {}, []]
+    for bad in bad_codes:
+        assert code_text(bad) is None
 
-    out = scrub_code(value, 482913)
-    assert out == {
-        "a": "[redacted]",
-        "b": ["[redacted]", {"c": "[redacted]"}],
-        "t": True,
-        "o": 482914,
-        "f": 1.5,
+
+def test_normalise_codes_stringifies_nested_codes_and_refuses_bad_ones() -> None:
+    value = {"code": 482913, "a": [{"code": 1e20}, {"x": {"code": "s"}}], "n": 5}
+
+    assert normalise_codes(value) == {
+        "code": "482913",
+        "a": [{"code": "1e+20"}, {"x": {"code": "s"}}],
+        "n": 5,
     }
-    # A string code masks the same number echoed as a JSON number.
-    assert scrub_code({"a": 482913, "k": "pin 482913"}, "482913") == {
-        "a": "[redacted]",
-        "k": "pin [redacted]",
-    }
-    assert scrub_code({482913: "k"}, 482913) == {"[redacted]": "k"}
-    # True is an int subclass but never a code; code 1 leaves a boolean alone.
-    assert scrub_code({"t": True, "n": 1}, 1) == {"t": True, "n": "[redacted]"}
+    assert value["code"] == 482913
+    for bad in (True, float("nan"), float("-inf")):
+        with pytest.raises(ValueError, match="code must be"):
+            normalise_codes({"data": [{"code": bad}]})
 
 
-def test_collect_codes_finds_nested_string_and_numeric_codes_only() -> None:
+def test_collect_codes_finds_nested_codes_as_text() -> None:
     data = {"a": {"code": "1"}, "b": [{"code": 2}, {"code": True}, {"code": {"code": "3"}}]}
 
-    assert collect_codes(data) == ["1", 2, "3"]
+    assert collect_codes(data) == ["1", "2", "3"]
     assert redact_code({"data": {"variables": {"code": "4321"}}}) == {
         "data": {"variables": {"code": "***"}}
     }
+    assert redact_code({"code": 1e20, "x": "1e+20"}) == {"code": "***", "x": "[redacted]"}

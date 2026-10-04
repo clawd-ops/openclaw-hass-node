@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from typing import Any
@@ -3099,3 +3100,48 @@ async def test_list_config_entries_rejects_bad_filter_before_calling_ha() -> Non
         result = await handle_ha_list_config_entries({"domain": []})
     assert result["error"] == "INVALID_PARAM"
     ha_get.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("code", "text"), [("482913", "482913"), (482913, "482913"), (1e20, "1e+20")]
+)
+async def test_call_service_sends_code_as_text_and_masks_it_everywhere(
+    code: object, text: str
+) -> None:
+    sent: list[Any] = []
+
+    async def _fake_post(_path: str, body: Any = None) -> list[dict[str, Any]]:
+        sent.append(body)
+        return [{"entity_id": "lock.door", "state": "x", "attributes": {"note": f"pin {text}"}}]
+
+    with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
+        result = await handle_ha_call_service(
+            {
+                "domain": "lock",
+                "service": "unlock",
+                "data": {"code": code, "nest": [{"code": code}]},
+            }
+        )
+    assert sent[0]["code"] == text
+    assert sent[0]["nest"] == [{"code": text}]
+    assert text not in json.dumps(result)
+    assert "[redacted]" in json.dumps(result)
+
+    with patch(
+        "openclaw_node.commands.ha.ha_post",
+        side_effect=HAClientError("HA_REJECTED", f"bad code {text}"),
+    ):
+        err = await handle_ha_call_service(
+            {"domain": "lock", "service": "unlock", "data": {"code": code}}
+        )
+    assert text not in json.dumps(err)
+
+
+@pytest.mark.parametrize("bad", [True, float("nan"), float("inf")])
+async def test_call_service_refuses_bool_and_non_finite_codes_before_ha(bad: object) -> None:
+    with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+        result = await handle_ha_call_service(
+            {"domain": "lock", "service": "unlock", "data": {"nest": {"code": bad}}}
+        )
+    assert result["error"] == "INVALID_PARAM"
+    post.assert_not_called()

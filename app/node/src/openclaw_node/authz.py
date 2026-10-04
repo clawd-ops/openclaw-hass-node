@@ -13,6 +13,7 @@ import fnmatch
 import hmac
 import json
 import logging
+import math
 import re
 import time
 from collections.abc import Iterable
@@ -118,29 +119,54 @@ def service_allowed(service: str) -> bool:
 _REDACTED: Final[str] = "[redacted]"
 
 
-def _is_number(item: object) -> bool:
-    """True for a JSON number; ``bool`` is an ``int`` subclass but never a code."""
-    return isinstance(item, int | float) and not isinstance(item, bool)
+def code_text(item: object) -> str | None:
+    """Text of a scalar ``code`` as HA's own ``cv.string`` coercion sees it.
 
-
-def _number_form(item: Any) -> str:
-    """Canonical text of a number: an integral float prints without ``.0``."""
-    if isinstance(item, float) and item.is_integer():
-        return str(int(item))
+    A string is itself, an int or finite float is ``str(item)`` (so ``1e20`` is
+    ``"1e+20"``, the same text ``json.dumps`` writes). Booleans, non-finite
+    floats and containers are not codes: ``None``.
+    """
+    if isinstance(item, str):
+        return item
+    if isinstance(item, bool) or not isinstance(item, int | float):
+        return None
+    if isinstance(item, float) and not math.isfinite(item):
+        return None
     return str(item)
 
 
-def collect_codes(value: Any) -> list[object]:
-    """Every string or numeric value under a key named ``code``, at any depth.
+def normalise_codes(value: Any) -> Any:
+    """Copy of ``value`` with every scalar ``code`` replaced by its text, at any depth.
 
-    Walks dicts and lists; a code that is itself a dict, list, or bool is not a
-    scalar code and is walked for further ``code`` keys instead.
+    HA's service schemas coerce a code with ``cv.string``, so sending the text
+    changes nothing for HA while leaving redaction only string codes to match.
+    Raises ``ValueError`` for a boolean or non-finite numeric code.
     """
-    found: list[object] = []
+    if isinstance(value, dict):
+        out: dict[Any, Any] = {}
+        for key, item in value.items():
+            if key == "code" and not isinstance(item, dict | list):
+                text = code_text(item)
+                if text is None:
+                    msg = "code must be a string or a finite number"
+                    raise ValueError(msg)
+                out[key] = text
+            else:
+                out[key] = normalise_codes(item)
+        return out
+    if isinstance(value, list):
+        return [normalise_codes(item) for item in value]
+    return value
+
+
+def collect_codes(value: Any) -> list[str]:
+    """Text of every scalar ``code`` under a key named ``code``, at any depth."""
+    found: list[str] = []
     if isinstance(value, dict):
         for key, item in value.items():
-            if key == "code" and (isinstance(item, str) or _is_number(item)):
-                found.append(item)
+            text = code_text(item) if key == "code" else None
+            if text is not None:
+                found.append(text)
             else:
                 found.extend(collect_codes(item))
     elif isinstance(value, list):
@@ -149,7 +175,7 @@ def collect_codes(value: Any) -> list[object]:
     return found
 
 
-def scrub_codes(value: Any, codes: list[object]) -> Any:
+def scrub_codes(value: Any, codes: list[str]) -> Any:
     """``scrub_code`` for each collected code, in turn."""
     for code in codes:
         value = scrub_code(value, code)
@@ -163,7 +189,7 @@ def redact_code(params: dict[str, Any]) -> dict[str, Any]:
     def mask(item: Any) -> Any:
         if isinstance(item, dict):
             return {
-                k: "***" if k == "code" and (isinstance(v, str) or _is_number(v)) else mask(v)
+                k: "***" if k == "code" and not isinstance(v, dict | list) else mask(v)
                 for k, v in item.items()
             }
         if isinstance(item, list):
@@ -174,25 +200,20 @@ def redact_code(params: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def scrub_code(value: Any, code: object) -> Any:
-    """Return ``value`` with every occurrence of a supplied ``code`` masked.
+def scrub_code(value: Any, code: str) -> Any:
+    """Return ``value`` with every occurrence of the string ``code`` masked.
 
-    Recurses through dicts (keys and values), lists, strings, and JSON numbers
-    (a numeric value whose text equals the code is masked; booleans never are), replacing
-    each literal occurrence (plain substring, no word boundaries, so ``x482913x``
-    is masked too) and its JSON-escaped form. Fails safe: a short code such as
+    Recurses through dicts (keys and values), lists and strings, replacing each
+    literal occurrence (plain substring, no word boundaries, so ``x482913x`` is
+    masked too) and its JSON-escaped form. Fails safe: a short code such as
     ``12`` masks that text wherever it appears, which over-redacts ordinary
-    text rather than ever leaking the code. An absent or empty code is a no-op.
+    text rather than ever leaking the code. An empty code is a no-op.
     """
-    if code is None or code == "":
+    if code == "":
         return value
-    raw = _number_form(code) if _is_number(code) else str(code)
-    escaped = json.dumps(raw)[1:-1]
-    needles = sorted({raw, escaped}, key=len, reverse=True)
+    needles = sorted({code, json.dumps(code)[1:-1]}, key=len, reverse=True)
 
     def walk(item: Any) -> Any:
-        if _is_number(item) and _number_form(item) == raw:
-            return _REDACTED
         if isinstance(item, str):
             for needle in needles:
                 item = item.replace(needle, _REDACTED)

@@ -496,18 +496,22 @@ async def test_ws_embedded_code_in_error_is_redacted(
     assert "482913" not in json.dumps(sent)
 
 
-_NUMERIC_ECHO_STATE = {
+_CODE_TEXT_ECHO_STATE = {
     "entity_id": "lock.front",
     "state": "unlocked",
-    "attributes": {"last_code": 482913, "codes": [482913, {"deep": 482913}], "battery": 87},
+    "attributes": {
+        "last_code": "482913",
+        "codes": ["482913", {"deep": "pin 482913"}],
+        "battery": 87,
+    },
 }
 
 
-async def test_ws_numeric_code_echoed_in_changed_states_is_redacted(
+async def test_ws_numeric_code_is_sent_as_text_and_masked_in_changed_states(
     monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
 ) -> None:
     _as_role(monkeypatch, False)
-    ha_stub.reply = [_NUMERIC_ECHO_STATE]
+    ha_stub.reply = [_CODE_TEXT_ECHO_STATE]
 
     sent = await _invoke(
         tmp_path,
@@ -521,16 +525,17 @@ async def test_ws_numeric_code_echoed_in_changed_states_is_redacted(
     )
 
     assert sent["ok"] is True
+    assert ha_stub.calls[-1][1] == {"code": "482913", "entity_id": "lock.front"}
     assert "482913" not in json.dumps(sent)
     assert "87" in json.dumps(sent)
 
 
-async def test_ws_numeric_code_echoed_in_fetched_snapshot_is_redacted(
+async def test_ws_numeric_code_is_sent_as_text_and_masked_in_fetched_snapshot(
     monkeypatch: pytest.MonkeyPatch, ha_stub: _Stub, tmp_path: Path
 ) -> None:
     _as_role(monkeypatch, True)
     ha_stub.reply = []
-    ha_stub.get_reply = _NUMERIC_ECHO_STATE
+    ha_stub.get_reply = _CODE_TEXT_ECHO_STATE
 
     sent = await _invoke(
         tmp_path,
