@@ -3443,9 +3443,9 @@ def test_session_key_is_qualified_only_when_an_agent_resolves() -> None:
 @pytest.mark.parametrize(
     ("actor", "agents", "expected"),
     [
-        (Actor("rob", is_admin=True), ["a", "b", "house"], "mapped"),
-        (Actor("guest", is_admin=False), ["a", "b", "house"], "house"),
-        (Actor("guest", is_admin=False), ["house"], "house"),
+        (Actor("admin1", is_admin=True), ["a", "b", "house"], "mapped"),
+        (Actor("user1", is_admin=False), ["a", "b", "house"], "house"),
+        (Actor("user1", is_admin=False), ["house"], "house"),
     ],
 )
 async def test_turn_key_names_the_agent_it_routes_to(
@@ -3458,7 +3458,7 @@ async def test_turn_key_names_the_agent_it_routes_to(
     to rather than a second, independently derived value.
     """
     sender = FakeSender()
-    identity = IdentityConfig(user_agent_map={"rob": "mapped"}, default_agent_id="house")
+    identity = IdentityConfig(user_agent_map={"admin1": "mapped"}, default_agent_id="house")
     relay = ChatRelay(sender.send, identity)
     await asyncio.gather(relay.log_gateway_agents(), _serve_agents_list(sender, relay, agents))
     sender.frames.clear()
