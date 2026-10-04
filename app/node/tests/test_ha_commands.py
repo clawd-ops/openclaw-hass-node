@@ -3166,3 +3166,22 @@ async def test_call_service_refuses_bool_and_non_finite_lock_codes_before_ha(bad
         )
     assert result["error"] == "INVALID_PARAM"
     post.assert_not_called()
+
+
+@pytest.mark.parametrize("secret", ["redacted", "*"])
+async def test_call_service_marker_collision_never_echoes_the_code(secret: str) -> None:
+    async def _fake_post(_path: str, body: Any = None) -> list[dict[str, Any]]:
+        return [{"entity_id": "lock.door", "state": "x", "attributes": {"note": f"a {secret} b"}}]
+
+    with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
+        result = await handle_ha_call_service(
+            {"domain": "lock", "service": "unlock", "data": {"code": secret}}
+        )
+    assert result["changed_states"][0]["attributes"]["note"].count(secret) == 0
+
+    failing = AsyncMock(side_effect=HAClientError("HA_ERROR", f"bad code {secret}"))
+    with patch("openclaw_node.commands.ha.ha_post", failing):
+        err = await handle_ha_call_service(
+            {"domain": "lock", "service": "unlock", "data": {"code": secret}}
+        )
+    assert secret not in json.dumps(err)

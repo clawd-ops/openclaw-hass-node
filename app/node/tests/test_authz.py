@@ -575,3 +575,21 @@ def test_collect_codes_finds_strings_and_numbers_at_any_depth() -> None:
         "code": "[redacted]",
         "x": "[redacted]",
     }
+
+
+@pytest.mark.parametrize("secret", ["redacted", "*", "[redacted]", "<masked>"])
+def test_scrub_codes_marker_never_contains_the_supplied_code(secret: str) -> None:
+    text = f"prefix {secret} suffix"
+    out = scrub_codes(text, [secret])
+    assert secret not in out
+    assert out.startswith("prefix ")
+    assert out.endswith(" suffix")
+    # Log line: the redacted params carry no trace of the code either.
+    logged = json.dumps(redact_code({"data": {"code": secret, "note": text}}))
+    assert secret not in logged.replace("\\", "")
+
+
+def test_scrub_codes_drops_the_code_when_every_marker_collides() -> None:
+    codes: list[str | int | float] = ["redacted", "*", "<masked>"]
+    assert scrub_codes("a redacted b * c <masked>", codes) == "a  b  c "
+    assert scrub_codes({"n": 7}, [7, *codes]) == {"n": ""}

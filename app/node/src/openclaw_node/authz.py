@@ -116,7 +116,7 @@ def service_allowed(service: str) -> bool:
     return name in HOUSEHOLD_ALLOWED_SERVICES.get(domain, frozenset())
 
 
-_REDACTED: Final[str] = "[redacted]"
+_MASK_CANDIDATES: Final[tuple[str, ...]] = ("[redacted]", "***", "<masked>")
 
 
 _CODE_DOMAINS: Final[frozenset[str]] = frozenset({"lock", "alarm_control_panel"})
@@ -169,9 +169,11 @@ def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
     One helper for logs, error text and results. In strings (and dict keys) it
     masks each code's ``str``, ``json.dumps`` and ``repr`` forms, plus the
     JSON-escaped inner text of a string code: a plain substring match, so a
-    short code over-redacts rather than leaks. A number equal to a numeric code
-    (``==``, never a bool) is masked too. A transformed code (hash, re-encoding)
-    is outside this guarantee.
+    short code over-redacts rather than leaks. The replacement is the first of
+    ``_MASK_CANDIDATES`` containing none of those forms (else empty), so the
+    output can never contain a supplied code through its own marker. A number
+    equal to a numeric code (``==``, never a bool) is masked too. A transformed
+    code (hash, re-encoding) is outside this guarantee.
     """
     needles: set[str] = set()
     numbers: list[int | float] = []
@@ -182,14 +184,14 @@ def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
         else:
             numbers.append(code)
     ordered = sorted((n for n in needles if n), key=len, reverse=True)
+    mask = next((m for m in _MASK_CANDIDATES if not any(n in m for n in ordered)), "")
+    pattern = re.compile("|".join(re.escape(n) for n in ordered)) if ordered else None
 
     def walk(item: Any) -> Any:
         if isinstance(item, str):
-            for needle in ordered:
-                item = item.replace(needle, _REDACTED)
-            return item
+            return pattern.sub(lambda _m: mask, item) if pattern else item
         if isinstance(item, int | float) and not isinstance(item, bool):
-            return _REDACTED if any(item == n for n in numbers) else item
+            return mask if any(item == n for n in numbers) else item
         if isinstance(item, dict):
             return {walk(k): walk(v) for k, v in item.items()}
         if isinstance(item, list):
