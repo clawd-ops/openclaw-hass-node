@@ -60,6 +60,13 @@ if isinstance(identity, dict):
     default_agent_id = identity.get('default_agent_id') or ''
     if default_agent_id:
         values['OPENCLAW_IDENTITY_DEFAULT_AGENT_ID'] = str(default_agent_id)
+    for option, env_name in (
+        ('user_role_agent_id', 'OPENCLAW_IDENTITY_USER_ROLE_AGENT_ID'),
+        ('admin_role_agent_id', 'OPENCLAW_IDENTITY_ADMIN_ROLE_AGENT_ID'),
+    ):
+        role_agent_id = identity.get(option) or ''
+        if role_agent_id:
+            values[env_name] = str(role_agent_id)
     forbidden_commands = identity.get('forbidden_commands') or ''
     if isinstance(forbidden_commands, dict):
         values['OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS'] = json.dumps(forbidden_commands)

@@ -77,6 +77,14 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
 - The Assist plugin resolves per-node policy by the Gateway's canonical node ID
   only. A caller-supplied node name or self-declared display name is not an
   authorization identity.
+- Same-agent hardening (advances #275): the per-turn authorization block now
+  limits OpenClaw-side use to conversation, web search and memory search for
+  `user` and `admin`, fences itself with fixed markers that are stripped from
+  user text, and states that tool, entity, web and memory content is data. This
+  is a soft, prompt-level control. A per-role default agent
+  (`identity.user_role_agent_id`, `identity.admin_role_agent_id`) sits between
+  `user_agent_map` and `default_agent_id`; a restricted agent makes the limits
+  hard. See [Prompt-level versus enforced](design/AUTHORIZATION-MODEL.md#prompt-level-versus-enforced).
 - The node logs a startup warning when `addon_lifecycle.allowlist` is populated,
   reminding the operator that the Gateway also needs `allowAdminOps` for this
   node.

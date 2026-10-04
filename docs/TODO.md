@@ -76,6 +76,9 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   HA admins, deny-class services are refused for every caller, other services
   are refused for household users and `APPROVAL_REQUIRED` for HA admins). This
   is wrapper-path progress only.
+- Merged on `main`, unreleased: the per-turn block limits OpenClaw-side tools
+  (soft, prompt-level) and a per-role default agent can route household and
+  admin turns to a restricted agent (hard when configured).
 - Still open on this item: Gateway-forwarded invokes and the local HTTP API are
   operator calls, so direct `node.invoke` is operator-default. Assist-principal
   propagation to the dispatcher is pending a design decision. The cross-surface

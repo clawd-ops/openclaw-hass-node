@@ -36,6 +36,8 @@ def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENCLAW_IDENTITY_SUPER_ADMINS", '["admin1"]')
     monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", '{"user1":"my-agent-household"}')
     monkeypatch.setenv("OPENCLAW_IDENTITY_DEFAULT_AGENT_ID", "my-agent")
+    monkeypatch.setenv("OPENCLAW_IDENTITY_USER_ROLE_AGENT_ID", "household")
+    monkeypatch.setenv("OPENCLAW_IDENTITY_ADMIN_ROLE_AGENT_ID", "staff")
     monkeypatch.setenv(
         "OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS",
         '{"user":{"add":["ha.call_service:lock.unlock"],"remove":["script.*"]}}',
@@ -48,6 +50,8 @@ def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.identity.super_admins == frozenset({"admin1"})
     assert config.identity.user_agent_map == {"user1": "my-agent-household"}
     assert config.identity.default_agent_id == "my-agent"
+    assert config.identity.user_role_agent_id == "household"
+    assert config.identity.admin_role_agent_id == "staff"
     assert config.identity.forbidden_commands["user"].add == frozenset(
         {"ha.call_service:lock.unlock"}
     )
