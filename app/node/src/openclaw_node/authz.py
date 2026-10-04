@@ -113,8 +113,13 @@ USER_FORBIDDEN_COMMANDS: Final[frozenset[str]] = frozenset(
     }
 )
 
+_USER_SERVICE_WILDCARD: Final = "ha.call_service:*"
+_USER_NON_REMOVABLE: Final[frozenset[str]] = frozenset(
+    {*USER_FORBIDDEN_COMMANDS, _USER_SERVICE_WILDCARD}
+)
+
 _DEFAULT_FORBIDDEN: Final[dict[Role, frozenset[str]]] = {
-    "user": frozenset({*USER_FORBIDDEN_COMMANDS, "ha.call_service:*"}),
+    "user": _USER_NON_REMOVABLE,
     "admin": frozenset(
         {
             "fs.write",
@@ -276,10 +281,11 @@ def resolve_role(identity: IdentityConfig, actor: Actor | None) -> Role:
 def forbidden_for_role(identity: IdentityConfig, role: Role) -> tuple[str, ...]:
     """Return defaults patched by optional add/remove config.
 
-    For the household ``user`` role, ``USER_FORBIDDEN_COMMANDS`` are
-    non-removable: the dispatcher's default-deny allowlist refuses them
-    regardless, so a ``remove`` naming one is ignored (with a warning) and the
-    returned set, and hence the disclaimer, equals what is enforced.
+    For the household ``user`` role, ``USER_FORBIDDEN_COMMANDS`` and the
+    ``ha.call_service:*`` wildcard are non-removable: the dispatcher's default-deny allowlist
+    refuses them regardless, so a ``remove`` naming one is ignored (with a
+    warning) and the returned set, and hence the disclaimer, equals what is
+    enforced.
     """
     forbidden = set(_DEFAULT_FORBIDDEN[role])
     patch = identity.forbidden_commands.get(role)
@@ -287,12 +293,12 @@ def forbidden_for_role(identity: IdentityConfig, role: Role) -> tuple[str, ...]:
         forbidden.update(patch.add)
         removable = patch.remove
         if role == "user":
-            ignored = sorted(patch.remove & USER_FORBIDDEN_COMMANDS)
+            ignored = sorted(patch.remove & _USER_NON_REMOVABLE)
             for entry in ignored:
                 _LOG.warning(
-                    "[authz] ignoring remove of non-removable user forbidden command %s", entry
+                    "[authz] ignoring remove of non-removable user forbidden entry %s", entry
                 )
-            removable = patch.remove - USER_FORBIDDEN_COMMANDS
+            removable = patch.remove - _USER_NON_REMOVABLE
         forbidden.difference_update(removable)
     return tuple(sorted(forbidden))
 

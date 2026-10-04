@@ -154,21 +154,18 @@ def test_policy_agrees_with_printed_rule_under_config_patch() -> None:
     assert check(user, "ha.call_service", _call("light", "turn_on")) is None
 
     relaxed = IdentityConfig(
-        forbidden_commands={
-            "user": ForbiddenCommandPatch(
-                add=frozenset(),
-                remove=frozenset(
-                    {
-                        "ha.call_service:*",
-                    }
-                ),
-            )
-        }
+        forbidden_commands={"user": ForbiddenCommandPatch(remove=frozenset({"ha.call_service:*"}))}
     )
-    # Removing the wildcard drops the forbidden entry, but unclassified services
-    # stay refused for a household user by the effect table (D2).
-    rel = _turn(False, identity=relaxed)
-    assert check(rel, "ha.call_service", _call("switch", "turn_on")) is not None
+    # The wildcard is non-removable: the patched disclaimer and the gate come
+    # from the same computed set, so both still refuse an unclassified service.
+    authz = resolve_turn_authz(relaxed, Actor("u", is_admin=False))
+    rel = Caller.from_turn(authz)
+    assert "ha.call_service:*" in authz.forbidden
+    assert "the only services that may still be called are: light.turn_on, light.turn_off." in (
+        authz.disclaimer
+    )
+    assert _code(check(rel, "ha.call_service", _call("lock", "unlock"))) == "PERMISSION_DENIED"
+    assert check(rel, "ha.call_service", _call("light", "turn_on")) is None
 
 
 @pytest.mark.parametrize("caller", [UNTRUSTED, _turn(True), Caller.operator("gateway-invoke")])
