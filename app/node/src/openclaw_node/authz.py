@@ -127,13 +127,15 @@ def normalise_service_code(domain: str, body: dict[str, Any]) -> dict[str, Any]:
 
     Only ``lock`` and ``alarm_control_panel`` define a ``code`` field, and HA
     coerces it with ``cv.string``: an int or finite float becomes its text.
-    A boolean or non-finite float raises ``ValueError``. Every other value,
-    including a nested ``code`` (script variables), is left exactly as supplied.
+    A boolean, non-finite float, list or dict raises ``ValueError``, as it
+    does in HA. A nested ``code`` (script variables) is left exactly as supplied.
     """
     code = body.get("code")
     if domain not in _CODE_DOMAINS or "code" not in body:
         return body
-    if isinstance(code, bool) or (isinstance(code, float) and not math.isfinite(code)):
+    if isinstance(code, bool | list | dict) or (
+        isinstance(code, float) and not math.isfinite(code)
+    ):
         msg = "code must be a string or a finite number"
         raise ValueError(msg)
     if isinstance(code, int | float):

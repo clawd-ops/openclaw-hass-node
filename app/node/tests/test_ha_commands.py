@@ -3161,13 +3161,21 @@ async def test_call_service_sends_nested_script_variables_exactly_as_supplied() 
     assert math.isnan(sent["bad"][0]["code"])
 
 
-@pytest.mark.parametrize("bad", [True, float("nan"), float("inf")])
-async def test_call_service_refuses_bool_and_non_finite_lock_codes_before_ha(bad: object) -> None:
+@pytest.mark.parametrize("domain", ["lock", "alarm_control_panel"])
+@pytest.mark.parametrize(
+    "bad",
+    [True, float("nan"), float("inf"), {"pin": "Q7Z9X"}, ["Q7Z9X"]],
+    ids=["bool", "nan", "inf", "dict", "list"],
+)
+async def test_call_service_refuses_invalid_lock_and_alarm_codes_before_ha(
+    domain: str, bad: object
+) -> None:
     with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
         result = await handle_ha_call_service(
-            {"domain": "lock", "service": "unlock", "data": {"code": bad}}
+            {"domain": domain, "service": "unlock", "data": {"code": bad}}
         )
     assert result["error"] == "INVALID_PARAM"
+    assert "Q7Z9X" not in json.dumps(result)
     post.assert_not_called()
 
 

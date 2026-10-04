@@ -574,7 +574,7 @@ def test_normalise_service_code_only_touches_the_services_own_code() -> None:
     assert normalise_service_code("lock", {"n": 1}) == {"n": 1}
     script = {"variables": {"code": 1234, "flag": {"code": True}}, "code": 7}
     assert normalise_service_code("script", script) is script
-    for bad in (True, float("nan"), float("-inf")):
+    for bad in (True, float("nan"), float("-inf"), ["1"], {"pin": "1"}):
         with pytest.raises(ValueError, match="code must be"):
             normalise_service_code("lock", {"code": bad})
 

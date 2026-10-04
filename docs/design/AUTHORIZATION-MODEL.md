@@ -278,7 +278,7 @@ Security devices follow Home Assistant's own model, with no node-side block: a
 lock or alarm that has a code requires it in the service call and HA validates
 it. The node never stores or guesses a code. For `lock` and `alarm_control_panel`
 only, the service's own top-level `code` is sent as text, as HA's `cv.string`
-would read it (a boolean or non-finite number is `INVALID_PARAM` before any HA
+would read it (a boolean, non-finite number, list or object is `INVALID_PARAM` before any HA
 request); every other value, including a nested `code` in script variables, is
 sent exactly as supplied. The node never logs a supplied code value, and does not return it
 in any form it can recognise (its textual forms inside strings, or equal values).

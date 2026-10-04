@@ -628,14 +628,8 @@ async def test_ws_admin_approval_refusal_never_echoes_a_supplied_code(
     ("domain", "service"), [("lock", "unlock"), ("alarm_control_panel", "alarm_disarm")]
 )
 @pytest.mark.parametrize(
-    ("bad_code", "refused"),
-    [
-        (True, True),
-        (float("nan"), True),
-        (float("inf"), True),
-        ({"pin": "Q7Z9X"}, False),
-        (["Q7Z9X"], False),
-    ],
+    "bad_code",
+    [True, float("nan"), float("inf"), {"pin": "Q7Z9X"}, ["Q7Z9X"]],
     ids=["bool", "nan", "inf", "dict", "list"],
 )
 async def test_ws_non_string_code_is_masked_by_key_in_debug_log(
@@ -646,7 +640,6 @@ async def test_ws_non_string_code_is_masked_by_key_in_debug_log(
     domain: str,
     service: str,
     bad_code: object,
-    refused: bool,
 ) -> None:
     _as_role(monkeypatch, False)
     params = {
@@ -659,11 +652,8 @@ async def test_ws_non_string_code_is_masked_by_key_in_debug_log(
     with caplog.at_level("DEBUG"):
         sent = await _invoke(tmp_path, "ha.call_service", params)
 
-    if refused:
-        assert sent["error"]["code"] == "INVALID_PARAM"
-        assert ha_stub.calls == []
-    else:
-        assert sent["ok"] is True
+    assert sent["error"]["code"] == "INVALID_PARAM"
+    assert ha_stub.calls == []
     dispatch_lines = [r.getMessage() for r in caplog.records if "Dispatching" in r.getMessage()]
     assert dispatch_lines
     assert all("'code': '[redacted]'" in line for line in dispatch_lines)
@@ -671,3 +661,25 @@ async def test_ws_non_string_code_is_masked_by_key_in_debug_log(
     assert "'code': True" not in caplog.text
     assert "nan" not in " ".join(dispatch_lines)
     assert "inf" not in " ".join(dispatch_lines)
+
+
+async def test_ws_ha_rejection_echoing_a_scalar_code_never_reaches_the_response(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    tmp_path: Path,
+) -> None:
+    _as_role(monkeypatch, False)
+    ha_stub.status = 400
+    ha_stub.reply = {"message": "extra keys: {'code': 'Q7Z9X'} for dictionary value"}
+    params = {
+        "domain": "lock",
+        "service": "unlock",
+        "target": {"entity_id": "lock.front"},
+        "data": {"code": "Q7Z9X"},
+    }
+
+    sent = await _invoke(tmp_path, "ha.call_service", params)
+
+    assert ha_stub.calls
+    assert sent["ok"] is False
+    assert "Q7Z9X" not in json.dumps(sent)
