@@ -338,6 +338,11 @@ async def test_call_service_denies_privileged_effects_before_ha(domain: str, ser
         {"domain": True, "service": "turn_on"},
         {"domain": "light", "service": 1},
         {"domain": "light", "service": "x" * 65},
+        {"domain": "light", "service": "turn_on", "target": None},
+        {"domain": "light", "service": "turn_on", "data": None},
+        {"domain": "light", "service": "turn_on", "service_data": None},
+        {"domain": "light", "service": "turn_on", "target": {"entity_id": None}},
+        {"domain": "light", "service": "turn_on", "target": {"area_id": "a", "device_id": None}},
     ],
 )
 async def test_call_service_rejects_noncanonical_or_unknown_params_before_ha(

@@ -482,9 +482,9 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         ``changed_states_complete`` (``True`` only if every targeted ID returned
         a state) and ``targeted_entity_count``.
     """
-    unknown = sorted(set(params) - _CALL_SERVICE_PARAMS)
-    if unknown:
-        return _error("INVALID_PARAM", f"unknown parameter(s): {', '.join(unknown)}")
+    invalid = strict_keys_error(params, _CALL_SERVICE_PARAMS)
+    if invalid is not None:
+        return invalid
 
     domain = _canonical_service_component(params, "domain")
     service = _canonical_service_component(params, "service")
@@ -510,6 +510,12 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         if unknown_target:
             rendered = ", ".join(str(key) for key in unknown_target)
             return _error("INVALID_PARAM", f"unknown target parameter(s): {rendered}")
+        null_target = sorted(key for key, value in target.items() if value is None)
+        if null_target:
+            return _error(
+                "INVALID_PARAM",
+                f"target parameter(s) must not be null; omit instead: {', '.join(null_target)}",
+            )
         entity_id_t = target.get("entity_id")
         if isinstance(entity_id_t, list) and not all(isinstance(e, str) and e for e in entity_id_t):
             return _error("INVALID_PARAM", "entity_id list members must be non-empty strings")
