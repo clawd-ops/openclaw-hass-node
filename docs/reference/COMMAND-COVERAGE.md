@@ -1191,8 +1191,10 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
+  - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_commands.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-call-service-tool.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
 
@@ -4056,6 +4058,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_active_docs_schema_gate.py`
   - `app/node/tests/test_commands.py`
+  - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_http_api.py`
   - `app/node/tests/test_http_api_auth.py`
