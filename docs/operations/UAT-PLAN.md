@@ -266,11 +266,14 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
 
 - Send an invoke whose `paramsJSON` exceeds the documented limit: expect
   `REQUEST_TOO_LARGE` and no command run.
-- This tests the gateway ingress bound (`paramsJSON` above 512 KiB), which is
-  the only size bound reachable through invoke. The 8 MiB `fs.write` content cap
-  sits below that bound as defense in depth; it cannot be reached through invoke
-  or the local HTTP API (which does not expose `fs.write`) and is covered by
-  source-level tests.
+- This specifically exercises the gateway ingress bound (`paramsJSON` above
+  512 KiB). The 8 MiB `fs.write` content cap sits behind that smaller ingress
+  bound for the invoke path, and the local HTTP API does not expose `fs.write`,
+  so that cap is covered by source-level tests.
+- Invoke `fs.patch` with a small patch against a large existing file such that
+  the patched result would exceed 8 MiB: expect `RESULT_TOO_LARGE` and the file
+  unchanged. This bound is reachable through invoke because the request itself
+  stays small.
 
 ### G5. `system.run` timeout.
 
