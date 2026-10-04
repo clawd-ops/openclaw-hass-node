@@ -501,6 +501,7 @@ _CODE_TEXT_ECHO_STATE = {
     "state": "unlocked",
     "attributes": {
         "last_code": "482913",
+        "pin": 482913,
         "codes": ["482913", {"deep": "pin 482913"}],
         "battery": 87,
     },
@@ -528,6 +529,7 @@ async def test_ws_numeric_code_is_sent_as_text_and_masked_in_changed_states(
     assert ha_stub.calls[-1][1] == {"code": "482913", "entity_id": "lock.front"}
     assert "482913" not in json.dumps(sent)
     assert "87" in json.dumps(sent)
+    assert sent["payload"]["changed_states"][0]["attributes"]["pin"] == "[redacted]"
 
 
 async def test_ws_numeric_code_is_sent_as_text_and_masked_in_fetched_snapshot(
@@ -551,6 +553,7 @@ async def test_ws_numeric_code_is_sent_as_text_and_masked_in_fetched_snapshot(
     assert sent["ok"] is True
     assert "unlocked" in json.dumps(sent)
     assert "482913" not in json.dumps(sent)
+    assert sent["payload"]["changed_states"][0]["attributes"]["pin"] == "[redacted]"
 
 
 @pytest.mark.parametrize(

@@ -37,8 +37,8 @@ Role = Literal["user", "admin", "super_admin"]
 # The deny-class list in ``commands.ha`` still refuses first, for every caller.
 #
 # Security devices follow Home Assistant's own model: HA validates the ``code``
-# a lock or alarm requires. The node adds no block and never stores, logs, or
-# echoes a code (see ``redact_code`` and ``scrub_code``).
+# a lock or alarm requires. The node adds no block and does not log or return a
+# code it can recognise (see ``redact_code`` and ``scrub_codes``).
 _ON_OFF_TOGGLE: Final[frozenset[str]] = frozenset({"turn_on", "turn_off", "toggle"})
 HOUSEHOLD_ALLOWED_SERVICES: Final[dict[str, frozenset[str]]] = {
     "light": _ON_OFF_TOGGLE,
@@ -119,54 +119,42 @@ def service_allowed(service: str) -> bool:
 _REDACTED: Final[str] = "[redacted]"
 
 
-def code_text(item: object) -> str | None:
-    """Text of a scalar ``code`` as HA's own ``cv.string`` coercion sees it.
+_CODE_DOMAINS: Final[frozenset[str]] = frozenset({"lock", "alarm_control_panel"})
 
-    A string is itself, an int or finite float is ``str(item)`` (so ``1e20`` is
-    ``"1e+20"``, the same text ``json.dumps`` writes). Booleans, non-finite
-    floats and containers are not codes: ``None``.
+
+def normalise_service_code(domain: str, body: dict[str, Any]) -> dict[str, Any]:
+    """Copy of a service body with the service's own top-level ``code`` as text.
+
+    Only ``lock`` and ``alarm_control_panel`` define a ``code`` field, and HA
+    coerces it with ``cv.string``: an int or finite float becomes its text.
+    A boolean or non-finite float raises ``ValueError``. Every other value,
+    including a nested ``code`` (script variables), is left exactly as supplied.
     """
-    if isinstance(item, str):
-        return item
-    if isinstance(item, bool) or not isinstance(item, int | float):
-        return None
-    if isinstance(item, float) and not math.isfinite(item):
-        return None
-    return str(item)
+    code = body.get("code")
+    if domain not in _CODE_DOMAINS or "code" not in body:
+        return body
+    if isinstance(code, bool) or (isinstance(code, float) and not math.isfinite(code)):
+        msg = "code must be a string or a finite number"
+        raise ValueError(msg)
+    if isinstance(code, int | float):
+        return {**body, "code": str(code)}
+    return body
 
 
-def normalise_codes(value: Any) -> Any:
-    """Copy of ``value`` with every scalar ``code`` replaced by its text, at any depth.
-
-    HA's service schemas coerce a code with ``cv.string``, so sending the text
-    changes nothing for HA while leaving redaction only string codes to match.
-    Raises ``ValueError`` for a boolean or non-finite numeric code.
-    """
-    if isinstance(value, dict):
-        out: dict[Any, Any] = {}
-        for key, item in value.items():
-            if key == "code" and not isinstance(item, dict | list):
-                text = code_text(item)
-                if text is None:
-                    msg = "code must be a string or a finite number"
-                    raise ValueError(msg)
-                out[key] = text
-            else:
-                out[key] = normalise_codes(item)
-        return out
-    if isinstance(value, list):
-        return [normalise_codes(item) for item in value]
-    return value
-
-
-def collect_codes(value: Any) -> list[str]:
-    """Text of every scalar ``code`` under a key named ``code``, at any depth."""
-    found: list[str] = []
+def collect_codes(value: Any) -> list[str | int | float]:
+    """Every supplied ``code`` at any depth: strings and finite numbers, never booleans."""
+    found: list[str | int | float] = []
     if isinstance(value, dict):
         for key, item in value.items():
-            text = code_text(item) if key == "code" else None
-            if text is not None:
-                found.append(text)
+            if (
+                key == "code"
+                and not isinstance(item, bool)
+                and (
+                    (isinstance(item, str) and item != "")
+                    or (isinstance(item, int | float) and math.isfinite(item))
+                )
+            ):
+                found.append(item)
             else:
                 found.extend(collect_codes(item))
     elif isinstance(value, list):
@@ -175,49 +163,33 @@ def collect_codes(value: Any) -> list[str]:
     return found
 
 
-def scrub_codes(value: Any, codes: list[str]) -> Any:
-    """``scrub_code`` for each collected code, in turn."""
-    for code in codes:
-        value = scrub_code(value, code)
-    return value
+def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
+    """Mask every recognisable form of the supplied ``codes`` in ``value``.
 
-
-def redact_code(params: dict[str, Any]) -> dict[str, Any]:
-    """Copy of call params with every nested service-data ``code`` masked, for log lines."""
-    codes = collect_codes(params)
-
-    def mask(item: Any) -> Any:
-        if isinstance(item, dict):
-            return {
-                k: "***" if k == "code" and not isinstance(v, dict | list) else mask(v)
-                for k, v in item.items()
-            }
-        if isinstance(item, list):
-            return [mask(v) for v in item]
-        return item
-
-    out: dict[str, Any] = scrub_codes(mask(params), codes)
-    return out
-
-
-def scrub_code(value: Any, code: str) -> Any:
-    """Return ``value`` with every occurrence of the string ``code`` masked.
-
-    Recurses through dicts (keys and values), lists and strings, replacing each
-    literal occurrence (plain substring, no word boundaries, so ``x482913x`` is
-    masked too) and its JSON-escaped form. Fails safe: a short code such as
-    ``12`` masks that text wherever it appears, which over-redacts ordinary
-    text rather than ever leaking the code. An empty code is a no-op.
+    One helper for logs, error text and results. In strings (and dict keys) it
+    masks each code's ``str``, ``json.dumps`` and ``repr`` forms, plus the
+    JSON-escaped inner text of a string code: a plain substring match, so a
+    short code over-redacts rather than leaks. A number equal to a numeric code
+    (``==``, never a bool) is masked too. A transformed code (hash, re-encoding)
+    is outside this guarantee.
     """
-    if code == "":
-        return value
-    needles = sorted({code, json.dumps(code)[1:-1]}, key=len, reverse=True)
+    needles: set[str] = set()
+    numbers: list[int | float] = []
+    for code in codes:
+        needles.update({str(code), json.dumps(code), repr(code)})
+        if isinstance(code, str):
+            needles.add(json.dumps(code)[1:-1])
+        else:
+            numbers.append(code)
+    ordered = sorted((n for n in needles if n), key=len, reverse=True)
 
     def walk(item: Any) -> Any:
         if isinstance(item, str):
-            for needle in needles:
+            for needle in ordered:
                 item = item.replace(needle, _REDACTED)
             return item
+        if isinstance(item, int | float) and not isinstance(item, bool):
+            return _REDACTED if any(item == n for n in numbers) else item
         if isinstance(item, dict):
             return {walk(k): walk(v) for k, v in item.items()}
         if isinstance(item, list):
@@ -225,6 +197,12 @@ def scrub_code(value: Any, code: str) -> Any:
         return item
 
     return walk(value)
+
+
+def redact_code(params: dict[str, Any]) -> dict[str, Any]:
+    """Copy of call params with every supplied ``code`` masked, for log lines."""
+    out: dict[str, Any] = scrub_codes(params, collect_codes(params))
+    return out
 
 
 # Light wrappers share the generic service decision (one policy, no second path).

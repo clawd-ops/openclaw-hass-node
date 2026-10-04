@@ -15,14 +15,13 @@ from openclaw_node.authz import (
     Actor,
     actor_from_payload,
     actor_from_signed_body,
-    code_text,
     collect_codes,
     derive_actor_signing_secret,
     is_forbidden,
-    normalise_codes,
+    normalise_service_code,
     redact_code,
     resolve_turn_authz,
-    scrub_code,
+    scrub_codes,
     service_allowed,
     service_for_command,
     sign_actor,
@@ -399,8 +398,8 @@ def test_redact_code_masks_code_without_mutating_input() -> None:
 
     redacted = redact_code(params)
 
-    assert redacted["data"] == {"code": "***", "x": 1}
-    assert redacted["service_data"] == {"code": "***"}
+    assert redacted["data"] == {"code": "[redacted]", "x": 1}
+    assert redacted["service_data"] == {"code": "[redacted]"}
     assert params["data"] == {"code": "4321", "x": 1}
     assert redact_code({"data": {"x": 1}}) == {"data": {"x": 1}}
 
@@ -510,7 +509,7 @@ def test_disclaimer_matches_enforcement_for_glob_patch() -> None:
         assert (entry in printed) is enforced, entry
 
 
-def test_scrub_code_masks_embedded_escaped_and_nested_occurrences() -> None:
+def test_scrub_codes_masks_embedded_escaped_and_nested_occurrences() -> None:
     value = {
         "a": "x482913x",
         "b": ["pin 482913 ok", {"c": 'q"z'}],
@@ -518,48 +517,61 @@ def test_scrub_code_masks_embedded_escaped_and_nested_occurrences() -> None:
         "482913": "k",
     }
 
-    out = scrub_code(value, "482913")
+    out = scrub_codes(value, ["482913"])
     assert "482913" not in json.dumps(out)
     assert out["a"] == "x[redacted]x"
     assert out["n"] == 5
     # A code with a quote also appears JSON-escaped inside serialized text.
     code = 'q"z'
     escaped = json.dumps(code)[1:-1]
-    out = scrub_code({"s": f"raw {code} esc {escaped}"}, code)
+    out = scrub_codes({"s": f"raw {code} esc {escaped}"}, [code])
     assert out == {"s": "raw [redacted] esc [redacted]"}
-    assert scrub_code(value, "") is value
-    assert scrub_code("12 apples", "12") == "[redacted] apples"
+    assert scrub_codes("12 apples", ["12"]) == "[redacted] apples"
+    assert scrub_codes("keep", [""]) == "keep"
 
 
-def test_code_text_matches_ha_string_coercion() -> None:
-    assert code_text("482913") == "482913"
-    assert code_text(482913) == "482913"
-    assert code_text(1e20) == "1e+20" == json.dumps(1e20)
-    assert code_text(1.5) == "1.5"
-    bad_codes: list[object] = [True, False, float("nan"), float("inf"), None, {}, []]
-    for bad in bad_codes:
-        assert code_text(bad) is None
+def test_scrub_codes_masks_numbers_equal_to_a_numeric_code() -> None:
+    value = {"pin": 1234, "ratio": 1234.0, "bool": True, "other": 12, "k": [1234]}
 
+    out = scrub_codes(value, [1234])
 
-def test_normalise_codes_stringifies_nested_codes_and_refuses_bad_ones() -> None:
-    value = {"code": 482913, "a": [{"code": 1e20}, {"x": {"code": "s"}}], "n": 5}
-
-    assert normalise_codes(value) == {
-        "code": "482913",
-        "a": [{"code": "1e+20"}, {"x": {"code": "s"}}],
-        "n": 5,
+    assert out == {
+        "pin": "[redacted]",
+        "ratio": "[redacted]",
+        "bool": True,
+        "other": 12,
+        "k": ["[redacted]"],
     }
-    assert value["code"] == 482913
+    assert scrub_codes({"v": 1}, [1]) == {"v": "[redacted]"}
+    assert scrub_codes({"v": True}, [1]) == {"v": True}
+    assert scrub_codes("err 1e+20 / 1e20", [1e20]) == "err [redacted] / 1e20"
+    assert scrub_codes({"1e+20": 0}, [1e20]) == {"[redacted]": 0}
+
+
+def test_normalise_service_code_only_touches_the_services_own_code() -> None:
+    assert normalise_service_code("lock", {"code": 482913}) == {"code": "482913"}
+    assert normalise_service_code("alarm_control_panel", {"code": 1e20}) == {"code": "1e+20"}
+    assert normalise_service_code("lock", {"code": "s", "n": 1}) == {"code": "s", "n": 1}
+    assert normalise_service_code("lock", {"n": 1}) == {"n": 1}
+    script = {"variables": {"code": 1234, "flag": {"code": True}}, "code": 7}
+    assert normalise_service_code("script", script) is script
     for bad in (True, float("nan"), float("-inf")):
         with pytest.raises(ValueError, match="code must be"):
-            normalise_codes({"data": [{"code": bad}]})
+            normalise_service_code("lock", {"code": bad})
 
 
-def test_collect_codes_finds_nested_codes_as_text() -> None:
-    data = {"a": {"code": "1"}, "b": [{"code": 2}, {"code": True}, {"code": {"code": "3"}}]}
-
-    assert collect_codes(data) == ["1", "2", "3"]
-    assert redact_code({"data": {"variables": {"code": "4321"}}}) == {
-        "data": {"variables": {"code": "***"}}
+def test_collect_codes_finds_strings_and_numbers_at_any_depth() -> None:
+    data = {
+        "a": {"code": "1"},
+        "b": [{"code": 2}, {"code": True}, {"code": {"code": 3.5}}, {"code": float("nan")}],
+        "c": {"code": ""},
     }
-    assert redact_code({"code": 1e20, "x": "1e+20"}) == {"code": "***", "x": "[redacted]"}
+
+    assert collect_codes(data) == ["1", 2, 3.5]
+    assert redact_code({"data": {"variables": {"code": "4321"}}}) == {
+        "data": {"variables": {"code": "[redacted]"}}
+    }
+    assert redact_code({"code": 1e20, "x": "1e+20"}) == {
+        "code": "[redacted]",
+        "x": "[redacted]",
+    }

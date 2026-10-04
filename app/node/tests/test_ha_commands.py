@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import time
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -3105,27 +3106,32 @@ async def test_list_config_entries_rejects_bad_filter_before_calling_ha() -> Non
 @pytest.mark.parametrize(
     ("code", "text"), [("482913", "482913"), (482913, "482913"), (1e20, "1e+20")]
 )
-async def test_call_service_sends_code_as_text_and_masks_it_everywhere(
+async def test_call_service_sends_lock_code_as_text_and_masks_it_everywhere(
     code: object, text: str
 ) -> None:
     sent: list[Any] = []
 
     async def _fake_post(_path: str, body: Any = None) -> list[dict[str, Any]]:
         sent.append(body)
-        return [{"entity_id": "lock.door", "state": "x", "attributes": {"note": f"pin {text}"}}]
+        return [
+            {
+                "entity_id": "lock.door",
+                "state": "x",
+                "attributes": {"note": f"pin {text}", "pin": code, "keep": 7},
+            }
+        ]
 
     with patch("openclaw_node.commands.ha.ha_post", side_effect=_fake_post):
         result = await handle_ha_call_service(
-            {
-                "domain": "lock",
-                "service": "unlock",
-                "data": {"code": code, "nest": [{"code": code}]},
-            }
+            {"domain": "lock", "service": "unlock", "data": {"code": code}}
         )
     assert sent[0]["code"] == text
-    assert sent[0]["nest"] == [{"code": text}]
-    assert text not in json.dumps(result)
-    assert "[redacted]" in json.dumps(result)
+    dumped = json.dumps(result)
+    assert text not in dumped
+    assert "[redacted]" in dumped
+    if not isinstance(code, str):
+        assert result["changed_states"][0]["attributes"]["pin"] == "[redacted]"
+    assert result["changed_states"][0]["attributes"]["keep"] == 7
 
     with patch(
         "openclaw_node.commands.ha.ha_post",
@@ -3137,11 +3143,26 @@ async def test_call_service_sends_code_as_text_and_masks_it_everywhere(
     assert text not in json.dumps(err)
 
 
+async def test_call_service_sends_nested_script_variables_exactly_as_supplied() -> None:
+    variables = {"code": 1234, "flag": {"code": True}, "bad": [{"code": float("nan")}]}
+    post = AsyncMock(return_value=[{"entity_id": "script.x", "state": "on"}])
+    with patch("openclaw_node.commands.ha.ha_post", post):
+        result = await handle_ha_call_service(
+            {"domain": "script", "service": "turn_on", "data": {"variables": variables}}
+        )
+    assert result["ok"] is True
+    sent = post.call_args.args[1]["variables"]
+    assert sent["code"] == 1234
+    assert type(sent["code"]) is int
+    assert sent["flag"] == {"code": True}
+    assert math.isnan(sent["bad"][0]["code"])
+
+
 @pytest.mark.parametrize("bad", [True, float("nan"), float("inf")])
-async def test_call_service_refuses_bool_and_non_finite_codes_before_ha(bad: object) -> None:
+async def test_call_service_refuses_bool_and_non_finite_lock_codes_before_ha(bad: object) -> None:
     with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
         result = await handle_ha_call_service(
-            {"domain": "lock", "service": "unlock", "data": {"nest": {"code": bad}}}
+            {"domain": "lock", "service": "unlock", "data": {"code": bad}}
         )
     assert result["error"] == "INVALID_PARAM"
     post.assert_not_called()

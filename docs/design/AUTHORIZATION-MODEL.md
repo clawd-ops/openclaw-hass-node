@@ -276,10 +276,15 @@ than a less privileged one.
 
 Security devices follow Home Assistant's own model, with no node-side block: a
 lock or alarm that has a code requires it in the service call and HA validates
-it. The node passes a caller-supplied `code` through unchanged and never stores,
-logs, echoes, or guesses one; it is masked in dispatch log lines and in HA error
-text, and an HA rejection of a missing or wrong code is returned as a readable
-error.
+it. The node never stores or guesses a code. For `lock` and `alarm_control_panel`
+only, the service's own top-level `code` is sent as text, as HA's `cv.string`
+would read it (a boolean or non-finite number is `INVALID_PARAM` before any HA
+request); every other value, including a nested `code` in script variables, is
+sent exactly as supplied. The node does not log or return a caller-supplied code
+in any form it can recognise: its textual forms inside strings, or equal values.
+An integration that transforms the code (e.g. hashes or re-encodes it) is outside
+this guarantee. An HA rejection of a missing or wrong code is returned as a
+readable error.
 
 `PERMISSION_DENIED` is a role refusal; `SERVICE_DENIED` is the effect refusal and
 applies to every caller. A malformed service name is refused for non-operators.
