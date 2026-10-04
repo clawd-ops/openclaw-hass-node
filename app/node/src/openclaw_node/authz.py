@@ -224,9 +224,24 @@ def scrub_codes(value: Any, codes: list[str | int | float]) -> Any:
 
 
 def redact_code(params: dict[str, Any]) -> dict[str, Any]:
-    """Copy of call params with every supplied ``code`` masked, for log lines."""
-    out: dict[str, Any] = scrub_codes(params, collect_codes(params))
+    """Copy of call params with every supplied ``code`` masked, for log lines.
+
+    Masks by key as well as by value: the value of any ``code`` key is replaced
+    whatever its type, so a boolean, non-finite or container value (which
+    ``collect_codes`` skips) never reaches a log line either.
+    """
+    out: dict[str, Any] = scrub_codes(_mask_code_keys(params), collect_codes(params))
     return out
+
+
+def _mask_code_keys(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            k: _MASK_CANDIDATES[0] if k == "code" else _mask_code_keys(v) for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [_mask_code_keys(v) for v in value]
+    return value
 
 
 # Light wrappers share the generic service decision (one policy, no second path).

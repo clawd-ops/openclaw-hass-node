@@ -622,3 +622,52 @@ async def test_ws_admin_approval_refusal_never_echoes_a_supplied_code(
     assert sent["error"]["code"] == "APPROVAL_REQUIRED"
     assert "automation" not in sent["error"]["message"]
     assert ha_stub.calls == []
+
+
+@pytest.mark.parametrize(
+    ("domain", "service"), [("lock", "unlock"), ("alarm_control_panel", "alarm_disarm")]
+)
+@pytest.mark.parametrize(
+    ("bad_code", "refused"),
+    [
+        (True, True),
+        (float("nan"), True),
+        (float("inf"), True),
+        ({"pin": "Q7Z9X"}, False),
+        (["Q7Z9X"], False),
+    ],
+    ids=["bool", "nan", "inf", "dict", "list"],
+)
+async def test_ws_non_string_code_is_masked_by_key_in_debug_log(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+    domain: str,
+    service: str,
+    bad_code: object,
+    refused: bool,
+) -> None:
+    _as_role(monkeypatch, False)
+    params = {
+        "domain": domain,
+        "service": service,
+        "target": {"entity_id": f"{domain}.front"},
+        "data": {"code": bad_code},
+    }
+
+    with caplog.at_level("DEBUG"):
+        sent = await _invoke(tmp_path, "ha.call_service", params)
+
+    if refused:
+        assert sent["error"]["code"] == "INVALID_PARAM"
+        assert ha_stub.calls == []
+    else:
+        assert sent["ok"] is True
+    dispatch_lines = [r.getMessage() for r in caplog.records if "Dispatching" in r.getMessage()]
+    assert dispatch_lines
+    assert all("'code': '[redacted]'" in line for line in dispatch_lines)
+    assert "Q7Z9X" not in caplog.text
+    assert "'code': True" not in caplog.text
+    assert "nan" not in " ".join(dispatch_lines)
+    assert "inf" not in " ".join(dispatch_lines)
