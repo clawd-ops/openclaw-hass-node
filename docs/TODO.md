@@ -88,7 +88,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Accepted limitation for now: the session-key caller hint is unauthenticated, so a
   direct operator-level `node.invoke` caller could supply a guessed key. This does
   not widen access beyond operator callers. A hint matching more than one active
-  turn is refused. Tracked on #275.
+  turn (case-insensitively) is refused. Tracked on #275.
 - The Gateway remains the approval authority. Any add-on view is
   presentation-only and cannot maintain or resolve an independent approval
   lifecycle. Implementation is tracked in

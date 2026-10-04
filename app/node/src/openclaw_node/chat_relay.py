@@ -425,25 +425,22 @@ class ChatRelay:
     def active_caller(self, session_key_hint: str) -> Caller | None:
         """Principal of the in-flight turn that ``session_key_hint`` names, else ``None``.
 
-        Every in-flight turn whose raw or gateway-canonical key equals the hint
-        is a candidate. Matching is case-insensitive, because the gateway
-        lowercases its canonical keys; if that leaves several candidates, only
-        those equal to the hint in the same case are kept. The principal is
-        returned only when exactly one turn is left. An unqualified turn's
-        canonical key can equal another turn's raw key, and keys differing only
-        by case may hold different principals, so an ambiguous hint resolves to
-        nobody and is refused. The hint is only a lookup key; the returned
-        principal is node-owned.
+        A turn is a candidate when its raw key or its gateway-canonical key equals
+        the hint, compared case-insensitively because the gateway lowercases its
+        canonical keys. The principal is returned only when exactly one distinct
+        turn is a candidate. An unqualified turn's canonical key can equal another
+        turn's raw key, and keys differing only by case may hold different
+        principals, so a hint matching several turns resolves to nobody and is
+        refused. The hint is only a lookup key; the returned principal is
+        node-owned.
         """
-        hint = session_key_hint.strip()
-        keys = [
-            (raw, self._canonical_by_raw.get(raw, raw), caller)
+        hint = session_key_hint.strip().lower()
+        matches = [
+            caller
             for raw, caller in self._active_turns.items()
+            if hint in (raw.lower(), self._canonical_by_raw.get(raw, raw).lower())
         ]
-        matches = [k for k in keys if hint.lower() in (k[0].lower(), k[1].lower())]
-        if len(matches) > 1:
-            matches = [k for k in matches if hint in (k[0], k[1])]
-        return matches[0][2] if len(matches) == 1 else None
+        return matches[0] if len(matches) == 1 else None
 
     def _prepare_pending(self) -> tuple[str, asyncio.Future[dict[str, Any]]]:
         """Allocate a req_id and pending future for a hand-rolled RPC.
