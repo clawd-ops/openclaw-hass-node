@@ -301,8 +301,9 @@ Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
   turn. The full OpenClaw tool surface is not covered, and a Gateway-forwarded
   invoke without the plugin hint is still an operator call. The plugin-carried
   session-key hint is a lookup hint only: an ambiguous match (turns differing
-  only by key case) is refused, but a direct operator-level `node.invoke` caller
-  could supply a guessed key. Accepted limitation for now, tracked on [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275).
+  only by key case, or one turn's canonical key equal to another's raw key) is
+  refused, but a direct operator-level `node.invoke` caller could supply a
+  guessed key. Accepted limitation for now, tracked on [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275).
 - **HACS brand icon** is the default; upstream PR pending. TODO #21.
 - **GHCR per-arch image / HACS index entry** not published yet; Supervisor builds locally on-device. TODO #22.
 - **Legacy Home Assistant MCP cutover is complete and permanently closed.** It

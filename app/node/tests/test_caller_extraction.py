@@ -11,6 +11,7 @@ operator-default.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
@@ -392,3 +393,77 @@ async def test_case_only_distinct_turns_resolve_to_own_caller_and_ambiguity_is_r
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def test_canonical_key_equal_to_another_raw_key_is_ambiguous_and_refused(
+    tmp_path: Path, ha_requests: list[str]
+) -> None:
+    """A household turn's canonical key can equal an admin turn's raw key; neither may win."""
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    relay._gateway_agents = ("my-agent",)
+    runtime = NodeRuntime(_config(tmp_path))
+    runtime.chat_relay = relay
+    client = GatewayClient(
+        config=_config(tmp_path),
+        identity=generate_identity(),
+        device_token="",
+        runtime=runtime,
+        chat_relay_enabled=False,
+    )
+    collided = "agent:my-agent:ha-assist:conv"
+    admin = dataclasses.replace(
+        resolve_turn_authz(IdentityConfig(), Actor("u1", is_admin=True)), agent_id="my-agent"
+    )
+    household_authz = dataclasses.replace(
+        resolve_turn_authz(IdentityConfig(), Actor("u2", is_admin=False)), agent_id=""
+    )
+    tasks = [
+        asyncio.create_task(relay.relay_turn("conv", "hi", authz=household_authz)),
+        asyncio.create_task(relay.relay_turn("conv", "hi", authz=admin)),
+    ]
+    answered = 0
+    try:
+        while len(relay._active_turns) < 2 or answered < len(sender.frames):
+            if answered < len(sender.frames):
+                frame = sender.frames[answered]
+                payload: dict[str, Any] = {}
+                if frame["method"] == "sessions.messages.subscribe":
+                    payload = {"key": collided}
+                relay.handle_response(
+                    {"type": "res", "id": frame["id"], "ok": True, "payload": payload}
+                )
+                answered += 1
+            await asyncio.sleep(0.001)
+        assert set(relay._active_turns) == {"ha-assist:conv", collided}
+        assert relay._canonical_by_raw["ha-assist:conv"] == collided
+        assert relay.active_caller(collided) is None
+
+        send = {"domain": "notify", "service": "send_message"}
+        refused = await _ingress(client, "ha.call_service", {**send, **_hint(collided)})
+        assert refused["error"]["code"] == "PERMISSION_DENIED"
+        assert ha_requests == []
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def test_unambiguous_qualified_hint_still_resolves(
+    tmp_path: Path,
+) -> None:
+    sender = FakeSender()
+    relay = ChatRelay(sender.send)
+    relay._gateway_agents = ("my-agent", "other-agent")
+    admin = dataclasses.replace(
+        resolve_turn_authz(IdentityConfig(), Actor("u1", is_admin=True)), agent_id="my-agent"
+    )
+    task = await _start_turn_in_flight(relay, sender, "solo", authz=admin)
+    try:
+        caller = relay.active_caller("agent:my-agent:ha-assist:solo")
+        assert caller is not None
+        assert caller.role == "admin"
+        assert relay.active_caller("agent:other-agent:ha-assist:solo") is None
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)

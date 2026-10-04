@@ -356,9 +356,12 @@ The hint is not authenticated. A caller who can call `node.invoke` directly
 whichever active turn owns it. This is an **accepted limitation for now**,
 tracked on [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275).
 It does not widen access beyond what operator-level callers already have:
-a direct `node.invoke` without the field is already an operator call. An exact
-key match wins; otherwise a case-insensitive match resolves only when exactly one
-active turn matches. Several turns differing only by key case are ambiguous and
+a direct `node.invoke` without the field is already an operator call. The
+lookup matches every active turn whose raw or gateway-canonical session key equals
+the hint, case-insensitively; if several match, only those equal in the same case
+are kept. The caller resolves only when exactly one turn is left. An unqualified
+household turn's canonical key can equal an admin turn's raw key, and Assist
+accepts conversation ids differing only by case, so such hints are ambiguous and
 the invoke is refused.
 
 The default is one agent plus a prompt-level block, with a separate agent
