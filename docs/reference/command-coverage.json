@@ -13008,15 +13008,15 @@
         "direct_nodes_invoke": {
           "evidence": [
             {
-              "method": "CODE-PROVEN",
-              "observation": "A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
-              "outcome": "refused-as-designed",
-              "source": "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization"
+              "method": "UNVERIFIED",
+              "observation": "system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified.",
+              "outcome": "unverified",
+              "source": "app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare"
             }
           ],
-          "reason": "A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.",
-          "source": "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization",
-          "status": "unavailable"
+          "reason": "system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified.",
+          "source": "app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare",
+          "status": "advertised-unverified"
         },
         "handler_dispatch": {
           "evidence": [

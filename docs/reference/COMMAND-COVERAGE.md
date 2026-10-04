@@ -145,7 +145,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 | [`system.execApprovals.get`](#row-system-execapprovals-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `PRODUCTION-LIVE` | **`refused-as-designed`** |
 | [`system.execApprovals.set`](#row-system-execapprovals-set) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | [`system.run`](#row-system-run) | advertised<br>CODE-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `PRODUCTION-LIVE` | **`refused-as-designed`** |
-| [`system.run.prepare`](#row-system-run-prepare) | advertised<br>CODE-PROVEN:pass | unavailable<br>CODE-PROVEN:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
+| [`system.run.prepare`](#row-system-run-prepare) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>UNVERIFIED:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
 | [`system.which`](#row-system-which) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
 
 ## Row details
@@ -4246,7 +4246,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - **Outcome: `unverified`**
 - Evidence note: Inventory established from source. Full parameter, result, authorization, and live behavior remain unverified unless stated otherwise.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
-- Direct caller: A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval.
+- Direct caller: system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist does not expose host shell preparation; exec approvals are an operator surface.
 - Parameter details:
@@ -4282,7 +4282,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
-  - `direct_nodes_invoke` / `CODE-PROVEN` / **`refused-as-designed`**: A direct nodes.invoke carrying no Gateway approval envelope is refused by the node (UNAUTHORIZED); the Gateway also refuses it by design; reach this command through the OpenClaw exec tool with host=node, which prepares the canonical systemRunPlan and forwards it after operator approval. (source: `app/node/src/openclaw_node/commands/system_run.py::_verify_authorization`)
+  - `direct_nodes_invoke` / `UNVERIFIED` / **`unverified`**: system.run.prepare validates its input and returns a plan; it executes nothing. The node does not itself refuse a direct call, and no in-repo code or test proves a Gateway refusal, so the direct path is unverified. (source: `app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare`)
   - `assist_wrapper` / `CODE-PROVEN` / **`refused-as-designed`**: Assist does not expose host shell preparation; exec approvals are an operator surface. (source: `contracts/command-coverage-manual.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:

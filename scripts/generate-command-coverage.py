@@ -1230,7 +1230,7 @@ def build_ledger() -> dict[str, Any]:
                 outcome="fail",
             )
 
-        if command in {"system.run", "system.run.prepare"}:
+        if command == "system.run":
             # CODE-PROVEN, not PRODUCTION-LIVE. The source here is the node-side
             # authorization guard, and neither command appears in the September 13 sweep,
             # so there is no observation behind this row. Labelling it
@@ -1249,6 +1249,21 @@ def build_ledger() -> dict[str, Any]:
                 ),
                 method="CODE-PROVEN",
                 outcome="refused-as-designed",
+            )
+        elif command == "system.run.prepare":
+            # No in-repo code or test proves a refusal for a direct call: the
+            # authorization guard is called only by handle_system_run, and prepare
+            # validates input and returns a plan without it.
+            direct_path = _caller(
+                "advertised-unverified",
+                "app/node/src/openclaw_node/exec_approvals.py::handle_system_run_prepare",
+                (
+                    "system.run.prepare validates its input and returns a plan; it executes "
+                    "nothing. The node does not itself refuse a direct call, and no in-repo "
+                    "code or test proves a Gateway refusal, so the direct path is unverified."
+                ),
+                method="UNVERIFIED",
+                outcome="unverified",
             )
         elif command not in advertised:
             direct_path = _caller(

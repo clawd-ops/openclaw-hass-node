@@ -1235,24 +1235,22 @@ def test_design_derived_direct_rows_are_not_claimed_as_production_live() -> None
     ledger = json.loads(_LEDGER.read_text(encoding="utf-8"))
     rows_by_id = {row["id"]: row for row in ledger["rows"]}
 
-    for command in ("system.run", "system.run.prepare"):
-        evidence = rows_by_id[command]["callers"]["direct_nodes_invoke"]["evidence"]
-        assert evidence, f"{command} direct path must carry evidence"
-        design_sourced = [
-            observation
-            for observation in evidence
-            if "system_run.py::_verify_authorization" in observation["source"]
-        ]
-        assert design_sourced, f"{command} should retain its design-derived row"
-        for observation in design_sourced:
-            assert observation["method"] == "CODE-PROVEN", (
-                f"{command}: a design document cannot be production evidence"
-            )
-
-    prepare_evidence = rows_by_id["system.run.prepare"]["callers"]["direct_nodes_invoke"][
-        "evidence"
+    run_evidence = rows_by_id["system.run"]["callers"]["direct_nodes_invoke"]["evidence"]
+    design_sourced = [
+        o for o in run_evidence if "system_run.py::_verify_authorization" in o["source"]
     ]
-    assert not [o for o in prepare_evidence if o["method"] == "PRODUCTION-LIVE"], (
+    assert design_sourced, "system.run should retain its guard-derived row"
+    for observation in design_sourced:
+        assert observation["method"] == "CODE-PROVEN", (
+            "system.run: a design document cannot be production evidence"
+        )
+
+    prepare_direct = rows_by_id["system.run.prepare"]["callers"]["direct_nodes_invoke"]
+    assert prepare_direct["status"] == "advertised-unverified"
+    assert "_verify_authorization" not in prepare_direct["source"]
+    assert [o["method"] for o in prepare_direct["evidence"]] == ["UNVERIFIED"]
+    assert "executes nothing" in prepare_direct["reason"]
+    assert not [o for o in prepare_direct["evidence"] if o["method"] == "PRODUCTION-LIVE"], (
         "system.run.prepare was never probed, so it must claim no live evidence"
     )
 
