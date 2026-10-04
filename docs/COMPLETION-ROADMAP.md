@@ -326,7 +326,8 @@ an operator device, and the node consumes it exactly once.
   exemption list, and a drift gate (`test_command_coverage_ledger`,
   `test_gateway_ws`) fails CI on any future registered-vs-advertised mismatch.
   Plugin/Assist and admin-gated authorization paths were already wired; the
-  new gate binds them to the advertised surface. Live update-install execution
+  new gate binds them to the advertised surface. The ledger check also hashes
+  cited in-repo evidence documents so edits to evidence cannot go unreviewed. Live update-install execution
   evidence stays with the Phase 3 durable-receipt item below. Confirmed by
   observation on 2026-09-12: the installed `2026.7.23b1` node advertises 51
   commands and does not include `ha.addon_update` or `ha.update_install`, while

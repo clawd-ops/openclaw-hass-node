@@ -15,6 +15,7 @@ import ast
 import copy
 import datetime
 import difflib
+import hashlib
 import json
 import re
 import sys
@@ -1229,24 +1230,40 @@ def build_ledger() -> dict[str, Any]:
                 outcome="fail",
             )
 
-        if command in {"system.run", "system.run.prepare"}:
-            # CODE-PROVEN, not PRODUCTION-LIVE. The source here is a design
-            # document, and neither command appears in the September 13 sweep,
+        if command == "system.run":
+            # CODE-PROVEN, not PRODUCTION-LIVE. The source here is the node-side
+            # authorization guard, and neither command appears in the September 13 sweep,
             # so there is no observation behind this row. Labelling it
             # PRODUCTION-LIVE also bypassed provenance validation, which is only
             # applied to manual observations, and emitted a live-evidence row
             # carrying no observed_at, node_version, or staleness.
             direct_path = _caller(
                 "unavailable",
-                "docs/design/AUTHORIZATION-MODEL.md#class-3-home-assistant-shell",
+                "app/node/src/openclaw_node/commands/system_run.py::_verify_authorization",
                 (
-                    "Direct nodes.invoke is refused by the Gateway by design; "
+                    "A direct nodes.invoke carrying no Gateway approval envelope is refused "
+                    "by the node (UNAUTHORIZED); the Gateway also refuses it by design; "
                     "reach this command through the OpenClaw exec tool with host=node, "
                     "which prepares the canonical systemRunPlan and forwards it after "
                     "operator approval."
                 ),
                 method="CODE-PROVEN",
                 outcome="refused-as-designed",
+            )
+        elif command == "system.run.prepare":
+            # No in-repo code or test proves a refusal for a direct call: the
+            # authorization guard is called only by handle_system_run, and prepare
+            # validates input and returns a plan without it.
+            direct_path = _caller(
+                "advertised-unverified",
+                "app/node/src/openclaw_node/commands/exec_approvals.py::handle_system_run_prepare",
+                (
+                    "system.run.prepare validates its input and returns a plan; it executes "
+                    "nothing. The node does not itself refuse a direct call, and no in-repo "
+                    "code or test proves a Gateway refusal, so the direct path is unverified."
+                ),
+                method="UNVERIFIED",
+                outcome="unverified",
             )
         elif command not in advertised:
             direct_path = _caller(
@@ -1932,8 +1949,66 @@ def _serialized_outputs() -> dict[Path, str]:
     }
 
 
+def _cited_evidence_documents(ledger_json: str) -> list[str]:
+    """Return the repo-relative markdown files the ledger cites as evidence.
+
+    Out of scope on purpose: test ids (`path::name`, a separate validation) and
+    anything not a relative `.md` path, including paths outside the repository,
+    which CI cannot hash. Cited evidence is meant to be transcribed in-repo.
+    """
+    documents: set[str] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key == "source" and isinstance(value, str):
+                    path = value.split("#", 1)[0]
+                    if path.endswith(".md") and "::" not in path and not Path(path).is_absolute():
+                        documents.add(path)
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(json.loads(ledger_json))
+    return sorted(documents)
+
+
+def _evidence_hash_problems(documents: list[str], recorded: object) -> list[str]:
+    """Compare each cited evidence file with the sha256 recorded in the manual."""
+    if not isinstance(recorded, dict):
+        return ["manual evidence_hashes must be an object of path to sha256"]
+    problems: list[str] = []
+    for document in documents:
+        path = (ROOT / document).resolve()
+        if not path.is_relative_to(ROOT) or not path.is_file():
+            problems.append(f"cited evidence file is missing: {document}")
+            continue
+        current = hashlib.sha256(path.read_bytes()).hexdigest()
+        expected = recorded.get(document)
+        if expected is None:
+            problems.append(f"cited evidence file has no recorded hash: {document} ({current})")
+        elif expected != current:
+            problems.append(
+                f"cited evidence file changed since it was reviewed: {document} "
+                f"(recorded {expected}, now {current}); re-review the rows that cite it, "
+                f"then update evidence_hashes in contracts/command-coverage-manual.json"
+            )
+    problems.extend(
+        f"evidence_hashes records a file no row cites: {name}"
+        for name in sorted(set(recorded) - set(documents))
+    )
+    return problems
+
+
 def _check(outputs: dict[Path, str]) -> int:
     stale = False
+    for problem in _evidence_hash_problems(
+        _cited_evidence_documents(outputs[JSON_OUTPUT]),
+        _load_manual().get("evidence_hashes", {}),
+    ):
+        stale = True
+        print(f"stale evidence: {problem}", file=sys.stderr)
     for path, expected in outputs.items():
         actual = path.read_text(encoding="utf-8") if path.exists() else ""
         if actual == expected:

@@ -357,6 +357,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 Ascending by PR number. Unreleased: merged on `main` after `2026.9.13b1`.
 
 - #355 — coverage ledger ingests the 2026-09-13 mutation-surface evidence.
+- Coverage `--check` hashes cited in-repo evidence files (advances #356).
 - #357 — install guide gains the `allowAdminOps` step.
 - #359 — `changed_states` fallback with `changed_states_complete`.
 - #361 — Assist plugin resolves per-node policy by canonical node ID only.

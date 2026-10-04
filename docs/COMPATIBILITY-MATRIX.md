@@ -34,6 +34,13 @@ what a running system had installed.
   and renders "fix merged, re-probe owed". The recorded outcome never changes:
   the observation stays dated evidence about the recorded build. The reference
   is validated for shape only; the generator stays offline.
+- The manual coverage file records `evidence_hashes`, a sha256 per cited in-repo
+  evidence document (relative `.md` path). `generate-command-coverage.py --check`
+  fails when a cited document's content no longer matches, is missing, has no
+  recorded hash, or is recorded but no longer cited. The failure means: re-review
+  the rows that cite the file, then record the new hash (the message prints it).
+  Test ids and paths outside the repository cannot be hashed in CI and are out
+  of scope; transcribe outside evidence into `docs/evidence/` first.
 - Architecture means the architecture the verified artifact actually ran on, not
   the set of architectures the add-on advertises support for.
 - Record the advertised command count observed from the running node alongside

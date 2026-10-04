@@ -2014,5 +2014,9 @@
       "first_shipped_in": "2026.9.13b1",
       "actions": {}
     }
+  },
+  "evidence_hashes": {
+    "docs/VERIFICATION-2026-09-11.md": "5b94d348ea439060f869840f63f1928fb29f464b511e4da2b5171bf6f8206fd0",
+    "docs/evidence/sweep-2026-09-13.md": "1e7f7ed9494ceb2d0a46f047ad1779fcbdf8046e0cd2beae8b5cd278ec0f2cff"
   }
 }
