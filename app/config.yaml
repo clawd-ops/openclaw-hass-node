@@ -143,6 +143,14 @@ options:
     # The add-on logs an ERROR naming the available agents at startup when it
     # detects that state.
     default_agent_id: ""
+    # Optional per-role default agent for HA users with the household `user`
+    # role (anonymous callers included) and for HA `admin` users who are not
+    # super_admins. user_agent_map above wins over these; these win over
+    # default_agent_id. Empty falls through to default_agent_id, then to the
+    # gateway default. Point `user` at an agent whose OpenClaw tools are
+    # restricted to enforce those limits (the per-turn prompt block is soft).
+    user_role_agent_id: ""
+    admin_role_agent_id: ""
     # HA actor metadata is signed by the HACS integration with a key derived from
     # local_api_token, so there is no separate actor-signing secret to paste.
     # Advanced prompt-policy patches as JSON. Defaults are generated in code;
@@ -203,6 +211,8 @@ schema:
       - ha_username: str
         agent_id: str
     default_agent_id: str?
+    user_role_agent_id: str?
+    admin_role_agent_id: str?
     forbidden_commands: str?
   addon_lifecycle:
     allowlist:

@@ -174,6 +174,29 @@ or `user` role for Assist turns.
 - **Default**: `""`.
 - **Security**: Same as `user_agent_map`: routing only.
 
+### `identity.user_role_agent_id` and `identity.admin_role_agent_id`
+
+- **Purpose**: Optional default gateway agent per role. `user_role_agent_id`
+  applies to household `user` callers (anonymous callers included),
+  `admin_role_agent_id` to HA admins who are not `super_admin`.
+  `super_admin` has no role default.
+- **Precedence**: `user_agent_map` entry, then the role default, then
+  `default_agent_id`, then the gateway's own default agent.
+- **Type**: `str?`. **Default**: `""` (unset).
+- **Example**: send everyone with the `user` role to a restricted agent, and
+  one HA user to a different one:
+  ```yaml
+  identity:
+    user_role_agent_id: "household"
+    user_agent_map:
+      - ha_username: "kid1"
+        agent_id: "kids"
+  ```
+- **Security**: Routing only. The per-turn authorization block limits the
+  agent's OpenClaw tools by instruction, which is a soft control. Pointing a
+  role at an agent whose own tool policy denies those tools makes the limit
+  hard. See [Prompt-level versus enforced](../docs/design/AUTHORIZATION-MODEL.md).
+
 ### `identity.forbidden_commands`
 
 - **Purpose**: JSON patch over the built-in per-role forbidden-command

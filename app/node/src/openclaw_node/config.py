@@ -80,6 +80,8 @@ class IdentityConfig:
     super_admins: frozenset[str] = field(default_factory=frozenset)
     user_agent_map: dict[str, str] = field(default_factory=dict)
     default_agent_id: str = ""
+    user_role_agent_id: str = ""
+    admin_role_agent_id: str = ""
     forbidden_commands: dict[str, ForbiddenCommandPatch] = field(default_factory=dict)
     addon_lifecycle_allowlist: frozenset[str] = field(default_factory=frozenset)
     addon_lifecycle_denylist: frozenset[str] = field(
@@ -278,6 +280,8 @@ def _parse_identity_config() -> IdentityConfig:
         super_admins=frozenset(_parse_string_list_env("OPENCLAW_IDENTITY_SUPER_ADMINS")),
         user_agent_map=_parse_string_map_env("OPENCLAW_IDENTITY_USER_AGENT_MAP"),
         default_agent_id=os.environ.get("OPENCLAW_IDENTITY_DEFAULT_AGENT_ID", "").strip(),
+        user_role_agent_id=os.environ.get("OPENCLAW_IDENTITY_USER_ROLE_AGENT_ID", "").strip(),
+        admin_role_agent_id=os.environ.get("OPENCLAW_IDENTITY_ADMIN_ROLE_AGENT_ID", "").strip(),
         forbidden_commands=_parse_forbidden_patches_env("OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS"),
         addon_lifecycle_allowlist=frozenset(
             _parse_string_list_env("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")

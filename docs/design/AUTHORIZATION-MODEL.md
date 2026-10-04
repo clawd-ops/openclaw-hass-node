@@ -383,6 +383,28 @@ The interim fail-closed behavior introduced in PR #265 remains in force until
 the native path is proven end to end, so there is no window in which unverified
 identifiers are accepted.
 
+## Prompt-level versus enforced
+
+Three layers protect a household turn. They guarantee different things.
+
+| Layer | What it guarantees | Strength |
+| --- | --- | --- |
+| Per-turn authorization block | Tells the agent the caller's role, the HA services that role may call, and that OpenClaw use is limited to conversation, web search and memory search. The block is fenced by fixed markers; any copy of those markers in the user's text is replaced before the block is prepended, so an utterance cannot forge a block or close the real one. | **Soft.** It is an instruction to a model, not a control. |
+| Node dispatcher | Refuses a `ha.*` action the role may not perform, before any request reaches Home Assistant. The block's description of the allowed services is generated from the same table the dispatcher enforces. | **Hard**, for HA actions. |
+| Separate restricted agent | The agent's own OpenClaw tool policy denies exec, sessions, messaging, file writes, browser and similar tools. Selected per HA user with `identity.user_agent_map`, or per role with `identity.user_role_agent_id` and `identity.admin_role_agent_id`. | **Hard**, for OpenClaw tools, only when configured. |
+
+Consequences:
+
+- With no separate agent (the default), a household user talks to the same
+  agent as everyone else. The OpenClaw-side limits rest on the model following
+  the block. A determined or lucky prompt can talk a model out of it; the HA
+  side stays enforced by the dispatcher regardless.
+- A restricted agent closes that gap, at the cost of a second agent to
+  configure and keep current, and of that agent not sharing the main agent's
+  memory or tools.
+- Content returned by tools, entities, web pages or memory is data, not
+  instructions. The block says so, but this too is a prompt-level statement.
+
 ## Open validation
 
 The gateway approval APIs are confirmed to exist and to be in live production
