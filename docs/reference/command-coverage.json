@@ -2108,6 +2108,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_commands.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts"
       ]
     },

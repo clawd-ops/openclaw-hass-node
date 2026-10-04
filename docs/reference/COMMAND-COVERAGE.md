@@ -797,6 +797,7 @@ _(no unreleased command additions)_
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_commands.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.addon_logs` {#row-ha-addon-logs}
