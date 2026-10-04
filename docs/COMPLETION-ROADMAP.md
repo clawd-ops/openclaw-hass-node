@@ -8,6 +8,10 @@ last observed running app `2026.7.23b1`; live verification dated 2026-09-12.
 Release publication does not advance the installed baseline: a Tier B install
 and fresh UAT evidence are still required.
 
+Source state: reconciled against `main` at `ba05c00`. Changes merged after
+`2026.9.13b1` are described as unreleased source behaviour; no beta has been cut
+since, so none of them has release-tied or live evidence.
+
 **Evidence source:** [`VERIFICATION-2026-09-11.md`](VERIFICATION-2026-09-11.md)
 
 This is the dependency-ordered path from the latest beta to a release where
@@ -108,12 +112,12 @@ remains listed when release-tied evidence is still outstanding.
 
 | Retained gap | Tracker |
 |---|---|
-| Trusted caller propagation and dispatcher-level principal enforcement. The cross-surface ceiling still has two documented alternatives; neither is selected here. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
-| Replace the merged interim generic-service denylist with the final per-effect policy while preserving ordinary principal-authorized operations. | [#287](https://github.com/clawd-ops/openclaw-hass-node/issues/287), [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
-| Complete the executable cross-layer command contract and strict dispatcher validation. | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
-| Consume native approvals for structured HA and filesystem mutations, enforce the policy at the node, and wire accepted decisions to protected writes. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Trusted caller propagation. The dispatcher gate is merged at source, but Gateway-forwarded invokes and the local HTTP API are operator calls, so direct `node.invoke` is operator-default. Assist-principal propagation is pending a design decision. The cross-surface ceiling still has two documented alternatives; neither is selected here. | [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) |
+| Per-effect service policy is merged at source (`light.turn_on` / `light.turn_off` auto-allowed, deny-class services refused for every caller, other services refused or `APPROVAL_REQUIRED` by role). Remaining: per-service classification beyond the light exception, target and data constraints, and covering the non-service mutation commands. | [#287](https://github.com/clawd-ops/openclaw-hass-node/issues/287), [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
+| Complete the executable cross-layer command contract and strict dispatcher validation. Deferred: no complete accepted-key authority exists. Read commands refuse unknown keys individually at source. | [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288) |
+| Consume native approvals for structured HA and filesystem mutations, and wire accepted decisions to protected writes. Nothing is consumed yet; operator-held approval routing needs a live Gateway. | [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) |
 | Enforce protected recovery storage, precondition/version checks, retention, and recovery behavior. | [#290](https://github.com/clawd-ops/openclaw-hass-node/issues/290) |
-| Bound requests, responses, queues, concurrency, and process output; distinguish readiness from liveness. | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) |
+| Bound requests, responses, queues, concurrency, and process output; distinguish readiness from liveness. Partly advanced: gateway ingress and result bounds, `fs.write` / `fs.patch` content caps, `system.run` argv/env caps and timeout teardown. Remaining: streaming output cap, queue and concurrency bounds, HA response byte caps, acknowledgement correlation, liveness versus readiness, audit counters. | [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291) |
 | Produce reproducible plugin, HACS, and multi-architecture artifacts. | [#292](https://github.com/clawd-ops/openclaw-hass-node/issues/292) |
 | Run exact-artifact, exact-node live validation and bind release evidence to the tested artifacts. | [#293](https://github.com/clawd-ops/openclaw-hass-node/issues/293) |
 
@@ -146,6 +150,8 @@ identifiers. The complete approval verifier remains a later Phase 2 deliverable.
   Preserve principal-authorized `light.turn_on`; do not leave the generic P0
   bypass open while the complete policy engine is built. Source containment is
   implemented under #287; deployment/release evidence remains a later gate.
+  The denylist is now the deny class of the effect policy merged after
+  `2026.9.13b1` (unreleased).
 - [x] Publish a command/action/caller-path coverage ledger generated from the
   current source. Record parameters, aliases, limits, response schema, policy,
   feature availability, and an acceptance-test ID for each row. Foundation work
@@ -201,8 +207,13 @@ completion claim has a row in the coverage ledger.
 - [ ] Fix all known contract drift:
   - [x] `fs.read` `offset`/`length` and `encoding` (#257, branch `fix/257-fs-read-offset-length`).
   - [ ] `system.which` `binary` versus `name`.
-  - [ ] `ha.list_states` filter naming and result bounds.
-  - [ ] `ha.history` and `ha.logbook` time/entity aliases.
+  - [ ] `ha.list_states` filter naming and result bounds. Source (unreleased):
+    unknown keys and null, non-string, or empty filters are refused with
+    `INVALID_PARAM`; result bounds remain open.
+  - [ ] `ha.history` and `ha.logbook` time/entity aliases. Source (unreleased):
+    only the node's own key names are accepted and anything else is refused with
+    `INVALID_PARAM`; `ha.history` reports an unknown entity as `HA_NOT_FOUND`.
+    Not re-probed on a released artifact.
   - [x] `ha.list_automations` filtering before trace expansion (#259).
   - [ ] `ha.reload_config` domain semantics.
   - [ ] `ha.call_service` `service_data` versus `data`. PR #267 merged at
@@ -248,10 +259,20 @@ store, or approval application.
 - [ ] Enforce the computed principal ceiling at the dispatcher before any
   handler runs. Keep the two unresolved cross-surface alternatives in
   [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) without
-  selecting one in implementation or documentation.
+  selecting one in implementation or documentation. Source (unreleased): the
+  dispatcher gate refuses before the handler runs, the household `user` role is
+  default-deny over the registry, and its forbidden entries are non-removable.
+  Not satisfied: Gateway-forwarded invokes and the local HTTP API are operator
+  calls, so direct `node.invoke` is operator-default, and the Assist principal
+  is not carried to the dispatcher (pending a design decision).
 - [ ] Implement a versioned node-side service policy keyed by `domain.service`,
   with optional target/data constraints and outcomes `auto_allow`,
-  `require_approval`, and `deny`.
+  `require_approval`, and `deny`. Source (unreleased): the policy is effect-
+  based with `light.turn_on` / `light.turn_off` as the only auto-allow, deny-
+  class services refused with `SERVICE_DENIED` for every caller, and everything
+  else unclassified. It is not versioned, has no target/data constraints, and
+  `require_approval` is a refusal (`APPROVAL_REQUIRED`) until native approval
+  consumption exists.
 - [ ] Route `ha.call_service`, light wrappers, reload/update helpers, lifecycle
   commands, and HA-native config actions through the same applicable policy.
 - [ ] Integrate the plugin permission request path for structured HA and
@@ -342,10 +363,17 @@ an operator device, and the node consumes it exactly once.
   test low-disk and interrupted-capture behavior.
 - [ ] Bound encoded HA REST/WS response bytes and add cursor/truncation metadata
   where collections can exceed a safe response. Stream process output and kill
-  at the configured cap instead of truncating after full buffering.
+  at the configured cap instead of truncating after full buffering. Not done:
+  the HA WebSocket ceiling was raised (unreleased) and list filters narrow what a
+  caller receives, but neither bounds growth. `system.run` still captures output
+  in full and truncates after the command finishes.
 - [ ] Bound request frames, JSON decoding, `fs.write`/patch content, service data,
   argv/env, queued invokes, concurrent HA requests, and final result
   serialization before allocating unbounded memory or performing side effects.
+  Source (unreleased): frames, `paramsJSON`, serialized results, `fs.write` /
+  `fs.patch` content, and `system.run` argv/env are bounded and refused before
+  side effects. Remaining: service data, queued invokes, concurrent HA
+  requests.
 - [ ] Add separate liveness and readiness signals for HA REST/WS, Supervisor,
   node connection, chat connection, pairing, version, and command parity.
 - [ ] Add structured, secret-safe audit events and counters for command errors,
@@ -443,6 +471,7 @@ definition of complete.
 | [#259](https://github.com/clawd-ops/openclaw-hass-node/issues/259) | 1 | Resolved at source by PR #281 at `bfb8a95`: `ha.list_automations` server-side filtering with fail-closed params. |
 | [#260](https://github.com/clawd-ops/openclaw-hass-node/issues/260) | 1, 3 | Advertisement + drift gate resolved by PR #284 at `762dc86`; live update-path canary and durable receipt still outstanding under Phase 3. |
 | [#261](https://github.com/clawd-ops/openclaw-hass-node/issues/261) | 1, 6 | Skill/docs contract corrected by PR #283 at `bc95f95`: skill now describes the real `ping` + `fs.*` + `system.*` + `ha.*` surface and states the node does **not** advertise `file.fetch` / `dir.list` / `dir.fetch`; `allowReadPaths` does not apply here. Acceptance direction 1 (implement compatible `file.fetch`/`dir.*` handlers with policy tests) is deliberately deferred; this repo takes direction 2. |
+| [#263](https://github.com/clawd-ops/openclaw-hass-node/issues/263) | All | Open roll-up. No phase checkbox is ticked by source-only work. |
 | [#262](https://github.com/clawd-ops/openclaw-hass-node/issues/262) | 2 | <del>Ratify one lifecycle policy and remove contradictory token claims.</del> Resolved in #270: lifecycle/admin split implemented and tested. Remaining: converge dedicated and generic service paths on the same policy decision. |
 | TODO 7 | 5 | Issue triage automation. |
 | TODO 11 | Closed | Home Assistant MCP retirement is complete; residual caller-policy work belongs to phase 2 and does not reopen it. |

@@ -38,7 +38,85 @@ The generic `ha.call_service` path also has bounded Phase 0 containment in
 effects return `SERVICE_DENIED` before HA I/O, while ordinary operations such
 as `light.turn_on` remain available. Input names and aliases are normalized and
 validated before the policy decision. This is not the final approval-aware
-effect policy and has not been deployed or production-proven.
+effect policy and has not been deployed or production-proven. The effect-based
+policy that replaces it on `main` is described under
+[Merged on main, not yet released](#merged-on-main-not-yet-released).
+
+## Merged on main, not yet released
+
+The changes below are merged on `main` after `2026.9.13b1`. None of them is in
+a published beta, installed, or live-verified. Limits and error codes are listed
+in the [command surface](reference/COMMAND-SURFACE.md) and the
+[coverage ledger](reference/COMMAND-COVERAGE.md); this section states behaviour
+and status only.
+
+**Authorization (advances [#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275)
+and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes neither):**
+
+- Every dispatch carries a caller principal, and the policy is evaluated at the
+  dispatcher before any handler runs. A refusal makes no HA request. A call site
+  that supplies no principal is treated as the untrusted household `user`.
+- The household `user` role is default-deny over the full command registry: only
+  an explicit allowed set (read-only commands plus the service-bearing commands
+  the effect policy governs) is reachable, so a newly registered command is
+  refused until it is classified. The forbidden entries and the generic-service
+  restriction cannot be removed by configuration.
+- Service calls are classified by effect, and `ha.call_service` and the light
+  wrappers share one decision. `light.turn_on` and `light.turn_off` are the only
+  services auto-allowed for household and HA-admin principals. Deny-class
+  services (lifecycle, update, reload, host, shell, shutdown) are refused with
+  `SERVICE_DENIED` for every caller, including the operator. Any other service
+  is refused for a household user and returns `APPROVAL_REQUIRED` for an HA
+  admin, because native approval consumption does not exist yet. An operator
+  call to an unclassified service is allowed and logged (temporary).
+- The Assist plugin resolves per-node policy by the Gateway's canonical node ID
+  only. A caller-supplied node name or self-declared display name is not an
+  authorization identity.
+- The node logs a startup warning when `addon_lifecycle.allowlist` is populated,
+  reminding the operator that the Gateway also needs `allowAdminOps` for this
+  node.
+
+**Command behaviour:**
+
+- `ha.call_service` and the light wrappers fetch state after a successful call
+  when HA returns no changed states and the caller named concrete entity IDs.
+  `changed_states_complete` reports whether every targeted entity was returned.
+  Area and device targets are not expanded.
+- Read commands validate their inputs and refuse bad values with `INVALID_PARAM`
+  before any HA request. `ha.history` reports an unknown entity as
+  `HA_NOT_FOUND` instead of an empty history.
+- The registry, device, service, and config-entry list commands accept filters;
+  filters are applied after the fetch, so they bound the response a caller
+  handles, not the payload HA sends. The HA WebSocket message ceiling is raised
+  to 16 MiB. It is a ceiling, not a bound on growth.
+- Assist shows a curated remedy sentence for caller-fixable failures on both the
+  streaming and non-streaming paths. Uncurated node text never reaches the
+  Assist reply.
+
+**Bounds (advances [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291)):**
+
+- Gateway ingress: inbound frame size, `paramsJSON` size, nesting and member
+  count, and the serialized `node.invoke.result` size are bounded
+  (`REQUEST_TOO_LARGE` / `RESULT_TOO_LARGE`).
+- `fs.write` content and `fs.patch` text and result are capped and refused
+  before any backup snapshot or write.
+- `system.run` argv and environment are capped and refused before spawn
+  (`ARGV_TOO_LARGE` / `ENV_TOO_LARGE`). On timeout the node kills the whole
+  process group; output held by a detached descendant is abandoned after a
+  bounded drain and the payload carries `outputIncomplete: true`.
+- `system.run` output is still captured in full and truncated after the command
+  finishes. Streaming capture with a kill at the cap is not implemented.
+
+**Dependencies and docs:** the locked `urllib3` is 2.8.0 (PYSEC-2026-4175,
+-4176, -4177), the install guide documents the `allowAdminOps`
+step, and the command ledger includes the 2026-09-13 mutation-surface evidence.
+
+**What this does not deliver.** Gateway-forwarded invokes and the local HTTP API
+are constructed as operator calls, and the Assist principal is not yet carried
+to the dispatcher. Direct `node.invoke` is therefore operator by default, and the
+household and HA-admin gates apply only where a non-operator principal is
+supplied. The remaining open work is listed under
+[Open blockers](#open-blockers).
 
 ## Where we are
 
@@ -152,6 +230,8 @@ Open work lives in [`TODO.md`](TODO.md). Status-relevant items:
   `PROPOSAL_REQUIRED` in this source revision; native plugin approvals are not
   yet wired to those protected mutations. See TODO item #20 and
   [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289).
+- **Assist-principal propagation** to the dispatcher is pending a design
+  decision. Until it lands, every Gateway-forwarded invoke is an operator call.
 - **HACS brand icon** is the default; upstream PR pending. TODO #21.
 - **GHCR per-arch image / HACS index entry** not published yet; Supervisor builds locally on-device. TODO #22.
 - **Legacy Home Assistant MCP cutover is complete and permanently closed.** It
@@ -172,10 +252,29 @@ Release-cut itself is automated: `.github/workflows/release-on-version-bump.yml`
 ## Open blockers
 
 The stop-ship findings and external proof gates are tracked in the
-[completion roadmap](COMPLETION-ROADMAP.md). The product is not complete: trusted
-approval, node-enforced effect policy, strict parameter contracts, bounded
-responses, recovery isolation, packaging, live compatibility evidence, and
-release/UAT gates remain open.
+[completion roadmap](COMPLETION-ROADMAP.md). The product is not release-
+candidate ready. Still open:
+
+- **[#275](https://github.com/clawd-ops/openclaw-hass-node/issues/275) and
+  [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289) are not
+  closed.** Real WebSocket invokes are operator calls. Assist-principal
+  propagation is pending a design decision, direct `node.invoke` is
+  operator-default, and the cross-surface ceiling is an operator choice.
+  Native approval consumption, operation binding, and replay protection are not
+  implemented.
+- **[#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)**
+  (executable command contract and strict unknown-key refusal) is deferred. No
+  complete accepted-key authority exists yet.
+- **[#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291)** is
+  partly advanced. Still open: streaming output capture with a kill at the cap,
+  invoke queue bound and concurrency limits, HA REST and WebSocket response
+  byte caps with truncation metadata, correct acknowledgement correlation and
+  at-most-once redelivery, liveness versus readiness, and audit counters.
+- **[#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338):**
+  `ha.reload_config` and `ha.update_install` still carry the inert admin-token
+  gate and are unreachable until they move to operator approval.
+- **Release evidence.** A new beta has not been cut. Live UAT and a Tier B
+  install of that beta are required before any release-candidate claim.
 
 ## Decision log
 
