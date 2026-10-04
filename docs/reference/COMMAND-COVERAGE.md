@@ -723,6 +723,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.addon_documentation` {#row-ha-addon-documentation}
@@ -764,6 +765,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.addon_info` {#row-ha-addon-info}
@@ -805,6 +807,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.addon_logs` {#row-ha-addon-logs}
@@ -851,6 +854,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.addon_restart` {#row-ha-addon-restart}
@@ -894,6 +898,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
@@ -936,6 +941,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
@@ -978,6 +984,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.addon_stop` {#row-ha-addon-stop}
@@ -1019,6 +1026,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `app/node/tests/test_main_wiring.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
@@ -1064,6 +1072,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
@@ -1116,6 +1125,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-calendar-get-events-tool.test.ts`
 
 ### `ha.call_service` {#row-ha-call-service}
@@ -1234,6 +1244,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_active_docs_schema_gate.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.config.area_registry` {#row-ha-config-area-registry}
@@ -3133,6 +3144,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.get_config` {#row-ha-get-config}
@@ -3170,6 +3182,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.get_state` {#row-ha-get-state}
@@ -3215,6 +3228,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_chat_relay.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-get-state-tool.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/node-tool-invoke.test.ts`
 
@@ -3343,6 +3357,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
 ### `ha.light_turn_on` {#row-ha-light-turn-on}
@@ -3421,6 +3436,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-light-tools.test.ts`
 
 ### `ha.list_addons` {#row-ha-list-addons}
@@ -3458,6 +3474,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.list_areas` {#row-ha-list-areas}
@@ -3496,6 +3513,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_chat_relay.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-metadata-read-tool.test.ts`
 
 ### `ha.list_automations` {#row-ha-list-automations}
@@ -3736,6 +3754,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.list_services` {#row-ha-list-services}
@@ -3929,6 +3948,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
@@ -3967,6 +3987,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-simple-read-tools.test.ts`
 
 ### `ha.update_install` {#row-ha-update-install}
@@ -4023,6 +4044,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 

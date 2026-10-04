@@ -675,7 +675,7 @@ async def test_calendar_get_events_rejects_null_start_date_time() -> None:
             "end_date_time": "2026-06-29T00:00:00Z",
         }
     )
-    assert result["error"] == "MISSING_PARAM"
+    assert result["error"] == "INVALID_PARAM"
 
 
 async def test_calendar_get_events_rejects_null_end_date_time() -> None:
@@ -686,7 +686,7 @@ async def test_calendar_get_events_rejects_null_end_date_time() -> None:
             "end_date_time": None,
         }
     )
-    assert result["error"] == "MISSING_PARAM"
+    assert result["error"] == "INVALID_PARAM"
 
 
 async def test_calendar_get_events_ha_error() -> None:

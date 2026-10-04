@@ -98,10 +98,12 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
 - `ha.list_states`, `ha.history`, `ha.logbook`, the registry, device, service,
   config-entry and automation list commands validate their parameters and
   refuse unknown keys and bad values with `INVALID_PARAM` before any HA request.
-  Other read handlers (for example `ha.list_areas`, `ha.get_config`,
-  `ha.list_events`, `ha.list_addons`, `ha.supervisor_info`) still ignore
-  unknown keys and make the HA request anyway; `ha.core_logs` checks only
-  `lines`. This is tracked under umbrella
+  Every other `ha.*` command (the remaining reads, the Supervisor reads, the
+  light, reload and update commands and the add-on lifecycle commands) does the
+  same for its own accepted keys (source, unreleased); the admin-gated ones
+  evaluate their gate first. `system.run`, `system.run.prepare` and
+  `system.execApprovals.get`/`set` are out of scope by design: their params are
+  the Gateway's forwarded envelope. This is tracked under umbrella
   [#349](https://github.com/clawd-ops/openclaw-hass-node/issues/349) and
   [#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288).
   All eleven `fs.*` commands also refuse unknown keys and null optional keys
