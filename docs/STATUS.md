@@ -167,7 +167,9 @@ parameter drift, unacknowledged Assist mapping drift, and stale generated
 artifacts. It also refuses a declared row outcome that its highest-ranked live
 evidence uniformly contradicts (the ratified evidence-method conflict rule; a
 live pass never erases a recorded code-level defect, and cross-caller
-disagreement stays a valid `partial`). The lifecycle `admin_token` mismatch is resolved in `2026.9.13b1`:
+disagreement stays a valid `partial`). It also fails when a cited in-repo evidence
+document no longer matches its recorded sha256 (`evidence_hashes`), so stale
+evidence announces itself. The lifecycle `admin_token` mismatch is resolved in `2026.9.13b1`:
 lifecycle wrappers require `allowAdminOps` and the node's slug policy without
 injecting another token. The separate `ha.reload_config` domain mismatch is
 also resolved in `2026.9.13b1`: `domain` is optional, only `core` is supported,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
 import json
 import re
@@ -1786,3 +1787,129 @@ def test_live_pass_cannot_erase_a_known_code_defect_into_a_pass_rollup(defect: s
         generator.LedgerError, match=r"^row declares outcome 'pass' but lower-ranked"
     ):
         generator._validate_rollup_against_evidence("row", "pass", callers)
+
+
+def _hashed_evidence_repo(
+    generator: Any, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> tuple[Path, dict[str, str]]:
+    """Point the generator at a scratch repo holding one hashed evidence file."""
+    evidence = tmp_path / "docs/evidence/probe.md"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_text("pass on 2026.9.13b1\n", encoding="utf-8")
+    monkeypatch.setattr(generator, "ROOT", tmp_path)
+    recorded = {"docs/evidence/probe.md": hashlib.sha256(evidence.read_bytes()).hexdigest()}
+    return evidence, recorded
+
+
+def test_cited_evidence_documents_skip_test_ids_and_outside_paths() -> None:
+    """Only relative in-repo markdown is hashed; test ids and absolute paths are not."""
+    generator = _load_generator()
+    ledger = json.dumps(
+        {
+            "rows": [
+                {"source": "docs/evidence/probe.md#section"},
+                {"source": "app/node/tests/test_x.py::test_y"},
+                {"source": "docs/other.md::not-a-fragment"},
+                {"source": "/home/operator/run.md"},
+                {"nested": [{"source": "docs/b.md"}, {"source": "docs/evidence/probe.md"}]},
+            ]
+        }
+    )
+
+    assert generator._cited_evidence_documents(ledger) == [
+        "docs/b.md",
+        "docs/evidence/probe.md",
+    ]
+
+
+def test_unchanged_cited_evidence_passes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A file matching its recorded hash raises no problem."""
+    generator = _load_generator()
+    _, recorded = _hashed_evidence_repo(generator, monkeypatch, tmp_path)
+
+    assert generator._evidence_hash_problems(["docs/evidence/probe.md"], recorded) == []
+
+
+def test_editing_cited_evidence_fails_until_the_hash_is_updated(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Editing a cited file is reported; recording the new hash clears it."""
+    generator = _load_generator()
+    evidence, recorded = _hashed_evidence_repo(generator, monkeypatch, tmp_path)
+    evidence.write_text("fail on 2026.10.4b1\n", encoding="utf-8")
+
+    problems = generator._evidence_hash_problems(["docs/evidence/probe.md"], recorded)
+    assert len(problems) == 1
+    assert "changed since it was reviewed" in problems[0]
+    assert "re-review" in problems[0]
+
+    recorded["docs/evidence/probe.md"] = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    assert generator._evidence_hash_problems(["docs/evidence/probe.md"], recorded) == []
+
+
+def test_missing_cited_evidence_file_fails_loudly(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A cited file that does not exist, or escapes the repo, is a problem."""
+    generator = _load_generator()
+    _, recorded = _hashed_evidence_repo(generator, monkeypatch, tmp_path)
+
+    problems = generator._evidence_hash_problems(
+        ["docs/evidence/gone.md", "../outside.md"], recorded
+    )
+
+    assert [p for p in problems if "is missing" in p] == [
+        "cited evidence file is missing: docs/evidence/gone.md",
+        "cited evidence file is missing: ../outside.md",
+    ]
+
+
+def test_unrecorded_and_orphaned_hashes_fail(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A cited file needs a hash, and a hash needs a cited file."""
+    generator = _load_generator()
+    _, recorded = _hashed_evidence_repo(generator, monkeypatch, tmp_path)
+
+    unrecorded = generator._evidence_hash_problems(["docs/evidence/probe.md"], {})
+    orphaned = generator._evidence_hash_problems([], recorded)
+
+    assert "has no recorded hash" in unrecorded[0]
+    assert "no row cites" in orphaned[0]
+    assert generator._evidence_hash_problems([], []) == [
+        "manual evidence_hashes must be an object of path to sha256"
+    ]
+
+
+def test_check_fails_when_a_cited_file_drifts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--check` exits non-zero on drifted evidence even when artifacts are current."""
+    generator = _load_generator()
+    evidence, recorded = _hashed_evidence_repo(generator, monkeypatch, tmp_path)
+    ledger_json = json.dumps({"rows": [{"source": "docs/evidence/probe.md"}]})
+    ledger_path = tmp_path / "ledger.json"
+    ledger_path.write_text(ledger_json, encoding="utf-8")
+    monkeypatch.setattr(generator, "JSON_OUTPUT", ledger_path)
+    outputs = {ledger_path: ledger_json}
+    monkeypatch.setattr(generator, "_load_manual", lambda: {"evidence_hashes": recorded})
+
+    assert generator._check(outputs) == 0
+
+    evidence.write_text("edited\n", encoding="utf-8")
+    assert generator._check(outputs) == 1
+    assert "stale evidence" in capsys.readouterr().err
+
+
+def test_committed_manual_records_a_hash_for_every_cited_document() -> None:
+    """The repo as committed passes the evidence-hash comparison."""
+    generator = _load_generator()
+    documents = generator._cited_evidence_documents(_LEDGER.read_text(encoding="utf-8"))
+
+    assert documents
+    assert (
+        generator._evidence_hash_problems(
+            documents, generator._load_manual().get("evidence_hashes")
+        )
+        == []
+    )
