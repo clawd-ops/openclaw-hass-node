@@ -27,9 +27,7 @@ own allowed roots as defense in depth, and the subprocess inherits
 only a minimal environment.
 
 A ``proposalId`` is accepted as audit metadata and never as
-authorization. There is no add-on admin token: ``OPENCLAW_ADMIN_TOKEN``
-was documented as inert (never surfaced by ``app/config.yaml``,
-never exported by ``app/run.sh``) and has been removed.
+authorization.
 
 The successful result payload uses the native exec wire contract:
 ``success: bool``, ``exitCode: int | None``, ``timedOut: bool``,

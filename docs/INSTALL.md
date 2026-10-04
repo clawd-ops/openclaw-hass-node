@@ -183,11 +183,9 @@ command request so the gateway stores the widened surface. See
      policy. `allowlist` is default-deny and must include every slug
      you want lifecycle commands to touch. `homeassistant`,
      `supervisor`, and `core_*` slugs are always denied even if listed.
-     The paired session authenticates these calls; no separate lifecycle admin
-     token is required. Complete the Tier B gateway policy step after pairing
-     if you populate this allowlist. `ha.reload_config` and
-     `ha.update_install` remain separate admin operations with their existing
-     token gate.
+     The paired session authenticates these calls and each call also needs a
+     native OpenClaw approval; see the Tier B approvals step after pairing.
+     `ha.reload_config` and `ha.update_install` need the same approval.
 4. **Start** the add-on (app). Watch the log — you should see one
    `Connecting to gateway` and (the first time) a `PAIRING_REQUIRED`
    message.
@@ -220,42 +218,13 @@ the add-on (app) persists it to `/data/openclaw/device-token` and reuses it
 on every restart. **You don't need to re-paste `pairing_token` after the
 first successful pairing** — it's consumed.
 
-### Enable Tier B gateway policy
+### Tier B approvals
 
-If you populated `addon_lifecycle.allowlist`, the Tier B commands also require
-`allowAdminOps: true` in the gateway plugin config. This is a separate step in
-your gateway `openclaw.json`, not in the add-on options. Without it the gateway
-silently denies every lifecycle command regardless of the allowlist.
-
-Now that the node is paired, run `openclaw nodes status`, find it by its display
-name, and copy its canonical node ID. Add the following block under the existing
-plugin entry, replacing `<your-node-id>` with that canonical ID, not the friendly
-`node_name` value:
-
-```json
-{
-  "plugins": {
-    "entries": {
-      "openclaw-hass-node-assist-tools": {
-        "config": {
-          "nodes": {
-            "<your-node-id>": {
-              "allowAdminOps": true
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-Then validate and reload the gateway:
-
-```bash
-openclaw config validate
-openclaw gateway restart
-```
+If you populated `addon_lifecycle.allowlist`, nothing more is needed in the
+gateway plugin config: each Tier B command (add-on start, stop, restart, update,
+`ha.reload_config`, `ha.update_install`) makes OpenClaw ask you to approve that
+exact call before it runs. Make sure `gateway.nodes.commands.allow` lists the
+commands you want the gateway to forward.
 
 ## 4. HACS integration: install + bind
 
@@ -330,6 +299,8 @@ to work.
 | Connected but `openclaw nodes describe` shows `Commands: (none)` or is missing newly shipped commands | Missing the `gateway.nodes.commands.allow` patch above, stale runtime config, or a node approval from before the command surface changed. Apply the `commands.allow` patch, restart the gateway if needed, restart/reconnect the add-on, then approve the resulting `openclaw nodes pending` reapproval request. Remove/re-pair only if reapproval cannot be produced or approved. |
 
 ## Updating
+
+> **Gateway plugin, pre-upgrade step:** Before reinstalling after this update, remove the `nodes` block (`allowAdminOps`, `adminToken`) from `plugins.entries.openclaw-hass-node-assist-tools.config` in `~/.openclaw/openclaw.json`. The plugin config schema is now empty, so the old keys fail validation. Then run `openclaw config validate`.
 
 Each release re-runs the local Supervisor build. After updating the
 add-on (app) repo, **Update** the add-on (app) (or **Stop → Rebuild → Start**). The

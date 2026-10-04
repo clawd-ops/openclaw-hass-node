@@ -15,15 +15,14 @@ domain**, with an `action` param selecting the operation
 `ha.config.<domain>.<verb>`). This keeps the dispatcher, gateway
 allowlist, and connect-surface advertisement compact as the nine registered
 domains land. Missing / unknown `action` returns `INVALID_PARAM`.
-**Interim source behavior:** mutating actions unconditionally return
+**Source behavior:** mutating actions run only with a valid native approval
+marker (see `design/AUTHORIZATION-MODEL.md`); without one they return
 `PROPOSAL_REQUIRED` before contacting HA. A caller-supplied `proposal_id`
-is never authorization. The trusted verifier and human approval round-trip
-remain unimplemented; no caller flag or token enables these mutations.
+is never authorization, and no caller flag or token enables these mutations.
 
 Read-only actions call HA's REST/WS config endpoints. The per-domain mutation
-routes below describe retained, dormant adapters for the future approved path,
-not available mutations. Once trusted approval is implemented, HA-native APIs
-remain the intended route regardless of YAML or `.storage/` backing.
+routes below run only after native approval. HA-native APIs remain the intended
+route regardless of YAML or `.storage/` backing.
 
 ## Decision: fs.patch vs ha.config.*
 
@@ -62,9 +61,9 @@ Target shape: `ha.config.automation` with `action` in
   `EditAutomationConfigView`).
 - `action=get` → `GET /api/config/automation/config/<id>`
 - `action=save` → `POST /api/config/automation/config/<id>`
-  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+  (needs approval marker; else `PROPOSAL_REQUIRED`, no HA request)
 - `action=delete` → `DELETE /api/config/automation/config/<id>`
-  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+  (needs approval marker; else `PROPOSAL_REQUIRED`, no HA request)
 - Future approved path, after mutation: `ha.call_service automation reload`
 - **id validation**: the handler enforces `^[a-z0-9_]+$` (HA `cv.slug`)
   on `id` before building the REST path. Hyphens, dots, uppercase, path
@@ -83,9 +82,9 @@ Target shape: `ha.config.script` with `action` in
   exists via HA's shared `EditScriptConfigView`).
 - `action=get` → `GET /api/config/script/config/<id>`
 - `action=save` → `POST /api/config/script/config/<id>`
-  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+  (needs approval marker; else `PROPOSAL_REQUIRED`, no HA request)
 - `action=delete` → `DELETE /api/config/script/config/<id>`
-  (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+  (needs approval marker; else `PROPOSAL_REQUIRED`, no HA request)
 - Future approved path, after mutation: `ha.call_service script reload`
 - **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
@@ -99,8 +98,8 @@ Target shape: `ha.config.scene` with `action` in
   config route (only the per-id form via HA's shared
   `EditSceneConfigView`).
 - `action=get` → `GET /api/config/scene/config/<id>`
-- `action=save` → `POST /api/config/scene/config/<id>` (unavailable: `PROPOSAL_REQUIRED`, no HA request)
-- `action=delete` → `DELETE /api/config/scene/config/<id>` (unavailable: `PROPOSAL_REQUIRED`, no HA request)
+- `action=save` → `POST /api/config/scene/config/<id>` (needs approval marker; else `PROPOSAL_REQUIRED`, no HA request)
+- `action=delete` → `DELETE /api/config/scene/config/<id>` (needs approval marker; else `PROPOSAL_REQUIRED`, no HA request)
 - Future approved path, after mutation: `ha.call_service scene reload`
 - **id validation**: same slug rule as automations (`^[a-z0-9_]+$`).
 
@@ -114,11 +113,11 @@ Registered as a single command; see
 
 - `get` — WS `lovelace/config` with an optional `url_path` payload
   field (omit for the default dashboard).
-- `save` — WS `lovelace/config/save`. **Unavailable**: returns `PROPOSAL_REQUIRED` without an HA request;
+- `save` — WS `lovelace/config/save`. **Needs approval marker**: otherwise returns `PROPOSAL_REQUIRED` without an HA request;
   `proposal_id` is audit metadata, not proof of approval.
 - `dashboards_list` — WS `lovelace/dashboards/list`.
 - `resources_list` — WS `lovelace/resources`.
-- `resources_create` — WS `lovelace/resources/create`, unavailable pending trusted approval
+- `resources_create` — WS `lovelace/resources/create`, needs native approval
   (same rules as `save`). `res_type` must be one of `module`, `css`,
   `js`, `html`.
 
@@ -140,7 +139,7 @@ param (`input_boolean`, `input_text`, `input_number`, `input_select`,
 
 - `list` → WS `<helper_type>/list`
 - `create` / `update` / `delete` → WS
-  `<helper_type>/{create,update,delete}`, unavailable pending trusted approval
+  `<helper_type>/{create,update,delete}`, needs native approval
 - HA's storage-collection surface has no `<helper_type>/get` frame;
   single-item lookup goes through state and the entity registry
 - update/delete require the item key `<helper_type>_id` (e.g.
@@ -152,7 +151,7 @@ Registered as one command per registry. See `COMMAND-SURFACE.md` for
 per-action args.
 
 - `ha.config.area_registry` → `config/area_registry/{list,create,update,delete}`
-  (mutations unavailable: `PROPOSAL_REQUIRED`)
+  (mutations need an approval marker; else `PROPOSAL_REQUIRED`)
 - `ha.config.device_registry` → `config/device_registry/{list,update}`
   (HA does not expose create/delete — devices are integration-populated)
 - `ha.config.entity_registry` → `config/entity_registry/{list,get,update,remove}`
@@ -161,8 +160,8 @@ per-action args.
 
 Registered as `ha.config.config_entries` with `action` in
 {`get`, `disable`, `enable`}. See `COMMAND-SURFACE.md` for per-action
-args. Mutating actions are unavailable pending trusted approval. HA has no separate
-`config_entries/enable` frame. The dormant `enable` adapter uses
+args. Mutating actions need native approval. HA has no separate
+`config_entries/enable` frame. The `enable` action uses
 `config_entries/disable` with `disabled_by=null`. Options flow support
 would need the HTTP flow views under
 `/api/config/config_entries/options/flow/...` and is not yet exposed.

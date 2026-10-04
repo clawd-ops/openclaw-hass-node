@@ -10,9 +10,6 @@ vi.mock("openclaw/plugin-sdk/agent-harness-runtime", () => ({
   listNodes: async () => [{ nodeId: "test-node", displayName: "Test HA" }],
   resolveNodeIdFromList: () => "test-node",
 }));
-vi.mock("openclaw/plugin-sdk/plugin-config-runtime", () => ({
-  resolvePluginConfigObject: () => ({}),
-}));
 
 import { createHaCallServiceTool } from "./ha-call-service-tool.js";
 import { invokeHaCommand as invokeRaw } from "./node-tool-invoke.js";
@@ -53,7 +50,6 @@ beforeEach(() => {
   haError = false;
   legacyEnvelope = false;
   gatewayMock.mockReset().mockImplementation(async (method: string, _opts: unknown, params: Record<string, unknown>) => {
-    if (method === "config.get") return { payload: {} };
     const exchange = nodeInvoke(params);
     exchanges.push(exchange);
     if (legacyEnvelope) return { ok: true, payload: exchange.response.payload };
@@ -80,7 +76,7 @@ describe("wrapper/node command contract", { timeout: 30_000 }, () => {
     const data = { brightness_pct: 50, transition: 0, rgb_color: [1, 2, 3], nested: { effect: "test", enabled: false } };
     const result = await call({ [key]: data, target: { entity_id: ["light.test"] } });
     expect(exchanges[0].ha_calls).toEqual([["/api/services/light/turn_on", { ...data, entity_id: ["light.test"] }]]);
-    expect(gatewayMock.mock.calls[1][2].params).toEqual({
+    expect(gatewayMock.mock.calls[0][2].params).toEqual({
       domain: "light", service: "turn_on", data, target: { entity_id: ["light.test"] },
       _openclaw_caller: { sessionKey: "ha-assist:contract" },
     });
@@ -166,8 +162,7 @@ describe("wrapper/node command contract", { timeout: 30_000 }, () => {
 
   it("distinguishes a gateway transport rejection without running a node command", async () => {
     gatewayMock.mockImplementation(async (method: string) => {
-      if (method === "config.get") return { payload: {} };
-      throw new Error("Gateway disconnected");
+        throw new Error("Gateway disconnected");
     });
     await expect(call({ data: { brightness: 10 } })).rejects.toMatchObject({ source: "transport", code: "TRANSPORT_ERROR" });
     expect(exchanges).toEqual([]);

@@ -62,8 +62,12 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   only issues that are open on GitHub.
 
 ### 20. Native approval-gated write path
-- Status: OPEN — handlers return `PROPOSAL_REQUIRED` today; native OpenClaw
-  plugin approvals are not yet wired to structured HA and filesystem mutations.
+- Status: OPEN — at source, every mutating `ha.config.*` action and the protected
+  `fs.*` writes run only with a native approval marker minted by the plugin
+  hook; without one they return `PROPOSAL_REQUIRED`. Remaining: the marker is not
+  a secret (known gap, see the authorization model) and effect-policy-gated HA
+  service calls are not covered. The Tier B commands (add-on lifecycle,
+  `ha.reload_config`, `ha.update_install`) use the same marker.
 - Affects `fs.write`, `fs.patch`, `fs.move`, `fs.delete`, `fs.restore`,
   `ha.config.*`, and effect-policy-gated HA service calls.
 - Goal: consume a Gateway-authenticated, exact-operation-bound, expiring,
@@ -212,9 +216,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Re-probes owed: every ledger row marked "fix merged, re-probe owed" needs a fresh
   live probe against the beta; the marker clears when that pass is recorded.
 - Deferred and not part of this item: the executable command contract and
-  strict unknown-key refusal ([#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)),
-  and moving `ha.reload_config` / `ha.update_install` off the admin token
-  ([#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338)).
+  strict unknown-key refusal ([#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)).
 
 ---
 
@@ -327,7 +329,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 28. Documentation tab intro / glossary (prelude to per-option detail)
 - Status: CLOSED 2026-06-28 — `app/DOCS.md` (shipped in PR #177) covers the substance.
-- Has: orientation paragraph, Quick start, per-option detail with purpose/example/default/security on every option, and a dedicated **Authorization model for the HA control surface** section that documents Tier A / Tier B and the explicit "There is no separate operator admin token for Tier B" line.
+- Has: orientation paragraph, Quick start, per-option detail with purpose/example/default/security on every option, and a dedicated **Authorization model for the HA control surface** section that documents Tier A / Tier B and its native approval requirement.
 - Residual polish (not a blocker, not opening a separate item preemptively): the three-token model is described inside each token's own option section rather than as one up-front glossary block. If a future operator still trips on the token-vs-token question, lift those three explanations into one prelude block then.
 
 ### 29. Multi-tool labeling in HA Assist slow-turn progress (v2 of #2)
@@ -366,7 +368,7 @@ Ascending by PR number. Unreleased: merged on `main` after `2026.9.13b1`.
 
 - #355 — coverage ledger ingests the 2026-09-13 mutation-surface evidence.
 - Coverage `--check` hashes cited in-repo evidence files (advances #356).
-- #357 — install guide gains the `allowAdminOps` step.
+- #357 — install guide gains a Tier B gateway step (superseded by native approval for Tier B).
 - #359 — `changed_states` fallback with `changed_states_complete`.
 - #361 — Assist plugin resolves per-node policy by canonical node ID only.
 - #362 — HA WebSocket ceiling raised; registry, device, service, and config-entry list filters.

@@ -49,7 +49,7 @@ FORGED_AUTHORIZATION = [
     {"approved": True},
     {"actor": "operator"},
     {"role": "admin"},
-    {"admin_token": "untrusted-caller-token"},
+    {"token": "untrusted-caller-token"},
     {"agent_bridge": False},
     {"dry_run": False},
 ]
@@ -143,7 +143,7 @@ async def test_config_mutations_never_contact_ha(
         result = await getattr(module, f"handle_ha_config_{domain}")(params)
     assert result["ok"] is False
     assert result["error"] == "PROPOSAL_REQUIRED"
-    assert "trusted approval verifier" in result["message"]
+    assert "requires native approval" in result["message"]
     assert "proposal_id alone is not authorization" in result["message"]
 
 

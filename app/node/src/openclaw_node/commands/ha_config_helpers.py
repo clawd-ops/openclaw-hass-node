@@ -9,9 +9,9 @@ Single command with an ``action`` param plus a required ``helper_type``
 param selecting the underlying WS namespace. Supported actions:
 
 - ``list`` — list all helpers of the given type.
-- ``create`` — create a new helper (blocked pending trusted approval verification).
-- ``update`` — update an existing helper (blocked pending trusted approval verification).
-- ``delete`` — delete a helper (blocked pending trusted approval verification).
+- ``create`` — create a new helper (requires a valid native approval marker).
+- ``update`` — update an existing helper (requires a valid native approval marker).
+- ``delete`` — delete a helper (requires a valid native approval marker).
 
 HA does not register a ``<helper_type>/get`` frame in its storage-
 collection websocket surface; single-item lookup is served by reading
@@ -19,9 +19,9 @@ the state and entity registry. update/delete require the item key
 named ``<helper_type>_id`` (e.g. ``input_boolean_id``), not
 ``entity_id``.
 
-Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. The retained API adapters are dormant
-until a trusted approval verifier and human approval round-trip are implemented.
+Mutations require a valid native approval marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.config_mutation import consume_approval_marker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
@@ -53,9 +53,9 @@ _HELPER_TYPES: Final[frozenset[str]] = frozenset(
 
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "list": frozenset({"action", "helper_type"}),
-    "create": frozenset({"action", "helper_type", "attrs", "proposal_id"}),
-    "update": frozenset({"action", "helper_type", "attrs", "proposal_id"}),
-    "delete": frozenset({"action", "helper_type", "proposal_id"}),
+    "create": frozenset({"action", "helper_type", "attrs", "proposal_id", "_openclaw_approval"}),
+    "update": frozenset({"action", "helper_type", "attrs", "proposal_id", "_openclaw_approval"}),
+    "delete": frozenset({"action", "helper_type", "proposal_id", "_openclaw_approval"}),
 }
 
 
@@ -103,7 +103,7 @@ async def _action_list(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_create(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.helpers", "create")
+    denied = consume_approval_marker("ha.config.helpers", "create", params)
     if denied is not None:
         return denied
     ht, err = _require_helper_type(params)
@@ -112,13 +112,14 @@ async def _action_create(params: dict[str, Any]) -> dict[str, Any]:
     attrs, err = _require_attrs(params)
     if err is not None:
         return err
-    proposal_id = str(params["proposal_id"]).strip()
-    _LOG.warning("ha.config.helpers create helper_type=%s proposal=%s", ht, proposal_id)
+    _LOG.warning(
+        "ha.config.helpers create helper_type=%s proposal=%r", ht, params.get("proposal_id")
+    )
     try:
         result = await ha_ws_call(f"{ht}/create", attrs)
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "helper_type": ht, "proposal_id": proposal_id, "helper": result}
+    return {"ok": True, "helper_type": ht, "helper": result}
 
 
 def _require_item_id(
@@ -136,7 +137,7 @@ def _require_item_id(
 
 
 async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.helpers", "update")
+    denied = consume_approval_marker("ha.config.helpers", "update", params)
     if denied is not None:
         return denied
     ht, err = _require_helper_type(params)
@@ -157,13 +158,12 @@ async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
             "INVALID_PARAM",
             f"attrs must not contain {item_key!r}; pass it as the top-level param",
         )
-    proposal_id = str(params["proposal_id"]).strip()
     _LOG.warning(
-        "ha.config.helpers update helper_type=%s %s=%s proposal=%s",
+        "ha.config.helpers update helper_type=%s %s=%s proposal=%r",
         ht,
         item_key,
         item_id,
-        proposal_id,
+        params.get("proposal_id"),
     )
     payload = {**attrs, item_key: item_id}
     try:
@@ -174,13 +174,12 @@ async def _action_update(params: dict[str, Any]) -> dict[str, Any]:
         "ok": True,
         "helper_type": ht,
         item_key: item_id,
-        "proposal_id": proposal_id,
         "helper": result,
     }
 
 
 async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.helpers", "delete")
+    denied = consume_approval_marker("ha.config.helpers", "delete", params)
     if denied is not None:
         return denied
     ht, err = _require_helper_type(params)
@@ -189,14 +188,13 @@ async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
     item_id, err = _require_item_id(params, ht)
     if err is not None:
         return err
-    proposal_id = str(params["proposal_id"]).strip()
     item_key = f"{ht}_id"
     _LOG.warning(
-        "ha.config.helpers delete helper_type=%s %s=%s proposal=%s",
+        "ha.config.helpers delete helper_type=%s %s=%s proposal=%r",
         ht,
         item_key,
         item_id,
-        proposal_id,
+        params.get("proposal_id"),
     )
     try:
         await ha_ws_call(f"{ht}/delete", {item_key: item_id})
@@ -206,7 +204,6 @@ async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
         "ok": True,
         "helper_type": ht,
         item_key: item_id,
-        "proposal_id": proposal_id,
     }
 
 

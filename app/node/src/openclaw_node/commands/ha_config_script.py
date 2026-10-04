@@ -8,15 +8,15 @@ API via :func:`openclaw_node.ha_client.ha_get`, :func:`ha_post`, and
 Single command with an ``action`` param. Supported actions:
 
 - ``get`` — read one script by id.
-- ``save`` — write one script (blocked pending trusted approval verification).
-- ``delete`` — delete one script (blocked pending trusted approval verification).
+- ``save`` — write one script (requires a valid native approval marker).
+- ``delete`` — delete one script (requires a valid native approval marker).
 
 HA core does not expose a collection route for script configs; enumerate
 via state (``script.*`` entities from ``ha.list_states``).
 
-Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. The retained API adapters are dormant
-until a trusted approval verifier and human approval round-trip are implemented.
+Mutations require a valid native approval marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import logging
 import re
 from typing import Any, Final
 
-from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.config_mutation import consume_approval_marker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_delete, ha_get, ha_post
 
@@ -36,8 +36,8 @@ _ACTIONS: Final[frozenset[str]] = frozenset({"get", "save", "delete"})
 
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "get": frozenset({"action", "id"}),
-    "save": frozenset({"action", "id", "config", "proposal_id"}),
-    "delete": frozenset({"action", "id", "proposal_id"}),
+    "save": frozenset({"action", "id", "config", "proposal_id", "_openclaw_approval"}),
+    "delete": frozenset({"action", "id", "proposal_id", "_openclaw_approval"}),
 }
 
 
@@ -92,7 +92,7 @@ async def _action_get(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.script", "save")
+    denied = consume_approval_marker("ha.config.script", "save", params)
     if denied is not None:
         return denied
 
@@ -104,21 +104,18 @@ async def _action_save(params: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(config, dict):
         return _error("MISSING_PARAM", "config must be a dict and is required")
 
-    proposal_id = str(params["proposal_id"]).strip()
     _LOG.warning(
-        "ha.config.script save invoked id=%r proposal=%s",
-        script_id,
-        proposal_id,
+        "ha.config.script save invoked id=%r proposal=%r", script_id, params.get("proposal_id")
     )
     try:
         await ha_post(f"/api/config/script/config/{script_id}", config)
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "id": script_id, "proposal_id": proposal_id}
+    return {"ok": True, "id": script_id}
 
 
 async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
-    denied = require_config_mutation_approval("ha.config.script", "delete")
+    denied = consume_approval_marker("ha.config.script", "delete", params)
     if denied is not None:
         return denied
 
@@ -126,17 +123,14 @@ async def _action_delete(params: dict[str, Any]) -> dict[str, Any]:
     if err is not None:
         return err
 
-    proposal_id = str(params["proposal_id"]).strip()
     _LOG.warning(
-        "ha.config.script delete invoked id=%r proposal=%s",
-        script_id,
-        proposal_id,
+        "ha.config.script delete invoked id=%r proposal=%r", script_id, params.get("proposal_id")
     )
     try:
         await ha_delete(f"/api/config/script/config/{script_id}")
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "id": script_id, "proposal_id": proposal_id}
+    return {"ok": True, "id": script_id}
 
 
 async def handle_ha_config_script(params: dict[str, Any]) -> dict[str, Any]:
@@ -151,9 +145,7 @@ async def handle_ha_config_script(params: dict[str, Any]) -> dict[str, Any]:
             lowercase Home Assistant script slug.
         config (dict): Required for ``save``; the complete script
             configuration submitted to Home Assistant.
-        proposal_id (str): Audit metadata for ``save`` and ``delete``.
-            It never grants authorization, and mutations currently fail
-            closed before this value is consumed.
+        proposal_id (str): Audit metadata for ``save`` and ``delete``; never authorizes.
 
     Returns:
         The action's result dict, or an error dict when action is

@@ -47,8 +47,8 @@ The plugin pattern is the same one OpenClaw core already uses for
 `file-transfer` (`/app/extensions/file-transfer/`): the plugin holds
 operator privilege, declares specific scoped tools, and surfaces those
 tools to all session types including node-originated Assist. This
-plugin's per-node config is routing-only (`additionalProperties: false`
-with just `allowAdminOps` and `adminToken`); service, entity, and
+plugin has no config keys of its own (`additionalProperties: false`, empty);
+service, entity, and
 calendar reach is decided by `gateway.nodes.commands.allow` plus the
 node's `_NODE_COMMANDS` surface, not by plugin-side allow lists.
 

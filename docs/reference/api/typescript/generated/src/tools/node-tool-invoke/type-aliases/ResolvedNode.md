@@ -25,13 +25,3 @@ nodeDisplayName: string;
 ```ts
 nodeId: string;
 ```
-
-***
-
-### policy
-
-```ts
-policy:
-  | PerNodePolicy
-  | undefined;
-```

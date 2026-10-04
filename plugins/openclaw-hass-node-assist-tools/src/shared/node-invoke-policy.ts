@@ -5,9 +5,8 @@
 // the node. Entity/service/calendar access control is NOT the plugin's
 // job — it lives at the hass node's tier/allowCommands + HA's own auth.
 //
-// The only plugin-scoped gate is the Tier B surface. Lifecycle operations
-// require allowAdminOps and the node's slug policy; reload_config and
-// update_install additionally require adminToken.
+// The plugin-scoped Tier B check is the add-on slug deny list. Authorization
+// of Tier B calls is native approval, verified by the node.
 
 import type {
   OpenClawPluginNodeInvokePolicy,
@@ -15,7 +14,6 @@ import type {
   OpenClawPluginNodeInvokePolicyResult,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { ASSIST_TOOLS_NODE_INVOKE_COMMANDS } from "./lazy-node-invoke-policy.js";
-import { readPerNodePolicy, type PerNodePolicy } from "./per-node-policy.js";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -95,12 +93,6 @@ async function forward(
     );
   }
   return await ctx.invokeNode({ params });
-}
-
-function loadPolicyForNode(
-  ctx: OpenClawPluginNodeInvokePolicyContext,
-): PerNodePolicy | undefined {
-  return readPerNodePolicy(ctx.pluginConfig, ctx.nodeId);
 }
 
 async function enforceCallService(
@@ -253,21 +245,12 @@ async function enforceConvenienceAction(
   return await forward(ctx, params);
 }
 
-// Lifecycle operations (ha.addon_start/stop/restart/update) do NOT require
-// an admin token on the node — they rely on the authenticated pairing session
-// plus the slug allowlist/denylist policy. The plugin gate is allowAdminOps
-// only, which controls whether this node is permitted lifecycle mutations.
+// Tier B add-on lifecycle operations: the slug must not be on the always-deny
+// list. The node applies its own slug allowlist and verifies the approval marker.
 async function enforceLifecycleOp(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,
 ): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  const policy = loadPolicyForNode(ctx);
-  if (!policy?.allowAdminOps) {
-    return deny(
-      "ADMIN_DENIED",
-      `${ctx.command} denied: allowAdminOps is not set for this node`,
-    );
-  }
   const slug = readString(params, "slug");
   if (!slug) {
     return deny("INVALID_PARAMS", `${ctx.command} requires slug`);
@@ -278,44 +261,7 @@ async function enforceLifecycleOp(
       `${ctx.command} denied: slug '${slug}' is on the always-deny list (homeassistant / supervisor / core_*)`,
     );
   }
-  // Strip any caller-supplied admin_token — lifecycle ops don't use it
-  // and it must not leak through to the node.
-  const { admin_token: _dropped, ...forwardedParams } = params;
-  return await forward(ctx, forwardedParams);
-}
-
-// True admin operations (ha.reload_config, ha.update_install) require both
-// allowAdminOps AND a matching adminToken. The token is injected from
-// per-node config, never accepted from the caller.
-async function enforceAdminOp(
-  ctx: OpenClawPluginNodeInvokePolicyContext,
-  params: Record<string, unknown>,
-): Promise<OpenClawPluginNodeInvokePolicyResult> {
-  const policy = loadPolicyForNode(ctx);
-  if (!policy?.allowAdminOps) {
-    return deny(
-      "ADMIN_DENIED",
-      `${ctx.command} denied: allowAdminOps is not set for this node`,
-    );
-  }
-  const token = policy.adminToken;
-  if (typeof token !== "string" || token.length === 0) {
-    return deny(
-      "ADMIN_DENIED",
-      `${ctx.command} denied: adminToken is not configured for this node`,
-    );
-  }
-  // ha.reload_config takes no required params. `domain` is optional, only
-  // "core" is supported, and omission is equivalent. The node owns that
-  // validation and the rejection message, so the policy must not require the
-  // parameter here — doing so made the advertised omission path unreachable.
-  // Inject admin_token from per-node config, overriding any caller-supplied
-  // value. Callers must not be able to bypass the policy by passing their own.
-  const forwardedParams: Record<string, unknown> = {
-    ...params,
-    admin_token: token,
-  };
-  return await forward(ctx, forwardedParams);
+  return await forward(ctx, params);
 }
 
 async function enforceCalendarGetEvents(
@@ -390,14 +336,13 @@ export function createAssistToolsNodeInvokePolicy(): OpenClawPluginNodeInvokePol
         case "ha.light_turn_off":
           return await enforceConvenienceAction(ctx, params);
         case "ha.reload_config":
-          return await enforceAdminOp(ctx, params);
+        case "ha.update_install":
+          return await forward(ctx, params);
         case "ha.addon_start":
         case "ha.addon_stop":
         case "ha.addon_restart":
         case "ha.addon_update":
           return await enforceLifecycleOp(ctx, params);
-        case "ha.update_install":
-          return await enforceAdminOp(ctx, params);
         default:
           return deny(
             "COMMAND_NOT_ALLOWED",

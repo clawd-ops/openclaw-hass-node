@@ -8,7 +8,7 @@ import assistCommandContract from "./assist-command-contract.json" with { type: 
 import pluginManifest from "../../openclaw.plugin.json" with { type: "json" };
 
 const invokeHaCommandMock = vi.fn();
-const resolveNodeAndPolicyMock = vi.fn();
+const resolveNodeMock = vi.fn();
 
 vi.mock("./node-tool-invoke.js", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
@@ -18,8 +18,8 @@ vi.mock("./node-tool-invoke.js", () => ({
     const v = params[key];
     return typeof v === "string" ? v.trim() : "";
   },
-  resolveNodeAndPolicy: (...args: unknown[]) =>
-    resolveNodeAndPolicyMock(...args),
+  resolveNode: (...args: unknown[]) =>
+    resolveNodeMock(...args),
 }));
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ describe("Assist executable command contract", () => {
     }
   });
 
-  it("keeps lifecycle and admin parameter injection distinct", () => {
+  it("injects no node params for any Tier B tool", () => {
     const byCommand = new Map(
       resolvedAssistCommandRegistrations().map(({ contract }) => [
         contract.node_command,
@@ -70,14 +70,11 @@ describe("Assist executable command contract", () => {
       "ha.addon_stop",
       "ha.addon_restart",
       "ha.addon_update",
+      "ha.reload_config",
+      "ha.update_install",
     ]) {
       expect(byCommand.get(command)?.injected_node_params).toEqual({});
       expect(byCommand.get(command)?.known_unaccepted_node_params).toEqual({});
-    }
-    for (const command of ["ha.reload_config", "ha.update_install"]) {
-      expect(byCommand.get(command)?.injected_node_params).toEqual({
-        "$policy.adminToken": "admin_token",
-      });
     }
   });
 });
@@ -116,7 +113,6 @@ describe("Manifest/contract tool parity", () => {
 // the contract schema, not hard-coded in the test.
 // ---------------------------------------------------------------------------
 
-const ADMIN_TOKEN_SENTINEL = "test-token-sentinel-admin";
 
 /** Unique sentinel per accepted tool param — never reuse across fields. */
 function buildTestArgs(
@@ -196,13 +192,9 @@ function expectedCommandParams(
   for (const [policySource, nodeKey] of Object.entries(
     contract.injected_node_params,
   )) {
-    if (policySource === "$policy.adminToken") {
-      result[nodeKey] = ADMIN_TOKEN_SENTINEL;
-    } else {
-      throw new Error(
-        `Unknown injected source ${policySource} for ${contract.tool_name}`,
-      );
-    }
+    throw new Error(
+      `Unknown injected source ${policySource} for ${contract.tool_name} -> ${nodeKey}`,
+    );
   }
 
   return result;
@@ -210,11 +202,10 @@ function expectedCommandParams(
 
 function setupMocks(contract: AssistCommandRegistration): void {
   invokeHaCommandMock.mockReset();
-  resolveNodeAndPolicyMock.mockReset();
-  resolveNodeAndPolicyMock.mockResolvedValue({
+  resolveNodeMock.mockReset();
+  resolveNodeMock.mockResolvedValue({
     nodeId: "test-node",
     nodeDisplayName: "Test HA",
-    policy: { allowAdminOps: true, adminToken: ADMIN_TOKEN_SENTINEL },
   });
   if (contract.tool_name === "ha_list_states") {
     invokeHaCommandMock.mockResolvedValue([
@@ -408,19 +399,6 @@ describe("Assist mapping mutation regression", () => {
     expect(call.commandParams).not.toEqual(mutatedExpected);
   });
 
-  it("injected $policy.adminToken verified with exact sentinel, not expect.anything()", async () => {
-    const reg = registrations.find(
-      (r) => r.contract.tool_name === "ha_reload_config",
-    )!;
-    expect(reg.contract.injected_node_params["$policy.adminToken"]).toBe(
-      "admin_token",
-    );
-    setupMocks(reg.contract);
-    const args = buildTestArgs(reg.contract);
-    const call = await executeFactory(reg.contract, reg.loadTool, args);
-    // Exact value from policy, not expect.anything():
-    expect(call.commandParams.admin_token).toBe(ADMIN_TOKEN_SENTINEL);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -497,7 +475,7 @@ describe("Contract schema validation rejects mutations", () => {
   it("rejects an unsupported injected policy source", () => {
     const registration = rawRegistration("ha_reload_config");
     registration.injected_node_params = {
-      "$policy.notAdminToken": "admin_token",
+      "$policy.unknown": "x",
     };
     expect(() => parseAssistCommandRegistration(registration)).toThrow(
       /injected source.*not supported/,

@@ -2,9 +2,9 @@
 
 WS: ``config/area_registry/{list,create,update,delete}``.
 
-Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. The retained API adapters are dormant
-until a trusted approval verifier and human approval round-trip are implemented.
+Mutations require a valid native approval marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.config_mutation import consume_approval_marker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
@@ -23,9 +23,9 @@ _ACTIONS: Final[frozenset[str]] = frozenset({"list", "create", "update", "delete
 
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "list": frozenset({"action"}),
-    "create": frozenset({"action", "name", "attrs", "proposal_id"}),
-    "update": frozenset({"action", "area_id", "attrs", "proposal_id"}),
-    "delete": frozenset({"action", "area_id", "proposal_id"}),
+    "create": frozenset({"action", "name", "attrs", "proposal_id", "_openclaw_approval"}),
+    "update": frozenset({"action", "area_id", "attrs", "proposal_id", "_openclaw_approval"}),
+    "delete": frozenset({"action", "area_id", "proposal_id", "_openclaw_approval"}),
 }
 
 
@@ -81,10 +81,9 @@ async def handle_ha_config_area_registry(params: dict[str, Any]) -> dict[str, An
             return _error("HA_BAD_RESPONSE", "Expected list from config/area_registry/list")
         return {"ok": True, "count": len(result), "areas": result}
 
-    denied = require_config_mutation_approval("ha.config.area_registry", action)
+    denied = consume_approval_marker("ha.config.area_registry", action, params)
     if denied is not None:
         return denied
-    proposal_id = str(params["proposal_id"]).strip()
 
     if action == "create":
         name, err = _require_name(params)
@@ -93,12 +92,14 @@ async def handle_ha_config_area_registry(params: dict[str, Any]) -> dict[str, An
         payload: dict[str, Any] = {"name": name}
         if isinstance(params.get("attrs"), dict):
             payload.update(params["attrs"])
-        _LOG.warning("ha.config.area_registry create name=%s proposal=%s", name, proposal_id)
+        _LOG.warning(
+            "ha.config.area_registry create name=%s proposal=%r", name, params.get("proposal_id")
+        )
         try:
             result = await ha_ws_call("config/area_registry/create", payload)
         except HAClientError as exc:
             return _to_error(exc)
-        return {"ok": True, "proposal_id": proposal_id, "area": result}
+        return {"ok": True, "area": result}
 
     area_id, err = _require_area_id(params)
     if err is not None:
@@ -109,17 +110,23 @@ async def handle_ha_config_area_registry(params: dict[str, Any]) -> dict[str, An
         if not isinstance(attrs, dict):
             return _error("MISSING_PARAM", "attrs must be a dict and is required")
         payload = {"area_id": area_id, **attrs}
-        _LOG.warning("ha.config.area_registry update area_id=%s proposal=%s", area_id, proposal_id)
+        _LOG.warning(
+            "ha.config.area_registry update area_id=%s proposal=%r",
+            area_id,
+            params.get("proposal_id"),
+        )
         try:
             result = await ha_ws_call("config/area_registry/update", payload)
         except HAClientError as exc:
             return _to_error(exc)
-        return {"ok": True, "area_id": area_id, "proposal_id": proposal_id, "area": result}
+        return {"ok": True, "area_id": area_id, "area": result}
 
     # delete
-    _LOG.warning("ha.config.area_registry delete area_id=%s proposal=%s", area_id, proposal_id)
+    _LOG.warning(
+        "ha.config.area_registry delete area_id=%s proposal=%r", area_id, params.get("proposal_id")
+    )
     try:
         await ha_ws_call("config/area_registry/delete", {"area_id": area_id})
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "area_id": area_id, "proposal_id": proposal_id}
+    return {"ok": True, "area_id": area_id}

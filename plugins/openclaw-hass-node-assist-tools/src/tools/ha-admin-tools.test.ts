@@ -1,6 +1,7 @@
-// Tests for Tier B admin handlers.
+// Tests for the Tier B tools (add-on lifecycle, reload_config, update_install).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { adminCommandParams, approvalBind, beforeToolCall } from "../shared/node-approval.js";
 
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
@@ -8,7 +9,7 @@ const resolveMock = vi.fn();
 vi.mock("./node-tool-invoke.js", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
-  resolveNodeAndPolicy: (...args: unknown[]) => resolveMock(...args),
+  resolveNode: (...args: unknown[]) => resolveMock(...args),
   readGatewayCallOptions: () => ({}),
   readTrimmedString: (params: Record<string, unknown>, key: string) => {
     const v = params[key];
@@ -27,282 +28,104 @@ async function load(name: string) {
   return (mod as any)[name]();
 }
 
-const OK_POLICY = { allowAdminOps: true, adminToken: "T0P-S3CR3T" };
+function run(factory: string, args: Record<string, unknown>) {
+  resolveMock.mockResolvedValue({ nodeId: "hass-001", nodeDisplayName: "Hass" });
+  invokeMock.mockResolvedValue({ ok: true });
+  return load(factory).then((tool) =>
+    tool.execute("c", { node: "hass", ...args }, new AbortController().signal, () => undefined),
+  );
+}
 
-describe("refusal guidance names the resolved node id, not the caller alias", () => {
-  const cases = [
-    { name: "lifecycle allowAdminOps", factory: "createHaAddonStartTool", policy: {}, args: { slug: "x" }, key: "allowAdminOps" },
-    { name: "admin allowAdminOps", factory: "createHaReloadConfigTool", policy: {}, args: {}, key: "allowAdminOps" },
-    { name: "admin adminToken", factory: "createHaReloadConfigTool", policy: { allowAdminOps: true }, args: {}, key: "adminToken" },
-  ];
-  for (const c of cases) {
-    it(c.name, async () => {
-      resolveMock.mockResolvedValue({ nodeId: "hass-001", nodeDisplayName: "Hass", policy: c.policy });
-      const tool = await load(c.factory);
-      const r = await tool.execute(
-        "c",
-        { node: "kitchen", ...c.args },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(r.isError).toBe(true);
-      const text = r.content[0].text as string;
-      expect(text).toContain(`nodes.hass-001.${c.key}`);
-      expect(text).not.toContain("nodes.kitchen");
+const MARKER = { id: "m", exp: 1, bind: "b" };
+const LIFECYCLE = [
+  { factory: "createHaAddonStartTool", tool: "ha_addon_start", command: "ha.addon_start" },
+  { factory: "createHaAddonStopTool", tool: "ha_addon_stop", command: "ha.addon_stop" },
+  { factory: "createHaAddonRestartTool", tool: "ha_addon_restart", command: "ha.addon_restart" },
+  { factory: "createHaAddonUpdateTool", tool: "ha_addon_update", command: "ha.addon_update" },
+];
+const ALL = [
+  ...LIFECYCLE.map((l) => ({ ...l, args: { slug: "openclaw-hass-node" } })),
+  { factory: "createHaReloadConfigTool", tool: "ha_reload_config", command: "ha.reload_config", args: { domain: "core" } },
+  { factory: "createHaUpdateInstallTool", tool: "ha_update_install", command: "ha.update_install", args: { entity_id: "update.hacs", backup: true } },
+];
+
+describe("Tier B tools forward the approval marker", () => {
+  for (const t of ALL) {
+    it(`${t.command} forwards its params and the hook-supplied marker`, async () => {
+      const r = await run(t.factory, { ...t.args, _openclaw_approval: MARKER });
+      expect(invokeMock).toHaveBeenCalledTimes(1);
+      expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
+        command: t.command,
+        commandParams: { ...adminCommandParams(t.command, t.args), _openclaw_approval: MARKER },
+      });
+      expect(r.isError).toBeUndefined();
+    });
+
+    it(`${t.command} sends no marker when none was supplied`, async () => {
+      await run(t.factory, t.args);
+      expect(invokeMock.mock.calls[0]?.[0].commandParams).not.toHaveProperty("_openclaw_approval");
+    });
+
+    it(`${t.command} marker from the hook binds exactly the params the tool sends`, async () => {
+      const hook = beforeToolCall({ toolName: t.tool, params: { node: "hass", ...t.args } });
+      const overridden = (hook as { params: Record<string, unknown> }).params;
+      await run(t.factory, overridden);
+      const sent = invokeMock.mock.calls[0]?.[0].commandParams as Record<string, unknown>;
+      const { _openclaw_approval: marker, ...rest } = sent;
+      expect((marker as { bind: string }).bind).toBe(approvalBind(t.command, "", rest));
     });
   }
 });
 
 describe("ha_reload_config", () => {
-  it("refuses when allowAdminOps is not set", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: { adminToken: "x" },
-    });
-    const tool = await load("createHaReloadConfigTool");
-    const r = await tool.execute(
-      "c",
-      { node: "hass", domain: "automation" },
-      new AbortController().signal,
-      () => undefined,
-    );
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(r.isError).toBe(true);
-  });
-
-  it("refuses when adminToken is missing", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: { allowAdminOps: true },
-    });
-    const tool = await load("createHaReloadConfigTool");
-    const r = await tool.execute(
-      "c",
-      { node: "hass", domain: "automation" },
-      new AbortController().signal,
-      () => undefined,
-    );
-    expect(invokeMock).not.toHaveBeenCalled();
-    expect(r.isError).toBe(true);
-  });
-
-  it("forwards with injected admin_token when fully configured", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: OK_POLICY,
-    });
-    invokeMock.mockResolvedValue({ ok: true });
-    const tool = await load("createHaReloadConfigTool");
-    const r = await tool.execute(
-      "c",
-      { node: "hass", domain: "core" },
-      new AbortController().signal,
-      () => undefined,
-    );
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
-      command: "ha.reload_config",
-      commandParams: { domain: "core", admin_token: "T0P-S3CR3T" },
-    });
-    expect(r.isError).toBeUndefined();
-  });
-
   it("omits domain entirely when the caller does not supply it", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: OK_POLICY,
-    });
-    invokeMock.mockResolvedValue({ ok: true });
-    const tool = await load("createHaReloadConfigTool");
-    const r = await tool.execute(
-      "c",
-      { node: "hass" },
-      new AbortController().signal,
-      () => undefined,
-    );
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    const call = invokeMock.mock.calls[0]?.[0] as {
-      commandParams: Record<string, unknown>;
-    };
-    expect(call.commandParams).toEqual({ admin_token: "T0P-S3CR3T" });
-    expect("domain" in call.commandParams).toBe(false);
+    const r = await run("createHaReloadConfigTool", {});
+    expect(invokeMock.mock.calls[0]?.[0].commandParams).toEqual({});
     expect(r.isError).toBeUndefined();
   });
-});
 
-describe("addon lifecycle (start/stop/restart/update)", () => {
-  const lifecycle = [
-    { factory: "createHaAddonStartTool", command: "ha.addon_start" },
-    { factory: "createHaAddonStopTool", command: "ha.addon_stop" },
-    { factory: "createHaAddonRestartTool", command: "ha.addon_restart" },
-    { factory: "createHaAddonUpdateTool", command: "ha.addon_update" },
-  ];
-
-  for (const l of lifecycle) {
-    it(`${l.command} forwards with slug only (no admin_token)`, async () => {
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: { allowAdminOps: true },
-      });
-      invokeMock.mockResolvedValue({ ok: true });
-      const tool = await load(l.factory);
-      const r = await tool.execute(
-        "c",
-        { node: "hass", slug: "openclaw-hass-node" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).toHaveBeenCalledTimes(1);
-      const params = invokeMock.mock.calls[0]?.[0]?.commandParams;
-      expect(params).toMatchObject({
-        command: l.command,
-        commandParams: { slug: "openclaw-hass-node" },
-      }.commandParams);
-      // admin_token must NOT be sent for lifecycle ops
-      expect(params).not.toHaveProperty("admin_token");
-      expect(r.isError).toBeUndefined();
-    });
-
-    it(`${l.command} does not require adminToken in policy`, async () => {
-      // allowAdminOps is set but no adminToken configured — lifecycle should still work
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: { allowAdminOps: true },  // no adminToken
-      });
-      invokeMock.mockResolvedValue({ ok: true });
-      const tool = await load(l.factory);
-      const r = await tool.execute(
-        "c",
-        { node: "hass", slug: "openclaw-hass-node" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).toHaveBeenCalledTimes(1);
-      expect(r.isError).toBeUndefined();
-    });
-
-    it(`${l.command} refuses when allowAdminOps is not set`, async () => {
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: {},
-      });
-      const tool = await load(l.factory);
-      const r = await tool.execute(
-        "c",
-        { node: "hass", slug: "openclaw-hass-node" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(r.isError).toBe(true);
-    });
-
-    it(`${l.command} refuses always-denied slug 'homeassistant'`, async () => {
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: { allowAdminOps: true },
-      });
-      const tool = await load(l.factory);
-      const r = await tool.execute(
-        "c",
-        { node: "hass", slug: "homeassistant" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(r.isError).toBe(true);
-    });
-
-    it(`${l.command} refuses always-denied slug prefix 'core_dns'`, async () => {
-      resolveMock.mockResolvedValue({
-        nodeId: "hass-001",
-        nodeDisplayName: "Hass",
-        policy: { allowAdminOps: true },
-      });
-      const tool = await load(l.factory);
-      const r = await tool.execute(
-        "c",
-        { node: "hass", slug: "core_dns" },
-        new AbortController().signal,
-        () => undefined,
-      );
-      expect(invokeMock).not.toHaveBeenCalled();
-      expect(r.isError).toBe(true);
-    });
-  }
+  it("forwards a supplied domain for the node to validate", async () => {
+    await run("createHaReloadConfigTool", { domain: " automation " });
+    expect(invokeMock.mock.calls[0]?.[0].commandParams).toEqual({ domain: "automation" });
+  });
 });
 
 describe("ha_update_install", () => {
-  it("forwards entity_id + admin_token to ha.update_install", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: OK_POLICY,
-    });
-    invokeMock.mockResolvedValue({ ok: true, entity_id: "update.hacs", changed_states: [] });
-    const tool = await load("createHaUpdateInstallTool");
-    const r = await tool.execute(
-      "c",
-      { node: "hass", entity_id: "update.hacs" },
-      new AbortController().signal,
-      () => undefined,
-    );
-    expect(invokeMock).toHaveBeenCalledTimes(1);
-    expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
-      command: "ha.update_install",
-      commandParams: { entity_id: "update.hacs", admin_token: "T0P-S3CR3T" },
-    });
-    expect(r.isError).toBeUndefined();
-  });
-
   it("forwards optional backup + version params", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: OK_POLICY,
+    await run("createHaUpdateInstallTool", {
+      entity_id: "update.home_assistant_core_update",
+      backup: true,
+      version: "2026.7.0",
     });
-    invokeMock.mockResolvedValue({ ok: true, entity_id: "update.home_assistant_core_update", changed_states: [] });
-    const tool = await load("createHaUpdateInstallTool");
-    await tool.execute(
-      "c",
-      { node: "hass", entity_id: "update.home_assistant_core_update", backup: true, version: "2026.7.0" },
-      new AbortController().signal,
-      () => undefined,
-    );
     expect(invokeMock.mock.calls[0]?.[0]).toMatchObject({
       command: "ha.update_install",
       commandParams: {
         entity_id: "update.home_assistant_core_update",
         backup: true,
         version: "2026.7.0",
-        admin_token: "T0P-S3CR3T",
       },
     });
   });
 
-  it("refuses when allowAdminOps is false", async () => {
-    resolveMock.mockResolvedValue({
-      nodeId: "hass-001",
-      nodeDisplayName: "Hass",
-      policy: { allowAdminOps: false, adminToken: "T0P-S3CR3T" },
-    });
-    const tool = await load("createHaUpdateInstallTool");
-    const r = await tool.execute(
-      "c",
-      { node: "hass", entity_id: "update.hacs" },
-      new AbortController().signal,
-      () => undefined,
-    );
+  it("requires entity_id", async () => {
+    await expect(run("createHaUpdateInstallTool", {})).rejects.toThrow("entity_id required");
     expect(invokeMock).not.toHaveBeenCalled();
-    expect(r.isError).toBe(true);
   });
+});
+
+describe("addon lifecycle slug policy", () => {
+  for (const l of LIFECYCLE) {
+    for (const slug of ["homeassistant", "supervisor", "core_dns"]) {
+      it(`${l.command} refuses always-denied slug '${slug}' without calling the node`, async () => {
+        const r = await run(l.factory, { slug, _openclaw_approval: MARKER });
+        expect(invokeMock).not.toHaveBeenCalled();
+        expect(r.isError).toBe(true);
+      });
+    }
+
+    it(`${l.command} requires slug`, async () => {
+      await expect(run(l.factory, {})).rejects.toThrow("slug required");
+      expect(invokeMock).not.toHaveBeenCalled();
+    });
+  }
 });

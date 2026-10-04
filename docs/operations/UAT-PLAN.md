@@ -65,11 +65,6 @@
      `homeassistant_api: true` in `app/config.yaml`). If running
      standalone Docker, this is expected; the node falls back to a
      `/data` writability check.
-   - "addon_lifecycle.allowlist has N slug(s) configured, which is only half of the
-     Tier B gate" warning → expected when the lifecycle allowlist is populated;
-     it is a reminder that the gateway also needs `allowAdminOps` for this
-     node, keyed by the canonical node ID (see G9). It must appear once at
-     startup, and must not appear when the allowlist is empty.
    - "local_api_token is unset" warning → expected if you skipped the
      option; set it before exposing the API outside the Supervisor
      network.
@@ -327,13 +322,15 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
 - Call `fs.restore` with `version` `0`. Expect an out-of-range refusal, not a
   silent restore of a different version. Positions are 1-indexed.
 
-### G9. Canonical node ID policy.
+### G9. Tier B native approval.
 
-- Follow the gateway policy step in [`INSTALL.md`](../INSTALL.md), keying
-  `nodes.<node-id>` by the canonical ID from `openclaw nodes status`. Expect
-  the policy to apply (for example `allowAdminOps` takes effect).
-- Re-key the same block by the friendly `node_name`. Expect no grant: Tier B
-  commands are denied again.
+- Call `ha_addon_restart` for an allowlisted slug. Expect an approval prompt
+  naming the command and the add-on. Deny it: nothing restarts. Repeat and
+  approve: the add-on restarts once.
+- Call it for a slug outside `addon_lifecycle.allowlist`. Expect a refusal
+  before any approval prompt.
+- Repeat the approve and deny steps for `ha_reload_config` and
+  `ha_update_install`.
 
 ### G10. Entity registry on a large installation.
 

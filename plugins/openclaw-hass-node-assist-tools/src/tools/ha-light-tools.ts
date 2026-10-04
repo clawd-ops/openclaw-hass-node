@@ -10,7 +10,7 @@ import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
-  resolveNodeAndPolicy,
+  resolveNode,
 } from "./node-tool-invoke.js";
 
 function pickTarget(params: Record<string, unknown>): Record<string, unknown> {
@@ -36,7 +36,7 @@ function createLightActionTool(input: {
       if (!nodeIdentifier) throw new Error("node required");
 
       const gatewayOpts = readGatewayCallOptions(params);
-      const { nodeId, nodeDisplayName } = await resolveNodeAndPolicy({
+      const { nodeId, nodeDisplayName } = await resolveNode({
         nodeIdentifier,
         gatewayOpts,
       });

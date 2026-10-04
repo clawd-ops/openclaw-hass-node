@@ -2,12 +2,12 @@
 
 ***
 
-[@openclaw-hass-node/assist-tools](../../../../README.md) / [src/tools/node-tool-invoke](../README.md) / resolveNodeAndPolicy
+[@openclaw-hass-node/assist-tools](../../../../README.md) / [src/tools/node-tool-invoke](../README.md) / resolveNode
 
-# Function: resolveNodeAndPolicy()
+# Function: resolveNode()
 
 ```ts
-function resolveNodeAndPolicy(input): Promise<ResolvedNode>;
+function resolveNode(input): Promise<ResolvedNode>;
 ```
 
 ## Parameters

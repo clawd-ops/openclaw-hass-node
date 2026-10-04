@@ -74,11 +74,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 | [`ha.addon_documentation`](#row-ha-addon-documentation) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.addon_info`](#row-ha-addon-info) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.addon_logs`](#row-ha-addon-logs) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| [`ha.addon_restart`](#row-ha-addon-restart) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/323" target="_blank" rel="noopener noreferrer">#323</a>) |
-| [`ha.addon_start`](#row-ha-addon-start) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_restart`](#row-ha-addon-restart) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `native_approval` | `PRODUCTION-LIVE` | **`fail`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/323" target="_blank" rel="noopener noreferrer">#323</a>) |
+| [`ha.addon_start`](#row-ha-addon-start) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `native_approval` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.addon_stats`](#row-ha-addon-stats) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| [`ha.addon_stop`](#row-ha-addon-stop) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `PRODUCTION-LIVE` | **`pass`** |
-| [`ha.addon_update`](#row-ha-addon-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `addon_slug_policy_only` | `CODE-PROVEN` | **`partial`** |
+| [`ha.addon_stop`](#row-ha-addon-stop) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `native_approval` | `PRODUCTION-LIVE` | **`pass`** |
+| [`ha.addon_update`](#row-ha-addon-update) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `native_approval` | `CODE-PROVEN` | **`partial`** |
 | [`ha.calendar_get_events`](#row-ha-calendar-get-events) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.call_service`](#row-ha-call-service) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>TEST-PROVEN:refused-as-designed<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified<br>TEST-PROVEN:refused-as-designed<br>TEST-PROVEN:pass | wrapper-exposed<br>CODE-PROVEN:pass<br>TEST-PROVEN:pass<br>TEST-PROVEN:refused-as-designed | `interim_node_effect_denylist` | `PRODUCTION-LIVE` | **`pass`** |
 | [`ha.check_config`](#row-ha-check-config) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
@@ -138,9 +138,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 | [`ha.list_services`](#row-ha-list-services) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:partial | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/330" target="_blank" rel="noopener noreferrer">#330</a>) |
 | [`ha.list_states`](#row-ha-list-states) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/319" target="_blank" rel="noopener noreferrer">#319</a>) |
 | [`ha.logbook`](#row-ha-logbook) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>CODE-PROVEN:fail | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass<br>PRODUCTION-LIVE:pass | `read_only` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/344" target="_blank" rel="noopener noreferrer">#344</a>) |
-| [`ha.reload_config`](#row-ha-reload-config) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
+| [`ha.reload_config`](#row-ha-reload-config) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:partial | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `native_approval` | `PRODUCTION-LIVE` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
 | [`ha.supervisor_info`](#row-ha-supervisor-info) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `read_only` | `PRODUCTION-LIVE` | **`pass`** |
-| [`ha.update_install`](#row-ha-update-install) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `admin_token` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
+| [`ha.update_install`](#row-ha-update-install) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | wrapper-exposed<br>CODE-PROVEN:pass | `native_approval` | `CODE-PROVEN` | **`partial`** (<a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>) |
 | [`ping`](#row-ping) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:pass | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `diagnostic` | `PRODUCTION-LIVE` | **`pass`** |
 | [`system.execApprovals.get`](#row-system-execapprovals-get) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified<br>PRODUCTION-LIVE:refused-as-designed | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `PRODUCTION-LIVE` | **`refused-as-designed`** |
 | [`system.execApprovals.set`](#row-system-execapprovals-set) | advertised<br>CODE-PROVEN:pass | advertised-unverified<br>CODE-PROVEN:unverified | path-present-unverified<br>UNVERIFIED:unverified | unavailable<br>CODE-PROVEN:refused-as-designed | `operator_approval` | `CODE-PROVEN` | **`unverified`** |
@@ -155,7 +155,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.fs_move_delete:handle_fs_delete`
 - Canonical parameters: actor, agent_bridge, path, proposal_id
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Path resolves under an allowed writable root; protected paths fail closed pending trusted approval.
+- Capability conditions: Path resolves under an allowed writable root; protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -368,7 +368,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.fs_move_delete:handle_fs_move`
 - Canonical parameters: actor, agent_bridge, dst, proposal_id, src
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Both paths resolve under allowed writable roots; protected paths fail closed pending trusted approval.
+- Capability conditions: Both paths resolve under allowed writable roots; protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -413,6 +413,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.patch` {#row-fs-patch}
@@ -420,7 +421,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.fs_patch:handle_fs_patch`
 - Canonical parameters: actor, agent_bridge, dry_run, patch, path, proposal_id
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Path resolves under an allowed writable root; protected paths fail closed pending trusted approval. Patch text is capped at 1 MiB (1048576 UTF-8 bytes) and the patched result at 8 MiB; over-limit requests are refused with REQUEST_TOO_LARGE (patch) or RESULT_TOO_LARGE (result) before any backup snapshot or write.
+- Capability conditions: Path resolves under an allowed writable root; protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED). Patch text is capped at 1 MiB (1048576 UTF-8 bytes) and the patched result at 8 MiB; over-limit requests are refused with REQUEST_TOO_LARGE (patch) or RESULT_TOO_LARGE (result) before any backup snapshot or write.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -471,6 +472,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.read` {#row-fs-read}
@@ -533,7 +535,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.fs_write:handle_fs_restore`
 - Canonical parameters: actor, agent_bridge, at, path, proposal_id, version, version_id
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Allowed writable root and referenced backup version. Protected paths fail closed pending trusted approval.
+- Capability conditions: Allowed writable root and referenced backup version. Protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -589,6 +591,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.stat` {#row-fs-stat}
@@ -629,7 +632,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.fs_write:handle_fs_write`
 - Canonical parameters: actor, agent_bridge, content, encoding, path, proposal_id
 - Authorization: `path_dependent_mutation`
-- Capability conditions: Allowed writable root. Protected paths fail closed because no trusted approval verifier exists; generic /share remains directly writable. Decoded content is capped at 8 MiB (8388608 bytes); over-limit requests are refused with REQUEST_TOO_LARGE before any backup snapshot or write.
+- Capability conditions: Allowed writable root. Protected paths need a valid native approval marker and otherwise fail closed (PROPOSAL_REQUIRED); generic /share remains directly writable. Decoded content is capped at 8 MiB (8388608 bytes); over-limit requests are refused with REQUEST_TOO_LARGE before any backup snapshot or write.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -680,6 +683,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
@@ -861,8 +865,8 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_restart`
 - Canonical parameters: slug
-- Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
+- Authorization: `native_approval`
+- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
@@ -896,6 +900,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
@@ -906,8 +911,8 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_start`
 - Canonical parameters: slug
-- Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
+- Authorization: `native_approval`
+- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
@@ -940,6 +945,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
@@ -991,8 +997,8 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_stop`
 - Canonical parameters: slug
-- Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
+- Authorization: `native_approval`
+- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
@@ -1025,9 +1031,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
-  - `app/node/tests/test_main_wiring.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
 
@@ -1035,8 +1041,8 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_update`
 - Canonical parameters: slug
-- Authorization: `addon_slug_policy_only`
-- Capability conditions: Supervisor API is reachable, the Assist plugin requires allowAdminOps for the target node, and the node-side slug allowlist/denylist policy permits the target. No separate admin token is required; authentication uses the established pairing session.
+- Authorization: `native_approval`
+- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `CODE-PROVEN`
@@ -1068,6 +1074,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_effect_policy.py`
@@ -1286,7 +1293,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1297,6 +1304,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1305,7 +1313,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, name, attrs, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists. The create action accepts name (required) and optional attrs for additional area fields.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once. The create action accepts name (required) and optional attrs for additional area fields.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -1334,7 +1342,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1348,6 +1356,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1356,7 +1365,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, area_id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1380,7 +1389,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1393,6 +1402,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1426,6 +1436,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1434,7 +1445,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_area_registry:handle_ha_config_area_registry`
 - Canonical parameters: action, area_id, attrs, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists. The update action requires area_id and attrs (dict of fields to change).
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once. The update action requires area_id and attrs (dict of fields to change).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1463,7 +1474,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1476,6 +1487,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1512,7 +1524,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1523,6 +1535,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
@@ -1532,7 +1545,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1556,7 +1569,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1569,6 +1582,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
@@ -1608,6 +1622,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
@@ -1617,7 +1632,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_automation:handle_ha_config_automation`
 - Canonical parameters: action, id, config, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1646,7 +1661,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1659,6 +1674,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_automation.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts`
@@ -1691,7 +1707,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1702,6 +1718,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
@@ -1710,7 +1727,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries`
 - Canonical parameters: action, entry_id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1734,7 +1751,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1747,6 +1764,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
@@ -1755,7 +1773,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_config_entries:handle_ha_config_config_entries`
 - Canonical parameters: action, entry_id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1779,7 +1797,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1792,6 +1810,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
@@ -1830,6 +1849,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_config_entries.py`
 
@@ -1876,7 +1896,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1887,6 +1907,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1931,6 +1952,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -1939,7 +1961,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_device_registry:handle_ha_config_device_registry`
 - Canonical parameters: action, device_id, attrs, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -1968,7 +1990,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -1981,6 +2003,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -2037,7 +2060,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2048,6 +2071,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -2086,6 +2110,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -2140,6 +2165,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -2148,7 +2174,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action, entity_id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2172,7 +2198,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2185,6 +2211,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -2193,7 +2220,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry`
 - Canonical parameters: action, entity_id, attrs, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2222,7 +2249,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2235,6 +2262,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_registries.py`
 
@@ -2271,7 +2299,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2282,6 +2310,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2291,7 +2320,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type, attrs, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -2320,7 +2349,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2334,6 +2363,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2343,7 +2373,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type, <helper_type>_id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2372,7 +2402,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived dynamic key pattern"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2385,6 +2415,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2424,6 +2455,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2433,7 +2465,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_helpers:handle_ha_config_helpers`
 - Canonical parameters: action, helper_type, <helper_type>_id, attrs, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2467,7 +2499,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2480,6 +2512,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2512,7 +2545,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `res_type`
@@ -2538,6 +2571,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
@@ -2571,6 +2605,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
@@ -2609,6 +2644,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
@@ -2617,7 +2653,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action, url, res_type, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2646,7 +2682,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2659,6 +2695,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
@@ -2692,6 +2729,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
@@ -2700,7 +2738,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_lovelace:handle_ha_config_lovelace`
 - Canonical parameters: action, config, url_path, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2729,7 +2767,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2742,6 +2780,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_lovelace.py`
 
@@ -2778,7 +2817,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2789,7 +2828,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.scene#delete` {#row-ha-config-scene-delete}
@@ -2797,7 +2838,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_scene:handle_ha_config_scene`
 - Canonical parameters: action, id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -2821,7 +2862,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2834,7 +2875,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.scene#get` {#row-ha-config-scene-get}
@@ -2872,7 +2915,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.scene#save` {#row-ha-config-scene-save}
@@ -2880,7 +2925,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_scene:handle_ha_config_scene`
 - Canonical parameters: action, id, config, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
@@ -2909,7 +2954,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2923,7 +2968,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_config_automation.py`
   - `app/node/tests/test_ha_config_scene.py`
 
 ### `ha.config.script` {#row-ha-config-script}
@@ -2959,7 +3006,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -2970,6 +3017,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
@@ -2978,7 +3026,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_script:handle_ha_config_script`
 - Canonical parameters: action, id, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -3002,7 +3050,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -3015,6 +3063,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
@@ -3053,6 +3102,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
@@ -3061,7 +3111,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha_config_script:handle_ha_config_script`
 - Canonical parameters: action, id, config, proposal_id
 - Authorization: `deny_pending_trusted_approval`
-- Capability conditions: Fails closed in stacked PR #265 until a trusted approval verifier exists.
+- Capability conditions: Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `TEST-PROVEN`
@@ -3090,7 +3140,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `proposal_id`
     - aliases: `[]`
-    - defaults: `["required-or-validated-before-access"]`
+    - defaults: `["null"]`
     - bounds: unverified; no normalized contract yet
     - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "action-specific source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
@@ -3103,6 +3153,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha` / `handler_dispatch` / `refused-as-designed`
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_script.py`
 
@@ -3908,15 +3959,15 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 ### `ha.reload_config` {#row-ha-reload-config}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_reload_config`
-- Canonical parameters: admin_token, domain
-- Authorization: `admin_token`
-- Capability conditions: The Assist plugin requires both allowAdminOps and adminToken for the target node. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. The adminToken gate is not the ratified authorization model. Source-only; not in a released artifact.
+- Canonical parameters: domain
+- Authorization: `native_approval`
+- Capability conditions: Needs a valid native approval marker, otherwise refused (PROPOSAL_REQUIRED) before any HA I/O. Reloads core config only: `domain` is optional, accepts `core`, and any other value is rejected with UNSUPPORTED before HA I/O rather than silently reloading core config. Per-domain reload is not implemented and needs the Phase 2 effect policy. Source-only; not in a released artifact.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `partial`**
 - Issues: <a href="https://github.com/clawd-ops/openclaw-hass-node/issues/338" target="_blank" rel="noopener noreferrer">#338</a>
-- Evidence note: Sept 13 control-group exercise: gated before any HA I/O, and the gate contradicts the documented model.
+- Evidence note: Sept 13 control-group exercise: refused by the plugin's legacy admin gate before any HA I/O; that gate has since been replaced by native approval.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
@@ -3925,16 +3976,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - Descriptor/factory: `HA_RELOAD_CONFIG_TOOL_DESCRIPTOR` / `createHaReloadConfigTool`
   - Tool parameters: `["node", "domain"]`
   - Emitted node mapping: `{"domain": "domain", "node": null}`
-  - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
+  - Injected node mapping: `{}`
   - Known unaccepted node parameters: `{}`
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - `admin_token`
-    - aliases: `[]`
-    - defaults: `["''"]`
-    - bounds: unverified; no normalized contract yet
-    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `domain`
     - aliases: `[]`
     - defaults: `["null"]`
@@ -3943,12 +3989,13 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
-  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`partial`**: ha.reload_config was refused with 'adminToken is not configured for this node | INVALID_REQUEST' immediately after ha.check_config reported valid. The shipped plugin's enforceAdminOp checks policy.adminToken, while docs/design/COMMAND-TIERS.md:88 states no add-on admin token exists and that allowAdminOps plus a resolved permission request is the model. The gate also short-circuits before parameter validation, so the domain-rejection path remains unverified. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
+  - `direct_nodes_invoke` / `PRODUCTION-LIVE` / **`partial`**: ha.reload_config was refused by the plugin's legacy admin gate (INVALID_REQUEST) immediately after ha.check_config reported valid. The gate short-circuited before parameter validation, so the domain-rejection path remained unverified. That gate has since been replaced by native approval. (source: `docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13`) [node_version=2026.9.13b1; plugin_version=not recorded; observed_at=2026-09-13]
   - `assist_wrapper` / `CODE-PROVEN` / **`pass`**: The executable Assist registration contract maps this tool to the node command. (source: `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json`)
   - `handler_dispatch` / `UNVERIFIED` / **`unverified`**: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke. (source: `handler and dispatch_async test matrix`)
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
@@ -3996,9 +4043,9 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 ### `ha.update_install` {#row-ha-update-install}
 
 - Handler: `openclaw_node.commands.ha:handle_ha_update_install`
-- Canonical parameters: admin_token, backup, entity_id, version
-- Authorization: `admin_token`
-- Capability conditions: HA `update.install` service is reachable via the paired session; the Assist plugin requires allowAdminOps, and the node re-checks `OPENCLAW_ADMIN_TOKEN` against the caller-supplied `admin_token` before dispatch. Entity ID must be in the `update.` domain.
+- Canonical parameters: backup, entity_id, version
+- Authorization: `native_approval`
+- Capability conditions: HA `update.install` service is reachable via the paired session and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED before dispatch). Entity ID must be in the `update.` domain.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `CODE-PROVEN`
@@ -4013,16 +4060,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - Descriptor/factory: `HA_UPDATE_INSTALL_TOOL_DESCRIPTOR` / `createHaUpdateInstallTool`
   - Tool parameters: `["node", "entity_id", "backup", "version"]`
   - Emitted node mapping: `{"backup": "backup", "entity_id": "entity_id", "node": null, "version": "version"}`
-  - Injected node mapping: `{"$policy.adminToken": "admin_token"}`
+  - Injected node mapping: `{}`
   - Known unaccepted node parameters: `{}`
   - Value transforms: `{}`
   - Client-side parameters: `{}`
 - Parameter details:
-  - `admin_token`
-    - aliases: `[]`
-    - defaults: `["''"]`
-    - bounds: unverified; no normalized contract yet
-    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
   - `backup`
     - aliases: `[]`
     - defaults: `["null"]`
@@ -4046,6 +4088,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_gated_commands.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
@@ -4163,7 +4206,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.system_run:handle_system_run`
 - Canonical parameters: agentId, approvalDecision, approvalSource, approved, command, cwd, env, proposalId, rawCommand, runId, sessionKey, systemRunPlan, timeoutMs
 - Authorization: `operator_approval`
-- Capability conditions: Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist. The inert OPENCLAW_ADMIN_TOKEN gate and _admin_token_ok helper have been removed.
+- Capability conditions: Bound to the Gateway-forwarded canonical systemRunPlan. Direct nodes.invoke system.run is refused by the Gateway; the command is only reachable through the OpenClaw exec tool with host=node after system.run.prepare produces the canonical plan and an operator approves. At the node entry the handler fails closed unless the forward carries systemRunPlan, a non-empty runId, and one of approved=true / approvalDecision in {allow-once,allow-always} / approvalSource. The node re-runs the prepare-time argv, rawCommand, and env validators on the forwarded plan and re-resolves cwd beneath the allowed roots (or the HA /config hierarchy in add-on mode) before spawning the subprocess, and cross-checks argv/cwd/commandText/agentId/sessionKey against the stored systemRunPlan. The subprocess inherits only PATH, HOME, LANG, TZ, USER, TERM, LOGNAME plus caller-supplied entries whose keys do not match TOKEN, SECRET, KEY, PASS, CREDENTIAL, AUTH, or PWD. Timeout is read from timeoutMs (native wire); the successful result payload uses success/exitCode/timedOut. proposalId is accepted as audit metadata and is not part of the Gateway's native forward whitelist.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.
 - Evidence method: `PRODUCTION-LIVE`

@@ -182,7 +182,7 @@ async def test_save_happy_path() -> None:
         result = await handle_ha_config_scene(
             {"action": "save", "id": "42", "config": config, "proposal_id": "p1"}
         )
-    assert result == {"ok": True, "id": "42", "proposal_id": "p1"}
+    assert result == {"ok": True, "id": "42"}
     mock.assert_awaited_once_with("/api/config/scene/config/42", config)
 
 
@@ -238,7 +238,7 @@ async def test_delete_happy_path() -> None:
     mock = AsyncMock(return_value={"result": "ok"})
     with patch("openclaw_node.commands.ha_config_scene.ha_delete", mock):
         result = await handle_ha_config_scene({"action": "delete", "id": "42", "proposal_id": "p1"})
-    assert result == {"ok": True, "id": "42", "proposal_id": "p1"}
+    assert result == {"ok": True, "id": "42"}
     mock.assert_awaited_once_with("/api/config/scene/config/42")
 
 

@@ -14,9 +14,9 @@ this handler yet.
 Before re-enabling mutations, version-matched documentation checks and trusted
 approval verification must be implemented.
 
-Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. The retained API adapters are dormant
-until a trusted approval verifier and human approval round-trip are implemented.
+Mutations require a valid native approval marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.config_mutation import consume_approval_marker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
@@ -36,8 +36,8 @@ _MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"disable", "enable"})
 
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "get": frozenset({"action", "entry_id"}),
-    "disable": frozenset({"action", "entry_id", "proposal_id"}),
-    "enable": frozenset({"action", "entry_id", "proposal_id"}),
+    "disable": frozenset({"action", "entry_id", "proposal_id", "_openclaw_approval"}),
+    "enable": frozenset({"action", "entry_id", "proposal_id", "_openclaw_approval"}),
 }
 
 
@@ -75,7 +75,7 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
         return invalid
 
     if action in _MUTATING_ACTIONS:
-        denied = require_config_mutation_approval("ha.config.config_entries", action)
+        denied = consume_approval_marker("ha.config.config_entries", action, params)
         if denied is not None:
             return denied
 
@@ -92,15 +92,18 @@ async def handle_ha_config_config_entries(params: dict[str, Any]) -> dict[str, A
             return _error("HA_BAD_RESPONSE", "Expected dict from config_entries/get_single")
         return {"ok": True, "entry_id": entry_id, "entry": result}
 
-    proposal_id = str(params["proposal_id"]).strip()
-
     # HA registers only config_entries/disable; enable is the same frame with
     # disabled_by=null (there is no separate config_entries/enable command).
     disabled_by = "user" if action == "disable" else None
     payload: dict[str, Any] = {"entry_id": entry_id, "disabled_by": disabled_by}
-    _LOG.warning("ha.config.config_entries %s entry=%s proposal=%s", action, entry_id, proposal_id)
+    _LOG.warning(
+        "ha.config.config_entries %s entry=%s proposal=%r",
+        action,
+        entry_id,
+        params.get("proposal_id"),
+    )
     try:
         result = await ha_ws_call("config_entries/disable", payload)
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "entry_id": entry_id, "proposal_id": proposal_id, "result": result}
+    return {"ok": True, "entry_id": entry_id, "result": result}

@@ -70,32 +70,34 @@ Decide before iterating on `ha.addon_info`.
 
 ## Tier B — lifecycle + admin, NEVER on the subagent allowlist
 
-Reserved for the primary agent or the owner. Tier B has two
-authorization levels (#262 reconciliation). Neither uses an add-on admin
-token; see [Authorization model](AUTHORIZATION-MODEL.md).
+Reserved for the primary agent or the owner. Every Tier B command needs a
+native OpenClaw approval for the exact call; see
+[Authorization model](AUTHORIZATION-MODEL.md).
 
-### Tier B lifecycle (pairing auth + slug policy)
+### Tier B lifecycle (pairing auth + slug policy + native approval)
 
 Authenticated by the established pairing session. The node checks
-slug allowlist/denylist policy. The plugin requires `allowAdminOps` only.
+slug allowlist/denylist policy first, then verifies the native approval marker
+the plugin hook minted after an operator approved the call. Without a marker the
+command returns `PROPOSAL_REQUIRED`; a bad, expired, mismatched, or reused
+marker returns `APPROVAL_INVALID`; neither touches Supervisor. The plugin has no
+config for this.
 
 - `ha.addon_start` — `POST /addons/<slug>/start`
 - `ha.addon_stop` — `POST /addons/<slug>/stop`
 - `ha.addon_restart` — `POST /addons/<slug>/restart`
 - `ha.addon_update` — `POST /addons/<slug>/update`; updates to the latest available version (Supervisor API, slug-based)
 
-### Tier B admin (interim admin token; operator approval planned)
+### Tier B admin (native approval)
 
-Current behaviour: these two commands still use the interim admin token. The
-gateway plugin requires `allowAdminOps` and a per-node `adminToken` in the
-gateway plugin config (never taken from the caller) and injects it as the
-`admin_token` parameter. The node then compares it with `OPENCLAW_ADMIN_TOKEN`;
-with that variable unset, or on a mismatch, the command is refused with
-`PERMISSION_DENIED`. The ratified model removes the admin token in favour of
-native OpenClaw operator approval; that migration is unfinished and is tracked
-by [#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338) and
-[#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289). See
-[Authorization model](AUTHORIZATION-MODEL.md).
+`ha.reload_config` and `ha.update_install` use the same native approval marker as
+the lifecycle commands and the `ha.config.*` and `fs.*` mutations: the plugin
+hook asks the operator to allow or deny the exact call, and the node refuses with
+`PROPOSAL_REQUIRED` or `APPROVAL_INVALID` before any HA request unless a valid
+marker is present. This applies whether the call arrives through the plugin's
+`ha_*` tools or the core `nodes` tool. See
+[Authorization model](AUTHORIZATION-MODEL.md) for the marker, its binding, and
+its known gap.
 
 - `ha.reload_config` — `POST /api/services/homeassistant/reload_core_config`;
   reloads the HA core configuration only. The optional `domain` argument may
@@ -104,10 +106,10 @@ by [#338](https://github.com/clawd-ops/openclaw-hass-node/issues/338) and
   not implemented and remain pending the effect policy.
 - `ha.update_install` — `POST /api/services/update/install`; installs a pending HA update via the `update.*` entity domain (covers HACS integrations, HA Core, add-ons as entities). Entity ID must be in the `update.` domain.
 
-Additional constraints on lifecycle ops (on top of the `allowAdminOps` gate):
+Additional constraints on lifecycle ops (on top of native approval):
 
 - **Slug allow/deny list at addon-config level.** Always deny
-  `homeassistant`, `supervisor`, and `core_*` regardless of token.
+  `homeassistant`, `supervisor`, and `core_*` regardless of approval.
   Other slugs default-deny via `addon_lifecycle.allowlist`, with an
   optional extra `addon_lifecycle.denylist`.
 - **Audit log every invocation** at WARNING with command + slug. Per-HA-user
@@ -156,13 +158,9 @@ that cache after a release.
 ## PR cadence
 
 - One Tier A command per PR, each individually reviewable.
-- Tier B initially landed with an admin token gate and slug allowlist. Current
-  lifecycle authorization uses the paired session plus slug policy without a
-  separate token. `ha.reload_config` and `ha.update_install` still *carry* the
-  admin-token check in code, but that gate is inert because the variable cannot
-  be set, so both commands are unreachable. The ratified target removes the
-  token from those two commands and gates them on operator approval instead.
-  See [Authorization model](AUTHORIZATION-MODEL.md).
+- Tier B authorization is the paired session, slug policy where it applies, and
+  a native OpenClaw approval for every call, including `ha.reload_config` and
+  `ha.update_install`. See [Authorization model](AUTHORIZATION-MODEL.md).
 - Tier C never lands without a fresh, scoped ask.
 - Cross-agent code review (Anthropic plans/drives, GPT-5.5 reviews)
   is required for every Tier A and Tier B PR.

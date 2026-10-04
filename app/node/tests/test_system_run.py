@@ -86,7 +86,6 @@ def _allow_tmp_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "key",
     [
-        "OPENCLAW_ADMIN_TOKEN",
         "SECRET_KEY",
         "DB_PASSWORD",
         "AWS_CREDENTIAL",

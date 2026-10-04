@@ -7,9 +7,9 @@
 // tool-specific.
 //
 // Routing-only design: access control is delegated to the hass node's
-// tier/allowCommands policy and HA's own auth layer. Tier B lifecycle tools
-// require allowAdminOps and the node's slug policy. reload_config and
-// update_install additionally require adminToken in the per-node plugin config.
+// tier/allowCommands policy and HA's own auth layer. Tier B tools (add-on
+// lifecycle, reload_config, update_install) need native approval and the node's
+// slug policy.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import { Type } from "typebox";
@@ -427,7 +427,7 @@ export const HA_RELOAD_CONFIG_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: reload config",
   name: "ha_reload_config",
   description:
-    "On the paired Home Assistant node: reload Home Assistant core configuration. This reloads core config only; per-domain reload is not implemented, and naming any domain other than 'core' is rejected rather than silently reloading core config. UNVERIFIED authorization: the adminToken gate described here is not the ratified authorization model and is being replaced by operator approval. This tool reaches the hass node — NOT the OC host.",
+    "On the paired Home Assistant node: reload Home Assistant core configuration. This reloads core config only; per-domain reload is not implemented, and naming any domain other than 'core' is rejected rather than silently reloading core config. Requires native approval. This tool reaches the hass node — NOT the OC host.",
   parameters: Type.Object({
     node: Type.String({ description: PAIRED_NODE_DESCRIPTION }),
     domain: Type.Optional(
@@ -443,7 +443,7 @@ export const HA_ADDON_START_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon start",
   name: "ha_addon_start",
   description:
-    "On the paired Home Assistant node: start a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
+    "On the paired Home Assistant node: start a Supervisor add-on. Tier B: requires native approval; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
   parameters: AddonSlugSchema(),
 };
 
@@ -451,7 +451,7 @@ export const HA_ADDON_STOP_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon stop",
   name: "ha_addon_stop",
   description:
-    "On the paired Home Assistant node: stop a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
+    "On the paired Home Assistant node: stop a Supervisor add-on. Tier B: requires native approval; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
   parameters: AddonSlugSchema(),
 };
 
@@ -459,7 +459,7 @@ export const HA_ADDON_RESTART_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon restart",
   name: "ha_addon_restart",
   description:
-    "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
+    "On the paired Home Assistant node: restart a Supervisor add-on. Tier B: requires native approval; always denied for 'homeassistant', 'supervisor', 'core_*'. This tool reaches the hass node — NOT the OC host. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator.",
   parameters: AddonSlugSchema(),
 };
 
@@ -467,7 +467,7 @@ export const HA_ADDON_UPDATE_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: addon update",
   name: "ha_addon_update",
   description:
-    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires allowAdminOps; always denied for 'homeassistant', 'supervisor', 'core_*'. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator; compare the add-on version to see whether the update applied.",
+    "On the paired Home Assistant node: update a Supervisor add-on to the latest available version. Tier B: requires native approval; always denied for 'homeassistant', 'supervisor', 'core_*'. OUTCOME_UNKNOWN (Supervisor timeout) means the action may or may not have happened: do not retry automatically; ask the user/operator; compare the add-on version to see whether the update applied.",
   parameters: AddonSlugSchema(),
 };
 
@@ -495,6 +495,6 @@ export const HA_UPDATE_INSTALL_TOOL_DESCRIPTOR: AssistToolDescriptor = {
   label: "Home Assistant: install update",
   name: "ha_update_install",
   description:
-    "On the paired Home Assistant node: install a pending update via HA's update.install service. Covers HACS integrations, HACS frontend, HA Core, add-ons, and any other update.* entity. Tier B admin: requires allowAdminOps + adminToken. Distinct from ha_addon_update (which uses the Supervisor API for slugs).",
+    "On the paired Home Assistant node: install a pending update via HA's update.install service. Covers HACS integrations, HACS frontend, HA Core, add-ons, and any other update.* entity. Tier B admin: requires native approval. Distinct from ha_addon_update (which uses the Supervisor API for slugs).",
   parameters: HaUpdateInstallSchema,
 };

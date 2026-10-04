@@ -76,7 +76,7 @@ exception is `fs.diff` `to_version`, where `null` is a documented value.
 
 | Command        | Args                               | Notes                  |
 |----------------|-------------------------------------|------------------------|
-| `system.run`   | `command` (argv list), `systemRunPlan`, `runId`, `approved?`, `approvalDecision?`, `approvalSource?`, `cwd?`, `rawCommand?`, `env?`, `timeoutMs?`, `agentId?`, `sessionKey?`, `proposalId?` | Executes an operator-approved plan. Reached only through the OpenClaw exec tool with `host=node` after `system.run.prepare` produces a canonical `systemRunPlan` and an operator approves. The Gateway rejects direct `nodes.invoke system.run` and rejects a forward whose `command`/`rawCommand`/`cwd`/`agentId`/`sessionKey` mutates between prepare and forward. The node fails closed unless the forward carries `systemRunPlan`, a non-empty `runId`, and one of `approved=true` / `approvalDecision` in `{allow-once,allow-always}` / `approvalSource`; it re-runs the prepare-time validators, re-resolves `cwd` under the allowed roots (or the HA `/config` hierarchy in add-on mode), cross-checks argv / cwd / commandText / agentId / sessionKey against the stored plan, and rejects env keys matching `TOKEN`/`SECRET`/`KEY`/`PASS`/`CREDENTIAL`/`AUTH`/`PWD`. Timeout is read from `timeoutMs` (native wire); the successful payload uses `success`/`exitCode`/`timedOut`. `proposalId` is accepted as audit metadata only (it is not part of the Gateway's forward whitelist). There is no `admin_token`; `OPENCLAW_ADMIN_TOKEN` was inert and has been removed. |
+| `system.run`   | `command` (argv list), `systemRunPlan`, `runId`, `approved?`, `approvalDecision?`, `approvalSource?`, `cwd?`, `rawCommand?`, `env?`, `timeoutMs?`, `agentId?`, `sessionKey?`, `proposalId?` | Executes an operator-approved plan. Reached only through the OpenClaw exec tool with `host=node` after `system.run.prepare` produces a canonical `systemRunPlan` and an operator approves. The Gateway rejects direct `nodes.invoke system.run` and rejects a forward whose `command`/`rawCommand`/`cwd`/`agentId`/`sessionKey` mutates between prepare and forward. The node fails closed unless the forward carries `systemRunPlan`, a non-empty `runId`, and one of `approved=true` / `approvalDecision` in `{allow-once,allow-always}` / `approvalSource`; it re-runs the prepare-time validators, re-resolves `cwd` under the allowed roots (or the HA `/config` hierarchy in add-on mode), cross-checks argv / cwd / commandText / agentId / sessionKey against the stored plan, and rejects env keys matching `TOKEN`/`SECRET`/`KEY`/`PASS`/`CREDENTIAL`/`AUTH`/`PWD`. Timeout is read from `timeoutMs` (native wire); the successful payload uses `success`/`exitCode`/`timedOut`. `proposalId` is accepted as audit metadata only (it is not part of the Gateway's forward whitelist). |
 | `system.run.prepare` | `command` (argv list), `cwd?`, `rawCommand?`, `env?`, `agentId?`, `sessionKey?` | Prepares the canonical `systemRunPlan` an operator will see; executes nothing. See [Authorization model](../design/AUTHORIZATION-MODEL.md). |
 | `system.execApprovals.get` | (none) | Returns the node's persisted exec-approval snapshot (`path`, `exists`, `hash`, redacted `file`). Like `system.run`, **not reachable through direct `nodes.invoke`**: the Gateway refuses `system.execApprovals.*` on that path with `INVALID_REQUEST` and directs callers to `exec.approvals.node.*`. See the reachability note below. |
 | `system.execApprovals.set` | `file`, `baseHash?` | Replaces the exec-approval document under an atomic file lock with hash-based concurrency check. Same reachability contract as `system.execApprovals.get`. |
@@ -157,7 +157,7 @@ Sections for each `ha.config.*` command follow the base surface below.
 | `ha.list_entity_registry` | `domain?`, `platform?`, `area_id?`, `device_id?`; via WS API. Filters are AND-combined and applied after the fetch. The unfiltered WS frame is what exceeded the transport ceiling on a large installation; the ceiling is now 16 MiB |
 | `ha.logbook`              | `entity_id?`, `start_time?`, `end_time?` (REST). Values are percent-encoded, so both `Z` and `+00:00` offsets work and an entity cannot inject query parameters. The Assist tool accepts `start`/`end` and maps them, but a direct invoke must use `start_time`/`end_time` or the bound is silently dropped |
 | `ha.history`              | `entity_ids?` (list), `start_time?`, `end_time?`, `minimal_response?`, `no_attributes?`, `significant_changes_only?` (REST). Values are percent-encoded, so both `Z` and `+00:00` offsets work and an entity cannot inject query parameters. **Known defect:** an unknown entity returns `{ok: true, count: 0}`, indistinguishable from real empty history. The Assist tool accepts `entity_id`/`start`/`end` and maps them, but a direct invoke must use the node names or the filter and bounds are silently dropped |
-| `ha.reload_config`        | `domain?` (only `core`, omitting is equivalent), `admin_token`; gated by `OPENCLAW_ADMIN_TOKEN`. Calls `homeassistant.reload_core_config` and returns `{ok: true, domain: "core"}`. Per-domain reload is **not implemented**: any other `domain` is rejected with `UNSUPPORTED` rather than silently reloading core config. `ha.call_service` is not a bypass — `*.reload` is on the interim denylist. **Unverified authorization:** the admin-token gate is not the ratified model and moves to operator approval (see [`design/AUTHORIZATION-MODEL.md`](../design/AUTHORIZATION-MODEL.md)) |
+| `ha.reload_config`        | `domain?` (only `core`, omitting is equivalent); needs a native approval marker. Calls `homeassistant.reload_core_config` and returns `{ok: true, domain: "core"}`. Per-domain reload is **not implemented**: any other `domain` is rejected with `UNSUPPORTED` rather than silently reloading core config. `ha.call_service` is not a bypass — `*.reload` is on the interim denylist. Authorization: native approval (see [`design/AUTHORIZATION-MODEL.md`](../design/AUTHORIZATION-MODEL.md)) |
 | `ha.light_turn_on`        | `entity_id` or `area_id` or `device_id`; optional `brightness`, `brightness_pct`, `color_temp_kelvin`, `rgb_color`, `transition` |
 | `ha.light_turn_off`       | `entity_id` or `area_id` or `device_id`; optional `transition` |
 | `ha.list_automations`     | `include_traces?`, `entity_filter?` (fnmatch glob scoped to `automation.`, max 256 chars), `state_filter?` (exact match, max 256 chars); unknown params rejected; narrowing applied before trace lookup |
@@ -169,13 +169,13 @@ Sections for each `ha.config.*` command follow the base surface below.
 | `ha.supervisor_info`      | No params; allowlisted host-level Supervisor runtime info (arch, machine, supervisor version, homeassistant version, hassos, operating_system, docker, channel). `hostname`, `timezone`, and network fields are excluded. Read-only / Tier A |
 | `ha.addon_changelog`      | `slug`; addon changelog markdown, bounded 1 MiB trailing window. Read-only |
 | `ha.addon_documentation`  | `slug`; addon documentation markdown, bounded 1 MiB trailing window. Read-only |
-| `ha.addon_start`          | `slug`; Tier B lifecycle command. Requires `allowAdminOps` + explicit `addon_lifecycle.allowlist` opt-in, authenticated via pairing session (no admin token). Always denied for `homeassistant`, `supervisor`, and `core_*` slugs. Supervisor timeout returns `OUTCOME_UNKNOWN` (see below) |
+| `ha.addon_start`          | `slug`; Tier B lifecycle command. Requires explicit `addon_lifecycle.allowlist` opt-in and a native approval marker, authenticated via pairing session. Always denied for `homeassistant`, `supervisor`, and `core_*` slugs. Supervisor timeout returns `OUTCOME_UNKNOWN` (see below) |
 | `ha.addon_stop`           | `slug`; same Tier B lifecycle gate as `ha.addon_start`; idempotent when already stopped; may return `OUTCOME_UNKNOWN` |
 | `ha.addon_restart`        | `slug`; same Tier B lifecycle gate as `ha.addon_start`; may return `OUTCOME_UNKNOWN`; a started add-on afterwards does not show whether the restart happened |
 | `ha.addon_update`         | `slug`; same Tier B lifecycle gate as `ha.addon_start`; updates the add-on to the latest available version (`POST /addons/<slug>/update`); may return `OUTCOME_UNKNOWN`; compare `version` via `ha.addon_info` if the prior version is known |
-| `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str), `admin_token`; Tier B admin gate via `OPENCLAW_ADMIN_TOKEN`; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
+| `ha.update_install`       | `entity_id` (required, must be `update.*`), `backup` (optional bool), `version` (optional str); Tier B, needs a native approval marker; installs a pending update via HA's `update.install` service — covers HACS integrations, HA Core, add-ons via the `update.*` entity domain. Distinct from `ha.addon_update` (Supervisor API, slug-based) |
 
-Every `ha.*` command refuses an unknown key, or an explicit `null` for any accepted key, with `INVALID_PARAM` before any Home Assistant or Supervisor request; omit a key to leave it unset. The one intentional exception across `ha.*` and `ha.config.*` is `ha.config.lovelace`, where `url_path: null` selects the default dashboard; the admin-gated commands (`ha.reload_config`, `ha.update_install`) and the lifecycle slug policy run first. `admin_token` is injected by the plugin, not supplied by callers.
+Every `ha.*` command refuses an unknown key, or an explicit `null` for any accepted key, with `INVALID_PARAM` before any Home Assistant or Supervisor request; omit a key to leave it unset. The one intentional exception across `ha.*` and `ha.config.*` is `ha.config.lovelace`, where `url_path: null` selects the default dashboard; for the Tier B commands (`ha.reload_config`, `ha.update_install`, add-on lifecycle) the key check and the lifecycle slug policy run before the approval marker is checked. The marker travels in the reserved `_openclaw_approval` field, which callers never write by hand.
 
 `OUTCOME_UNKNOWN` (lifecycle commands): the Supervisor POST or the follow-up state read timed out, so the action may or may not have happened. Callers must not retry automatically and should ask the user/operator. `ha.addon_info` reports a current snapshot, not action history: after a restart it cannot distinguish completed from not, and after an update only a changed version shows it completed.
 
@@ -261,11 +261,19 @@ a rejected operation. These changes are source-only until this PR is released.
 
 ## HA config mutation availability
 
-**Interim source behavior:** all mutating `ha.config.*` actions return
-`PROPOSAL_REQUIRED` without making a Home Assistant request. The trusted
-approval verifier and human approval round-trip are not implemented.
-A `proposal_id`, even one described as approved by the caller, is not
-authorization. There is no caller flag or admin-token override.
+**Source behavior:** every mutating `ha.config.*` action runs only with a valid
+native approval marker (`_openclaw_approval`, minted by the gateway plugin after
+an operator approves the exact call; see
+[`AUTHORIZATION-MODEL.md`](../design/AUTHORIZATION-MODEL.md)). Without one it
+returns `PROPOSAL_REQUIRED` and makes no Home Assistant request; an invalid,
+expired, replayed or mismatched marker returns `APPROVAL_INVALID`. A
+`proposal_id`, even one described as approved by the caller, is not
+authorization. There is no caller flag override. The same marker
+gates `fs.write`, `fs.restore`, `fs.move`, `fs.delete` and `fs.patch` on
+protected roots (or with `agent_bridge`); unprotected writes ignore it. It also
+gates the Tier B commands `ha.reload_config`, `ha.update_install`,
+`ha.addon_start`, `ha.addon_stop`, `ha.addon_restart` and `ha.addon_update`. The gated commands and actions are listed in
+`contracts/approval-gated-commands.json`.
 
 Every `ha.config.*` action accepts only the keys in its table row (plus
 `action`). An unknown key, or a null value for an accepted key, returns
@@ -273,9 +281,8 @@ Every `ha.config.*` action accepts only the keys in its table row (plus
 only `lovelace` `url_path` accepts `null`. Approval-shaped keys such as
 `approved` or `role` are unknown keys.
 
-The mutation rows below retain the dormant API-adapter inputs for future
-implementation; they do not advertise currently executable mutations.
-Read-only `get` / `list` actions remain available. This restriction does not
+The mutation rows below run only with a valid native approval marker (see
+above). Read-only `get` / `list` actions remain available. This restriction does not
 change light control or the separate generic-service policy work.
 
 ## `ha.config.lovelace` — Lovelace dashboards (1 command)
@@ -290,14 +297,14 @@ missing `action` returns `INVALID_PARAM`.
 | `action`            | Params                                                                                                       | Notes |
 |---------------------|--------------------------------------------------------------------------------------------------------------|-------|
 | `get`               | `url_path?` (omit → default).                                                                                | WS `lovelace/config` with `{url_path}` in the payload when set. Returns `{url_path, config}`. |
-| `save`              | `config` (dict, required), `url_path?`, `proposal_id` (audit metadata only).                 | WS `lovelace/config/save`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `save`              | `config` (dict, required), `url_path?`, `proposal_id` (audit metadata only).                 | WS `lovelace/config/save`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 | `dashboards_list`   | —                                                                                                            | WS `lovelace/dashboards/list`. Returns `{count, dashboards}`. |
 | `resources_list`    | —                                                                                                            | WS `lovelace/resources`. Returns `{count, resources}`. |
-| `resources_create`  | `url` (required), `res_type` in {`module`,`css`,`js`,`html`}, `proposal_id` (audit metadata only). | WS `lovelace/resources/create`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `resources_create`  | `url` (required), `res_type` in {`module`,`css`,`js`,`html`}, `proposal_id` (audit metadata only). | WS `lovelace/resources/create`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 Guardrail: attempts to reach lovelace `.storage/` files via `fs.write` /
 `fs.patch` are refused with `STORAGE_READONLY`. Native config reads remain
-available; native mutations are currently unavailable as described above.
+available; native mutations need an approval marker as described above.
 
 ## `ha.config.automation` — Automations (1 command)
 
@@ -317,8 +324,8 @@ missing `action` returns `INVALID_PARAM`.
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
 | `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/automation/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (audit metadata only). | `POST /api/config/automation/config/<id>`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (audit metadata only).                           | `DELETE /api/config/automation/config/<id>`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (audit metadata only). | `POST /api/config/automation/config/<id>`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (audit metadata only).                           | `DELETE /api/config/automation/config/<id>`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 Future approved-mutation adapters will need to follow up with
 `ha.call_service` `automation` / `reload` to pick up the new config.
@@ -341,8 +348,8 @@ missing `action` returns `INVALID_PARAM`.
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
 | `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/script/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (audit metadata only). | `POST /api/config/script/config/<id>`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (audit metadata only).                           | `DELETE /api/config/script/config/<id>`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (audit metadata only). | `POST /api/config/script/config/<id>`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (audit metadata only).                           | `DELETE /api/config/script/config/<id>`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 Future approved-mutation adapters will need to follow up with
 `ha.call_service` `script` / `reload` to pick up the new config.
@@ -365,8 +372,8 @@ missing `action` returns `INVALID_PARAM`.
 | `action`   | Params                                                                                          | Notes |
 |------------|-------------------------------------------------------------------------------------------------|-------|
 | `get`      | `id` (required, HA slug: `^[a-z0-9_]+$`).                                                              | `GET /api/config/scene/config/<id>`. Returns `{id, config}`. |
-| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (audit metadata only). | `POST /api/config/scene/config/<id>`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (audit metadata only).                           | `DELETE /api/config/scene/config/<id>`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `save`     | `id` (required, HA slug: `^[a-z0-9_]+$`), `config` (dict, required), `proposal_id` (audit metadata only). | `POST /api/config/scene/config/<id>`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `delete`   | `id` (required, HA slug: `^[a-z0-9_]+$`), `proposal_id` (audit metadata only).                           | `DELETE /api/config/scene/config/<id>`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 Future approved-mutation adapters will need to follow up with
 `ha.call_service` `scene` / `reload` to pick up the new config.
@@ -393,9 +400,9 @@ not `entity_id`.
 | `action`   | Params                                                                                                            | Notes |
 |------------|-------------------------------------------------------------------------------------------------------------------|-------|
 | `list`     | `helper_type` (required).                                                                                         | WS `<helper_type>/list`. Returns `{helper_type, count, helpers}`. |
-| `create`   | `helper_type`, `attrs` (dict, required), `proposal_id` (audit metadata only).                     | WS `<helper_type>/create` with the `attrs` dict as payload. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `update`   | `helper_type`, `<helper_type>_id` (required), `attrs` (dict), `proposal_id`.                                      | WS `<helper_type>/update` with `{<helper_type>_id, **attrs}`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `delete`   | `helper_type`, `<helper_type>_id` (required), `proposal_id`.                                                      | WS `<helper_type>/delete` with `{<helper_type>_id}`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `create`   | `helper_type`, `attrs` (dict, required), `proposal_id` (audit metadata only).                     | WS `<helper_type>/create` with the `attrs` dict as payload. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `update`   | `helper_type`, `<helper_type>_id` (required), `attrs` (dict), `proposal_id`.                                      | WS `<helper_type>/update` with `{<helper_type>_id, **attrs}`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `delete`   | `helper_type`, `<helper_type>_id` (required), `proposal_id`.                                                      | WS `<helper_type>/delete` with `{<helper_type>_id}`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 ## `ha.config.area_registry` — Areas (1 command)
 
@@ -404,9 +411,9 @@ WS `config/area_registry/{list,create,update,delete}`.
 | `action`   | Params                                                                                | Notes |
 |------------|---------------------------------------------------------------------------------------|-------|
 | `list`     | —                                                                                     | Returns `{count, areas}`. |
-| `create`   | `name` (required), optional `attrs` (dict), `proposal_id`.                            | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `update`   | `area_id` (required), `attrs` (dict), `proposal_id`.                                  | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `delete`   | `area_id` (required), `proposal_id`.                                                  | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `create`   | `name` (required), optional `attrs` (dict), `proposal_id`.                            | **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `update`   | `area_id` (required), `attrs` (dict), `proposal_id`.                                  | **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `delete`   | `area_id` (required), `proposal_id`.                                                  | **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 ## `ha.config.device_registry` — Devices (1 command)
 
@@ -416,7 +423,7 @@ or delete for devices — they are populated by integrations.
 | `action`   | Params                                                                                | Notes |
 |------------|---------------------------------------------------------------------------------------|-------|
 | `list`     | `area_id?`, `config_entry_id?` (AND-combined, applied after the fetch).               | Returns `{count, devices}`; `count` is the filtered count. |
-| `update`   | `device_id` (required), `attrs` (dict), `proposal_id`.                                | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `update`   | `device_id` (required), `attrs` (dict), `proposal_id`.                                | **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 ## `ha.config.entity_registry` — Entities (1 command)
 
@@ -426,8 +433,8 @@ WS `config/entity_registry/{list,get,update,remove}`.
 |------------|---------------------------------------------------------------------------------------|-------|
 | `list`     | `domain?`, `platform?`, `area_id?`, `device_id?` (AND-combined, applied after the fetch). | Returns `{count, entities}`; `count` is the filtered count. |
 | `get`      | `entity_id` (required).                                                               | Returns `{entity_id, entity}`. |
-| `update`   | `entity_id`, `attrs` (dict), `proposal_id`.                                           | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `remove`   | `entity_id`, `proposal_id`.                                                           | **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
+| `update`   | `entity_id`, `attrs` (dict), `proposal_id`.                                           | **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `remove`   | `entity_id`, `proposal_id`.                                                           | **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
 
 ## `ha.config.config_entries` — Integrations (1 command)
 
@@ -437,15 +444,14 @@ register a separate `config_entries/enable` frame). Options flows are
 served by HTTP flow views (`/api/config/config_entries/options/flow/...`)
 and are not yet exposed by this command.
 
-Version-matched documentation checks remain planned along with the trusted
-approval bridge. All mutating actions are currently unavailable; no
-`docs_lookup` token or `proposal_id` can enable them.
+Version-matched documentation checks remain planned. All mutating actions need
+a native approval marker; no `docs_lookup` token or `proposal_id` can enable them.
 
 | `action`         | Params                                                                                | Notes |
 |------------------|---------------------------------------------------------------------------------------|-------|
 | `get`            | `entry_id` (required).                                                                | WS `config_entries/get_single`. Returns `{entry_id, entry}`. |
-| `disable`        | `entry_id`, `proposal_id`.                                                            | WS `config_entries/disable` with `{entry_id, disabled_by: "user"}`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** |
-| `enable`         | `entry_id`, `proposal_id`.                                                            | Routes to WS `config_entries/disable` with `{entry_id, disabled_by: null}`. **Unavailable: `PROPOSAL_REQUIRED`; no HA request.** HA has no separate `enable` frame. |
+| `disable`        | `entry_id`, `proposal_id`.                                                            | WS `config_entries/disable` with `{entry_id, disabled_by: "user"}`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** |
+| `enable`         | `entry_id`, `proposal_id`.                                                            | Routes to WS `config_entries/disable` with `{entry_id, disabled_by: null}`. **Needs approval marker; else `PROPOSAL_REQUIRED`, no HA request.** HA has no separate `enable` frame. |
 
 ## Planned (not yet registered)
 

@@ -20,7 +20,7 @@ Commands in this module:
 - ``ha.list_entity_registry`` — return all entity-registry entries.
 - ``ha.logbook``              — return logbook entries (optional entity + time window).
 - ``ha.history``              — return state history for entities (optional time window).
-- ``ha.reload_config``        — reload HA core config (operator-admin gated).
+- ``ha.reload_config``        — reload HA core config (native-approval gated).
 - ``ha.light_turn_on``        — turn on one or more lights (entity/area/device target).
 - ``ha.light_turn_off``       — turn off one or more lights.
 - ``ha.list_automations``     — list automation entities and optionally include traces.
@@ -39,21 +39,21 @@ Commands in this module:
 - ``ha.addon_update``         — update an explicitly allowlisted add-on to the latest available
   version (Tier B).
 - ``ha.update_install``       — install a pending update via HA's ``update.install`` service for
-  HACS integrations, HA core, add-ons, and any other ``update.*`` entity (Tier B admin).
+  HACS integrations, HA core, add-ons, and any other ``update.*`` entity (Tier B,
+  native-approval gated).
 """
 
 from __future__ import annotations
 
 import asyncio
 import fnmatch
-import hmac
 import logging
-import os
 import re
 from typing import Any, Final
 from urllib.parse import quote
 
 from openclaw_node.authz import normalise_service_code
+from openclaw_node.commands.config_mutation import APPROVAL_PARAM, consume_approval_marker
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST, _parse_string_list_env
 from openclaw_node.ha_client import (
@@ -123,6 +123,7 @@ _DOT_SEGMENTS: Final[frozenset[str]] = frozenset({".", ".."})
 
 _NO_KEYS: Final[frozenset[str]] = frozenset()
 _SLUG_KEYS: Final[frozenset[str]] = frozenset({"slug"})
+_LIFECYCLE_KEYS: Final[frozenset[str]] = frozenset({"slug", APPROVAL_PARAM})
 _GET_STATE_KEYS: Final[frozenset[str]] = frozenset({"entity_id"})
 _CORE_LOGS_KEYS: Final[frozenset[str]] = frozenset({"lines"})
 _ADDON_LOGS_KEYS: Final[frozenset[str]] = frozenset({"slug", "lines"})
@@ -136,9 +137,9 @@ _LIGHT_ON_KEYS: Final[frozenset[str]] = _LIGHT_TARGET_KEYS | {
     "transition",
 }
 _LIGHT_OFF_KEYS: Final[frozenset[str]] = _LIGHT_TARGET_KEYS | {"transition"}
-_RELOAD_CONFIG_KEYS: Final[frozenset[str]] = frozenset({"domain", "admin_token"})
+_RELOAD_CONFIG_KEYS: Final[frozenset[str]] = frozenset({"domain", APPROVAL_PARAM})
 _UPDATE_INSTALL_KEYS: Final[frozenset[str]] = frozenset(
-    {"entity_id", "backup", "version", "admin_token"}
+    {"entity_id", "backup", "version", APPROVAL_PARAM}
 )
 
 
@@ -933,13 +934,11 @@ async def handle_ha_history(params: dict[str, Any]) -> dict[str, Any]:
 async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     """Reload the Home Assistant core configuration.
 
-    This is an operator-admin action; the caller must supply a valid
-    ``OPENCLAW_ADMIN_TOKEN`` in the environment (same gate as ``system.run``).
+    A mutation: refused unless the call carries a valid native approval marker.
 
     Params:
         domain (str, optional): Must be ``"core"`` when supplied; omitting it is
             equivalent. Any other value is rejected.
-        admin_token (str): Operator admin token.
 
     Per-domain reload is deliberately not implemented. Each ``<domain>.reload``
     service is a distinct effect needing its own policy decision, which is Phase
@@ -947,16 +946,11 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
     a different reload. ``ha.call_service`` is not a way around this: ``*.reload``
     is on the interim denylist.
 
-    Unverified authorization: the ``OPENCLAW_ADMIN_TOKEN`` gate is not the
-    ratified authorization model. Admin ops move to operator approval; see
-    ``design/AUTHORIZATION-MODEL.md``.
+    Requires a valid native approval marker, see ``design/AUTHORIZATION-MODEL.md``.
 
     Returns:
         ``{ok: True, domain: "core"}`` on success or an error dict.
     """
-    denied = _admin_token_ok(params, "ha.reload_config")
-    if denied is not None:
-        return denied
     invalid = strict_keys_error(params, _RELOAD_CONFIG_KEYS)
     if invalid is not None:
         return invalid
@@ -973,6 +967,9 @@ async def handle_ha_reload_config(params: dict[str, Any]) -> dict[str, Any]:
                 f"implemented. Supply domain={_RELOAD_CORE_DOMAIN!r} or omit it.",
             )
 
+    denied = consume_approval_marker("ha.reload_config", "", params)
+    if denied is not None:
+        return denied
     try:
         await ha_post("/api/services/homeassistant/reload_core_config")
     except HAClientError as exc:
@@ -1318,17 +1315,6 @@ def _valid_addon_slug(slug: str) -> bool:
     return _ADDON_SLUG_RE.match(slug) is not None
 
 
-def _admin_token_ok(params: dict[str, Any], command: str) -> dict[str, Any] | None:
-    """Return an error dict when the OPENCLAW_ADMIN_TOKEN gate fails."""
-    required = os.environ.get("OPENCLAW_ADMIN_TOKEN", "")
-    if not required:
-        return _error("PERMISSION_DENIED", f"{command}: admin gate not configured")
-    caller = str(params.get("admin_token", ""))
-    if not hmac.compare_digest(caller.encode(), required.encode()):
-        return _error("PERMISSION_DENIED", f"{command} requires operator admin token")
-    return None
-
-
 def _parse_slug_env(name: str, *, default: frozenset[str] = frozenset()) -> frozenset[str]:
     """Parse lifecycle slug env values using the shared config parser."""
     parsed = _parse_string_list_env(name, default=tuple(sorted(default)))
@@ -1371,7 +1357,8 @@ async def _handle_addon_lifecycle(
     Authorization: the request is already authenticated by the local API
     bearer (the established pairing session). Tier B further requires the
     slug to be present in ``addon_lifecycle.allowlist`` (and not in any
-    denylist / not a core add-on). No separate admin token is required.
+    denylist / not a core add-on); only then is the native approval marker
+    checked, so a policy refusal never consumes an approval.
     """
     slug = str(params.get("slug", "")).strip()
     if not slug:
@@ -1381,9 +1368,12 @@ async def _handle_addon_lifecycle(
     policy_error = _addon_lifecycle_policy_error(slug)
     if policy_error is not None:
         return policy_error
-    invalid = strict_keys_error(params, _SLUG_KEYS)
+    invalid = strict_keys_error(params, _LIFECYCLE_KEYS)
     if invalid is not None:
         return invalid
+    denied = consume_approval_marker(command, "", params)
+    if denied is not None:
+        return denied
 
     try:
         before = await _addon_state(slug)
@@ -1887,8 +1877,8 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
     and is distinct from ``ha.addon_update``, which targets Supervisor add-ons
     directly via the Supervisor API (slug-based, allowlist-gated).
 
-    Tier B admin — requires ``OPENCLAW_ADMIN_TOKEN`` (same gate as
-    ``ha.reload_config``).
+    Tier B admin — refused unless the call carries a valid native approval
+    marker (same gate as ``ha.reload_config``).
 
     Params:
         entity_id (str): Required; the ``update.*`` entity to install, e.g.
@@ -1899,14 +1889,10 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
             provided).
         version (str, optional): Specific version to install.  Defaults to
             the latest available version.
-        admin_token (str): Required; must match ``OPENCLAW_ADMIN_TOKEN``.
 
     Returns:
         ``{ok: True, entity_id, changed_states}`` or an error dict.
     """
-    denied = _admin_token_ok(params, "ha.update_install")
-    if denied is not None:
-        return denied
     invalid = strict_keys_error(params, _UPDATE_INSTALL_KEYS)
     if invalid is not None:
         return invalid
@@ -1930,6 +1916,9 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
     if version is not None:
         data["version"] = str(version)
 
+    denied = consume_approval_marker("ha.update_install", "", params)
+    if denied is not None:
+        return denied
     _LOG.warning("Tier B ha.update_install invoked for entity_id=%s", entity_id)
     try:
         result = await ha_post("/api/services/update/install", data)

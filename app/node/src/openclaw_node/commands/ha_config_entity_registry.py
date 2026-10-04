@@ -2,9 +2,9 @@
 
 WS: ``config/entity_registry/{list,get,update,remove}``.
 
-Mutations currently fail closed with ``PROPOSAL_REQUIRED``: no caller-supplied
-``proposal_id`` can authorize a mutation. The retained API adapters are dormant
-until a trusted approval verifier and human approval round-trip are implemented.
+Mutations require a valid native approval marker (see
+:mod:`openclaw_node.commands.config_mutation`); without one they return
+``PROPOSAL_REQUIRED``. ``proposal_id`` is audit metadata and never authorizes.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Final
 
-from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.config_mutation import consume_approval_marker
 from openclaw_node.commands.ha import (
     ENTITY_REGISTRY_FILTERS,
     filter_entity_registry,
@@ -29,8 +29,8 @@ _ACTIONS: Final[frozenset[str]] = frozenset({"list", "get", "update", "remove"})
 _ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
     "list": frozenset({"action", *ENTITY_REGISTRY_FILTERS}),
     "get": frozenset({"action", "entity_id"}),
-    "update": frozenset({"action", "entity_id", "attrs", "proposal_id"}),
-    "remove": frozenset({"action", "entity_id", "proposal_id"}),
+    "update": frozenset({"action", "entity_id", "attrs", "proposal_id", "_openclaw_approval"}),
+    "remove": frozenset({"action", "entity_id", "proposal_id", "_openclaw_approval"}),
 }
 
 
@@ -98,7 +98,7 @@ async def handle_ha_config_entity_registry(params: dict[str, Any]) -> dict[str, 
         return {"ok": True, "count": len(entities), "entities": entities}
 
     if action in {"update", "remove"}:
-        denied = require_config_mutation_approval("ha.config.entity_registry", action)
+        denied = consume_approval_marker("ha.config.entity_registry", action, params)
         if denied is not None:
             return denied
 
@@ -115,15 +115,15 @@ async def handle_ha_config_entity_registry(params: dict[str, Any]) -> dict[str, 
             return _error("HA_BAD_RESPONSE", "Expected dict from config/entity_registry/get")
         return {"ok": True, "entity_id": entity_id, "entity": result}
 
-    proposal_id = str(params["proposal_id"]).strip()
-
     if action == "update":
         attrs = params.get("attrs")
         if not isinstance(attrs, dict):
             return _error("MISSING_PARAM", "attrs must be a dict and is required")
         payload = {"entity_id": entity_id, **attrs}
         _LOG.warning(
-            "ha.config.entity_registry update entity=%s proposal=%s", entity_id, proposal_id
+            "ha.config.entity_registry update entity=%s proposal=%r",
+            entity_id,
+            params.get("proposal_id"),
         )
         try:
             result = await ha_ws_call("config/entity_registry/update", payload)
@@ -132,14 +132,17 @@ async def handle_ha_config_entity_registry(params: dict[str, Any]) -> dict[str, 
         return {
             "ok": True,
             "entity_id": entity_id,
-            "proposal_id": proposal_id,
             "entity": result,
         }
 
     # remove
-    _LOG.warning("ha.config.entity_registry remove entity=%s proposal=%s", entity_id, proposal_id)
+    _LOG.warning(
+        "ha.config.entity_registry remove entity=%s proposal=%r",
+        entity_id,
+        params.get("proposal_id"),
+    )
     try:
         await ha_ws_call("config/entity_registry/remove", {"entity_id": entity_id})
     except HAClientError as exc:
         return _to_error(exc)
-    return {"ok": True, "entity_id": entity_id, "proposal_id": proposal_id}
+    return {"ok": True, "entity_id": entity_id}

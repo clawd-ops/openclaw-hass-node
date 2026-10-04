@@ -42,7 +42,7 @@ No bespoke gateway server, no parallel brain. The node is a standard OpenClaw no
 These are the rules that surprise people. Front-loaded so you don't break them.
 
 - **Dual-role WS pairing.** The node holds two parallel gateway connections: `role: node` (for `node.invoke.*`) and `role: operator` (for `chat.send` + `sessions.messages.subscribe`). Gateway role policy is binary per-method; `chat.send` is operator-scope. There is no `node.chat.send`.
-- **`/config` mutations fail closed.** `fs.move`, `fs.delete`, and the `ha.config.*` mutations return `PROPOSAL_REQUIRED` today. The ratified approval model uses the Gateway's native OpenClaw approvals, not agent-bridge; it is not implemented yet (TODO #20, advances #275 and #289). See [`design/AUTHORIZATION-MODEL.md`](design/AUTHORIZATION-MODEL.md).
+- **`/config` mutations fail closed.** `fs.move`, `fs.delete`, and the `ha.config.*` mutations return `PROPOSAL_REQUIRED` unless they carry a native approval marker minted by the plugin hook. The ratified approval model uses the Gateway's native OpenClaw approvals, not agent-bridge (TODO #20, advances #275 and #289). See [`design/AUTHORIZATION-MODEL.md`](design/AUTHORIZATION-MODEL.md).
 - **`.storage/` is read-only to the node.** Hard rule. The command layer refuses writes unconditionally; no caller parameter or proposal overrides it.
 - **HA URL is hard-pinned to `http://supervisor/core`** when `SUPERVISOR_TOKEN` is present, so a user-supplied `HASS_URL` never receives the privileged Supervisor token.
 - **Actor signing is derived from `local_api_token`** via HMAC label `openclaw-hass-node actor-signing v1`. There is no separate `actor_secret`.

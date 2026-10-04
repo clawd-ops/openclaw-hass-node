@@ -1,31 +1,195 @@
-"""Interim fail-closed boundary for HA-native configuration mutations.
+"""Fail-closed boundary for HA-native configuration mutations.
 
 Proposal identifiers supplied by a caller are audit metadata, not proof of
-approval. There is deliberately no bypass, token comparison, or approval
-lookup here: the trusted approval verifier and human round-trip do not exist
-yet. Re-enabling mutations requires that implementation, not a params flag.
+approval. Every mutation (each mutating ``ha.config.*`` action and each
+protected ``fs.*`` write) calls :func:`consume_approval_marker` or
+:func:`approval_checker` and is refused with ``PROPOSAL_REQUIRED`` unless it
+carries a valid native approval marker. The marker is minted by the gateway
+plugin's ``before_tool_call`` hook when it requests approval; OpenClaw applies it
+only after the approval succeeds. See
+``docs/design/AUTHORIZATION-MODEL.md`` for the trust model and its known gap.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import hashlib
+import json
+import math
+import time
+from collections.abc import Callable
+from decimal import Decimal
+from typing import Any, Final
+
+#: Reserved invoke param carrying the approval marker. Never reaches HA.
+APPROVAL_PARAM: Final[str] = "_openclaw_approval"
+_RESERVED: Final[frozenset[str]] = frozenset({APPROVAL_PARAM, "_openclaw_caller"})
+
+# Marker id -> expiry (epoch seconds). Process-local: a node restart forgets ids,
+# which is safe because markers live at most a few minutes and the expiry check
+# still applies.
+_USED_IDS: dict[str, int] = {}
 
 
-def require_config_mutation_approval(command: str, action: str) -> dict[str, Any] | None:
-    """Refuse a configuration mutation until trusted approval is implemented.
+def approval_bind(command: str, action: str, params: dict[str, Any]) -> str:
+    """Digest binding an approval to one exact call.
+
+    The plugin computes the same value: sha256 hex of canonical JSON (sorted
+    keys, no whitespace, UTF-8, non-ASCII kept, numbers as ECMAScript prints
+    them) of ``{command, action, params}`` with reserved fields removed from
+    ``params``.
+    """
+    body = {k: v for k, v in params.items() if k not in _RESERVED}
+    canonical = _canonical({"command": command, "action": action, "params": body})
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _es_number(value: float) -> str:
+    """Format a float exactly like ECMAScript ``Number.prototype.toString``."""
+    if not math.isfinite(value):
+        return "null"  # JSON.stringify renders NaN and Infinity as null
+    if value == 0:
+        return "0"
+    sign, raw_digits, exponent = Decimal(repr(value)).as_tuple()
+    digits = "".join(map(str, raw_digits)).rstrip("0")
+    k = len(digits)
+    n = len(raw_digits) + int(exponent)  # decimal point position relative to digits
+    if k <= n <= 21:
+        body = digits + "0" * (n - k)
+    elif 0 < n <= 21:
+        body = digits[:n] + "." + digits[n:]
+    elif -6 < n <= 0:
+        body = "0." + "0" * -n + digits
+    else:
+        tail = "." + digits[1:] if k > 1 else ""
+        body = f"{digits[0]}{tail}e{'+' if n > 0 else '-'}{abs(n - 1)}"
+    return ("-" if sign else "") + body
+
+
+def _utf16_key(key: str) -> bytes:
+    """Sort key matching JS ``Array.prototype.sort`` (UTF-16 code units)."""
+    return key.encode("utf-16-be", "surrogatepass")
+
+
+_ES_ESCAPES: Final[dict[str, str]] = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+
+
+def _es_string(value: str) -> str:
+    r"""Serialize a string exactly like well-formed ECMAScript ``JSON.stringify``.
+
+    Control characters and lone surrogates become lowercase ``\uXXXX``; every
+    other character is emitted literally, so the result is always valid UTF-8.
+    """
+    out = ['"']
+    for ch in value:
+        code = ord(ch)
+        if ch in _ES_ESCAPES:
+            out.append(_ES_ESCAPES[ch])
+        elif code < 0x20 or 0xD800 <= code <= 0xDFFF:
+            out.append(f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    out.append('"')
+    return "".join(out)
+
+
+def _canonical(value: Any) -> str:
+    """Canonical JSON: keys sorted by UTF-16 code unit, no whitespace, ES numbers."""
+    if isinstance(value, dict):
+        items = ",".join(
+            f"{_es_string(k)}:{_canonical(value[k])}" for k in sorted(value, key=_utf16_key)
+        )
+        return "{" + items + "}"
+    if isinstance(value, list):
+        return "[" + ",".join(_canonical(v) for v in value) + "]"
+    if isinstance(value, str):
+        return _es_string(value)
+    if isinstance(value, bool) or value is None:
+        return json.dumps(value)
+    if isinstance(value, int):
+        return str(value)
+    return _es_number(value)
+
+
+def _refusal(code: str, message: str) -> dict[str, Any]:
+    return {"ok": False, "error": code, "message": message}
+
+
+def consume_approval_marker(
+    command: str, action: str, params: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Verify and consume the approval marker; return ``None`` when it authorizes the call.
+
+    Pops the reserved field from ``params`` on every path so it can never be
+    forwarded. A missing marker yields ``PROPOSAL_REQUIRED`` (unchanged); a
+    malformed, expired, mismatched, or already-used marker yields
+    ``APPROVAL_INVALID``. Refusals happen before any Home Assistant request.
+    """
+    if APPROVAL_PARAM not in params:
+        return require_config_mutation_approval(command, action)
+    marker = params.pop(APPROVAL_PARAM)
+    if not (
+        isinstance(marker, dict)
+        and set(marker) == {"id", "exp", "bind"}
+        and isinstance(marker["id"], str)
+        and marker["id"]
+        and type(marker["exp"]) is int
+        and isinstance(marker["bind"], str)
+    ):
+        return _refusal("APPROVAL_INVALID", "approval marker is malformed")
+    now = time.time()
+    for used_id, used_exp in list(_USED_IDS.items()):
+        if used_exp < now:
+            del _USED_IDS[used_id]
+    if marker["exp"] < now:
+        return _refusal("APPROVAL_INVALID", "approval marker has expired")
+    if marker["bind"] != approval_bind(command, action, params):
+        return _refusal("APPROVAL_INVALID", "approval marker does not match this call")
+    if marker["id"] in _USED_IDS:
+        return _refusal("APPROVAL_INVALID", "approval marker was already used")
+    _USED_IDS[marker["id"]] = marker["exp"]
+    return None
+
+
+def approval_checker(command: str, params: dict[str, Any]) -> Callable[[], dict[str, Any] | None]:
+    """Return a one-shot check for handlers that gate only some paths.
+
+    The first call verifies and consumes the marker (action is ``""``: ``fs.*``
+    commands have none); later calls repeat that result, so a handler with
+    several protected-path checks never consumes the single-use marker twice.
+    """
+    result: list[dict[str, Any] | None] = []
+
+    def check() -> dict[str, Any] | None:
+        if not result:
+            result.append(consume_approval_marker(command, "", params))
+        return result[0]
+
+    return check
+
+
+def require_config_mutation_approval(command: str, action: str) -> dict[str, Any]:
+    """Refuse a mutation that carries no approval marker.
 
     Args:
-        command: Registered HA configuration command name.
-        action: Validated action requested by the caller.
+        command: Registered command name.
+        action: Validated action requested by the caller (``""`` when none).
 
     Returns:
-        A fail-closed error without performing any Home Assistant request.
+        A ``PROPOSAL_REQUIRED`` error; no request is made.
     """
+    target = f"{command} action={action}" if action else command
     return {
         "ok": False,
         "error": "PROPOSAL_REQUIRED",
         "message": (
-            f"{command} action={action}: mutation unavailable until a trusted "
-            "approval verifier is implemented; proposal_id alone is not authorization"
+            f"{target}: mutation requires native approval; proposal_id alone is not authorization"
         ),
     }

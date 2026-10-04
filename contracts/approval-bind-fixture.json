@@ -1,0 +1,241 @@
+{
+  "comment": "Shared cross-language fixture: sha256 hex of canonical JSON (sorted keys, no whitespace, UTF-8) of {command, action, params} with reserved fields (_openclaw_approval, _openclaw_caller) removed from params. Read by the Python node tests and the TypeScript plugin tests.",
+  "cases": [
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "morning",
+        "config": {
+          "alias": "Morning",
+          "trigger": [
+            {
+              "platform": "time",
+              "at": "07:00:00"
+            }
+          ],
+          "mode": "single"
+        }
+      },
+      "bind": "c224dc67c524739fec2428d5e5c1f4e71fe49a0019f1faa60f1e2cb8fc498a09"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "config": {
+          "z": 1,
+          "a": [
+            1,
+            2,
+            {
+              "b": null,
+              "a": true
+            }
+          ],
+          "n": 0.5
+        },
+        "id": "x_1",
+        "action": "save"
+      },
+      "bind": "18c8982a16c36d1d3ef659330762a6175a66706ac20924f70f045905f6c42276"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "u",
+        "config": {
+          "alias": "Café ☃ \"quoted\" \\ slash"
+        }
+      },
+      "bind": "70b0ffeb05aeea7e48164c62c8e33e875f4b0bf49fd4dc1e822480a2131500b4"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "morning",
+        "config": {
+          "alias": "Morning"
+        },
+        "_openclaw_approval": {
+          "id": "i",
+          "exp": 1,
+          "bind": "b"
+        },
+        "_openclaw_caller": {
+          "sessionKey": "s"
+        }
+      },
+      "bind": "a99787d648949a8bd59e12f86eb00a61aae6cd8dd769d432349e6d9b8045a469"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 0.000001
+        }
+      },
+      "bind": "b949d2de01d1f2880039c42fc262dd47e297a79c48844f50c48ca9ce38cabf20"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 1e-7
+        }
+      },
+      "bind": "c31e482a7175ac36627c9adbdf67f8d44a5f2d84103dc1f9894144614652f7d1"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 1.5e-7
+        }
+      },
+      "bind": "09a3c9a8d9332d43347e3e327ab5f59eea15bc9d07f7dcd3ee2b8c9b0d69e4bb"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 123456789012345680000
+        }
+      },
+      "bind": "4bfd25c2e6358e114490f0b7fc25790f282c13dd4c07aa727d4629aaacd7caf6"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 1e+21
+        }
+      },
+      "bind": "de4e63f3374fde0265f277940c421ac104cf326042a251ca78e547497b932cbe"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 1.5e+21
+        }
+      },
+      "bind": "cdcb1a7112c9ffc84e8c40e5ab67b288b24d08b35cbade58d9da6e57d004646a"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 0
+        }
+      },
+      "bind": "60ddb439bb345744f9c83e1dfc0f887faba38e7c907731f39ae8732110a9cdf2"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 0
+        }
+      },
+      "bind": "60ddb439bb345744f9c83e1dfc0f887faba38e7c907731f39ae8732110a9cdf2"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": 0.30000000000000004
+        }
+      },
+      "bind": "5e69ee4ae8e3f86eb9027224c5f5e0fa161dab27f8123c959fc1bba7be556ece"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "v": [
+            0,
+            1,
+            -5,
+            100,
+            2.5,
+            100,
+            9007199254740991
+          ]
+        }
+      },
+      "bind": "d26e164410f6cc0d9620f5cd7adaf83a02de47aeb5563a92530cc826fe7e62c5"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "n",
+        "config": {
+          "b": {
+            "d": [
+              {
+                "y": 1e-9,
+                "x": []
+              }
+            ],
+            "a": {}
+          },
+          "a": "ünï ☃ 😀",
+          "c": -1.5e-10
+        }
+      },
+      "bind": "7aff8f9961edff954ff71974349b9d6c37dea51b1a2b78724c3a1630e0b0a6de"
+    },
+    {
+      "command": "ha.config.automation",
+      "action": "save",
+      "params": {
+        "action": "save",
+        "id": "k",
+        "config": {
+          "～": 1,
+          "😀": 2,
+          "a": 3
+        }
+      },
+      "bind": "a557da7907fdac49ad814e3a5648f04aac295682e228273f5b87eaea1db25002"
+    }
+  ]
+}

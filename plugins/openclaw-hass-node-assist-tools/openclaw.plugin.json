@@ -44,24 +44,6 @@
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {
-      "nodes": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "allowAdminOps": {
-              "type": "boolean",
-              "description": "Tier B gate. Must be true for lifecycle ops (addon_start/stop/restart/update) and admin ops (reload_config/update_install). Lifecycle ops use pairing auth + slug policy; admin ops additionally require adminToken."
-            },
-            "adminToken": {
-              "type": "string",
-              "description": "Admin token forwarded for ha.reload_config and ha.update_install. Must match the addon's OPENCLAW_ADMIN_TOKEN. Not required for lifecycle ops (addon_start/stop/restart/update)."
-            }
-          }
-        }
-      }
-    }
+    "properties": {}
   }
 }

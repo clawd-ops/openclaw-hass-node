@@ -74,8 +74,9 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   defeat them.
 - Commands: `fs.read`, `fs.list`, `fs.stat`, `fs.glob`, `system.run`,
   `system.which`. Writes (`fs.write`, `fs.move`, `fs.delete`, `fs.restore`,
-  `fs.patch`) fail closed with `PROPOSAL_REQUIRED` for protected roots today.
-  The target is the native OpenClaw plugin-approval path, with the node
+  `fs.patch`) need a native approval marker for protected roots and otherwise
+  fail closed with `PROPOSAL_REQUIRED`. The target is the native OpenClaw
+  plugin-approval path, with the node
   enforcing trusted principal context, per-effect policy, and preconditions
   before applying an accepted operation. See
   [Authorization model](AUTHORIZATION-MODEL.md).
@@ -92,8 +93,7 @@ running standalone, `HASS_URL` + `HASS_TOKEN` env vars are used instead.
   the allowed roots; cross-checks argv / cwd / commandText / agentId /
   sessionKey against the stored plan; and rejects credential-shaped env keys
   before execution. Timeout is read from `timeoutMs` (native wire); the
-  successful payload uses `success`/`exitCode`/`timedOut`. The inert
-  `OPENCLAW_ADMIN_TOKEN` gate has been removed. See
+  successful payload uses `success`/`exitCode`/`timedOut`. See
   [Authorization model](AUTHORIZATION-MODEL.md).
 - Supervisor API access uses `SUPERVISOR_TOKEN` against
   `http://supervisor/...`. Today this is exposed through the
@@ -272,18 +272,17 @@ fits. The node carries no model knowledge.
 ## Mutation control (native OpenClaw approval)
 
 **HA-native config containment (released in `2026.9.13b1`, not yet
-live-verified):** all mutating `ha.config.*` actions now return
+live-verified):** all mutating `ha.config.*` actions return
 `PROPOSAL_REQUIRED` before any HA request, including when a caller supplies a
-nonempty proposal identifier or claims approval. The shared boundary has no
-caller-controlled bypass. Existing native API adapters are retained but dormant
-until a trusted, operation-bound verifier and human approval round-trip is
-implemented. Config reads and light control are unchanged. This is not
-completion of the target mutation flow below.
+nonempty proposal identifier or claims approval. At source they now run only
+with a native approval marker minted by the plugin hook after an operator
+approves the exact call (see `AUTHORIZATION-MODEL.md`). Config reads and light
+control are unchanged.
 
-> **Status: partially shipped.** Today the write handlers
+> **Status: partially shipped.** The write handlers
 > (`fs_write.py`, `fs_patch.py`, `fs_move_delete.py`) return
-> `PROPOSAL_REQUIRED` for protected roots or when `agent_bridge=true`.
-> They do **not** yet consume a native plugin approval. The historical
+> `PROPOSAL_REQUIRED` for protected roots or when `agent_bridge=true`, unless
+> the call carries a valid native approval marker. The historical
 > `propose_edit` / `resolve_proposal` design is superseded and is not the target
 > end state.
 

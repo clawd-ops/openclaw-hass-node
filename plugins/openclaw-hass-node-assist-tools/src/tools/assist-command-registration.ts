@@ -175,7 +175,7 @@ function resolveDescriptor(name: string): AssistToolDescriptor {
 }
 
 const ALLOWED_TRANSFORMS = new Set(["wrap_array", "alias_merge"]);
-const ALLOWED_INJECTED_SOURCES = new Set(["$policy.adminToken"]);
+const ALLOWED_INJECTED_SOURCES = new Set<string>();
 const ALLOWED_CLIENT_SIDE_BEHAVIORS = new Set(["glob_filter_result_by_entity_id"]);
 
 function parseSourceToolKeys(source: string): string[] {

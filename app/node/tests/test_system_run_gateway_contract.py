@@ -174,7 +174,7 @@ async def test_cwd_diverging_from_stored_plan_is_refused() -> None:
 
 async def test_env_credential_shaped_key_is_refused() -> None:
     frame = await _invoke(
-        _authorized_params(env={"OPENCLAW_ADMIN_TOKEN": "please"}),
+        _authorized_params(env={"API_KEY": "please"}),
     )
     assert frame["ok"] is False
     assert frame["error"]["code"] == "INVALID_PARAM"

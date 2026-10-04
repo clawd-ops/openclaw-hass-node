@@ -23,4 +23,4 @@
 - [invokeHaCommand](functions/invokeHaCommand.md)
 - [readGatewayCallOptions](functions/readGatewayCallOptions.md)
 - [readTrimmedString](functions/readTrimmedString.md)
-- [resolveNodeAndPolicy](functions/resolveNodeAndPolicy.md)
+- [resolveNode](functions/resolveNode.md)

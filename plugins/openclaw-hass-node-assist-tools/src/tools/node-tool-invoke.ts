@@ -9,9 +9,7 @@ import {
   resolveNodeIdFromList,
   type NodeListNode,
 } from "openclaw/plugin-sdk/agent-harness-runtime";
-import { resolvePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
 import { CALLER_PARAM, readAssistSessionKey } from "../shared/caller-context.js";
-import { readPerNodePolicy, type PerNodePolicy } from "../shared/per-node-policy.js";
 
 export const PLUGIN_ID = "openclaw-hass-node-assist-tools";
 
@@ -53,10 +51,9 @@ function rejectFailure(value: unknown): void {
 export type ResolvedNode = {
   nodeId: string;
   nodeDisplayName: string;
-  policy: PerNodePolicy | undefined;
 };
 
-export async function resolveNodeAndPolicy(input: {
+export async function resolveNode(input: {
   nodeIdentifier: string;
   gatewayOpts: Record<string, unknown>;
 }): Promise<ResolvedNode> {
@@ -70,14 +67,7 @@ export async function resolveNodeAndPolicy(input: {
   const nodeMeta = nodes.find((n) => n.nodeId === nodeId);
   const nodeDisplayName = nodeMeta?.displayName ?? input.nodeIdentifier;
 
-  const configResult = await callGatewayTool<{ payload?: unknown }>("config.get", input.gatewayOpts, {});
-  const pluginConfig = resolvePluginConfigObject(configResult?.payload, PLUGIN_ID);
-  // Authorization resolves by canonical node ID only. `input.nodeIdentifier`
-  // is a caller-supplied selector (alias or display name) and must not choose
-  // the policy entry. See readPerNodePolicy and #322.
-  const policy = readPerNodePolicy(pluginConfig, nodeId);
-
-  return { nodeId, nodeDisplayName, policy };
+  return { nodeId, nodeDisplayName };
 }
 
 export async function invokeHaCommand<T = unknown>(input: {
