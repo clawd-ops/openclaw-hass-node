@@ -160,7 +160,7 @@ to users in places `docs/` cannot reach and have to stay in sync.
 | Changed a Tier boundary | [`design/COMMAND-TIERS.md`](design/COMMAND-TIERS.md). Then audit [`design/IDENTITY-AND-SCOPES.md`](design/IDENTITY-AND-SCOPES.md) rules. |
 | Shipped a feature that closes a TODO item | Mark the item in [`TODO.md`](TODO.md); update [`STATUS.md`](STATUS.md) and [`INSTALL.md`](INSTALL.md) if user-visible. |
 | Wrote a useful postmortem | [`operations/LESSONS.md`](operations/LESSONS.md) (append). |
-| Hit a question that needs Rob | Open a TODO item in [`TODO.md`](TODO.md). |
+| Hit a question that needs the owner | Open a TODO item in [`TODO.md`](TODO.md). |
 | Changed CI / quality gates | [`operations/QUALITY.md`](operations/QUALITY.md) (gates) + [`CONTRIBUTING.md`](CONTRIBUTING.md) (if workflow changes). |
 | Changed the release pipeline | [`operations/RELEASE.md`](operations/RELEASE.md). |
 | Changed the addon `map:` or volume layout | [`design/PLAN.md`](design/PLAN.md). |

@@ -23,7 +23,7 @@ Earlier iterations of this design got two things wrong:
    `Brain`, providers, and pairing protocol. That work duplicated
    functionality OpenClaw already provides. It still lives as a
    reference for third-party users who don't run OpenClaw, but it is
-   **not the path Rob's deployment uses**.
+   **not the path the owner's deployment uses**.
 2. **Invented a `node.conversation.request` event type** on the WS
    between node and gateway. This was unnecessary — the OpenClaw
    Gateway Protocol already exposes `chat.send` / `sessions.send` /

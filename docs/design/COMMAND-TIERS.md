@@ -70,7 +70,7 @@ Decide before iterating on `ha.addon_info`.
 
 ## Tier B — lifecycle + admin, NEVER on the subagent allowlist
 
-Reserved for the primary agent or Rob himself. Tier B has two
+Reserved for the primary agent or the owner. Tier B has two
 authorization levels (#262 reconciliation). Neither uses an add-on admin
 token; see [Authorization model](AUTHORIZATION-MODEL.md).
 

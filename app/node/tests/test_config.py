@@ -33,8 +33,8 @@ def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
     """Identity env values parse into typed config."""
     monkeypatch.setenv("SUPERVISOR_TOKEN", "supervisor-token")
-    monkeypatch.setenv("OPENCLAW_IDENTITY_SUPER_ADMINS", '["rob"]')
-    monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", '{"ash":"my-agent-household"}')
+    monkeypatch.setenv("OPENCLAW_IDENTITY_SUPER_ADMINS", '["admin1"]')
+    monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", '{"user1":"my-agent-household"}')
     monkeypatch.setenv("OPENCLAW_IDENTITY_DEFAULT_AGENT_ID", "my-agent")
     monkeypatch.setenv(
         "OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS",
@@ -45,8 +45,8 @@ def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
 
     config = load_config()
 
-    assert config.identity.super_admins == frozenset({"rob"})
-    assert config.identity.user_agent_map == {"ash": "my-agent-household"}
+    assert config.identity.super_admins == frozenset({"admin1"})
+    assert config.identity.user_agent_map == {"user1": "my-agent-household"}
     assert config.identity.default_agent_id == "my-agent"
     assert config.identity.forbidden_commands["user"].add == frozenset(
         {"ha.call_service:lock.unlock"}

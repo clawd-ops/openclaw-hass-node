@@ -8,7 +8,7 @@ Supersedes (historical reference only; the in-repo handoff files were
 deleted in PR #150, workspace-side originals remain on disk):
 - `docs/HANDOFF-2026-06-20-streaming-followups.md` (deleted)
 - `docs/HANDOFF-2026-06-20-addon-command-surface.md` (deleted)
-- `docs/QUESTIONS-FOR-ROB.md` (deleted in Phase 2 doc reshape; Q1/Q2 carried below)
+- `docs/QUESTIONS-FOR-OWNER.md` (deleted in Phase 2 doc reshape; Q1/Q2 carried below)
 - `~/.openclaw/workspace/handoffs/2026-06-20-ha-assist-followups.md`
 - `~/.openclaw/workspace/handoffs/2026-06-20-MASTER-todo.md` (this file's original location)
 
@@ -22,7 +22,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 7. Issue triage automation
 - Status: OPEN (design)
-- Read-only triage first; write actions (label, comment, close) behind allowlist. Hard stop before close/merge without Rob's explicit approval.
+- Read-only triage first; write actions (label, comment, close) behind allowlist. Hard stop before close/merge without the owner's explicit approval.
 - Shares ingress with item 13 (github-bridge).
 
 ### 11. Sunset HA MCP → node-tool path with software-blocked read-only guards
@@ -51,14 +51,14 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 13. Proactive GitHub event notifications to the agent
 - Status: OPEN (design)
 - Webhook bridge GitHub → OpenClaw (github-bridge plugin, following pocket/linear/agentmail pattern). Events: PR opened/synchronized/closed, check_suite completed, pull_request_review submitted, issues opened/labeled.
-- Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on Rob's gateway-flip approval.
+- Cross-link: item 7 shares ingress; CLW-47 github-bridge plugin in `open-loops.md` is already partly scoped but currently BLOCKED on the owner's gateway-flip approval.
 
 ### 17. Open GitHub issues (not otherwise tracked above)
 - Status: OPEN
-- #1 — Direction (catch-all, leave for Rob).
+- #1 — Direction (catch-all, leave for the owner).
 - #347 — Assist unqualified session key on multi-agent gateways: code, spec,
   config comment and startup log fixed (#351); tests now pin that the key owner
-  equals the `chat.send` agent. Remains open pending Rob's confirmation.
+  equals the `chat.send` agent. Remains open pending the owner's confirmation.
 - Recently closed issues formerly listed here are now recorded in the closed
   section below so this rollup only names live GitHub issues.
 
@@ -127,7 +127,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 32. Config option to show/hide tool usage in HA Assist
 - Status: OPEN
-- Requested: 2026-06-28 by Rob.
+- Requested: 2026-06-28 by the owner.
 - Goal: addon option `show_tool_progress: true|false` (default `true`). When `false`, the relay skips emitting `🔧 Calling X...` deltas entirely (both the plain-text immediate path and the `ToolProgressFrame` cap path). Lets users who want a quieter HA Assist UX suppress the per-tool progress lines without needing a different cap.
 - Scope: `app/config.yaml` schema entry + relay check in `handle_event` before the queue push. Default `true` preserves current behavior.
 
@@ -163,7 +163,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 38. Durable Assist transcript / resume UI
 - Status: OPEN (design) — captured 2026-07-02 from HA Assist UX feedback.
-- Problem: long OpenClaw Assist outputs are fragile in the stock HA Assist popup. Rob reports that trying to scroll to the top of a long output can close the chat, and reopening through HA starts a fresh visible chat with no prior UI context.
+- Problem: long OpenClaw Assist outputs are fragile in the stock HA Assist popup. The owner reports that trying to scroll to the top of a long output can close the chat, and reopening through HA starts a fresh visible chat with no prior UI context.
 - Direction: use the already-planned add-on ingress GUI surface instead of relying on HA Assist as the only transcript surface. HA Assist remains the quick command/voice entry point; the OpenClaw panel becomes the durable place to read, scroll, resume, and inspect long turns.
 - Scope:
   1. Persist recent Assist turn metadata and transcript chunks by HA `conversation_id` / gateway session key, with bounded retention and no secrets in logs.
@@ -217,7 +217,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 
 ### 2. Real per-tool progress events
 - Status: CLOSED 2026-06-20 (verified end-to-end on b6)
-- PRs #143 (tool capture + relay branch) → #147 (forward `agent` events through the WS dispatch filter) → #149 sync → b6 release. Rob's screenshot confirmed `🔧 Calling Bash...` mid-stream on a tool-heavy HA Assist turn.
+- PRs #143 (tool capture + relay branch) → #147 (forward `agent` events through the WS dispatch filter) → #149 sync → b6 release. The owner's screenshot confirmed `🔧 Calling Bash...` mid-stream on a tool-heavy HA Assist turn.
 - Out of scope this round: multi-tool turns only label the first visible delta. Considered for a v2 with proper ephemeral status frames + HACS integration change.
 - Cross-link: item 8 partially addressed — when the model fakes a wait without a tool call, the user now sees the generic `Working on it...` instead of a tool name, which is a visible tell. Root-cause fix is still prompt-side.
 
@@ -231,8 +231,8 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Theoretical non-streaming variant: the same gate is intentionally NOT applied to `relay_turn` (non-streaming) consumers because the gateway's deferred-reply flow can legitimately emit a single runId-less `session.message` as the only event. Extending the gate would break that flow. Closing this cleanly requires the gateway to consistently tag `session.message` with `runId` — outside this repo's reach.
 - Recommendation: do not extend the gate. If a non-streaming stale-trailer bug actually manifests in production, revisit with timing-based heuristics or wait for a gateway-side runId-tagging fix.
 
-### 5. HA Assist not responding on Ash's device
-- Status: CLOSED 2026-06-20 (per Rob)
+### 5. HA Assist not responding on a household user's device
+- Status: CLOSED 2026-06-20 (per the owner)
 - Streaming work shipped through b4 (b1 streaming, b2 keepalive, b3 stale-trailer race, b4 hassio_role) addresses the most likely transport-level causes. Item #1 (user identity) still tracks the per-user authz story that was the original trigger.
 
 ### 6. Doc cleanup sweep (pre-1.0 hygiene)
@@ -248,7 +248,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 ### 9. Cross-session subscriber bleed
 - Status: CLOSED 2026-06-20 (addon-defended; gateway leak documented, not actionable from this repo)
 - Root cause: gateway `handleTranscriptUpdateBroadcast` in `/app/dist/server-session-events-TsYthLSk.js:166-211` unions the broad `sessionEventSubscribers.getAll()` registry into per-session `session.message` fan-out. Cron-session output therefore reaches every connection subscribed to `sessions.changed`.
-- Addon defense: `ChatRelay.handle_event` (`chat_relay.py:851`) drops any event whose `sessionKey` is not in `_reply_events` or `_delta_queues`. Wrong-sessionKey events show up in `[relay-diag]` logs but never reach HA text extraction. The "Ash seeing Rob's content" reports remain correlation, not confirmed root cause.
+- Addon defense: `ChatRelay.handle_event` (`chat_relay.py:851`) drops any event whose `sessionKey` is not in `_reply_events` or `_delta_queues`. Wrong-sessionKey events show up in `[relay-diag]` logs but never reach HA text extraction. The "user1 seeing the owner's content" reports remain correlation, not confirmed root cause.
 - Recommendation: leave addon filter as-is (defense in depth). Gateway-side fix would remove `sessionEventSubscribers.getAll()` from the message fan-out path; not pursuing.
 
 ### 10. Placeholder coerces stream to final → real answer dropped
@@ -282,7 +282,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: CLOSED 2026-06-20
 - PRs #110 (`hassio_api: true`) and #116/#117 (`with-contenv` shebang) shipped. Streaming-followups handoff confirmed STALE. Live verification: b4 addon log shows `[run.sh] SUPERVISOR_TOKEN injected (len=112)` and the Tier A Supervisor calls now work, which transitively proves the token is being injected. Removed from open-loops.
 
-### 19. Auto-generated changelog (preferred direction per Rob, 2026-06-27)
+### 19. Auto-generated changelog (preferred direction per the owner, 2026-06-27)
 - Status: CLOSED — shipped in PR #224.
 - `scripts/generate-release-notes.sh` groups Conventional Commit subjects since
   the previous tag into Features / Fixes / Refactor / Performance / Docs / Other,
@@ -331,18 +331,18 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - No workflow regression to fix.
 
 ### 31. Add-on icon stopped rendering in HA after the doc / schema reshape
-- Status: CLOSED 2026-06-28 — resolved per Rob's observation on the b11 install (likely a Supervisor cache refresh after the b10/b11 manifest re-parse).
+- Status: CLOSED 2026-06-28 — resolved per the owner's observation on the b11 install (likely a Supervisor cache refresh after the b10/b11 manifest re-parse).
 - No repo-side change required. If the icon disappears again after a future schema change, re-open and trace `ha apps | grep -i openclaw` `logo:` against the manifest.
 
 ### 33. Quiet `[relay-diag]` INFO noise in addon logs
 - Status: CLOSED 2026-06-28 — moved `[relay-diag]` from INFO to DEBUG in PR #214 (shipped in v2026.7.1b1). TODO.md status lagged; corrected in 2026.7.1b2 release PR.
-- Requested: 2026-06-28 by Rob.
+- Requested: 2026-06-28 by the owner.
 - Goal: drop the per-event `[relay-diag]` log line in `handle_event` from `INFO` to `DEBUG`. The diagnostic was added during the stale-trailer race debugging and is no longer needed at INFO level; it floods the addon log on every gateway event.
 - Scope: one-line change in `chat_relay.py` — `_LOG.info("[relay-diag] ...")` → `_LOG.debug(...)`.
 
 ### 34. Agent skill for HA node command-surface usage
 - Status: CLOSED 2026-06-28 — repo skill merged in PR #194 and Skill Workshop proposal applied.
-- Requested: 2026-06-28 by Rob.
+- Requested: 2026-06-28 by the owner.
 - Goal: create/apply a reusable agent skill that teaches the agent, Codex, or subagents the HA node command catalog, the MCP-to-node replacements, and the Tier A/Tier B subagent safety boundary.
 - Why: there are enough commands now that relying on session memory causes regressions; agents need durable guidance so MCP sunset work keeps moving across compactions and subagent handoffs.
 - Final skill: `openclaw-hass-node-skill`; repo mirror lives at `skills/openclaw-hass-node-skill/SKILL.md`.
@@ -387,5 +387,5 @@ All four items from the original audit have since been confirmed or resolved:
 
 - <del>Item 14: gateway `allowCommands` sync</del> — verified end-to-end after the `paired.json` cache refresh; all six Tier A commands work (LESSONS captures the cache behaviour).
 - <del>Item 4: stale-trailer race</del> — closed as documented (streaming variant fixed in b3; non-streaming variant structurally accepted).
-- <del>Item 5: Ash device issue</del> — closed per Rob.
+- <del>Item 5: household device issue</del> — closed per the owner.
 - <del>Item 10: gateway stream finalization</del> — closed as gateway-side, not actionable from this repo.

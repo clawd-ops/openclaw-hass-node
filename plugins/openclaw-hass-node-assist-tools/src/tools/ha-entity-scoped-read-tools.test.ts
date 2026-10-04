@@ -103,7 +103,7 @@ for (const T of TOOLS) {
       const tool = await T.load();
       const result = await tool.execute(
         "c",
-        { node: "hass", entity_id: "person.rob" },
+        { node: "hass", entity_id: "person.user1" },
         new AbortController().signal,
         () => undefined,
       );

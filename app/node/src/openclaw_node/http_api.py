@@ -1,7 +1,7 @@
 """Local HTTP API exposed by the OpenClaw Home Assistant node.
 
 The API is intentionally small for the P2 vertical slice.  It gives the Home
-Assistant companion integration a local surface to call and gives Rob a simple
+Assistant companion integration a local surface to call and gives the owner a simple
 thing to verify from add-on logs or curl-like diagnostics: health, ping,
 read-only Home Assistant snapshot, and Assist turn forwarding placeholder.
 """

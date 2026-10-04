@@ -64,7 +64,7 @@ This is ~150 LOC and is the minimum HA core requires.
 
 ## Routing model (decision, 2026-06-06)
 
-Rob: "I want Assist as the brain, just like in OC. The brain should be able
+Owner: "I want Assist as the brain, just like in OC. The brain should be able
 to use subagents for work, so I'd say shouldn't be pinned to anything. But
 the layer I talk to should be Opus or GPT-5.5. And subagents should always
 be the right models and cheaper."

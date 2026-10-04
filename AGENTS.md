@@ -12,7 +12,7 @@ The sender's GitHub login determines the mode:
 
 | Login        | Mode       | Description                                      |
 |-------------|------------|--------------------------------------------------|
-| Rob's verified GitHub handle (see plugin config `actorLogins`) | **actor**  | Full authorization: commit, merge, repo actions   |
+| The owner's verified GitHub handle (see plugin config `actorLogins`) | **actor**  | Full authorization: commit, merge, repo actions   |
 | `clawd-ops` / `clawd-ops[bot]` | **self** | Dropped at the bridge (self-author filter) to prevent loops |
 | everyone else | **reviewer** | Read + comment-with-scrubber, label and reviewer-assign only |
 

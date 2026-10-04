@@ -404,7 +404,7 @@ reconnect, and recovery evidence.
   session APIs; split credentials/connections where that materially reduces
   authority.
 
-**Exit:** Rob can configure, observe, approve, resume, and diagnose the system
+**Exit:** the owner can configure, observe, approve, resume, and diagnose the system
 from the supported UI without approvals disappearing into an unreachable queue.
 
 ### Phase 5: Packaging, automation, and distribution

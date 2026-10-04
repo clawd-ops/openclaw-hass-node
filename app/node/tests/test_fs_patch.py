@@ -455,12 +455,12 @@ def test_fs_patch_custom_actor_and_proposal_id(tmp_path: Path) -> None:
             {
                 "path": str(p),
                 "patch": diff,
-                "actor": "rob",
+                "actor": "admin1",
                 "proposal_id": "prop-99",
             }
         )
     call_kwargs = mock_store.capture.call_args
-    assert call_kwargs.kwargs["actor"] == "rob"
+    assert call_kwargs.kwargs["actor"] == "admin1"
     assert call_kwargs.kwargs["proposal_id"] == "prop-99"
 
 

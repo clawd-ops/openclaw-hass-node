@@ -290,8 +290,8 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
         data_dir=tmp_path,
         local_api_token=_TEST_TOKEN,
         identity=IdentityConfig(
-            super_admins=frozenset({"rob-uuid"}),
-            user_agent_map={"rob-uuid": "my-agent"},
+            super_admins=frozenset({"admin1-uuid"}),
+            user_agent_map={"admin1-uuid": "my-agent"},
             default_agent_id="my-agent-household",
         ),
     )
@@ -316,11 +316,11 @@ async def test_assist_turn_resolves_actor_for_relay(tmp_path: Path) -> None:
             json={
                 "text": "restart addon",
                 "conversation_id": "conv-actor",
-                "actor": {"user_id": "rob-uuid", "is_admin": True},
+                "actor": {"user_id": "admin1-uuid", "is_admin": True},
                 "actor_ts": actor_ts,
                 "actor_signature": sign_actor(
                     derive_actor_signing_secret(_TEST_TOKEN),
-                    actor=Actor("rob-uuid", is_admin=True),
+                    actor=Actor("admin1-uuid", is_admin=True),
                     text="restart addon",
                     conversation_id="conv-actor",
                     language="en",
@@ -353,8 +353,8 @@ async def test_assist_turn_ignores_unsigned_actor(tmp_path: Path) -> None:
         data_dir=tmp_path,
         local_api_token=_TEST_TOKEN,
         identity=IdentityConfig(
-            super_admins=frozenset({"rob-uuid"}),
-            user_agent_map={"rob-uuid": "my-agent"},
+            super_admins=frozenset({"admin1-uuid"}),
+            user_agent_map={"admin1-uuid": "my-agent"},
             default_agent_id="my-agent-household",
         ),
     )
@@ -378,7 +378,7 @@ async def test_assist_turn_ignores_unsigned_actor(tmp_path: Path) -> None:
             json={
                 "text": "restart addon",
                 "conversation_id": "conv-actor",
-                "actor": {"user_id": "rob-uuid", "is_admin": True},
+                "actor": {"user_id": "admin1-uuid", "is_admin": True},
             },
         )
         assert response.status == 200

@@ -289,7 +289,7 @@ gateway-side: defer `broadcastChatFinal` until any pending toolResult
 
 ## Use GPT-5.5 for checks, not just for code review
 
-Standing instruction from Rob 2026-06-20. The cross-agent review hard
+Standing instruction from the owner 2026-06-20. The cross-agent review hard
 rule (Anthropic plans/drives, Codex/GPT-5.5 reviews/catches) is the
 floor, not the ceiling. Empower a fresh GPT-5.5 subagent for any
 **verification step** where an independent second pass adds value, not
@@ -329,7 +329,7 @@ generic work back.
 ## "Release PR merged" ≠ "release cut"
 
 Caught 2026-06-20 after I bumped version strings through b3 → b4 → b5
-in three separate PRs and assured Rob he could "Update" the addon
+in three separate PRs and assured the owner they could "Update" the addon
 through HA — but HA Supervisor reads from published GitHub releases,
 not from main, so no Update prompt ever appeared. Rebuild from the
 add-on UI was the only working path.
@@ -358,7 +358,7 @@ gh release create v2026.6.20bN \
 The 2026-06-20 doc-cleanup sweep stripped phase IDs (`P5.13`, `P3.x`,
 etc.) from everything in `docs/` and `README.md` — but missed
 `app/config.yaml`'s `description:` block, which is the text HA
-Supervisor renders in the addon list and detail page. Caught by Rob
+Supervisor renders in the addon list and detail page. Caught by the owner
 post-merge. Both the planner subagent and the post-merge verifier
 restricted their scope to `docs/` and the top-level README.
 
@@ -438,7 +438,7 @@ Error: protected node config path
 config key that contains `nodes.<something>`, including the
 plugin-internal `config.nodes.*` sub-tree of a plugin entry. This is an
 upstream gateway bug, not a problem in this repo. We are NOT filing it
-upstream per Rob's instruction — we route around it locally and document
+upstream per the owner's instruction — we route around it locally and document
 it here.
 
 **Workaround:**
@@ -462,7 +462,7 @@ until the upstream guard is narrowed to `gateway.nodes.*` only.
 
 ## Cross-agent code review applies to CI / scripts / workflows too
 
-Caught 2026-06-20 by Rob: PRs #155 (`scripts/bump-version.py` +
+Caught 2026-06-20 by the owner: PRs #155 (`scripts/bump-version.py` +
 `hacs.json` rename) and #156 (`.github/workflows/release-on-version-bump.yml`
 + Version Sync CI job) merged without a GPT-5.5 review pass. Both were
 real code — a Python script with regex-driven find/replace logic, plus

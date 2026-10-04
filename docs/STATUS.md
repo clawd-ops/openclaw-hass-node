@@ -311,29 +311,29 @@ candidate ready. Still open:
 
 ## Decision log
 
-- 2026-06-05 — Single node per HA. (Rob)
+- 2026-06-05 — Single node per HA. (owner)
 - **Historical, superseded 2026-09-11:** 2026-06-05 — all `/config` mutations
   were designed to go through agent-bridge. Native OpenClaw approval is now the
-  sole authority; see the current decision below. (Rob)
-- 2026-06-05 — Add-on (App) first. HACS only as last resort. (Rob)
-- 2026-06-05 — Code lives under `~/.openclaw/projects/openclaw-hass-node/`. (Rob)
-- 2026-06-05 — Docs in `docs/` are source of truth across compactions. (Rob)
-- 2026-06-05 — Deletes use `trash-cli`, recoverable via `fs.restore`. (Rob, issue #1)
-- 2026-06-05 — Node must be HA-version-aware via `docs.lookup` against installed version. (Rob, issue #1)
-- 2026-06-05 — Build process: Claude generates, OpenAI (Codex) reviews; cross-provider required. (Rob, issue #1)
+  sole authority; see the current decision below. (owner)
+- 2026-06-05 — Add-on (App) first. HACS only as last resort. (owner)
+- 2026-06-05 — Code lives under `~/.openclaw/projects/openclaw-hass-node/`. (owner)
+- 2026-06-05 — Docs in `docs/` are source of truth across compactions. (owner)
+- 2026-06-05 — Deletes use `trash-cli`, recoverable via `fs.restore`. (owner, issue #1)
+- 2026-06-05 — Node must be HA-version-aware via `docs.lookup` against installed version. (owner, issue #1)
+- 2026-06-05 — Build process: Claude generates, OpenAI (Codex) reviews; cross-provider required. (owner, issue #1)
 - 2026-06-05 — Backups: purpose-built per-file content-addressed
   store under `/share/openclaw-backups/`. No git in `/config`. No
-  per-change Supervisor snapshots. (Rob, issue #1 round 2)
+  per-change Supervisor snapshots. (owner, issue #1 round 2)
 - 2026-06-05 — HA-native APIs are the default for HA-managed config;
   `fs.patch` is reserved for yaml-only / custom files / blueprints.
-  (Rob, issue #1 round 2)
+  (owner, issue #1 round 2)
 - 2026-06-05 — `.storage/` is read-only to the node. The implemented
   command layer refuses writes unconditionally; no caller parameter or
-  proposal overrides it. HARD rule. (Rob, issue #1 round 2; reconciled to
+  proposal overrides it. HARD rule. (owner, issue #1 round 2; reconciled to
   implementation 2026-09-11)
 - 2026-06-05 — Every approved HA config mutation must verify against the
   running version's breaking changes and include a functional fix
-  when impacted. Cross-validated by Codex reviewer. (Rob, issue #1
+  when impacted. Cross-validated by Codex reviewer. (owner, issue #1
   round 2)
 - 2026-06-05 — Assist conversation agent: ship as add-on (app) **plus**
   thin `custom_components/openclaw_hass_node_assist/` HACS integration. Plan A
@@ -350,18 +350,18 @@ candidate ready. Still open:
   gates: `mypy --strict` + `pyright --strict`, Google-style docstrings
   (`ruff` D-rules + `pydoclint`), branch coverage gated at 95% via
   pytest, `ruff` lint/format, `bandit`, `pip-audit`. All gated in
-  GitHub Actions. See `docs/operations/QUALITY.md`. (Rob, issue #1 round 3)
+  GitHub Actions. See `docs/operations/QUALITY.md`. (owner, issue #1 round 3)
 - 2026-06-05 — MCP retirement: node must demonstrably handle every
   call surface the existing MCP servers serve, across every agent
   that uses them, before retirement. Trigger: zero unhandled
   `mcp__homeassistant*` calls for 7 days *and* a written migration
   inventory. No calendar-based default. Cutover is one PR.
-  (Rob; superseded 2026-09-11 after confirming the MCP path had already been
+  (owner; superseded 2026-09-11 after confirming the MCP path had already been
   permanently sunset and closed.)
 - 2026-06-05 — Versioning: date-based `YYYY.M.PATCH` matching the HA
   release the node is tested against (e.g. `2026.6.0`). Patch
   increments for fixes within a HA release. (agent recommendation,
-  Rob "ok either way")
+  the owner "ok either way")
 - 2026-06-08 — Conversation relay runs on two parallel gateway WS
   connections (`role: node` for invokes, `role: operator` for chat),
   not a single node-role connection. Gateway role policy is binary

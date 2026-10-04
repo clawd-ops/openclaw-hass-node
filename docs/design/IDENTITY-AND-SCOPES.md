@@ -110,7 +110,7 @@ The addon options carry one explicit list:
 ```yaml
 identity:
   super_admins:
-    - "<ha-user-uuid-of-rob>"
+    - "<ha-user-uuid-of-admin1>"
   # everyone else: role derived from is_admin
 ```
 
@@ -162,7 +162,7 @@ options:
 
 ```yaml
 identity:
-  super_admins: [<rob-uuid>]
+  super_admins: [<admin1-uuid>]
   # Optional per-role overrides (advanced, JSON string in addon UI)
   forbidden_commands: '{"user":{"add":["ha.call_service:lock.unlock"],"remove":["script.*"]}}'
 ```
@@ -269,9 +269,9 @@ Addon options:
 
 ```yaml
 identity:
-  super_admins: [<rob-uuid>]
+  super_admins: [<admin1-uuid>]
   user_agent_map:
-    "<ash-uuid>": "my-agent-household"
+    "<user1-uuid>": "my-agent-household"
     "<kid-uuid>": "my-agent-kid"
   default_agent_id: "my-agent"
   # Unmapped users (incl. anonymous voice satellite turns) → default_agent_id
@@ -368,8 +368,8 @@ the operator.
    ```
    [identity] Gateway agents available: my-agent (default), my-agent-household, my-agent-kid
    [identity] Resolved user_agent_map:
-     <rob-uuid> → my-agent
-     <ash-uuid> → my-agent-household
+     <admin1-uuid> → my-agent
+     <user1-uuid> → my-agent-household
    [identity] default_agent_id: my-agent
    ```
 
@@ -377,7 +377,7 @@ the operator.
    at WARNING:
 
    ```
-   [identity] WARNING: user_agent_map[<ash-uuid>] = "my-agent-kid"
+   [identity] WARNING: user_agent_map[<user1-uuid>] = "my-agent-kid"
               but no such agent in gateway. Falling back to
               default_agent_id ("my-agent") for this user. Available
               agents: my-agent, my-agent-household.
@@ -400,7 +400,7 @@ the operator.
    operators debugging "why did the agent refuse" can see it:
 
    ```
-   [identity] turn user_id=<rob-uuid> is_admin=true role=super_admin
+   [identity] turn user_id=<admin1-uuid> is_admin=true role=super_admin
               agent=my-agent forbidden_count=0
    ```
 
@@ -445,7 +445,7 @@ Out of scope for the initial implementation PR series — this is
 a follow-up after Step 1-6 ship. Tracked here so it's not
 forgotten when someone has bandwidth.
 
-For Rob's house: leave `user_agent_map` empty, set
+For the owner's house: leave `user_agent_map` empty, set
 `default_agent_id: my-agent`. Same as today, disclaimer is the only
 protection. Add per-user mappings when concern-A agents exist.
 
@@ -471,7 +471,7 @@ add or change anything for those paths.
 ## What this design does NOT enforce
 
 **Hard software-block on shared-agent setups.** When multiple HA
-users share one agent (Rob's case), the only thing protecting
+users share one agent (the owner's case), the only thing protecting
 the non-super users from destructive commands is the prompt
 disclaimer. The addon cannot software-gate the inbound
 `node.invoke.request` because the gateway's invoke envelope

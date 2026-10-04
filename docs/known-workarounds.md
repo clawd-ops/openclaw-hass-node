@@ -78,7 +78,7 @@ Error: protected node config path
 **Root cause:** The gateway's path-protection guard was written for
 `gateway.nodes.<id>.*` (the node registry). The pattern over-matches any
 config key that contains `nodes.<something>`, including the plugin-internal
-`config.nodes.*` sub-tree. Per Rob's instruction this is not being filed
+`config.nodes.*` sub-tree. Per the owner's instruction this is not being filed
 upstream; route around it locally.
 
 **Workaround — edit `~/.openclaw/openclaw.json` directly:**
@@ -103,7 +103,7 @@ the only safe path until the upstream guard is narrowed to `gateway.nodes.*`.
 
 ## 3. Plugin generates its own `idempotencyKey` for `node.invoke`
 
-**Status:** permanent local workaround; not being filed upstream per Rob's
+**Status:** permanent local workaround; not being filed upstream per the owner's
 instruction.
 
 **Symptom:**
@@ -159,7 +159,7 @@ the per-node policy in `~/.openclaw/openclaw.json` and restart again.
 
 **Status:** Fixed in `app/node/src/openclaw_node/chat_relay.py`. No upstream
 filing needed; no gateway restart required — the fix is node-side and takes
-effect when Rob updates the HA add-on to the version containing this change.
+effect when the owner updates the HA add-on to the version containing this change.
 
 **Symptom (historical):**
 

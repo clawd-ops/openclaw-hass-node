@@ -95,7 +95,7 @@ def test_version_sources_match() -> None:
 def test_installed_version_matches_pyproject() -> None:
     """The installed package metadata must match ``pyproject.toml``.
 
-    This is the failure mode Rob saw in earlier runs: the package was
+    This is the failure mode the owner saw in earlier runs: the package was
     installed at version X, pyproject was bumped to Y, nobody reinstalled,
     and the startup log kept reporting X. We query
     :func:`importlib.metadata.version` directly so a missing dist
