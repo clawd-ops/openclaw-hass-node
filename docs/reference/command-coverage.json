@@ -1,12 +1,5 @@
 {
-  "commands_new_in_latest_release": [
-    "ha.addon_update",
-    "ha.supervisor_info",
-    "ha.update_install",
-    "system.execApprovals.get",
-    "system.execApprovals.set",
-    "system.run.prepare"
-  ],
+  "commands_new_in_latest_release": [],
   "commands_unreleased": [],
   "evidence_methods": {
     "CODE-PROVEN": "Established from source review; not a live result.",
@@ -17,7 +10,7 @@
   },
   "generated": true,
   "generation_note": "Deterministic source inventory plus explicitly labelled manual reality metadata; no runtime command is enabled by this ledger.",
-  "latest_release": "2026.9.13b1",
+  "latest_release": "2026.10.4b1",
   "outcomes": {
     "fail": "Observed behavior contradicted the scoped claim.",
     "partial": "Some caller or contract behavior passed while material gaps remain.",
@@ -61,7 +54,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -214,7 +207,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             },
             {
               "method": "PRODUCTION-LIVE",
@@ -224,7 +217,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -363,7 +356,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -517,7 +510,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -628,7 +621,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -768,7 +761,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -936,7 +929,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1126,7 +1119,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1303,7 +1296,7 @@
               "plugin_version": "not recorded",
               "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1501,7 +1494,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1613,7 +1606,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1796,7 +1789,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaAddonChangelogTool",
@@ -1924,7 +1917,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaAddonDocumentationTool",
@@ -2052,7 +2045,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaAddonInfoTool",
@@ -2182,7 +2175,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaAddonLogsTool",
@@ -2344,7 +2337,7 @@
               "plugin_version": "not recorded",
               "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2477,7 +2470,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2589,7 +2582,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaAddonStatsTool",
@@ -2735,7 +2728,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2974,7 +2967,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaCalendarGetEventsTool",
@@ -3243,7 +3236,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -3427,7 +3420,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaCheckConfigTool",
@@ -3715,7 +3708,7 @@
               "outcome": "refused-as-designed",
               "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4029,7 +4022,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4603,7 +4596,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5327,7 +5320,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5627,7 +5620,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6135,7 +6128,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6264,7 +6257,7 @@
               "plugin_version": "not recorded",
               "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6906,7 +6899,7 @@
               "outcome": "refused-as-designed",
               "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7235,7 +7228,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7715,7 +7708,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7828,7 +7821,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -8119,7 +8112,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -8693,7 +8686,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -8832,7 +8825,7 @@
               "outcome": "refused-as-designed",
               "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9291,7 +9284,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9579,7 +9572,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaCoreLogsTool",
@@ -9705,7 +9698,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaGetConfigTool",
@@ -9818,7 +9811,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaGetStateTool",
@@ -9955,7 +9948,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaHistoryTool",
@@ -10195,7 +10188,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10373,7 +10366,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10582,7 +10575,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListAddonsTool",
@@ -10693,7 +10686,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListAreasTool",
@@ -10827,7 +10820,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListAutomationsTool",
@@ -11000,7 +10993,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListConfigEntriesTool",
@@ -11127,7 +11120,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListDevicesTool",
@@ -11270,7 +11263,7 @@
               "plugin_version": "not recorded",
               "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListEntityRegistryTool",
@@ -11439,7 +11432,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListEventsTool",
@@ -11550,7 +11543,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListServicesTool",
@@ -11684,7 +11677,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaListStatesTool",
@@ -11714,7 +11707,7 @@
               "plugin_version": "not recorded",
               "reprobe_owed": true,
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11854,7 +11847,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
-              "stale": false
+              "stale": true
             }
           ],
           "factory": "createHaLogbookTool",
@@ -12035,7 +12028,7 @@
               "outcome": "partial",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -12166,7 +12159,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -12418,7 +12411,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -12536,7 +12529,7 @@
               "outcome": "refused-as-designed",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -13240,7 +13233,7 @@
               "outcome": "pass",
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
-              "stale": false
+              "stale": true
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",

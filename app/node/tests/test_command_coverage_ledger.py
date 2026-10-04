@@ -1460,7 +1460,10 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
             if item.get("method") == "PRODUCTION-LIVE" and item.get("node_version") == "2026.9.13b1"
         ]
         assert current_live, f"{row_id} lacks current direct-node production evidence"
-        assert all(item.get("stale") is False for item in current_live)
+        assert all(
+            item.get("stale") is (item.get("node_version") != ledger["latest_release"])
+            for item in current_live
+        )
 
     fs_diff = rows_by_id["fs.diff"]
     assert fs_diff["evidence_method"] == "PRODUCTION-LIVE"
@@ -1471,7 +1474,10 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
         if item.get("method") == "PRODUCTION-LIVE"
     ]
     assert sorted(item["outcome"] for item in diff_evidence) == ["partial", "pass"]
-    assert all(item.get("stale") is False for item in diff_evidence)
+    assert all(
+        item.get("stale") is (item.get("node_version") != ledger["latest_release"])
+        for item in diff_evidence
+    )
 
     for row_id, expected_outcome in (
         ("ha.config.device_registry#list", "partial"),
@@ -1484,7 +1490,10 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
         evidence = row["callers"]["direct_nodes_invoke"]["evidence"]
         current_live = [item for item in evidence if item.get("method") == "PRODUCTION-LIVE"]
         assert current_live
-        assert all(item.get("stale") is False for item in current_live)
+        assert all(
+            item.get("stale") is (item.get("node_version") != ledger["latest_release"])
+            for item in current_live
+        )
 
     states = rows_by_id["ha.list_states"]
     assert states["outcome"] == "partial"
@@ -1493,7 +1502,10 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
         item for item in state_evidence if item.get("method") == "PRODUCTION-LIVE"
     ]
     assert any(item["outcome"] == "fail" for item in current_state_live)
-    assert all(item.get("stale") is False for item in current_state_live)
+    assert all(
+        item.get("stale") is (item.get("node_version") != ledger["latest_release"])
+        for item in current_state_live
+    )
 
     # #333 ruled that the direct nodes.invoke refusal is the intended gating and
     # that the command is correctly advertised, so the row is no longer an open
@@ -1510,7 +1522,10 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
     ]
     assert refused
     assert all(item["outcome"] == "refused-as-designed" for item in refused)
-    assert all(item.get("stale") is False for item in refused)
+    assert all(
+        item.get("stale") is (item.get("node_version") != ledger["latest_release"])
+        for item in refused
+    )
 
 
 def test_sept11_observations_carry_stale_provenance() -> None:

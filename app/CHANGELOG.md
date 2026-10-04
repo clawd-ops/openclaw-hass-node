@@ -1,5 +1,112 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.10.4b1 (2026-10-04) — Native approvals for changes, everyday household control, safer Assist callers
+
+This beta changes how risky actions are approved, makes everyday home control
+work for household members, and tightens how Assist identifies who is asking.
+Read the upgrade notes below before updating: the add-on and the gateway plugin
+must be updated in a specific order.
+
+### Approvals for changes and admin actions (#400)
+- **Mutations now prompt for approval through OpenClaw** instead of returning
+  `PROPOSAL_REQUIRED`. Configuration edits, protected file writes and the admin
+  actions (add-on start/stop/restart/update, config reload, update install) ask
+  the operator to approve once, and nothing runs if the request is denied or
+  times out.
+- An approval covers exactly one command, with exactly the parameters shown, and
+  cannot be reused or replayed against a different request.
+- **The plugin's `adminToken` and `allowAdminOps` settings are removed.**
+  Approval replaces them.
+
+### Household everyday control (#379)
+- Household users and admins can now do everyday things from Assist, such as
+  turning on lights, media players, switches, covers and scenes, following Home
+  Assistant's own security model. The allowed services are an explicit list per
+  domain; anything that edits configuration or is not on the list is refused.
+
+### Assist caller identity and hardening (#371, #374, #393)
+- **The node now works out who is asking** from its own record of in-flight
+  Assist turns, instead of trusting what the request claims. Ambiguous matches
+  are refused.
+- **Same-agent hardening.** For household users and admins, the agent is limited
+  to conversation, web search and memory search, and Home Assistant control only
+  through the `ha_*` tools. The owner (`super_admin`) is not limited.
+- **Per-role agents.** New `identity.user_role_agent_id` and
+  `identity.admin_role_agent_id` options route each role to its own agent.
+  Precedence: per-user map, role agent, default agent, gateway default.
+- **Multi-agent gateway fix.** Assist now sends an agent-qualified session key,
+  and a gateway with several agents and no default agent reports the
+  misconfiguration at startup instead of failing every turn (#347, #351, #380).
+- When Assist hits a node error, it now shows a short, curated remedy instead of
+  a bare error code (#366).
+
+### Stricter parameter validation
+- Unknown, null and wrongly typed parameters are refused with `INVALID_PARAM`
+  before anything is sent to Home Assistant, across `fs.*`, `ha.config.*`,
+  `system.which`, `ping` and the remaining `ha.*` commands (#349, #382, #385,
+  #392).
+- `ha.list_states` honours `entity_filter` as a glob. `ha.history` reports
+  unknown entities as not found instead of an empty result. `ha.logbook` and
+  `ha.history` validate their inputs (#319, #344, #345, #373).
+
+### Size and time bounds
+- Gateway frames are capped at 4 MiB, request parameters at 512 KiB (and bounded
+  in nesting depth and size), and results at 24 MiB, with stable error codes
+  such as `REQUEST_TOO_LARGE` and `RESULT_TOO_LARGE` (#376).
+- `fs.write` content is capped at 8 MiB and `fs.patch` text at 1 MiB, refused
+  before any file or backup is touched (#368).
+- `system.run` argument and environment sizes are bounded, and a timeout now
+  stops the whole process group instead of leaking child processes (#370).
+- **Add-on lifecycle timeouts are reported as `OUTCOME_UNKNOWN`**, not as a bad
+  request, so callers do not retry an action that may already have happened
+  (#375).
+
+### Files and registries
+- **`fs.history` entries carry a `version_id`** that `fs.restore` and `fs.diff`
+  accept, so callers no longer count array positions. Version 0 is rejected.
+  `fs.patch` is now recorded as a patch in the backup index (#358).
+- **Registry list commands accept filters** (domain, platform, area, device,
+  config entry) and the WebSocket ceiling is raised to 16 MiB, fixing the failure
+  on installs with thousands of entities (#316, #330, #362).
+- `ha.call_service` now returns the changed states when Home Assistant returns
+  none (#359).
+
+### Security
+- **Per-node policy is resolved by canonical node ID only**, so a caller can no
+  longer reach a more permissive entry by naming the node differently (#361).
+- Vulnerable `urllib3` bumped to 2.8.0 (#367).
+
+### Reliability and tooling
+- A startup warning appears when the add-on lifecycle allowlist is set but the
+  gateway gate is not (#332, #363).
+- Command coverage ledger: evidence is linked, issue-cited and flagged when it
+  goes stale, and production evidence records the plugin version (#341, #354,
+  #381, #387, #388, #389).
+- Chat relay timing tests are deterministic (#399), and the release workflow
+  now watches all version sources (#398).
+
+### Documentation
+- Status, roadmap, UAT plan and design docs reconciled with shipped behaviour;
+  authorization model documents the approval flow; install docs cover the
+  `allowAdminOps` migration; docs render task lists and are checked for
+  unrendered syntax (#350, #357, #378, #391).
+
+### Upgrade notes
+1. **Update the add-on before the gateway plugin.** The new plugin sends a
+   reserved caller field that the previous add-on rejects.
+2. **Remove the plugin's `nodes` config block** (`adminToken` and
+   `allowAdminOps` no longer exist), then validate your gateway config before
+   reinstalling the plugin.
+3. **Approval prompts are routed in your gateway config** under
+   `approvals.plugin`. This project does not change that setting.
+4. **Mutations now prompt for approval** instead of returning
+   `PROPOSAL_REQUIRED`. See `docs/design/AUTHORIZATION-MODEL.md` for details.
+
+### Known limitations
+- A caller with direct operator-level access to the node, for example a shell
+  `openclaw nodes invoke`, can bypass the approval prompt. Operator access is
+  not defended against here (issue 275 remains open).
+
 ## 2026.9.13b1 (2026-09-13) — Native exec approvals, fail-closed mutations, command ledger
 
 79 commits across 31 pull requests since `2026.7.23b1`. This beta is mostly
