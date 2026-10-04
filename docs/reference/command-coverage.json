@@ -59,6 +59,7 @@
               "observation": "fs.delete returned trashed_to=/share/openclaw-trash/<name>.<hash>.<ts>, the original path then reported exists=false and the trash copy exists=true at 39 B. fs.restore on the deleted path recreated the file and purged the trash copy (trash_purged=1); fs.history survived the deletion.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -211,6 +212,7 @@
               "observation": "fs.diff for /config/configuration.yaml with from_version=-1 returned DIFF_ERROR because no versions were recorded; dispatch and validation were exercised but a successful diff was not.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -349,6 +351,7 @@
               "observation": "fs.glob under /config with pattern *.yaml returned five bounded matches and truncated=true at max_matches=5.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -502,6 +505,7 @@
               "observation": "fs.history for /config/configuration.yaml returned a valid empty versions collection.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -612,6 +616,7 @@
               "observation": "fs.list on /config returned 60 entries with truncated=false.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -751,6 +756,7 @@
               "observation": "fs.move with src and dst returned history_moved=true, the source path was gone, and the prev_sha256 chain survived intact. Rejects path and dest; only src/dst are accepted.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -917,6 +923,7 @@
               "observation": "fs.patch returned hunks_applied=1 and the resulting content matched on read-back. Recorded in history under op=move-src rather than a patch op, so an auditor cannot distinguish a patch from a write or move.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -1105,6 +1112,7 @@
               "observation": "fs.read returned a bounded one-byte binary slice from /config/configuration.yaml with correct range metadata.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -1278,6 +1286,7 @@
               "observation": "On the deployed build, fs.restore accepted version=0 and clamped it to entry 0 instead of rejecting it. version=1 returning entry 0 and version=4 returning entry 3 is the documented 1-indexed selection over the 0-indexed history array, not a defect. Current source rejects version=0 as out of range and adds a version_id selector (the sha256 fs.history returns); this observation predates that fix.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -1474,6 +1483,7 @@
               "observation": "fs.stat on /config/configuration.yaml returned complete metadata including mode, uid, gid, and symlink fields.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -1585,6 +1595,7 @@
               "observation": "fs.write created a 39 B file with proposal_id=direct on the unprotected /share root, then updated it to 57 B with v1 archived.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -1766,6 +1777,7 @@
               "observation": "ha.addon_changelog returned changelog text. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -1892,6 +1904,7 @@
               "observation": "ha.addon_documentation returned documentation text. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -2018,6 +2031,7 @@
               "observation": "ha.addon_info returned add-on metadata dict in 12-100ms. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -2146,6 +2160,7 @@
               "observation": "ha.addon_logs returned add-on log lines. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -2304,6 +2319,7 @@
               "observation": "ha.addon_restart returned INVALID_REQUEST on a client timeout for a restart that had actually completed. The caller is told the operation failed while the add-on restarted, so the response does not describe what occurred.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -2435,6 +2451,7 @@
               "observation": "ha.addon_start started the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading, which came from a stale July gateway plugin build rather than node behaviour.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -2544,6 +2561,7 @@
               "observation": "ha.addon_stats returned utilization metrics. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -2688,6 +2706,7 @@
               "observation": "ha.addon_stop stopped the target add-on and the state was confirmed independently. Supersedes the earlier refused-as-designed reading from a stale July gateway plugin build.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -2924,6 +2943,7 @@
               "observation": "ha.calendar_get_events returned empty result for today (no events). No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -3191,6 +3211,7 @@
               "observation": "ha.call_service invoked persistent_notification.create successfully, and rejected both an unknown top-level parameter and an unknown domain before acting. Note changed_states came back empty on every mutating call.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -3371,6 +3392,7 @@
               "observation": "ha.check_config returned valid config status. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -3656,6 +3678,7 @@
               "observation": "create refused with PROPOSAL_REQUIRED for a missing proposal_id, for proposal_id=direct, and for proposal_id=bogus-not-a-real-proposal. The third is the exact case docs/VERIFICATION-2026-09-11.md section 0 predicted would slip through. Area count was unchanged at 27 before and after, so nothing was created.",
               "observed_at": "2026-09-13",
               "outcome": "refused-as-designed",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -3967,6 +3990,7 @@
               "observation": "ha.config.area_registry with action=list returned 27 areas.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -4536,6 +4560,7 @@
               "observation": "ha.config.automation with action=get returned the requested configuration.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -5254,6 +5279,7 @@
               "observation": "ha.config.config_entries with action=get returned an existing config entry.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -5551,6 +5577,7 @@
               "observation": "ha.config.device_registry with action=list returned the complete registry (about 878 KB) with no caller limit.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -6055,6 +6082,7 @@
               "observation": "ha.config.entity_registry with action=get returned one existing registered entity.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -6180,6 +6208,7 @@
               "observation": "ha.config.entity_registry with action=list failed with COMMAND_ERROR: Internal command error on the 7,217-entity installation.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -6817,6 +6846,7 @@
               "observation": "create refused with PROPOSAL_REQUIRED for a bogus proposal id, with the same message as ha.config.area_registry and ha.config.scene. No helper was created.",
               "observed_at": "2026-09-13",
               "outcome": "refused-as-designed",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -7143,6 +7173,7 @@
               "observation": "ha.config.helpers with action=list and helper_type=input_boolean returned 15 helpers.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -7619,6 +7650,7 @@
               "observation": "ha.config.lovelace with action=dashboards_list returned five dashboards.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -7730,6 +7762,7 @@
               "observation": "ha.config.lovelace with action=get returned HA_CONFIG_NOT_FOUND because this installation uses YAML mode.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -8018,6 +8051,7 @@
               "observation": "ha.config.lovelace with action=resources_list returned 49 resources.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -8585,6 +8619,7 @@
               "observation": "ha.config.scene with action=get returned the requested configuration.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -8721,6 +8756,7 @@
               "observation": "save refused with PROPOSAL_REQUIRED for a bogus proposal id, with the same message as ha.config.area_registry and ha.config.helpers. No scene was written.",
               "observed_at": "2026-09-13",
               "outcome": "refused-as-designed",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -9175,6 +9211,7 @@
               "observation": "ha.config.script with action=get returned the requested configuration.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -9460,6 +9497,7 @@
               "observation": "ha.core_logs returned log lines in ~100ms; pre-existing Alexa relink and DNS warnings present. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -9584,6 +9622,7 @@
               "observation": "ha.get_config returned configuration dict including location, unit system, and HA version. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -9695,6 +9734,7 @@
               "observation": "ha.get_state returned entity state dict. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -9830,6 +9870,7 @@
               "observation": "ha.history returned historical state data correctly via Assist wrapper. No encoding errors observed. Sept 11 +00:00 encoding failure (\u00a72.6) not reproduced against 2026.9.13b1; may be fixed or probe used Z timestamps.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -9863,6 +9904,7 @@
               "observation": "A +00:00 timestamp failed while the same Z timestamp succeeded; unknown entities also returned a silent empty result.",
               "observed_at": "2026-09-11",
               "outcome": "fail",
+              "plugin_version": "0.1.1",
               "source": "docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding",
               "stale": true
             }
@@ -10066,6 +10108,7 @@
               "observation": "ha.light_turn_off returned light.group_master_bedroom to off with every attribute null, matching the baseline captured beforehand. changed_states was empty despite the light physically changing.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -10241,6 +10284,7 @@
               "observation": "ha.light_turn_on drove light.group_master_bedroom from off to on with brightness 255 at 5000K and last_changed advancing. An earlier member-level test appeared partial, but that was a Zigbee2MQTT/Hue bridge grouping property of the install rather than node behaviour. changed_states was empty despite the light physically changing.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -10447,6 +10491,7 @@
               "observation": "ha.list_addons returned installed add-on list. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -10556,6 +10601,7 @@
               "observation": "ha.list_areas returned 27 areas. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -10688,6 +10734,7 @@
               "observation": "ha.list_automations returned 115KB response. Command returned data correctly. No server-side filter was used on this probe; full automation set returned.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -10860,6 +10907,7 @@
               "observation": "ha.list_config_entries returned 667KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -10986,6 +11034,7 @@
               "observation": "ha.list_devices returned 819KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11126,6 +11175,7 @@
               "observation": "COMMAND_ERROR: Message size 7579915 exceeds limit 4194304. WSMessageTypeError: WSCloseCode.MESSAGE_TOO_BIG. Entity registry response is 7.6 MB, over aiohttp default 4 MiB WebSocket ceiling. Fix location: openclaw_node/ha_client.py:255.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11294,6 +11344,7 @@
               "observation": "ha.list_events returned 47 event listeners. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11403,6 +11454,7 @@
               "observation": "ha.list_services returned 425KB response. Command succeeded but response size indicates no caller-side pagination or filter is available.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11536,6 +11588,7 @@
               "observation": "ha.list_states with entity_filter returned 1 of 7,217 entities. No errors.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11563,6 +11616,7 @@
               "observation": "Direct nodes.invoke accepted entity_filter without applying or rejecting it and returned the full 5.36 MB state set.",
               "observed_at": "2026-09-13",
               "outcome": "fail",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -11692,6 +11746,7 @@
               "observation": "The installed Assist wrapper honored time and entity scoping in the probed path.",
               "observed_at": "2026-09-11",
               "outcome": "pass",
+              "plugin_version": "0.1.1",
               "source": "docs/VERIFICATION-2026-09-11.md#4-live-evidence",
               "stale": true
             },
@@ -11701,6 +11756,7 @@
               "observation": "ha.logbook returned logbook entries correctly via Assist wrapper. Confirms Sept 11 pass observation against 2026.9.13b1. Direct-path key mismatch (start_time/end_time vs start/end) still CODE-PROVEN.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": false
             }
@@ -11883,6 +11939,7 @@
               "observation": "ha.reload_config was refused with 'adminToken is not configured for this node | INVALID_REQUEST' immediately after ha.check_config reported valid. The shipped plugin's enforceAdminOp checks policy.adminToken, while docs/design/COMMAND-TIERS.md:88 states no add-on admin token exists and that allowAdminOps plus a resolved permission request is the model. The gate also short-circuits before parameter validation, so the domain-rejection path remains unverified.",
               "observed_at": "2026-09-13",
               "outcome": "partial",
+              "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": false
             }
@@ -12026,6 +12083,7 @@
               "observation": "ha.supervisor_info returned Supervisor 2026.09.0, HA 2026.9.1, HAOS 17.1, Docker 29.1.3, and amd64/qemux86-64 platform data.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -12290,6 +12348,7 @@
               "observation": "ping returned pong=true through the direct node invocation path.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -12406,6 +12465,7 @@
               "observation": "The Gateway refused system.execApprovals.* through node.invoke with INVALID_REQUEST and directed callers to exec.approvals.node.*; the command is nevertheless advertised by the node.",
               "observed_at": "2026-09-13",
               "outcome": "refused-as-designed",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
@@ -12646,6 +12706,7 @@
               "observation": "Direct nodes.invoke system.run is refused by the Gateway by design. system.run reaches this node only through exec host=node after an operator approves the canonical systemRunPlan.",
               "observed_at": "2026-09-11",
               "outcome": "refused-as-designed",
+              "plugin_version": "0.1.1",
               "source": "docs/VERIFICATION-2026-09-11.md#24-systemrun-advertised-but-unreachable",
               "stale": true
             }
@@ -13108,6 +13169,7 @@
               "observation": "system.which with name=bash returned found=true and /bin/bash; passing the Gateway tool's bins array instead returns NAME_REQUIRED.",
               "observed_at": "2026-09-13",
               "outcome": "pass",
+              "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": false
             }
