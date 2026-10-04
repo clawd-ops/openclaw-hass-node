@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from openclaw_node.backup_store import BackupStore, BackupStoreError, VersionNotFoundError
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_fd import atomic_write_safe, read_bytes_safe
 from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError, resolve_safe
@@ -196,6 +197,11 @@ def _decode_content(content: str, encoding: str) -> bytes | dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+_WRITE_KEYS: Final = frozenset(
+    {"path", "content", "encoding", "actor", "agent_bridge", "proposal_id"}
+)
+
+
 def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     """Write content to a file, capturing prior bytes to the backup store.
 
@@ -214,6 +220,9 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, path, size, sha256, proposal_id}`` on success, or an
         error dict.
     """
+    invalid = strict_keys_error(params, _WRITE_KEYS)
+    if invalid is not None:
+        return invalid
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")
@@ -319,6 +328,11 @@ def handle_fs_write(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_RESTORE_KEYS: Final = frozenset(
+    {"path", "version_id", "version", "at", "actor", "agent_bridge", "proposal_id"}
+)
+
+
 def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     """Restore a prior version of a file from the backup store.
 
@@ -341,6 +355,9 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
         ``{ok: True, path, size, sha256, restored_from_proposal}`` on
         success, or an error dict.
     """
+    invalid = strict_keys_error(params, _RESTORE_KEYS)
+    if invalid is not None:
+        return invalid
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")
@@ -465,6 +482,9 @@ def handle_fs_restore(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_HISTORY_KEYS: Final = frozenset({"path"})
+
+
 def handle_fs_history(params: dict[str, Any]) -> dict[str, Any]:
     """Return the recorded version history for a path.
 
@@ -482,6 +502,9 @@ def handle_fs_history(params: dict[str, Any]) -> dict[str, Any]:
         ``fs.diff`` (as ``from_version`` / ``to_version``).  It carries the
         same sha256 hex digest as the ``sha256`` field.
     """
+    invalid = strict_keys_error(params, _HISTORY_KEYS)
+    if invalid is not None:
+        return invalid
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")
@@ -512,6 +535,10 @@ def handle_fs_history(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_DIFF_KEYS: Final = frozenset({"path", "from_version", "to_version"})
+_DIFF_NULLABLE: Final = frozenset({"to_version"})
+
+
 def handle_fs_diff(params: dict[str, Any]) -> dict[str, Any]:
     """Return a unified diff between two stored versions.
 
@@ -527,6 +554,9 @@ def handle_fs_diff(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True, path, diff: "<unified diff text>"}`` or an error dict.
     """
+    invalid = strict_keys_error(params, _DIFF_KEYS, nullable=_DIFF_NULLABLE)
+    if invalid is not None:
+        return invalid
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")

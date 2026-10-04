@@ -617,3 +617,54 @@ def test_purge_trash_entries_for_missing_dir_is_noop(tmp_path: Path) -> None:
 
     os.environ["OPENCLAW_TRASH_DIR"] = str(tmp_path / "does-not-exist")
     assert purge_trash_entries_for("/some/path/foo.txt") == 0
+
+
+# ---------------------------------------------------------------------------
+# Strict parameter keys
+# ---------------------------------------------------------------------------
+
+
+def _tree(root: Path) -> dict[str, bytes | None]:
+    return {
+        str(p.relative_to(root)): (p.read_bytes() if p.is_file() else None)
+        for p in sorted(root.rglob("*"))
+    }
+
+
+def test_fs_move_strict_keys_refuse_without_side_effects(
+    tmp_path: Path, src_file: Path, dst_file: Path
+) -> None:
+    base = {
+        "src": str(src_file),
+        "dst": str(dst_file),
+        "proposal_id": "p1",
+        "actor": "t",
+        "agent_bridge": False,
+    }
+    before = _tree(tmp_path)
+    unknown = handle_fs_move({**base, "source": "x"})
+    assert unknown["error"] == "INVALID_PARAM"
+    assert "source" in unknown["message"]
+    for key in base:
+        result = handle_fs_move({**base, key: None})
+        assert result["error"] == "INVALID_PARAM", key
+        assert key in result["message"]
+    assert _tree(tmp_path) == before
+    assert handle_fs_move(base)["ok"] is True
+    assert dst_file.exists()
+    assert not src_file.exists()
+
+
+def test_fs_delete_strict_keys_refuse_without_side_effects(tmp_path: Path, src_file: Path) -> None:
+    base = {"path": str(src_file), "proposal_id": "p1", "actor": "t", "agent_bridge": False}
+    before = _tree(tmp_path)
+    unknown = handle_fs_delete({**base, "force": True})
+    assert unknown["error"] == "INVALID_PARAM"
+    assert "force" in unknown["message"]
+    for key in base:
+        result = handle_fs_delete({**base, key: None})
+        assert result["error"] == "INVALID_PARAM", key
+        assert key in result["message"]
+    assert _tree(tmp_path) == before
+    assert handle_fs_delete(base)["ok"] is True
+    assert not src_file.exists()

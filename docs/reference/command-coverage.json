@@ -466,6 +466,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_fs.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },
@@ -714,6 +715,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_fs.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },
@@ -1240,6 +1242,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_fs.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },
@@ -1546,6 +1549,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
+        "app/node/tests/test_fs.py",
         "app/node/tests/test_gateway_ws.py"
       ]
     },

@@ -40,6 +40,7 @@ from openclaw_node.commands.fs_write import (
     _reset_store_for_testing,
     _resolve_write_target,
 )
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_fd import read_bytes_safe, replace_safe
 from openclaw_node.safe_path import OutOfBoundsError
@@ -211,6 +212,9 @@ def _post_resolution_check(resolved: Path) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
+_MOVE_KEYS: Final = frozenset({"src", "dst", "actor", "agent_bridge", "proposal_id"})
+
+
 def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     """Move a file atomically within the allowed roots.
 
@@ -230,6 +234,9 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True, src, dst, size}`` on success, or an error dict.
     """
+    invalid = strict_keys_error(params, _MOVE_KEYS)
+    if invalid is not None:
+        return invalid
     src_raw = str(params.get("src", ""))
     dst_raw = str(params.get("dst", ""))
     if not src_raw:
@@ -356,6 +363,9 @@ def handle_fs_move(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_DELETE_KEYS: Final = frozenset({"path", "actor", "agent_bridge", "proposal_id"})
+
+
 def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
     """Delete a file by moving it to trash (recoverable via ``fs.restore``).
 
@@ -372,6 +382,9 @@ def handle_fs_delete(params: dict[str, Any]) -> dict[str, Any]:
     Returns:
         ``{ok: True, path, sha256, trashed_to}`` on success, or an error dict.
     """
+    invalid = strict_keys_error(params, _DELETE_KEYS)
+    if invalid is not None:
+        return invalid
     path = str(params.get("path", ""))
     if not path:
         return _error("MISSING_PARAM", "path is required")

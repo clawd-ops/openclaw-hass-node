@@ -66,6 +66,12 @@ entries in `app/config.yaml`; configurable via `OPENCLAW_ALLOWED_ROOTS`
 in standalone mode). Path traversal and symlink escape are blocked by
 `safe_fd.py`.
 
+Every `fs.*` command validates its full key set before touching the
+filesystem or the backup store. A key not listed in the Args column is refused
+with `INVALID_PARAM` naming the key and the allowed set, and an optional key
+supplied as `null` is refused the same way (omit it instead). The one
+exception is `fs.diff` `to_version`, where `null` is a documented value.
+
 ## `system.*` — shell and exec approvals (5 commands)
 
 | Command        | Args                               | Notes                  |

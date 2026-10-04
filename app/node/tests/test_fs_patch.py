@@ -537,3 +537,40 @@ def test_fs_patch_dry_run_result_over_limit_refused(tmp_path: Path) -> None:
     assert result["error"] == "RESULT_TOO_LARGE"
     assert p.stat().st_size == MAX_WRITE_BYTES
     assert _get_store().history(str(p)) == []
+
+
+# ---------------------------------------------------------------------------
+# Strict parameter keys
+# ---------------------------------------------------------------------------
+
+_STRICT_PATCH = "@@ -1 +1 @@\n-a\n+b\n"
+
+
+def _tree(root: Path) -> dict[str, bytes | None]:
+    return {
+        str(p.relative_to(root)): (p.read_bytes() if p.is_file() else None)
+        for p in sorted(root.rglob("*"))
+    }
+
+
+def test_fs_patch_strict_keys_refuse_without_side_effects(tmp_path: Path) -> None:
+    f = _allowed_file(tmp_path, content="a\n")
+    base = {
+        "path": str(f),
+        "patch": _STRICT_PATCH,
+        "dry_run": False,
+        "proposal_id": "p1",
+        "actor": "t",
+        "agent_bridge": False,
+    }
+    before = _tree(tmp_path)
+    unknown = handle_fs_patch({**base, "dryrun": True})
+    assert unknown["error"] == "INVALID_PARAM"
+    assert "dryrun" in unknown["message"]
+    for key in base:
+        result = handle_fs_patch({**base, key: None})
+        assert result["error"] == "INVALID_PARAM", key
+        assert key in result["message"]
+    assert _tree(tmp_path) == before
+    assert handle_fs_patch(base)["ok"] is True
+    assert f.read_text(encoding="utf-8") == "b\n"

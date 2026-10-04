@@ -28,6 +28,7 @@ import stat as stat_mod
 from pathlib import Path
 from typing import Any, Final
 
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import allowed_roots_for_env
 from openclaw_node.safe_fd import open_safe_fd
 from openclaw_node.safe_path import NoAllowedRootsError, OutOfBoundsError
@@ -152,6 +153,9 @@ def _read_range(fd: int, offset: int, cap: int, *, probe_overflow: bool) -> byte
     return b"".join(chunks)
 
 
+_READ_KEYS: Final = frozenset({"path", "encoding", "max_bytes", "offset", "length"})
+
+
 def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
     """Handle ``fs.read`` - return a file's contents, optionally a byte range.
 
@@ -204,6 +208,9 @@ def handle_fs_read(params: dict[str, Any]) -> dict[str, Any]:
         >>> # In tests OPENCLAW_ALLOWED_ROOTS is monkeypatched to tmp_path.
         >>> # handle_fs_read({"path": "/tmp/x"})  # doctest: +SKIP
     """
+    invalid = strict_keys_error(params, _READ_KEYS)
+    if invalid is not None:
+        return invalid
     raw_path = params.get("path")
     if not isinstance(raw_path, str) or not raw_path:
         return _error("PATH_REQUIRED", "Missing required 'path' parameter")
@@ -345,6 +352,9 @@ def _entry(child: os.DirEntry[str]) -> dict[str, Any]:
     }
 
 
+_LIST_KEYS: Final = frozenset({"path", "hidden", "max_entries"})
+
+
 def handle_fs_list(params: dict[str, Any]) -> dict[str, Any]:
     """Handle ``fs.list`` - list a directory's immediate children.
 
@@ -363,6 +373,9 @@ def handle_fs_list(params: dict[str, Any]) -> dict[str, Any]:
         ``PATH_NOT_FOUND``, ``NOT_A_DIRECTORY``, ``OUT_OF_BOUNDS``,
         ``NO_ALLOWED_ROOTS``.
     """
+    invalid = strict_keys_error(params, _LIST_KEYS)
+    if invalid is not None:
+        return invalid
     raw_path = params.get("path")
     if not isinstance(raw_path, str) or not raw_path:
         return _error("PATH_REQUIRED", "Missing required 'path' parameter")
@@ -408,6 +421,9 @@ def handle_fs_list(params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_STAT_KEYS: Final = frozenset({"path"})
+
+
 def handle_fs_stat(params: dict[str, Any]) -> dict[str, Any]:
     """Handle ``fs.stat`` - stat one path.
 
@@ -425,6 +441,9 @@ def handle_fs_stat(params: dict[str, Any]) -> dict[str, Any]:
         ``owner_uid``, ``group_gid``, ``is_symlink``, and optional
         ``link_target``. Error dict on path/config issues.
     """
+    invalid = strict_keys_error(params, _STAT_KEYS)
+    if invalid is not None:
+        return invalid
     raw_path = params.get("path")
     if not isinstance(raw_path, str) or not raw_path:
         return _error("PATH_REQUIRED", "Missing required 'path' parameter")
@@ -540,6 +559,9 @@ def _iter_matches(
     return matches, truncated
 
 
+_GLOB_KEYS: Final = frozenset({"root", "pattern", "hidden", "max_matches"})
+
+
 def handle_fs_glob(params: dict[str, Any]) -> dict[str, Any]:
     """Handle ``fs.glob`` - glob within an allowed root.
 
@@ -559,6 +581,9 @@ def handle_fs_glob(params: dict[str, Any]) -> dict[str, Any]:
         strings relative to *root*), and ``truncated`` flag. Error dict on
         validation failure.
     """
+    invalid = strict_keys_error(params, _GLOB_KEYS)
+    if invalid is not None:
+        return invalid
     raw_root = params.get("root")
     pattern = params.get("pattern")
     if not isinstance(raw_root, str) or not raw_root:
