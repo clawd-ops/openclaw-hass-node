@@ -1948,3 +1948,135 @@ async def test_attach_relay_does_not_wait_for_the_inventory_reply() -> None:
 
     assert client._runtime is not None
     assert client._runtime.chat_relay is relay
+
+
+# ---- ingress/egress bounds (#291) ----
+
+
+async def _drive_invoke(
+    monkeypatch: pytest.MonkeyPatch, params_json: str, result: dict[str, Any] | None = None
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Feed one invoke through the real ``_event_loop``; return (sent, dispatched)."""
+    dispatched: list[dict[str, Any]] = []
+
+    async def _recording_dispatch(
+        command: str, params: dict[str, Any], **_kw: Any
+    ) -> dict[str, Any]:
+        dispatched.append(params)
+        return result if result is not None else {"ok": True}
+
+    monkeypatch.setattr("openclaw_node.gateway_ws.dispatch_async", _recording_dispatch)
+    client = _make_client()
+    ws = AsyncMock()
+    frame = json.dumps(
+        {
+            "type": "event",
+            "event": "node.invoke.request",
+            "payload": {"id": "b1", "nodeId": "n", "command": "ping", "paramsJSON": params_json},
+        }
+    )
+
+    async def _recv_iter() -> AsyncIterator[str]:
+        yield frame
+
+    ws.__aiter__ = lambda self: _recv_iter().__aiter__()
+    await client._event_loop(ws, None)
+    return [c[0][0] for c in ws.send.call_args_list], dispatched
+
+
+def _error_code(sent: list[str]) -> str:
+    assert len(sent) == 1
+    return str(json.loads(sent[0])["params"]["error"]["code"])
+
+
+async def test_params_json_over_size_refused_without_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    big = json.dumps({"k": "x" * (512 * 1024)})
+    sent, dispatched = await _drive_invoke(monkeypatch, big)
+    assert _error_code(sent) == "REQUEST_TOO_LARGE"
+    assert dispatched == []
+
+
+async def test_params_json_at_size_limit_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
+    prefix = '{"k":"'
+    raw = prefix + "x" * (512 * 1024 - len(prefix) - 2) + '"}'
+    assert len(raw) == 512 * 1024
+    sent, dispatched = await _drive_invoke(monkeypatch, raw)
+    assert json.loads(sent[0])["params"]["ok"] is True
+    assert len(dispatched) == 1
+
+
+async def test_params_json_too_deep_refused_without_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = '{"a":' + "[" * 64 + "]" * 64 + "}"  # depth 65
+    sent, dispatched = await _drive_invoke(monkeypatch, raw)
+    assert _error_code(sent) == "REQUEST_TOO_LARGE"
+    assert dispatched == []
+
+
+async def test_params_json_pathological_depth_refused_without_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = '{"a":' + "[" * 100_000 + "]" * 100_000 + "}"
+    sent, dispatched = await _drive_invoke(monkeypatch, raw)
+    assert _error_code(sent) == "REQUEST_TOO_LARGE"
+    assert dispatched == []
+
+
+async def test_params_json_at_depth_limit_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
+    raw = '{"a":' + "[" * 62 + "]" * 62 + "}"  # depth 64
+    sent, dispatched = await _drive_invoke(monkeypatch, raw)
+    assert json.loads(sent[0])["params"]["ok"] is True
+    assert len(dispatched) == 1
+
+
+async def test_params_json_too_many_members_refused_without_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = json.dumps({"a": list(range(4096))})  # 4096 + 1 members
+    sent, dispatched = await _drive_invoke(monkeypatch, raw)
+    assert _error_code(sent) == "REQUEST_TOO_LARGE"
+    assert dispatched == []
+
+
+async def test_params_json_at_member_limit_dispatches(monkeypatch: pytest.MonkeyPatch) -> None:
+    raw = json.dumps({"a": list(range(4095))})  # 4095 + 1 members
+    sent, dispatched = await _drive_invoke(monkeypatch, raw)
+    assert json.loads(sent[0])["params"]["ok"] is True
+    assert len(dispatched) == 1
+
+
+async def test_oversize_result_replaced_with_error_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent, dispatched = await _drive_invoke(
+        monkeypatch, "{}", result={"ok": True, "blob": "x" * (24 * 1024 * 1024)}
+    )
+    assert len(dispatched) == 1
+    assert _error_code(sent) == "RESULT_TOO_LARGE"
+    assert len(sent[0]) < 1024
+
+
+async def test_result_at_limit_is_sent(monkeypatch: pytest.MonkeyPatch) -> None:
+    probe, _ = await _drive_invoke(monkeypatch, "{}", result={"ok": True, "blob": ""})
+    overhead = len(probe[0])
+    blob = "x" * (24 * 1024 * 1024 - overhead)
+    sent, _ = await _drive_invoke(monkeypatch, "{}", result={"ok": True, "blob": blob})
+    assert len(sent[0]) == 24 * 1024 * 1024
+    assert json.loads(sent[0])["params"]["ok"] is True
+
+
+async def test_connect_caps_inbound_frame_size() -> None:
+    client = _make_client()
+    seen: dict[str, Any] = {}
+
+    def _fake_connect(*_a: Any, **kw: Any) -> Any:
+        seen.update(kw)
+        raise ConnectionError("stop")
+
+    with (
+        patch("websockets.asyncio.client.connect", _fake_connect),
+        pytest.raises(ConnectionError),
+    ):
+        await client._connect_and_loop()
+    assert seen["max_size"] == 4 * 1024 * 1024
