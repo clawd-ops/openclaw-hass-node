@@ -59,3 +59,25 @@ def test_system_which_never_executes_resolved_path(monkeypatch: pytest.MonkeyPat
 def test_subprocess_not_imported_for_system_which() -> None:
     module = importlib.import_module(_MOD)
     assert not hasattr(module, "subprocess")
+
+
+@pytest.mark.parametrize("bad", [{"name": "sh", "bins": ["sh"]}, {"binary": "sh"}])
+def test_system_which_refuses_unknown_keys(
+    bad: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    looked_up: list[str] = []
+    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda n: looked_up.append(n))
+    result = handle_system_which(bad)
+    assert result["error"] == "INVALID_PARAM"
+    assert next(k for k in bad if k != "name") in result["message"]
+    assert "allowed: name" in result["message"]
+    assert looked_up == []
+
+
+def test_system_which_refuses_null_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    looked_up: list[str] = []
+    monkeypatch.setattr(f"{_MOD}.shutil.which", lambda n: looked_up.append(n))
+    result = handle_system_which({"name": None})
+    assert result["error"] == "INVALID_PARAM"
+    assert "name" in result["message"]
+    assert looked_up == []

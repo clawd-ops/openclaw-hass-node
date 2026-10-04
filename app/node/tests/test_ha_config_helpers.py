@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -89,30 +90,24 @@ async def test_get_action_rejected() -> None:
     assert result["error"] == "INVALID_PARAM"
 
 
+def _mutation_params(action: str) -> dict[str, Any]:
+    params: dict[str, Any] = {"action": action, "helper_type": "input_boolean"}
+    if action != "create":
+        params["input_boolean_id"] = "foo"
+    if action != "delete":
+        params["attrs"] = {"name": "foo"}
+    return params
+
+
 @pytest.mark.parametrize("action", ["create", "update", "delete"])
 async def test_mutating_missing_proposal(action: str) -> None:
-    result = await handle_ha_config_helpers(
-        {
-            "action": action,
-            "helper_type": "input_boolean",
-            "input_boolean_id": "foo",
-            "attrs": {"name": "foo"},
-        }
-    )
+    result = await handle_ha_config_helpers(_mutation_params(action))
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 
 @pytest.mark.parametrize("action", ["create", "update", "delete"])
 async def test_mutating_direct_proposal_refused(action: str) -> None:
-    result = await handle_ha_config_helpers(
-        {
-            "action": action,
-            "helper_type": "input_boolean",
-            "input_boolean_id": "foo",
-            "attrs": {"name": "foo"},
-            "proposal_id": "direct",
-        }
-    )
+    result = await handle_ha_config_helpers({**_mutation_params(action), "proposal_id": "direct"})
     assert result["error"] == "PROPOSAL_REQUIRED"
 
 

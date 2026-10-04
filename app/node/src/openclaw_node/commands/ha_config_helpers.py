@@ -30,6 +30,7 @@ import logging
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -48,6 +49,14 @@ _HELPER_TYPES: Final[frozenset[str]] = frozenset(
         "schedule",
     }
 )
+
+
+_ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
+    "list": frozenset({"action", "helper_type"}),
+    "create": frozenset({"action", "helper_type", "attrs", "proposal_id"}),
+    "update": frozenset({"action", "helper_type", "attrs", "proposal_id"}),
+    "delete": frozenset({"action", "helper_type", "proposal_id"}),
+}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -212,6 +221,14 @@ async def handle_ha_config_helpers(params: dict[str, Any]) -> dict[str, Any]:
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
+    allowed = _ACTION_KEYS[action]
+    helper_type = params.get("helper_type")
+    if action in {"update", "delete"} and isinstance(helper_type, str):
+        # The item id key is named after the helper type, e.g. input_boolean_id.
+        allowed = allowed | {f"{helper_type.strip()}_id"}
+    invalid = strict_keys_error(params, allowed)
+    if invalid is not None:
+        return invalid
     if action == "list":
         return await _action_list(params)
     if action == "create":

@@ -13,11 +13,20 @@ import logging
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _ACTIONS: Final[frozenset[str]] = frozenset({"list", "create", "update", "delete"})
+
+
+_ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
+    "list": frozenset({"action"}),
+    "create": frozenset({"action", "name", "attrs", "proposal_id"}),
+    "update": frozenset({"action", "area_id", "attrs", "proposal_id"}),
+    "delete": frozenset({"action", "area_id", "proposal_id"}),
+}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -59,6 +68,9 @@ async def handle_ha_config_area_registry(params: dict[str, Any]) -> dict[str, An
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
+    invalid = strict_keys_error(params, _ACTION_KEYS[action])
+    if invalid is not None:
+        return invalid
 
     if action == "list":
         try:

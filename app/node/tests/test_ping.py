@@ -52,3 +52,17 @@ def test_unknown_command_error_attributes() -> None:
     err = UnknownCommandError("foo.bar")
     assert err.command == "foo.bar"
     assert "foo.bar" in str(err)
+
+
+def test_handle_ping_refuses_unknown_key() -> None:
+    result = handle_ping({"message": "hi", "msg": "typo"})
+    assert result["ok"] is False
+    assert result["error"] == "INVALID_PARAM"
+    assert "msg" in result["message"]
+    assert "pong" not in result
+
+
+def test_handle_ping_refuses_null_message() -> None:
+    result = handle_ping({"message": None})
+    assert result["error"] == "INVALID_PARAM"
+    assert "message" in result["message"]

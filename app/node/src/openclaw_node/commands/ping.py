@@ -7,7 +7,11 @@ containing an optional echoed message and a server-side timestamp.
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, Final
+
+from openclaw_node.commands.params import strict_keys_error
+
+_PING_KEYS: Final[frozenset[str]] = frozenset({"message"})
 
 
 def handle_ping(params: dict[str, Any]) -> dict[str, Any]:
@@ -18,7 +22,8 @@ def handle_ping(params: dict[str, Any]) -> dict[str, Any]:
 
     Args:
         params: Command parameters dict.  The only recognised key is
-            ``"message"`` (optional ``str``).
+            ``"message"`` (optional ``str``); any other key, or a null
+            ``message``, returns ``INVALID_PARAM``.
 
     Returns:
         A dict with keys:
@@ -36,6 +41,9 @@ def handle_ping(params: dict[str, Any]) -> dict[str, Any]:
         >>> isinstance(result["ts"], int)
         True
     """
+    invalid = strict_keys_error(params, _PING_KEYS)
+    if invalid is not None:
+        return invalid
     message: str = str(params.get("message", ""))
     return {
         "pong": True,

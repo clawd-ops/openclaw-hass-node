@@ -23,6 +23,7 @@ import logging
 from typing import Any, Final
 
 from openclaw_node.commands.config_mutation import require_config_mutation_approval
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -33,6 +34,15 @@ _ACTIONS: Final[frozenset[str]] = frozenset(
     {"get", "save", "dashboards_list", "resources_list", "resources_create"}
 )
 _MUTATING_ACTIONS: Final[frozenset[str]] = frozenset({"save", "resources_create"})
+
+
+_ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
+    "get": frozenset({"action", "url_path"}),
+    "save": frozenset({"action", "url_path", "config", "proposal_id"}),
+    "dashboards_list": frozenset({"action"}),
+    "resources_list": frozenset({"action"}),
+    "resources_create": frozenset({"action", "url", "res_type", "proposal_id"}),
+}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -187,6 +197,9 @@ async def handle_ha_config_lovelace(params: dict[str, Any]) -> dict[str, Any]:
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
+    invalid = strict_keys_error(params, _ACTION_KEYS[action], frozenset({"url_path"}))
+    if invalid is not None:
+        return invalid
     if action == "get":
         return await _action_get(params)
     if action == "save":

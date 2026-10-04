@@ -18,11 +18,20 @@ from openclaw_node.commands.ha import (
     filter_entity_registry,
     filter_param_error,
 )
+from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 _ACTIONS: Final[frozenset[str]] = frozenset({"list", "get", "update", "remove"})
+
+
+_ACTION_KEYS: Final[dict[str, frozenset[str]]] = {
+    "list": frozenset({"action", *ENTITY_REGISTRY_FILTERS}),
+    "get": frozenset({"action", "entity_id"}),
+    "update": frozenset({"action", "entity_id", "attrs", "proposal_id"}),
+    "remove": frozenset({"action", "entity_id", "proposal_id"}),
+}
 
 
 def _error(code: str, message: str) -> dict[str, Any]:
@@ -60,6 +69,9 @@ async def handle_ha_config_entity_registry(params: dict[str, Any]) -> dict[str, 
             "INVALID_PARAM",
             f"action must be one of {sorted(_ACTIONS)}, got {action!r}",
         )
+    invalid = strict_keys_error(params, _ACTION_KEYS[action])
+    if invalid is not None:
+        return invalid
 
     if action == "list":
         invalid = filter_param_error(params, ENTITY_REGISTRY_FILTERS, ("action",))

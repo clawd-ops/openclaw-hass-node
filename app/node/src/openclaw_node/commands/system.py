@@ -12,7 +12,11 @@ from __future__ import annotations
 
 import os
 import shutil
-from typing import Any
+from typing import Any, Final
+
+from openclaw_node.commands.params import strict_keys_error
+
+_WHICH_KEYS: Final[frozenset[str]] = frozenset({"name"})
 
 
 def handle_system_which(params: dict[str, Any]) -> dict[str, Any]:
@@ -22,6 +26,8 @@ def handle_system_which(params: dict[str, Any]) -> dict[str, Any]:
         params: Command parameters. Recognised keys:
 
             - ``name`` (str, required): Executable name to look up.
+
+            Any other key, or a null ``name``, returns ``INVALID_PARAM``.
 
     Returns:
         Dict with ``ok``, ``name``, ``found`` (bool), and on success
@@ -33,6 +39,9 @@ def handle_system_which(params: dict[str, Any]) -> dict[str, Any]:
         >>> result["found"] in (True, False)
         True
     """
+    invalid = strict_keys_error(params, _WHICH_KEYS)
+    if invalid is not None:
+        return invalid
     name = params.get("name")
     if not isinstance(name, str) or not name:
         return {
