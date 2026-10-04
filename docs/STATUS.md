@@ -112,6 +112,15 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
 - Assist shows a curated remedy sentence for caller-fixable failures on both the
   streaming and non-streaming paths. Uncurated node text never reaches the
   Assist reply.
+- When an agent resolves (per-user map, then `default_agent_id`), Assist sends an
+  agent-qualified session key (`agent:<agentId>:ha-assist:<id>`) on both the
+  streaming and non-streaming paths. On a multi-agent gateway with no resolvable
+  agent the turn is refused before any session RPC, naming
+  `identity.default_agent_id`. On a single-agent gateway the bare
+  `ha-assist:<id>` key is used and the gateway resolves the owner. If the agent
+  inventory cannot be read (for example `agents.list` fails), the node also
+  sends the bare key; a multi-agent gateway may then reject the turn at
+  `sessions.create` (#347).
 
 **Bounds (advances [#291](https://github.com/clawd-ops/openclaw-hass-node/issues/291)):**
 

@@ -130,15 +130,15 @@ async def test_relay_turn_applies_authz_disclaimer_and_agent_id() -> None:
     """Actor authz prepends disclaimer and pins chat.send agentId."""
     sender = FakeSender()
     identity = IdentityConfig(
-        super_admins=frozenset({"rob"}),
-        user_agent_map={"rob": "my-agent"},
+        super_admins=frozenset({"admin1"}),
+        user_agent_map={"admin1": "my-agent"},
         default_agent_id="my-agent-household",
     )
     relay = _relay(sender, identity)
-    authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
+    authz = resolve_turn_authz(identity, Actor("admin1", is_admin=True))
 
     conv_id = "test-conv-authz"
-    # `rob` maps to `my-agent`, so the session is owned from creation onward.
+    # `admin1` maps to `my-agent`, so the session is owned from creation onward.
     # Previously this was the bare prefix, which is the shape that failed in
     # production: sessions.create resolves the owner before chat.send is sent.
     session_key = _session_key(conv_id, "my-agent")
@@ -180,8 +180,8 @@ def test_build_ha_assist_message_no_authz_includes_context_marker() -> None:
 
 def test_build_ha_assist_message_with_authz_includes_both_blocks() -> None:
     """With authz, the message has HA Assist context AND authz disclaimer."""
-    identity = IdentityConfig(super_admins=frozenset({"rob"}), default_agent_id="my-agent")
-    authz = resolve_turn_authz(identity, Actor("rob", is_admin=True))
+    identity = IdentityConfig(super_admins=frozenset({"admin1"}), default_agent_id="my-agent")
+    authz = resolve_turn_authz(identity, Actor("admin1", is_admin=True))
     msg = _build_ha_assist_message("turn on the lights", authz)
     assert _HA_ASSIST_CONTEXT in msg
     assert "OpenClaw authorization context" in msg
@@ -1019,7 +1019,7 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
     the subsequent silent-gap progress chunk must start on a new line so
     the HA Assist transcript doesn't read e.g.
     ``"Sure, I'll run a few commands.🔧 Calling Bash..."`` (caught
-    end-to-end by Rob on b10).
+    end-to-end by the owner on b10).
     """
     from openclaw_node import chat_relay as _cr
 
@@ -3437,6 +3437,49 @@ def test_session_key_is_qualified_only_when_an_agent_resolves() -> None:
     assert _session_key("01ABC", "my-agent") == "agent:my-agent:ha-assist:01ABC"
     assert _session_key("01ABC", None) == "ha-assist:01ABC"
     assert _session_key("01ABC", "") == "ha-assist:01ABC"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("actor", "agents", "expected"),
+    [
+        (Actor("admin1", is_admin=True), ["a", "b", "house"], "mapped"),
+        (Actor("user1", is_admin=False), ["a", "b", "house"], "house"),
+        (Actor("user1", is_admin=False), ["house"], "house"),
+    ],
+)
+async def test_turn_key_names_the_agent_it_routes_to(
+    actor: Actor, agents: list[Any], expected: str
+) -> None:
+    """Every RPC in a turn carries the resolved agent, mapped user or default.
+
+    Covers a multi-agent inventory (per-user map, then the default fallback) and a
+    single-agent one, and pins that the key's owner is the agent chat.send routes
+    to rather than a second, independently derived value.
+    """
+    sender = FakeSender()
+    identity = IdentityConfig(user_agent_map={"admin1": "mapped"}, default_agent_id="house")
+    relay = ChatRelay(sender.send, identity)
+    await asyncio.gather(relay.log_gateway_agents(), _serve_agents_list(sender, relay, agents))
+    sender.frames.clear()
+    authz = resolve_turn_authz(identity, actor)
+    key = f"agent:{expected}:ha-assist:conv-347"
+
+    async def _gateway() -> None:
+        for index in range(3):
+            await asyncio.sleep(0.01)
+            relay.handle_response(_ok_response(sender.frames[index]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_event(_session_message_event(key, "assistant", "ok"))
+
+    task = asyncio.create_task(_gateway())
+    assert await relay.relay_turn("conv-347", "hi", authz=authz) == "ok"
+    await task
+
+    assert sender.frames[0]["params"]["key"] == key
+    assert sender.frames[1]["params"]["key"] == key
+    assert sender.frames[2]["params"]["sessionKey"] == key
+    assert sender.frames[2]["params"]["agentId"] == expected
 
 
 @pytest.mark.asyncio
