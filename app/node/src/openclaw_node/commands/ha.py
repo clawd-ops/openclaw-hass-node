@@ -440,6 +440,18 @@ async def handle_ha_get_state(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
+    """Call a Home Assistant service; the single exit that scrubs supplied codes.
+
+    Codes are collected from the raw params before anything else, and every
+    returned value (success, HA error, validation or refusal error) passes
+    through ``scrub_codes``, so no early return can echo a supplied code.
+    """
+    codes = collect_codes(params)
+    scrubbed: dict[str, Any] = scrub_codes(await _handle_ha_call_service_impl(params), codes)
+    return scrubbed
+
+
+async def _handle_ha_call_service_impl(params: dict[str, Any]) -> dict[str, Any]:
     """Call a Home Assistant service.
 
     Params:
@@ -514,7 +526,6 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
         # HA REST collapses target into the body for service calls.
         body.update(target)
 
-    codes = collect_codes(body)
     try:
         body = normalise_service_code(domain, body)
     except ValueError as exc:
@@ -522,15 +533,11 @@ async def handle_ha_call_service(params: dict[str, Any]) -> dict[str, Any]:
     try:
         result = await ha_post(f"/api/services/{domain}/{service}", body or None)
     except HAClientError as exc:
-        # HA validates a lock/alarm `code`; surface its error, never the code.
-        return _error(exc.code, scrub_codes(exc.message, codes))
+        return _error(exc.code, exc.message)
 
     if not isinstance(result, list):
         return _error("HA_BAD_RESPONSE", "Expected changed-state list from service call")
-    # One exit for every success path: HA may echo the code in a changed state
-    # or in the fetched snapshot, and neither may carry it out.
-    observed: dict[str, Any] = scrub_codes(await _with_observed_states(result, target), codes)
-    return observed
+    return await _with_observed_states(result, target)
 
 
 async def handle_ha_list_areas(_params: dict[str, Any]) -> dict[str, Any]:

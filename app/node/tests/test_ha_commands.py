@@ -3185,3 +3185,28 @@ async def test_call_service_marker_collision_never_echoes_the_code(secret: str) 
             {"domain": "lock", "service": "unlock", "data": {"code": secret}}
         )
     assert secret not in json.dumps(err)
+
+
+async def test_call_service_validation_errors_never_echo_a_supplied_code_as_a_key() -> None:
+    secret = "482913"
+    cases: list[dict[str, Any]] = [
+        {"domain": "lock", "service": "unlock", "target": {secret: 1}, "data": {"code": secret}},
+        {"domain": "lock", "service": "unlock", "data": {"code": secret}, secret: 1},
+    ]
+    for params in cases:
+        with patch("openclaw_node.commands.ha.ha_post", new_callable=AsyncMock) as post:
+            result = await handle_ha_call_service(params)
+        assert result["error"] == "INVALID_PARAM"
+        assert secret not in json.dumps(result)
+        post.assert_not_called()
+
+
+async def test_call_service_impl_alone_would_echo_the_code() -> None:
+    # Mutation guard: the scrub lives only in the registered wrapper.
+    from openclaw_node.commands.ha import _handle_ha_call_service_impl
+
+    secret = "482913"
+    raw = await _handle_ha_call_service_impl(
+        {"domain": "lock", "service": "unlock", "target": {secret: 1}, "data": {"code": secret}}
+    )
+    assert secret in json.dumps(raw)

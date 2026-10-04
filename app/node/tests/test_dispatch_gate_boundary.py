@@ -589,3 +589,23 @@ async def test_ws_nested_code_reaches_ha_but_not_logs_or_result(
     assert "482913" not in caplog.text
     assert "482913" not in json.dumps(sent)
     assert "unlocked" in json.dumps(sent)
+
+
+async def test_ws_unknown_key_equal_to_code_is_refused_without_echo(
+    monkeypatch: pytest.MonkeyPatch,
+    ha_stub: _Stub,
+    tmp_path: Path,
+) -> None:
+    _as_role(monkeypatch, False)
+    for params in (
+        {
+            "domain": "lock",
+            "service": "unlock",
+            "target": {"482913": 1},
+            "data": {"code": "482913"},
+        },
+        {"domain": "lock", "service": "unlock", "data": {"code": "482913"}, "482913": 1},
+    ):
+        sent = await _invoke(tmp_path, "ha.call_service", params)
+        assert "482913" not in json.dumps(sent)
+    assert ha_stub.calls == []
