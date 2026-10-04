@@ -211,9 +211,6 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   [compatibility matrix](COMPATIBILITY-MATRIX.md).
 - Re-probes owed: every ledger row marked "fix merged, re-probe owed" needs a fresh
   live probe against the beta; the marker clears when that pass is recorded.
-- Open: the `release-on-version-bump.yml` path filter omits the plugin package
-  and skill version files, so an edit to only those would not cut a release
-  (a `scripts/bump-version.py` bump touches all seven and still triggers).
 - Deferred and not part of this item: the executable command contract and
   strict unknown-key refusal ([#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)),
   and moving `ha.reload_config` / `ha.update_install` off the admin token

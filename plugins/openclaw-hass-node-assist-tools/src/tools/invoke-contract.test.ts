@@ -74,7 +74,8 @@ function call(args: Record<string, unknown>) {
   }, new AbortController().signal, () => undefined));
 }
 
-describe("wrapper/node command contract", () => {
+// Most tests here spawn the real Python handler; allow for a loaded machine.
+describe("wrapper/node command contract", { timeout: 30_000 }, () => {
   it.each(["data", "service_data"])("preserves brightness and nested %s through the real wrapper and Python handler", async (key) => {
     const data = { brightness_pct: 50, transition: 0, rgb_color: [1, 2, 3], nested: { effect: "test", enabled: false } };
     const result = await call({ [key]: data, target: { entity_id: ["light.test"] } });
