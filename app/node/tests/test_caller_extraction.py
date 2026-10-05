@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import time
+import types
 from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,7 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
+from openclaw_node import chat_relay
 from openclaw_node.authz import Actor, resolve_turn_authz
 from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.commands import dispatcher
@@ -208,8 +211,38 @@ async def test_hint_for_finished_turn_is_refused(
     sent = await _ingress(
         client, "ha.call_service", {"domain": "light", "service": "turn_on", **_hint(_SESSION)}
     )
+    assert sent["ok"] is False
+    assert sent["error"]["code"] == "REQUEST_EXPIRED"
+    assert "expired" in sent["error"]["message"]
+    assert ha_requests == []
+
+
+async def test_ended_turn_expiry_lapses_after_ttl(
+    turn: tuple[GatewayClient, ChatRelay, asyncio.Task[str]],
+    ha_requests: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, _, task = turn
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    later = time.monotonic() + chat_relay._ENDED_TURN_TTL_S + 1
+    monkeypatch.setattr(chat_relay, "time", types.SimpleNamespace(monotonic=lambda: later))
+    sent = await _ingress(
+        client, "ha.call_service", {"domain": "light", "service": "turn_on", **_hint(_SESSION)}
+    )
     assert sent["error"]["code"] == "PERMISSION_DENIED"
     assert ha_requests == []
+
+
+async def test_ended_turn_record_is_capped(
+    turn: tuple[GatewayClient, ChatRelay, asyncio.Task[str]],
+) -> None:
+    _, relay, _ = turn
+    for i in range(chat_relay._ENDED_TURN_MAX + 10):
+        relay._record_ended(f"ha-assist:n{i}")
+    assert len(relay._ended_turns) <= chat_relay._ENDED_TURN_MAX
+    assert not relay.recently_ended("ha-assist:n0")
+    assert relay.recently_ended(f"ha-assist:n{chat_relay._ENDED_TURN_MAX + 9}")
 
 
 async def test_hint_without_any_relay_is_refused(tmp_path: Path, ha_requests: list[str]) -> None:

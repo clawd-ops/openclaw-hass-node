@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, Final
@@ -61,6 +62,16 @@ _TURN_TIMEOUT_S: Final[float] = 30.0
 _STREAM_TURN_TIMEOUT_S: Final[float] = 180.0
 _RPC_TIMEOUT_S: Final[float] = 10.0
 _SESSION_KEY_PREFIX: Final[str] = "ha-assist:"
+
+
+_MCP_PREFIX: Final[str] = "mcp__openclaw__"
+_ENDED_TURN_TTL_S: Final[float] = 300.0
+_ENDED_TURN_MAX: Final[int] = 256
+
+
+def _strip_mcp_prefix(name: str) -> str:
+    """Drop the duplicating ``mcp__openclaw__`` prefix so one tool call is one line."""
+    return name.removeprefix(_MCP_PREFIX) or name
 
 
 def _session_key(conversation_id: str, agent_id: str | None) -> str:
@@ -285,6 +296,7 @@ class ChatRelay:
         # key. The only source of a node.invoke caller above the untrusted
         # default; an invoke's reserved hint is looked up here, never believed.
         self._active_turns: dict[str, Caller] = {}
+        self._ended_turns: dict[str, float] = {}
         # Gateway agent inventory, or None when it has not been observed.
         # None and () mean different things: None is 'topology unknown, do
         # not conclude anything', () is 'the gateway reported no agents'.
@@ -441,6 +453,24 @@ class ChatRelay:
             yield
         finally:
             self._active_turns.pop(session_key, None)
+            self._record_ended(session_key)
+
+    def _record_ended(self, session_key: str) -> None:
+        now = time.monotonic()
+        for key in (session_key, self._canonical_by_raw.get(session_key, session_key)):
+            self._ended_turns[key.lower()] = now
+        self._prune_ended(now)
+
+    def _prune_ended(self, now: float) -> None:
+        for key in [k for k, t in self._ended_turns.items() if now - t > _ENDED_TURN_TTL_S]:
+            del self._ended_turns[key]
+        while len(self._ended_turns) > _ENDED_TURN_MAX:
+            del self._ended_turns[next(iter(self._ended_turns))]
+
+    def recently_ended(self, session_key_hint: str) -> bool:
+        """True when the hint names a turn that existed and ended within the TTL."""
+        self._prune_ended(time.monotonic())
+        return session_key_hint.strip().lower() in self._ended_turns
 
     def active_caller(self, session_key_hint: str) -> Caller | None:
         """Principal of the in-flight turn that ``session_key_hint`` names, else ``None``.
@@ -1282,7 +1312,9 @@ class ChatRelay:
                     raw_tool_name = data.get("name") or (
                         data.get("title") if payload_stream == "item" else None
                     )
-                    tool_name = raw_tool_name if isinstance(raw_tool_name, str) else None
+                    tool_name = (
+                        _strip_mcp_prefix(raw_tool_name) if isinstance(raw_tool_name, str) else None
+                    )
                     raw_tool_id = data.get("id") or data.get("toolCallId") or data.get("itemId")
                     tool_id = str(raw_tool_id or "")
                     use_frames = self._use_tool_frames.get(tool_canonical_key, False)
