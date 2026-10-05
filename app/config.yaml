@@ -213,7 +213,8 @@ schema:
     admin_role_agent_id: str?
     forbidden_commands: str?
   addon_lifecycle:
-    allowlist: [str]?  # deprecated, ignored; remove next release
+    allowlist:
+      - str?
     denylist:
       - str
   hass_url: str?

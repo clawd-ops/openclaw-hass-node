@@ -180,9 +180,9 @@ command request so the gateway stores the widened surface. See
      OpenClaw-side permission separation comes from routing a user to an
      agent whose gateway tool inventory is restricted.
    - `addon_lifecycle` *(optional)*: Tier B add-on start/stop/restart/update
-     policy. `allowlist` is default-deny and must include every slug
-     you want lifecycle commands to touch. `homeassistant`,
-     `supervisor`, and `core_*` slugs are always denied even if listed.
+     policy. There is no allowlist. `homeassistant`, `supervisor`, and
+     `core_*` slugs are always denied, and `denylist` fences off any extra
+     slugs. Every other slug is governed by the caller's role.
      The paired session authenticates these calls and each call also needs a
      native OpenClaw approval; see the Tier B approvals step after pairing.
      `ha.reload_config` and `ha.update_install` need the same approval.

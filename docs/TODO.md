@@ -36,7 +36,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - **Separate authorization risk:** background subagents that are not spawned from an Assist turn do have `nodes.invoke` in principle. The dispatcher now evaluates a caller principal and Assist turns carry theirs on the wrapper path, but a Gateway-forwarded invoke without the plugin hint is still an operator call, so it cannot distinguish subagent callers from main-session callers. Passing trusted caller/session context into the invoke envelope remains node-policy work outside this closed migration item (see item 20).
 - Follow-on work does not reopen this item:
   1. **Subagent-side allowlist enforcement at the node** needs trusted caller/session context in the invoke envelope and belongs to authorization policy.
-  2. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) uses the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) and audit logging; verify it independently in the release.
+  2. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) uses the pairing-session bearer plus a slug denylist (always deny `homeassistant`, `supervisor`, `core_*`) and audit logging; verify it independently in the release.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 - `ha_*` wrappers are hidden outside Assist sessions (#414); non-Assist sessions use the `nodes` tool and its approval hook.
 - Role-aware approvals (#405, #406) shipped. Open: the plugin cannot see the caller's role, so a super_admin add-on stop still prompts in the plugin even though the node would allow it; HA restart and stop services remain denied for every caller until an approval path exists.

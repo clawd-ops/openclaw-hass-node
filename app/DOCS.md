@@ -244,9 +244,9 @@ or `user` role for Assist turns.
   - homeassistant
   - supervisor
   ```
-- **Security**: A slug listed both here and in `allowlist` is denied;
-  the denylist wins. Use this to make sure even an accidental
-  allowlist entry cannot bypass policy.
+- **Security**: There is no allowlist. Slugs not denied here or by the
+  always-denied set go through the caller's role and a native OpenClaw
+  approval for each call.
 
 ### `hass_url`
 

@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml  # type: ignore[import-untyped]
 
 from openclaw_node.config import (
     allowed_roots_for_env,
@@ -311,3 +312,14 @@ def test_warn_ignored_legacy_allowlist_silent_otherwise(
         assert warn_ignored_legacy_allowlist(options) is False
 
     assert "ignored" not in caplog.text
+
+
+def test_config_yaml_loads_and_keeps_optional_legacy_allowlist() -> None:
+    """The add-on manifest parses and its schema keeps the optional legacy key."""
+    manifest = Path(__file__).resolve().parents[2] / "config.yaml"
+
+    parsed = yaml.safe_load(manifest.read_text())
+
+    lifecycle = parsed["schema"]["addon_lifecycle"]
+    assert lifecycle["allowlist"] == ["str?"]
+    assert lifecycle["denylist"] == ["str"]
