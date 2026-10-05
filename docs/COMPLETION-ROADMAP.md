@@ -60,6 +60,7 @@ The project is complete only when all of the following are true:
   and destructive calls always are (#405, #406). HA restart and stop stay denied.
 - [x] A non-destructive approval can be allowed for the session (session + command +
   action, 1 hour, in memory); destructive calls are never offered it (#407).
+- [ ] A pending approval is announced on the Assist stream (#404): implemented, pending live UAT.
 - [ ] Protected filesystem and HA-native config mutations have tested backup,
   conflict, failure, and recovery behavior.
 - [ ] Direct node invocation and Assist-plugin invocation have cross-language

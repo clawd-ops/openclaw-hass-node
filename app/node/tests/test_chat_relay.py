@@ -4080,3 +4080,221 @@ async def test_stream_turn_mcp_prefixed_tool_yields_one_progress_line() -> None:
 
     await asyncio.gather(_consume(), _drive())
     assert queued == ["🔧 Calling ha_get_state...", " (x2)..."]
+
+
+def _approval_event(
+    session_key: str,
+    phase: str,
+    status: str = "pending",
+    decision: str | None = None,
+) -> dict[str, Any]:
+    """Helper: gateway ``session.approval`` event."""
+    approval: dict[str, Any] = {"id": "plugin:1", "status": status}
+    if decision is not None:
+        approval["decision"] = decision
+    return {
+        "type": "event",
+        "event": "session.approval",
+        "payload": {"sessionKey": session_key, "phase": phase, "approval": approval},
+    }
+
+
+async def _stream_with_events(
+    conv_id: str,
+    events: list[dict[str, Any]],
+    subscribe_payload: dict[str, Any] | None = None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    sender = FakeSender()
+    relay = _relay(sender)
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(
+                sender.frames[1]["id"],
+                {"subscribed": True, "key": canonical, **(subscribe_payload or {})},
+            )
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-ap"}))
+        for ev in events:
+            relay.handle_event(ev)
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-ap",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[Any] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "restart it"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+    return [c for c in chunks if isinstance(c, str)], sender.frames
+
+
+def _key(conv: str) -> str:
+    return f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv.lower()}"
+
+
+@pytest.mark.asyncio
+async def test_subscribe_requests_include_approvals() -> None:
+    text, frames = await _stream_with_events("01KVH_APPROVAL_SUB", [])
+    assert frames[1]["method"] == "sessions.messages.subscribe"
+    assert frames[1]["params"]["includeApprovals"] is True
+    assert "Approval" not in "".join(text)
+
+
+@pytest.mark.asyncio
+async def test_pending_event_announces_waiting() -> None:
+    conv = "01KVH_APPROVAL_WAIT"
+    text, _ = await _stream_with_events(conv, [_approval_event(_key(conv), "pending")])
+    assert text.count("\n⏸ Approval required, waiting on you (Discord / Control UI)") == 1
+
+
+@pytest.mark.asyncio
+async def test_approval_replay_pending_announces_waiting() -> None:
+    conv = "01KVH_APPROVAL_REPLAY"
+    replay = {"approvalReplay": {"approvals": [{"id": "plugin:1", "status": "pending"}]}}
+    text, _ = await _stream_with_events(conv, [], replay)
+    assert "".join(text).count("Approval required") == 1
+
+
+@pytest.mark.asyncio
+async def test_empty_approval_replay_is_silent() -> None:
+    conv = "01KVH_APPROVAL_EMPTY"
+    replay = {"approvalReplay": {"approvals": [], "truncated": False}}
+    text, _ = await _stream_with_events(conv, [], replay)
+    assert "Approval" not in "".join(text)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "decision", "expected"),
+    [
+        ("allowed", "allow-once", "approved (allow-once)"),
+        ("allowed", "allow-always", "approved (allow-always)"),
+        ("denied", "deny", "denied (deny)"),
+        ("expired", None, "timed out"),
+        ("cancelled", None, "approval ended"),
+    ],
+)
+async def test_terminal_event_states_decision(
+    status: str, decision: str | None, expected: str
+) -> None:
+    conv = "01KVH_APPROVAL_TERM"
+    text, _ = await _stream_with_events(
+        conv,
+        [
+            _approval_event(_key(conv), "pending"),
+            _approval_event(_key(conv), "terminal", status, decision),
+        ],
+    )
+    assert f"\nApproval decision: {expected}" in text
+
+
+@pytest.mark.asyncio
+async def test_approval_event_for_other_session_is_ignored() -> None:
+    conv = "01KVH_APPROVAL_OTHER"
+    other = _key("someone-else")
+    text, _ = await _stream_with_events(
+        conv, [_approval_event(other, "pending"), _approval_event(other, "terminal", "denied")]
+    )
+    assert "Approval" not in "".join(text)
+
+
+@pytest.mark.asyncio
+async def test_malformed_approval_event_is_ignored() -> None:
+    conv = "01KVH_APPROVAL_ODD"
+    bad = _approval_event(_key(conv), "weird")
+    no_snapshot = {
+        "type": "event",
+        "event": "session.approval",
+        "payload": {"sessionKey": _key(conv), "phase": "pending"},
+    }
+    text, _ = await _stream_with_events(conv, [bad, no_snapshot])
+    assert "Approval" not in "".join(text)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("code", ["FORBIDDEN", "UNAVAILABLE", "INVALID_REQUEST"])
+async def test_refused_opt_in_warns_and_resubscribes_without_it(
+    code: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    conv = "01KVH_APPROVAL_REFUSED"
+    canonical = _key(conv)
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(_error_response(sender.frames[1]["id"], code, "no approvals scope"))
+        await asyncio.sleep(0.005)
+        relay.handle_response(
+            _ok_response(sender.frames[2]["id"], {"subscribed": True, "key": canonical})
+        )
+        await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[3]["id"], {"runId": "run-ap"}))
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-ap",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[Any] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv, "hi"):
+            chunks.append(chunk)
+
+    with caplog.at_level("WARNING"):
+        await asyncio.gather(_consume(), _drive())
+    assert sender.frames[1]["params"]["includeApprovals"] is True
+    assert sender.frames[2]["method"] == "sessions.messages.subscribe"
+    assert "includeApprovals" not in sender.frames[2]["params"]
+    refusals = [r for r in caplog.records if "refused includeApprovals" in r.getMessage()]
+    assert len(refusals) == 1
+    assert code in refusals[0].getMessage()
+    assert "done" in "".join(c for c in chunks if isinstance(c, str))
+
+
+@pytest.mark.asyncio
+async def test_other_subscribe_error_is_not_retried() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.005)
+        relay.handle_response(_error_response(sender.frames[1]["id"], "INTERNAL", "boom"))
+
+    async def _consume() -> None:
+        async for _ in relay.stream_turn("01KVH_APPROVAL_ERR", "hi"):
+            pass
+
+    with pytest.raises(ChatRelayError):
+        await asyncio.gather(_consume(), _drive())
+    assert len(sender.frames) == 2
