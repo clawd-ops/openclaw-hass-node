@@ -58,6 +58,8 @@ The project is complete only when all of the following are true:
 - [x] Approvals are role-aware: a verified admin or super_admin in an Assist turn is
   not prompted for config creates, updates or permitted add-on lifecycle; agent-initiated
   and destructive calls always are (#405, #406). HA restart and stop stay denied.
+- [x] A non-destructive approval can be allowed for the session (session + command +
+  action, 1 hour, in memory); destructive calls are never offered it (#407).
 - [ ] Protected filesystem and HA-native config mutations have tested backup,
   conflict, failure, and recovery behavior.
 - [ ] Direct node invocation and Assist-plugin invocation have cross-language

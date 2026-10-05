@@ -515,6 +515,26 @@ Future work: (A) a shared secret kept in a protected store so only the gateway
 can mint markers; (B) an out-of-band approval code delivered by a Home Assistant
 actionable notification.
 
+### Allow always for the session
+
+A non-destructive prompt also offers `allow-always` ([#407](https://github.com/clawd-ops/openclaw-hass-node/issues/407)).
+OpenClaw only passes that decision to the plugin; persistence is the plugin's, so
+this is exactly what it trusts:
+
+- **A grant** is recorded only from `onResolution` when the decision is
+  `allow-always`. `allow-once`, `deny` and a timeout record nothing.
+- **It covers** later gated calls with the same session key, the same command and
+  the same action. Params are not part of the grant: every covered call still gets
+  its own marker bound to its exact params (command, action, params), single-use on
+  the node, and the preflight refusals and the 2^53 integer block still run first.
+- **It never covers** another session, command or action, nor any destructive pair
+  (the `destructive` table in `contracts/approval-gated-commands.json`), which are
+  offered `allow-once` and `deny` only. A call without a session key is not offered it.
+- **It ends** after one hour, when the session ends (`session_end`), or when the
+  plugin or gateway restarts. Grants are in memory only and never persisted.
+- It does not change who may call the node: Assist callers still go through the
+  role-aware table above, and the known gap above is unchanged.
+
 ## Open validation
 
 The gateway approval APIs are confirmed to exist and to be in live production

@@ -169,6 +169,9 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   registry; admin add-on stop now prompts instead of being refused. HA restart and stop
   stay denied for every caller (no approval path exists for them yet). See
   `docs/design/AUTHORIZATION-MODEL.md`.
+- A non-destructive approval prompt also offers "allow always" ([#407](https://github.com/clawd-ops/openclaw-hass-node/issues/407)):
+  the same session, command and action skip the prompt for one hour, until the session
+  ends, or until a restart. Destructive calls never offer it; nothing is persisted.
 - The multi-agent gateway fix for [#347](https://github.com/clawd-ops/openclaw-hass-node/issues/347)
   is merged at source ([#351](https://github.com/clawd-ops/openclaw-hass-node/pull/351),
   [#366](https://github.com/clawd-ops/openclaw-hass-node/pull/366),

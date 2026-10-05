@@ -108,6 +108,37 @@ describe("plugin entrypoint registration", () => {
     expect(readAssistSessionKey()).toBeUndefined();
   });
 
+  it("drops a session's allow-always grants on session_end", async () => {
+    const { beforeToolCall } = await import("./src/shared/node-approval.js");
+    const on = vi.fn();
+    (entry as unknown as { register(api: unknown): void }).register({
+      registerTool: vi.fn(),
+      registerNodeInvokePolicy: vi.fn(),
+      on,
+    });
+    const sessionEnd = on.mock.calls.find(([hook]) => hook === "session_end")![1] as (e: unknown) => void;
+    const call = () =>
+      beforeToolCall(
+        {
+          toolName: "nodes",
+          params: {
+            action: "invoke",
+            invokeCommand: "fs.write",
+            invokeParamsJson: JSON.stringify({ path: "/config/a.yaml", content: "x" }),
+          },
+        },
+        () => 1_800_000_000_000,
+        "agent:main:end-test",
+      ) as { requireApproval?: { onResolution(d: string): void } };
+    call().requireApproval!.onResolution("allow-always");
+    expect(call().requireApproval).toBeUndefined();
+    sessionEnd({ sessionKey: 42 });
+    sessionEnd(undefined);
+    expect(call().requireApproval).toBeUndefined();
+    sessionEnd({ sessionKey: "agent:main:end-test" });
+    expect(call().requireApproval).toBeDefined();
+  });
+
   it("offers each ha_* tool only to Assist sessions", () => {
     const registerTool = vi.fn();
     (entry as unknown as { register(api: unknown): void }).register({
