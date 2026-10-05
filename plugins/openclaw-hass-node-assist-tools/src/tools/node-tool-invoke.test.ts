@@ -80,6 +80,27 @@ describe("invokeHaCommand", () => {
       .rejects.toMatchObject({ source: "transport", code: "TRANSPORT_ERROR", message: expect.stringContaining(error.message), retryable: undefined });
   });
 
+  it.each(["OUTCOME_UNKNOWN", "COMMAND_ERROR"])("adds the no-escalation sentence to ambiguous outcome %s", async (code) => {
+    callGatewayToolMock.mockResolvedValue({ ok: false, error: { code, message: "Install may still be running" } });
+    const { invokeHaCommand, NO_ESCALATION_NOTE } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ code, message: expect.stringContaining(NO_ESCALATION_NOTE) });
+  });
+
+  it("adds the no-escalation sentence to transport failures", async () => {
+    callGatewayToolMock.mockRejectedValue(new Error("Local failure"));
+    const { invokeHaCommand, NO_ESCALATION_NOTE } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toMatchObject({ message: expect.stringContaining(NO_ESCALATION_NOTE) });
+  });
+
+  it("leaves clear refusals without the no-escalation sentence", async () => {
+    callGatewayToolMock.mockResolvedValue({ ok: false, error: { code: "PROPOSAL_REQUIRED", message: "Approval missing" } });
+    const { invokeHaCommand, NO_ESCALATION_NOTE } = await loadModule();
+    await expect(invokeHaCommand({ nodeId: "test", command: "test", commandParams: {}, gatewayOpts: {} }))
+      .rejects.toSatisfy((e: Error) => !e.message.includes(NO_ESCALATION_NOTE));
+  });
+
   it.each([
     { ok: true, payload: { ok: false, error: "PROPOSAL_REQUIRED", message: "Approval missing" } },
     { ok: false, error: { code: "PROPOSAL_REQUIRED", message: "Approval missing" } },

@@ -13,6 +13,12 @@ import { CALLER_PARAM, readAssistSessionKey } from "../shared/caller-context.js"
 
 export const PLUGIN_ID = "openclaw-hass-node-assist-tools";
 
+/** Codes whose outcome is unknown or unexplained: the change may have happened. */
+const AMBIGUOUS_CODES = new Set(["OUTCOME_UNKNOWN", "COMMAND_ERROR", "TRANSPORT_ERROR"]);
+
+export const NO_ESCALATION_NOTE =
+  "Do not try a different command to achieve the same change; report this to the user.";
+
 /** A failed operation, distinct from failure to reach the gateway/node. */
 export class HaCommandError extends Error {
   constructor(
@@ -23,7 +29,7 @@ export class HaCommandError extends Error {
     public readonly details?: unknown,
     public readonly retryAfterMs?: number,
   ) {
-    super(`${source}:${code}: ${message}`);
+    super(`${source}:${code}: ${message}${AMBIGUOUS_CODES.has(code) ? ` ${NO_ESCALATION_NOTE}` : ""}`);
     this.name = "HaCommandError";
   }
 }

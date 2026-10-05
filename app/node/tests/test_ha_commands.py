@@ -2689,6 +2689,18 @@ async def test_update_install_ha_error(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["error"] == "HA_HTTP_ERROR"
 
 
+async def test_update_install_timeout_is_outcome_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    with patch("openclaw_node.commands.ha.ha_post", side_effect=TimeoutError) as mock_post:
+        result = await handle_ha_update_install({"entity_id": "update.hacs"})
+
+    assert result["ok"] is False
+    assert result["error"] == "OUTCOME_UNKNOWN"
+    assert "may still be running" in result["message"]
+    assert "Do not retry" in result["message"]
+    # Exactly one POST: the node never retries a mutation of unknown outcome.
+    mock_post.assert_called_once_with("/api/services/update/install", {"entity_id": "update.hacs"})
+
+
 async def test_call_service_entity_plus_area_fallback_incomplete() -> None:
     with (
         patch("openclaw_node.commands.ha.ha_post", return_value=[]),

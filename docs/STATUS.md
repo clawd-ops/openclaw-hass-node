@@ -120,6 +120,12 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   completed, and after an update only a changed version does. Addressed in
   source for [#323](https://github.com/clawd-ops/openclaw-hass-node/issues/323)
   (unreleased).
+- A timeout on `ha.update_install` returns `OUTCOME_UNKNOWN` ("the update may
+  still be running; check the update entity's state; do not retry") and is never
+  retried, because HA's `update.install` blocks until the install ends. The
+  plugin appends one sentence to `OUTCOME_UNKNOWN`, `COMMAND_ERROR` and
+  `TRANSPORT_ERROR` tool errors telling the model not to try a different command
+  for the same change (advances #409, #410; unreleased).
 - The registry, device, service, and config-entry list commands accept filters;
   filters are applied after the fetch, so they bound the response a caller
   handles, not the payload HA sends. The HA WebSocket message ceiling is raised
