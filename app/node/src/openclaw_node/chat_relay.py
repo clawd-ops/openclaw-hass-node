@@ -36,6 +36,13 @@ from openclaw_node.config import IdentityConfig
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
+# Content-block types that mark a tool step in a gateway assistant message.
+# Only these split scratch text from the final answer; display-only blocks
+# (canvas, thinking, images) never do.
+_TOOL_BLOCK_TYPES: Final[frozenset[str]] = frozenset(
+    {"tool_use", "tool_result", "tool_call", "toolCall", "toolResult"}
+)
+
 _TURN_TIMEOUT_S: Final[float] = 30.0
 _STREAM_TURN_TIMEOUT_S: Final[float] = 180.0
 _RPC_TIMEOUT_S: Final[float] = 10.0
@@ -290,11 +297,6 @@ class ChatRelay:
         self._delta_queues: dict[
             str, asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame]
         ] = {}  # canonical keys
-        # Per-session count of characters already yielded to the active
-        # stream consumer. Used at the terminal event to compute any tail
-        # that wasn't covered by deltas (or to yield the full message text
-        # for session.message events that arrive without deltas).
-        self._stream_yielded_chars: dict[str, int] = {}  # canonical keys
         self._active_run_id: dict[str, str] = {}  # canonical keys
         # True once an event with ``event_run_id == active_run`` has been
         # seen for the current turn (i.e. after the chat.send ack has
@@ -347,13 +349,17 @@ class ChatRelay:
         authz: TurnAuthz | None = None,
         client_caps: list[str] | None = None,
     ) -> AsyncIterator[str | StreamKeepalive | ToolProgressFrame]:
-        """Relay one Assist turn and yield assistant text as it streams.
+        """Relay one Assist turn and yield the final answer text.
 
-        Implements the streaming half of the HA conversation API: each
-        gateway ``chat`` event with ``state='delta'`` yields its
-        ``deltaText`` (the NEW chunk, not the cumulative text). The
-        ``state='final'`` (or ``session.message``) event closes the
-        iterator after yielding any tail that wasn't covered by deltas.
+        Assistant text is NOT streamed token by token. Intermediate text
+        (written before a tool call) cannot be told apart from the final
+        answer until the turn ends, so ``chat`` ``state='delta'`` events
+        are not forwarded. The final reply text (``state='final'`` or
+        ``session.message``; see ``_extract_text``) is yielded once, when
+        the turn's final message arrives, and closes the iterator. This
+        is the trade-off required by issue 411: Assist receives the answer
+        at the end of the turn, never scratch text. Progress lines and
+        keepalives still stream during the turn.
 
         On tool-heavy turns where the gateway stays silent past the HA
         Assist read timeout this iterator also yields ``StreamKeepalive``
@@ -465,7 +471,6 @@ class ChatRelay:
         """
         if stream:
             self._delta_queues.pop(canonical_key, None)
-            self._stream_yielded_chars.pop(canonical_key, None)
         else:
             self._reply_events.pop(canonical_key, None)
         # Only clear the run-id if it's still our sentinel — never
@@ -542,7 +547,6 @@ class ChatRelay:
         self._text_tool_count.pop(canonical_key, None)
         self._text_has_visible_output[canonical_key] = False
         self._text_status_open[canonical_key] = False
-        self._stream_yielded_chars[canonical_key] = 0
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
 
@@ -741,7 +745,6 @@ class ChatRelay:
                 yield item
         finally:
             self._delta_queues.pop(canonical_key, None)
-            self._stream_yielded_chars.pop(canonical_key, None)
             self._use_tool_frames.pop(canonical_key, None)
             self._tool_progress_seq.pop(canonical_key, None)
             self._active_tool_id.pop(canonical_key, None)
@@ -1141,8 +1144,13 @@ class ChatRelay:
 
         Handles three shapes:
         - ``str``: returned as-is.
-        - ``list``: content-block array (``[{"type":"text","text":"..."}]``),
-          joined with newlines.
+        - ``list``: content-block array (``[{"type":"text","text":"..."}]``).
+          The result is the concatenation, exactly as the blocks are, of the
+          text blocks that follow the last tool block (``_TOOL_BLOCK_TYPES``);
+          with no tool block, all text blocks are concatenated. Other
+          non-text blocks (canvas, thinking, images) are ignored. Text before
+          a tool call is intermediate scratch and must not reach the speaker
+          (#411).
         - ``dict``: nested message object with ``content``/``text``/``message``.
         - falsy: returns ``""``.
         """
@@ -1151,11 +1159,14 @@ class ChatRelay:
         if isinstance(content, list):
             parts: list[str] = []
             for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    parts.append(str(block.get("text", "")))
+                if isinstance(block, dict):
+                    if block.get("type") == "text":
+                        parts.append(str(block.get("text", "")))
+                    elif block.get("type") in _TOOL_BLOCK_TYPES:
+                        parts.clear()
                 elif isinstance(block, str):
                     parts.append(block)
-            return "\n".join(parts)
+            return "".join(parts)
         if isinstance(content, dict):
             return ChatRelay._extract_text(
                 content.get("content", "") or content.get("text", "") or content.get("message", "")
@@ -1526,50 +1537,16 @@ class ChatRelay:
         is_terminal_chat = event != "session.message" and (state == "final" or state is None)
         is_session_message = event == "session.message"
 
-        # Streaming consumer: push deltaText for delta events, push tail of
-        # final text + sentinel for terminal events.
+        # Streaming consumer: assistant text deltas are NOT forwarded. Text
+        # emitted before a tool call is scratch and cannot be told apart
+        # from the closing answer until the turn ends, so only the final
+        # reply text (see ``_extract_text``) is queued, once, on the
+        # terminal event. Tool-progress lines and keepalives still stream
+        # through the same queue.
         queue = self._delta_queues.get(session_key)
-        if queue is not None:
-            if state == "delta":
-                # Gateway includes deltaText for the new chunk. Fall back to
-                # the cumulative text - already-yielded if deltaText is absent.
-                delta_text = payload.get("deltaText")
-                if not isinstance(delta_text, str) or not delta_text:
-                    already = self._stream_yielded_chars.get(session_key, 0)
-                    delta_text = text[already:] if len(text) > already else ""
-                if delta_text:
-                    self._stream_yielded_chars[session_key] = self._stream_yielded_chars.get(
-                        session_key, 0
-                    ) + len(delta_text)
-                    queue.put_nowait(delta_text)
-            elif is_terminal_chat or is_session_message:
-                # Yield any tail not covered by deltas (or the full text on
-                # session.message that arrives without preceding deltas),
-                # then close.
-                already = self._stream_yielded_chars.get(session_key, 0)
-                tail = text[already:] if len(text) > already else ""
-                # Issue #128 diagnostic: if a chat-family terminal arrives
-                # with zero deltas already yielded and substantial text,
-                # the gateway promised streaming but emitted only a final.
-                # Log loudly so we can detect this pattern in production.
-                # session.message terminals legitimately carry full text
-                # without deltas (non-streaming surface), so don't warn on
-                # those.
-                if is_terminal_chat and already == 0 and len(tail) > 0:
-                    _LOG.warning(
-                        "[relay-diag] chat terminal arrived with no deltas "
-                        "for %s (runId=%r, text_len=%d); gateway streaming "
-                        "may be degraded — full text yielded as single chunk",
-                        session_key,
-                        event_run_id,
-                        len(tail),
-                    )
-                if tail:
-                    self._stream_yielded_chars[session_key] = self._stream_yielded_chars.get(
-                        session_key, 0
-                    ) + len(tail)
-                    queue.put_nowait(tail)
-                queue.put_nowait(None)  # sentinel: close iterator
+        if queue is not None and (is_terminal_chat or is_session_message):
+            queue.put_nowait(text)
+            queue.put_nowait(None)  # sentinel: close iterator
 
         # Non-streaming consumer (relay_turn): only fire on TERMINAL events.
         # Deltas (state='delta') would otherwise wake the waiter mid-stream
@@ -1606,7 +1583,6 @@ class ChatRelay:
         for q in self._delta_queues.values():
             q.put_nowait(ChatRelayError("DISCONNECTED", "Gateway connection lost"))
         self._delta_queues.clear()
-        self._stream_yielded_chars.clear()
         for evt in self._reply_events.values():
             evt.set()
         self._reply_events.clear()

@@ -136,7 +136,7 @@ gateway side. Short version:
   See [`docs/reference/COMMAND-SURFACE.md`](docs/reference/COMMAND-SURFACE.md).
 - **Pairing + connect**: works end-to-end with device-token persistence.
 - **Conversation relay (`/v1/conversation` → OpenClaw chat surface)**:
-  working today, streams token deltas with tool-named progress lines.
+  working today, returns the final answer at the end of the turn with tool-named progress lines.
   The node's operator-role WebSocket owns the relay; pair with a
   dual-role profile to enable it.
 - **Local HTTP API**: fail-closed bearer auth (`local_api_token` is
