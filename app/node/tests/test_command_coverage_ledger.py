@@ -1481,7 +1481,7 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
 
     for row_id, expected_outcome in (
         ("ha.config.device_registry#list", "partial"),
-        ("ha.config.entity_registry#list", "fail"),
+        ("ha.config.entity_registry#list", "pass"),
         ("ha.config.lovelace#get", "partial"),
     ):
         row = rows_by_id[row_id]
@@ -1495,8 +1495,18 @@ def test_sept13_second_pass_commands_have_production_live_evidence() -> None:
             for item in current_live
         )
 
+    # The Sept 13 failure stays on record next to the Oct 4 live pass that superseded it.
+    registry_list = rows_by_id["ha.config.entity_registry#list"]
+    registry_live = {
+        (item["node_version"], item["outcome"])
+        for item in registry_list["callers"]["direct_nodes_invoke"]["evidence"]
+        if item.get("method") == "PRODUCTION-LIVE"
+    }
+    assert {("2026.9.13b1", "fail"), ("2026.10.4b1", "pass")} <= registry_live
+
     states = rows_by_id["ha.list_states"]
-    assert states["outcome"] == "partial"
+    # Oct 4 live evidence fixed the Sept entity_filter failure; the fail stays on record.
+    assert states["outcome"] == "pass"
     state_evidence = states["callers"]["direct_nodes_invoke"]["evidence"]
     current_state_live = [
         item for item in state_evidence if item.get("method") == "PRODUCTION-LIVE"
@@ -1773,9 +1783,15 @@ def test_manual_row_contradicting_its_live_evidence_fails_generation(
 ) -> None:
     generator = _load_generator()
     manual = copy.deepcopy(generator._load_manual())
-    manual["commands"]["ha.list_automations"]["outcome"] = "pass"
+    # ha.reload_config has a single, uniform live outcome ("partial"), so declaring
+    # a different verdict contradicts its highest-ranked evidence. ha.list_automations
+    # is no longer usable here: the Oct 4 live pass sits beside its Sept partial.
+    manual["commands"]["ha.reload_config"]["outcome"] = "fail"
     monkeypatch.setattr(generator, "_load_manual", lambda: manual)
-    with pytest.raises(generator.LedgerError, match=r"ha\.list_automations declares outcome"):
+    with pytest.raises(
+        generator.LedgerError,
+        match=r"ha\.reload_config declares outcome 'fail' but its highest-ranked evidence",
+    ):
         generator.build_ledger()
 
 

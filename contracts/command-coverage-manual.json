@@ -59,6 +59,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ping returned pong.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -94,6 +103,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "fs.read returned file content.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ],
         "handler_dispatch": [
@@ -128,6 +146,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "fs.list returned a directory listing.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -151,6 +178,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "fs.stat returned file metadata.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -177,6 +213,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "fs.glob returned matches.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -206,6 +251,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+            "observation": "fs.write under /config/.storage/ refused at the node with STORAGE_READONLY; file unchanged. The plugin prompts before the node refuses (#403).",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -253,6 +307,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "fs.history returned the version history for a path.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -441,6 +504,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "system.which (param name) found python3.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -450,15 +522,15 @@
     },
     "ha.list_states": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Shipped in 2026.10.4b1.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
         319
       ],
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 direct nodes.invoke ignored entity_filter and returned the full state set. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): entity_filter returned 1.1 KB against 5.5 MB unfiltered. The Assist wrapper applied the filter on Sept 13.",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -481,6 +553,15 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded",
             "fixed_in_pr": 373
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "Unfiltered call returned 5.5 MB; entity_filter via invoke returned a small filtered set.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -503,6 +584,26 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Super_admin Assist turn read a sun state via the wrapper.",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "Known entity returned its state; unknown entity returned a clear 404 error; unknown parameter was refused listing allowed params.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -585,6 +686,24 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+            "observation": "Deny-class service update.skip refused: \"ha.call_service denies update.skip\".",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+            "observation": "Agent nodes tool light.turn_on: ok, no approval prompt, changed_states populated, changed_states_complete true (light group was unavailable in HA, so no physical change).",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ],
         "handler_dispatch": [
@@ -664,6 +783,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.list_areas returned the area list.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -688,6 +818,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.list_devices returned 887 KB, no pagination (#330).",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -714,6 +855,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.list_services returned the service catalog (481 KB).",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -736,6 +888,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.get_config returned the core configuration (15.9 KB).",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -757,6 +920,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.list_events returned the listener summary.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -783,6 +957,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.list_config_entries returned 709 KB.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -808,6 +993,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.core_logs returned a bounded tail; an explicit null parameter was refused with \"omit it instead\".",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -829,6 +1025,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.calendar_get_events returned events for the window.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -856,18 +1063,29 @@
             "plugin_version": "not recorded",
             "fixed_in_pr": 362
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "Unfiltered call returned 11.7 MB in 3.2 s with no transport failure.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
     "ha.logbook": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Shipped in 2026.10.4b1.",
       "issues": [
         344
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
-      "evidence_note": "Installed-node probes covered plugin-path bounding; the source now refuses unknown direct keys, but that is not yet production-verified.",
+      "evidence_note": "Direct path on 2026.10.4b1: a +00:00 offset returned results. Node-direct unknown-key refusal for ha.logbook is not yet production-verified, so the row stays partial (tracked in #344).",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -895,6 +1113,15 @@
             "outcome": "fail",
             "source": "docs/VERIFICATION-2026-09-11.md#12-the-documented-arguments-are-not-one-contract",
             "observation": "Documented direct start/end keys do not match the handler's start_time/end_time keys."
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.logbook with a +00:00 offset returned results.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -903,14 +1130,14 @@
     },
     "ha.history": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Shipped in 2026.10.4b1.",
       "issues": [
         344,
         345
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
+      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path. Rolls up to partial until node-direct unknown-key refusal and the entity_id vs entity_ids naming are verified (#344).",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -922,6 +1149,15 @@
             "node_version": "2026.7.23b1",
             "plugin_version": "not recorded",
             "fixed_in_pr": 373
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "Z and +00:00 offsets returned identical results; an unknown entity returned \"unknown entity_id(s)\". start/end are mapped to start_time/end_time by the plugin policy on the gateway path.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ],
         "assist_wrapper": [
@@ -983,6 +1219,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Super_admin and admin Assist turns turned the entrance light group on with read-back; no prompt.",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -1004,6 +1251,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Super_admin and admin Assist turns turned the entrance light group off with read-back; no prompt.",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -1069,6 +1327,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "Unfiltered and entity_filter calls both worked; unknown parameter was refused.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       },
       "first_shipped_in": "2026.6.8a8",
@@ -1092,6 +1361,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.check_config validated the configuration.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -1118,6 +1398,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.addon_logs returned a bounded log tail.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -1139,6 +1430,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.list_addons returned the add-on inventory.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -1162,6 +1464,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.addon_info returned add-on metadata.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -1183,6 +1496,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.addon_stats returned utilisation metrics.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -1206,6 +1530,17 @@
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
           }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.addon_changelog returned the changelog markdown.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
@@ -1227,6 +1562,17 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          }
+        ],
+        "direct_nodes_invoke": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.addon_documentation returned the documentation markdown.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       }
@@ -1280,7 +1626,7 @@
     "ha.addon_restart": {
       "authorization_class": "native_approval",
       "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
-      "outcome": "fail",
+      "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
@@ -1301,28 +1647,76 @@
             "plugin_version": "not recorded",
             "fixed_in_pr": 375
           }
+        ],
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Super_admin Assist: approved within seconds, ok, state started, reply accurate. Deny returned \"Denied by user\"; add-on untouched. A non-allowlisted slug was approved then refused by the node (#403). An earlier attempt approved after about 10 minutes failed on the requester (OpenClaw core #158550 family).",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Admin Assist: refused with no prompt because the live admin forbidden list includes add-on lifecycle; contradicts IDENTITY-AND-SCOPES.md (#406).",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
         ]
       }
     },
     "ha.addon_update": {
       "authorization_class": "native_approval",
       "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
-      "outcome": "partial",
+      "outcome": "refused-as-designed",
       "first_shipped_in": "2026.9.13b1",
       "actions": {},
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only the allowlist refusal was observed; no add-on update completed.",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Agent-issued after the ambiguous update_install error; approved, then refused by the node (slug not allowlisted). Refuse-before-prompt (#403), agent escalation (#410).",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
+        ]
+      },
+      "evidence_method": "PRODUCTION-LIVE"
     },
     "ha.update_install": {
       "authorization_class": "native_approval",
       "capability_conditions": "HA `update.install` service is reachable via the paired session and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED before dispatch). Entity ID must be in the `update.` domain.",
-      "outcome": "partial",
+      "outcome": "fail",
       "first_shipped_in": "2026.9.13b1",
       "actions": {},
       "issues": [
         338
       ],
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing."
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): approval OK, install started, returned COMMAND_ERROR on timeout (#409).",
+      "caller_observations": {
+        "assist_wrapper": [
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "fail",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+            "observation": "Approved; the install started but the node returned COMMAND_ERROR after 10.9 s (aiohttp timeout while update.install blocks). Should be OUTCOME_UNKNOWN (#409).",
+            "observed_at": "2026-10-05",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
+          }
+        ]
+      },
+      "evidence_method": "PRODUCTION-LIVE"
     },
     "ha.config.lovelace": {
       "assist_unavailable_reason": "Assist voice turns intentionally do not expose HA-native configuration commands.",
@@ -1371,6 +1765,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "refused-as-designed",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "Clear error: the default dashboard is auto-generated and has no stored config.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1457,6 +1860,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "get on a real automation id returned its config.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1464,13 +1876,44 @@
         "save": {
           "authorization_class": "deny_pending_trusted_approval",
           "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
-          "evidence_method": "TEST-PROVEN",
+          "evidence_method": "PRODUCTION-LIVE",
           "parameters": [
             "action",
             "id",
             "config",
             "proposal_id"
-          ]
+          ],
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-2-approvals",
+                "observation": "Agent nodes tool: approval prompt shown, approved, automation saved and enabled (after the PR #402 clock fix, applied locally).",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "refused-as-designed",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-2-approvals",
+                "observation": "Tampered markers (mismatch, malformed, expired) returned APPROVAL_INVALID; nothing created.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
+              }
+            ],
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+              }
+            ]
+          },
+          "outcome": "pass"
         }
       },
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
@@ -1636,6 +2079,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "2026.9.13b1"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "refused-as-designed",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#mutation-gate-without-approval",
+                "observation": "Create without an approval marker returned PROPOSAL_REQUIRED; get_state returned 404, nothing created.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1671,6 +2123,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "list returned helpers.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1754,6 +2215,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "ha.config.area_registry list returned areas.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           },
@@ -1803,6 +2273,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "list returned 887 KB.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1845,6 +2324,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "get on a real registry entity returned its entry.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1863,7 +2351,7 @@
             316
           ],
           "evidence_method": "PRODUCTION-LIVE",
-          "outcome": "fail",
+          "outcome": "pass",
           "evidence_note": "Sept 13 direct nodes.invoke returned an internal command error on this large installation; tracked with the related entity-registry size failure in #316.",
           "caller_observations": {
             "direct_nodes_invoke": [
@@ -1876,6 +2364,15 @@
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded",
                 "fixed_in_pr": 362
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+                "observation": "Unfiltered list returned 11,359 entities (11.7 MB) with no transport failure; domain=light returned 131.",
+                "observed_at": "2026-10-05",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1893,13 +2390,35 @@
         "update": {
           "authorization_class": "deny_pending_trusted_approval",
           "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
-          "evidence_method": "TEST-PROVEN",
+          "evidence_method": "PRODUCTION-LIVE",
           "parameters": [
             "action",
             "entity_id",
             "attrs",
             "proposal_id"
-          ]
+          ],
+          "caller_observations": {
+            "direct_nodes_invoke": [
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-2-approvals",
+                "observation": "Agent nodes tool: prompt shown, approved, category set; read-back confirmed. A malformed first call was rejected INVALID_PARAM only after the approval gate (#403).",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
+              }
+            ],
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+              }
+            ]
+          },
+          "outcome": "pass"
         }
       },
       "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes."
@@ -1948,6 +2467,15 @@
                 "observed_at": "2026-09-13",
                 "node_version": "2026.9.13b1",
                 "plugin_version": "not recorded"
+              },
+              {
+                "method": "PRODUCTION-LIVE",
+                "outcome": "pass",
+                "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+                "observation": "get on a real entry id returned the entry.",
+                "observed_at": "2026-10-04",
+                "node_version": "2026.10.4b1",
+                "plugin_version": "2026.10.4b1"
               }
             ]
           }
@@ -1978,6 +2506,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "refused-as-designed",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "Refused by the gateway: use exec.approvals.node.*. Still advertised (Sept backlog #15).",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -2008,6 +2545,15 @@
             "observed_at": "2026-09-13",
             "node_version": "2026.9.13b1",
             "plugin_version": "not recorded"
+          },
+          {
+            "method": "PRODUCTION-LIVE",
+            "outcome": "pass",
+            "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+            "observation": "ha.supervisor_info returned Supervisor metadata.",
+            "observed_at": "2026-10-04",
+            "node_version": "2026.10.4b1",
+            "plugin_version": "2026.10.4b1"
           }
         ]
       },
@@ -2017,6 +2563,7 @@
   },
   "evidence_hashes": {
     "docs/VERIFICATION-2026-09-11.md": "5b94d348ea439060f869840f63f1928fb29f464b511e4da2b5171bf6f8206fd0",
-    "docs/evidence/sweep-2026-09-13.md": "1e7f7ed9494ceb2d0a46f047ad1779fcbdf8046e0cd2beae8b5cd278ec0f2cff"
+    "docs/evidence/sweep-2026-09-13.md": "1e7f7ed9494ceb2d0a46f047ad1779fcbdf8046e0cd2beae8b5cd278ec0f2cff",
+    "docs/evidence/uat-2026-10-04-b1.md": "0c1d815007c947687f8b2d69deeca4c48b075d1d1c1a265f1540f7cf23bc48d1"
   }
 }
