@@ -38,6 +38,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   1. **Subagent-side allowlist enforcement at the node** needs trusted caller/session context in the invoke envelope and belongs to authorization policy.
   2. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) uses the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) and audit logging; verify it independently in the release.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
+- `ha_*` wrappers are hidden outside Assist sessions (#414); non-Assist sessions use the `nodes` tool and its approval hook.
 
 ### 12. Generated docs site for node command surface + protocols
 - Status: OPEN (partially implemented) — the MkDocs Material site and strict CI

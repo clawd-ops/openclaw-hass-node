@@ -142,6 +142,11 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   inventory cannot be read (for example `agents.list` fails), the node also
   sends the bare key; a multi-agent gateway may then reject the turn at
   `sessions.create`.
+- The `ha_*` Assist tool wrappers are offered only in Assist sessions (the plugin
+  factory returns null unless the session key is `ha-assist:`-shaped,
+  [#414](https://github.com/clawd-ops/openclaw-hass-node/issues/414)). Other
+  sessions (main, chat, cron, sub-agent) use the core `nodes` tool and its
+  approval hook.
 - The multi-agent gateway fix for [#347](https://github.com/clawd-ops/openclaw-hass-node/issues/347)
   is merged at source ([#351](https://github.com/clawd-ops/openclaw-hass-node/pull/351),
   [#366](https://github.com/clawd-ops/openclaw-hass-node/pull/366),

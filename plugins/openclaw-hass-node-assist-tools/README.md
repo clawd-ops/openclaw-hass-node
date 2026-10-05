@@ -185,7 +185,10 @@ import {
   `index.ts` declares it locally. The key is used only as a lookup hint for the
   node, never as identity. If the key is missing, not a string, or not
   Assist-shaped (`ha-assist:<id>`), the tool fails closed with
-  `MISSING_ASSIST_CONTEXT` before `node.invoke` is called.
+  `MISSING_ASSIST_CONTEXT` before `node.invoke` is called. The factory returns
+  `null` (the tool is not offered) unless the session key is Assist-shaped, so
+  `ha_*` tools appear only in Assist sessions. Other sessions (main, chat,
+  cron, sub-agent) use the core `nodes` tool and its approval hook.
 - **`api.registerNodeInvokePolicy(policy: OpenClawPluginNodeInvokePolicy)`** —
   registers the security gate for raw `node.invoke` calls. Required shape:
   `{ commands: string[], handle(ctx): Promise<result> }`.
