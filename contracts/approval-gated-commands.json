@@ -1,5 +1,5 @@
 {
-  "comment": "Single source of truth for which node commands need native approval before they run. Each key is a command; each value lists the actions that need approval. An empty string stands for a command with no action param (the fs.* writes and the Tier B admin commands). The node decides per call whether a path is protected; an approval marker on an unprotected write is ignored. Read by the Python node tests and the TypeScript plugin tests, which assert their own tables equal this file.",
+  "comment": "Single source of truth for which node commands need native approval before they run. Each key is a command; each value lists the actions that need approval. An empty string stands for a command with no action param (the fs.* writes and the Tier B admin commands). The node decides per call whether a path is protected; an approval marker on an unprotected write is ignored. Read by the Python node tests and the TypeScript plugin tests, which assert their own tables equal this file. The policy sections below decide who is exempt. 'destructive' always needs approval, for every caller. 'user_directed' needs none when a verified HA user (admin or super_admin) is in a live Assist turn; any other caller (operator, nodes tool outside Assist, cron, heartbeat, subagent) is prompted. 'lifecycle_no_approval' lists the add-on commands each role may run with no approval from an Assist turn. Anything gated but in none of these lists (fs.* writes, ha.reload_config, ha.addon_update, add-on stop for admin) always needs approval. HA restart and stop are services denied for every caller today and are not on this surface.",
   "gated": {
     "ha.config.automation": ["save", "delete"],
     "ha.config.script": ["save", "delete"],
@@ -21,5 +21,33 @@
     "ha.addon_stop": [""],
     "ha.addon_restart": [""],
     "ha.addon_update": [""]
+  },
+  "destructive": {
+    "ha.config.automation": ["delete"],
+    "ha.config.script": ["delete"],
+    "ha.config.scene": ["delete"],
+    "ha.config.helpers": ["delete"],
+    "ha.config.area_registry": ["delete"],
+    "ha.config.entity_registry": ["remove"],
+    "ha.config.config_entries": ["disable"],
+    "fs.delete": [""],
+    "fs.move": [""],
+    "fs.restore": [""],
+    "ha.update_install": [""]
+  },
+  "user_directed": {
+    "ha.config.automation": ["save"],
+    "ha.config.script": ["save"],
+    "ha.config.scene": ["save"],
+    "ha.config.helpers": ["create", "update"],
+    "ha.config.area_registry": ["create", "update"],
+    "ha.config.device_registry": ["update"],
+    "ha.config.entity_registry": ["update"],
+    "ha.config.config_entries": ["enable"],
+    "ha.config.lovelace": ["save", "resources_create"]
+  },
+  "lifecycle_no_approval": {
+    "admin": {"ha.addon_start": [""], "ha.addon_restart": [""]},
+    "super_admin": {"ha.addon_start": [""], "ha.addon_stop": [""], "ha.addon_restart": [""]}
   }
 }

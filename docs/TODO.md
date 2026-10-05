@@ -39,6 +39,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   2. **Tier B** lifecycle (`addon_start`/`stop`/`restart`) uses the pairing-session bearer plus per-slug allow/deny (deny `homeassistant`, `supervisor`, `core_*`) and audit logging; verify it independently in the release.
 - Tier C (install/uninstall/update/rebuild) explicitly NOT adding.
 - `ha_*` wrappers are hidden outside Assist sessions (#414); non-Assist sessions use the `nodes` tool and its approval hook.
+- Role-aware approvals (#405, #406) shipped. Open: the plugin cannot see the caller's role, so a super_admin add-on stop still prompts in the plugin even though the node would allow it; HA restart and stop services remain denied for every caller until an approval path exists.
 
 ### 12. Generated docs site for node command surface + protocols
 - Status: OPEN (partially implemented) — the MkDocs Material site and strict CI

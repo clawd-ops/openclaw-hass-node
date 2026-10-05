@@ -55,6 +55,9 @@ The project is complete only when all of the following are true:
 - [ ] Ordinary permitted `light.turn_on` works without an approval prompt.
 - [ ] Approval-required operations reach a real human surface and use an
   operation-bound, expiring, single-use approval that the node verifies.
+- [x] Approvals are role-aware: a verified admin or super_admin in an Assist turn is
+  not prompted for config creates, updates or permitted add-on lifecycle; agent-initiated
+  and destructive calls always are (#405, #406). HA restart and stop stay denied.
 - [ ] Protected filesystem and HA-native config mutations have tested backup,
   conflict, failure, and recovery behavior.
 - [ ] Direct node invocation and Assist-plugin invocation have cross-language

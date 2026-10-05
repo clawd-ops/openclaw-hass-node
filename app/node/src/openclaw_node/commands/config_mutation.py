@@ -20,6 +20,8 @@ from collections.abc import Callable
 from decimal import Decimal
 from typing import Any, Final
 
+from openclaw_node.approval_policy import CURRENT_CALLER, approval_exempt
+
 #: Reserved invoke param carrying the approval marker. Never reaches HA.
 APPROVAL_PARAM: Final[str] = "_openclaw_approval"
 _RESERVED: Final[frozenset[str]] = frozenset({APPROVAL_PARAM, "_openclaw_caller"})
@@ -133,6 +135,8 @@ def consume_approval_marker(
     ``APPROVAL_INVALID``. Refusals happen before any Home Assistant request.
     """
     if APPROVAL_PARAM not in params:
+        if approval_exempt(CURRENT_CALLER.get(), command, action):
+            return None
         return require_config_mutation_approval(command, action)
     marker = params.pop(APPROVAL_PARAM)
     if not (

@@ -11,6 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, Final
 
+from openclaw_node.approval_policy import CURRENT_CALLER
 from openclaw_node.authz import collect_codes, redact_code, scrub_codes
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.commands.exec_approvals import (
@@ -250,12 +251,15 @@ def dispatch(command: str, params: dict[str, Any], *, caller: Caller = UNTRUSTED
         return _scrubbed(refusal, codes)
 
     _LOG.debug("Dispatching command=%r params=%r", command, redact_code(params))
+    token = CURRENT_CALLER.set(caller)
     try:
         result = handler(params)
     except Exception as exc:
         if not codes:
             raise
         raise _masked_failure(command, exc, codes) from None
+    finally:
+        CURRENT_CALLER.reset(token)
     if inspect.iscoroutine(result):
         result.close()
         raise AsyncHandlerError(command)
@@ -297,6 +301,7 @@ async def dispatch_async(
         return _scrubbed(refusal, codes)
 
     _LOG.debug("Dispatching (async) command=%r params=%r", command, redact_code(params))
+    token = CURRENT_CALLER.set(caller)
     try:
         result = handler(params)
         if inspect.iscoroutine(result):
@@ -305,4 +310,6 @@ async def dispatch_async(
         if not codes:
             raise
         raise _masked_failure(command, exc, codes) from None
+    finally:
+        CURRENT_CALLER.reset(token)
     return _scrubbed(result, codes)  # type: ignore[arg-type]

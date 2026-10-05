@@ -400,6 +400,41 @@ Consequences:
 
 ## Native approvals for node mutations
 
+### Who is prompted (role-aware)
+
+A gated call needs a marker unless the node resolves the caller as a verified HA
+admin or super_admin in a live Assist turn and the call is exempt for that role.
+The tables live in `contracts/approval-gated-commands.json` (`destructive`,
+`user_directed`, `lifecycle_no_approval`) and are asserted equal by the node and
+plugin tests. The node decides: it reads the caller from its own turn registry
+(never from a value the invoker supplied), and with no resolved caller nothing is
+exempt. The plugin hook mirrors it only to decide whether to prompt. In an Assist
+session it attaches the caller hint (replacing any model-supplied one) and skips
+the prompt for calls exempt for every Assist role.
+
+| Caller / action | Approval |
+| --- | --- |
+| Agent-initiated (main, Discord, heartbeat, cron, subagent, any non-Assist session, operator) | always prompts |
+| Destructive: delete automation, script, scene, helper or area; entity remove; `fs.delete`, `fs.move`, `fs.restore`; config entry disable; `ha.update_install` | always prompts, every caller |
+| Admin or super_admin in Assist: config create or update (automation, script, scene, helper, area, device, entity update, config entry enable, dashboard) | none |
+| File writes (`fs.write`, `fs.patch`), `ha.reload_config`, `ha.addon_update` | prompts |
+
+Lifecycle:
+
+| Action | admin | super_admin |
+| --- | --- | --- |
+| add-on start | no approval | no approval |
+| add-on restart | no approval | no approval |
+| add-on stop | approval | no approval (node) |
+| HA restart | refused, no prompt | refused, no prompt |
+| HA stop | refused, no prompt | refused, no prompt |
+
+HA restart and stop are the services `homeassistant.restart` and
+`homeassistant.stop`, denied for every caller. There is no approval path for them
+yet, so super_admin HA stop cannot be approved today. The plugin cannot see the
+caller's role, so it prompts for add-on stop in every Assist session; a super_admin
+is therefore still prompted there even though the node would allow the call.
+
 Scope: every mutating action of the nine `ha.config.*` commands, the protected-path
 (or `agent_bridge`) writes of `fs.write`, `fs.restore`, `fs.move`, `fs.delete` and
 `fs.patch`, and the Tier B admin commands `ha.reload_config`, `ha.update_install`,

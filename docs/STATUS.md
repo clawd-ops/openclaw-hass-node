@@ -161,6 +161,14 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   [#414](https://github.com/clawd-ops/openclaw-hass-node/issues/414)). Other
   sessions (main, chat, cron, sub-agent) use the core `nodes` tool and its
   approval hook.
+- Approvals are role-aware ([#405](https://github.com/clawd-ops/openclaw-hass-node/issues/405),
+  [#406](https://github.com/clawd-ops/openclaw-hass-node/issues/406)). A verified HA admin or
+  super_admin in a live Assist turn needs no approval for config creates and updates and
+  for add-on start and restart (super_admin also add-on stop). Anything agent-initiated,
+  and every destructive call, still prompts. The node enforces this from its own turn
+  registry; admin add-on stop now prompts instead of being refused. HA restart and stop
+  stay denied for every caller (no approval path exists for them yet). See
+  `docs/design/AUTHORIZATION-MODEL.md`.
 - The multi-agent gateway fix for [#347](https://github.com/clawd-ops/openclaw-hass-node/issues/347)
   is merged at source ([#351](https://github.com/clawd-ops/openclaw-hass-node/pull/351),
   [#366](https://github.com/clawd-ops/openclaw-hass-node/pull/366),
