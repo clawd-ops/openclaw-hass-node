@@ -94,3 +94,15 @@ async def test_helpers_accept_exactly_the_contracted_dynamic_id_key() -> None:
     other = await dispatch_async("ha.config.helpers", {**base, "counter_id": "k"}, caller=operator)
     assert own["error"] == "PROPOSAL_REQUIRED"
     assert other["error"] == "INVALID_PARAM"
+
+
+async def test_malformed_slug_message_matches_plugin_format() -> None:
+    operator = Caller.operator("test")
+    for slug, rendered in [
+        ("Bad Slug", "'Bad Slug'"),
+        ("it's", '"it\'s"'),
+        ("a\\b", "'a\\\\b'"),
+    ]:
+        result = await dispatch_async("ha.addon_restart", {"slug": slug}, caller=operator)
+        assert result["error"] == "INVALID_PARAM"
+        assert result["message"] == f"invalid addon slug: {rendered}"

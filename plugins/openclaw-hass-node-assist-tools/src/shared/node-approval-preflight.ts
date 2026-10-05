@@ -30,6 +30,22 @@ function refusal(code: string, message: string): string {
   return `${code}: ${message}`;
 }
 
+function pythonRepr(value: string): string {
+  const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
+  let out = "";
+  for (const ch of value) {
+    const code = ch.codePointAt(0) as number;
+    if (ch === "\\") out += "\\\\";
+    else if (ch === quote) out += `\\${quote}`;
+    else if (ch === "\n") out += "\\n";
+    else if (ch === "\r") out += "\\r";
+    else if (ch === "\t") out += "\\t";
+    else if (code < 0x20 || code === 0x7f) out += `\\x${code.toString(16).padStart(2, "0")}`;
+    else out += ch;
+  }
+  return `${quote}${out}${quote}`;
+}
+
 /** Slug policy the node applies before its approval gate (static part only). */
 export function addonSlugRefusal(slug: unknown): string | undefined {
   // The node stringifies a present non-string slug and may accept it, so only
@@ -38,7 +54,7 @@ export function addonSlugRefusal(slug: unknown): string | undefined {
   const value = typeof slug === "string" ? slug.trim() : "";
   if (!value) return refusal("MISSING_PARAM", "slug is required");
   if (value.length > contract.addon.max_length || !SLUG.test(value)) {
-    return refusal("INVALID_PARAM", `invalid addon slug: ${JSON.stringify(value)}`);
+    return refusal("INVALID_PARAM", `invalid addon slug: ${pythonRepr(value)}`);
   }
   if (value.startsWith(contract.addon.core_prefix)) {
     return refusal("PERMISSION_DENIED", `addon lifecycle denied for core slug: ${value}`);
@@ -59,7 +75,7 @@ export function gatedCallRefusal(
   action: string,
   inner: Record<string, unknown>,
 ): string | undefined {
-  if (LIFECYCLE.has(command) && inner.slug !== undefined) {
+  if (LIFECYCLE.has(command)) {
     const slugRefusal = addonSlugRefusal(inner.slug);
     if (slugRefusal !== undefined) return slugRefusal;
   }

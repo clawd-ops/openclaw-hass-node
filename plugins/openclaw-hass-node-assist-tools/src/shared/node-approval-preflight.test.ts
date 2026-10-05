@@ -47,6 +47,17 @@ describe("refuse before prompting", () => {
     expect(result.requireApproval).toBeDefined();
   });
 
+  it.each(["ha.addon_start", "ha.addon_stop", "ha.addon_restart", "ha.addon_update"])("refuses an absent slug on a direct %s call", (command) => {
+    expectRefused(beforeToolCall(nodesCall(command, {})), "MISSING_PARAM: slug is required");
+  });
+
+  it("renders a malformed slug the way the node's repr does", () => {
+    const run = (slug: string) => beforeToolCall(nodesCall("ha.addon_restart", { slug }));
+    expectRefused(run("Bad Slug"), "INVALID_PARAM: invalid addon slug: 'Bad Slug'");
+    expectRefused(run("it's"), `INVALID_PARAM: invalid addon slug: "it's"`);
+    expectRefused(run("a\\b"), "invalid addon slug: 'a\\\\b'");
+  });
+
   it("refuses an absent slug on the admin tool", () => {
     expectRefused(beforeToolCall({ toolName: "ha_addon_restart", params: {} }), "MISSING_PARAM");
   });
