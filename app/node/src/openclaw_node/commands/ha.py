@@ -1922,6 +1922,16 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
     _LOG.warning("Tier B ha.update_install invoked for entity_id=%s", entity_id)
     try:
         result = await ha_post("/api/services/update/install", data)
+    except TimeoutError:
+        # update.install blocks until the install finishes; the client timing
+        # out says nothing about whether HA is still installing.
+        _LOG.warning("Tier B ha.update_install timed out for %s; outcome unknown", entity_id)
+        return _error(
+            "OUTCOME_UNKNOWN",
+            "ha.update_install timed out waiting for Home Assistant; the update may "
+            "still be running. Check the update entity's state (in_progress, "
+            "installed_version) with a read-only command. Do not retry.",
+        )
     except HAClientError as exc:
         return _to_error(exc)
 

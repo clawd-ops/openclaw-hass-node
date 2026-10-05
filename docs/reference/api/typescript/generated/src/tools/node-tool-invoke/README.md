@@ -16,6 +16,7 @@
 
 ## Variables
 
+- [NO\_ESCALATION\_NOTE](variables/NO_ESCALATION_NOTE.md)
 - [PLUGIN\_ID](variables/PLUGIN_ID.md)
 
 ## Functions

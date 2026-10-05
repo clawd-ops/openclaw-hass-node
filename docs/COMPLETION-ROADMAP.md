@@ -322,6 +322,9 @@ an operator device, and the node consumes it exactly once.
   Source is released in `2026.9.13b1`, but the last observed live installation
   remains `2026.7.23b1` (per the "How progress is counted" rule); the tick still
   requires install and UAT evidence.
+- [x] A timeout on `ha.update_install` returns `OUTCOME_UNKNOWN` (never retried),
+  and ambiguous tool errors tell the model not to escalate to another mutating
+  command (#409, #410; at source, unreleased).
   Delivered by #260 via PR #284 at `762dc86`: both commands are now advertised
   in `_NODE_COMMANDS`, `_INTENTIONALLY_UNADVERTISED` is the single documented
   exemption list, and a drift gate (`test_command_coverage_ledger`,
