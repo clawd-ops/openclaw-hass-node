@@ -246,7 +246,7 @@ async function enforceConvenienceAction(
 }
 
 // Tier B add-on lifecycle operations: the slug must not be on the always-deny
-// list. The node applies its own slug allowlist and verifies the approval marker.
+// list. The node applies its own deny policy and verifies the approval marker.
 async function enforceLifecycleOp(
   ctx: OpenClawPluginNodeInvokePolicyContext,
   params: Record<string, unknown>,

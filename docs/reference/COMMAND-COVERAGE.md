@@ -877,7 +877,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_restart`
 - Canonical parameters: slug
 - Authorization: `native_approval`
-- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
+- Capability conditions: Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
@@ -927,7 +927,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_start`
 - Canonical parameters: slug
 - Authorization: `native_approval`
-- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
+- Capability conditions: Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
@@ -1017,7 +1017,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_stop`
 - Canonical parameters: slug
 - Authorization: `native_approval`
-- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
+- Capability conditions: Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
@@ -1063,7 +1063,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler: `openclaw_node.commands.ha:handle_ha_addon_update`
 - Canonical parameters: slug
 - Authorization: `native_approval`
-- Capability conditions: Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
+- Capability conditions: Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
