@@ -522,15 +522,15 @@
     },
     "ha.list_states": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Shipped in 2026.10.4b1.",
       "first_shipped_in": "2026.6.8a8",
       "actions": {},
       "issues": [
         319
       ],
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
+      "outcome": "pass",
+      "evidence_note": "Sept 13 direct nodes.invoke ignored entity_filter and returned the full state set. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): entity_filter returned 1.1 KB against 5.5 MB unfiltered. The Assist wrapper applied the filter on Sept 13.",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -1079,13 +1079,13 @@
     },
     "ha.logbook": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Shipped in 2026.10.4b1.",
       "issues": [
         344
       ],
       "evidence_method": "PRODUCTION-LIVE",
       "outcome": "partial",
-      "evidence_note": "Installed-node probes covered plugin-path bounding; the source now refuses unknown direct keys, but that is not yet production-verified.",
+      "evidence_note": "Direct path on 2026.10.4b1: a +00:00 offset returned results. Node-direct unknown-key refusal for ha.logbook is not yet production-verified, so the row stays partial (tracked in #344).",
       "caller_observations": {
         "assist_wrapper": [
           {
@@ -1130,14 +1130,14 @@
     },
     "ha.history": {
       "authorization_class": "read_only",
-      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Shipped in 2026.10.4b1.",
       "issues": [
         344,
         345
       ],
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "partial",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
+      "outcome": "pass",
+      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path.",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -2548,6 +2548,6 @@
   "evidence_hashes": {
     "docs/VERIFICATION-2026-09-11.md": "5b94d348ea439060f869840f63f1928fb29f464b511e4da2b5171bf6f8206fd0",
     "docs/evidence/sweep-2026-09-13.md": "1e7f7ed9494ceb2d0a46f047ad1779fcbdf8046e0cd2beae8b5cd278ec0f2cff",
-    "docs/evidence/uat-2026-10-04-b1.md": "38aaea1714088228c03967de6aad952dc9c3a58ceff950f6702e965c69f4712d"
+    "docs/evidence/uat-2026-10-04-b1.md": "59859b7593fb7dbf8c2de6316e180afe82707f4f06550e4832a2ff56e3f91928"
   }
 }

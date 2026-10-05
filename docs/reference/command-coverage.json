@@ -10442,10 +10442,10 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Shipped in 2026.10.4b1.",
       "command": "ha.history",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 11 probe (add-on 2026.7.23b1, direct path) reproduced +00:00 percent-encoding failure (\u00a72.6) and silent unknown-entity result (\u00a72.7). That observation is stale (version mismatch). Sept 13 probe (add-on 2026.9.13b1, assist_wrapper) passed \u2014 encoding bug may be fixed or probe used Z timestamps; not separately confirmed on the direct path. Unknown-entity silent-empty behavior remains unverified on both paths. outcome=partial: assist_wrapper confirmed pass; direct-path encoding bug unverified on current version.",
+      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_history",
       "id": "ha.history",
@@ -10464,7 +10464,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -12219,10 +12219,10 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Direct callers may narrow by domain and entity_filter (fnmatch glob on entity_id); unknown keys and null, non-string, or empty filters are refused with INVALID_PARAM before any HA request. Shipped in 2026.10.4b1.",
       "command": "ha.list_states",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 13 current-version evidence is mixed: the Assist wrapper applied entity_filter correctly, while direct nodes.invoke silently ignored that unsupported parameter and returned the full state set.",
+      "evidence_note": "Sept 13 direct nodes.invoke ignored entity_filter and returned the full state set. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): entity_filter returned 1.1 KB against 5.5 MB unfiltered. The Assist wrapper applied the filter on Sept 13.",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_list_states",
       "id": "ha.list_states",
@@ -12240,7 +12240,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -12407,10 +12407,10 @@
           }
         }
       ],
-      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Source-only; not in a released artifact.",
+      "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, and entity_id (each a non-empty string when supplied); unknown keys and null, non-string, or empty values are refused with INVALID_PARAM before any HA request. Values are percent-encoded. Shipped in 2026.10.4b1.",
       "command": "ha.logbook",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Installed-node probes covered plugin-path bounding; the source now refuses unknown direct keys, but that is not yet production-verified.",
+      "evidence_note": "Direct path on 2026.10.4b1: a +00:00 offset returned results. Node-direct unknown-key refusal for ha.logbook is not yet production-verified, so the row stays partial (tracked in #344).",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_logbook",
       "id": "ha.logbook",

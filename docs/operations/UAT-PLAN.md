@@ -20,8 +20,9 @@
 > **Scope of the current plan:** Phases A to C and E apply to the published
 > beta; Phases D and G were run against `2026.10.4b1` (see the evidence file for
 > what is still open). [Phase G](#phase-g-policy-gate-bounds-and-assist-remedy-run-2026-10-05-partial)
-> covers behaviour that is merged on `main` but not in any published beta; run it
-> only against a build that contains it. No release-candidate claim is made
+> covers behaviour that shipped in `2026.10.4b1` and was run live against it on
+> 2026-10-05; re-run it against any later build that changes policy or bounds.
+> Items blocked by the OpenClaw core issue stay open. No release-candidate claim is made
 > until these phases have been run against an installed build and the result is
 > recorded.
 
