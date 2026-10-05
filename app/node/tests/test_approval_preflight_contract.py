@@ -1,4 +1,4 @@
-"""contracts/approval-preflight.json mirrors the node's pre-gate refusals."""
+"""The plugin approval-preflight.json mirrors the node's pre-gate refusals."""
 
 from __future__ import annotations
 
@@ -13,7 +13,10 @@ from openclaw_node.commands.dispatcher import dispatch_async
 from openclaw_node.config import DEFAULT_ADDON_LIFECYCLE_DENYLIST
 
 _ROOT = Path(__file__).parents[3] / "contracts"
-CONTRACT: dict[str, Any] = json.loads((_ROOT / "approval-preflight.json").read_text())
+_PREFLIGHT = (
+    _ROOT.parent / "plugins/openclaw-hass-node-assist-tools/src/shared/approval-preflight.json"
+)
+CONTRACT: dict[str, Any] = json.loads(_PREFLIGHT.read_text())
 GATED: dict[str, list[str]] = json.loads((_ROOT / "approval-gated-commands.json").read_text())[
     "gated"
 ]

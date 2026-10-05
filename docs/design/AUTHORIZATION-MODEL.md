@@ -410,7 +410,7 @@ marker these still return `PROPOSAL_REQUIRED`.
 Certain-to-fail calls are refused in the hook, before any prompt: an unknown
 parameter, a `fs.*` path under `/config/.storage/`, and a malformed, core, or
 hard-denied add-on slug. These are the checks the node makes before its approval
-gate. `contracts/approval-preflight.json` carries them and a node test asserts it
+gate. `plugins/openclaw-hass-node-assist-tools/src/shared/approval-preflight.json` carries them and a node test asserts it
 equals the node's own tables, so they cannot drift. The add-on lifecycle
 allowlist (node environment config) and parameter value shapes are known only to
 the node, so those refusals still arrive after a prompt

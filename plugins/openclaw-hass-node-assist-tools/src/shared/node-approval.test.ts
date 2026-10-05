@@ -17,7 +17,7 @@ const contract = JSON.parse(
 ) as { gated: Record<string, string[]> };
 
 const preflight = JSON.parse(
-  readFileSync(new URL("../../../../contracts/approval-preflight.json", import.meta.url), "utf8"),
+  readFileSync(new URL("./approval-preflight.json", import.meta.url), "utf8"),
 ) as { allowed_keys: Record<string, Record<string, string[]>> };
 
 const NOW = 1_800_000_000_000;

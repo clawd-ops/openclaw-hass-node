@@ -4,13 +4,14 @@
 // `.storage/` path, malformed or protected add-on slug) before it reaches its
 // approval gate. Prompting for those wastes the approver's attention on a call
 // that can never run. The node stays authoritative; this only mirrors its
-// pre-gate checks from contracts/approval-preflight.json, which a node-side
+// pre-gate checks from approval-preflight.json (inside the plugin, so a copied plugin
+// stays self-contained), which a node-side
 // test asserts equals the node's own tables.
 //
 // Not mirrored (the node alone knows): the add-on lifecycle allowlist (node
 // environment config) and parameter value shapes.
 
-import { readFileSync } from "node:fs";
+import preflightContract from "./approval-preflight.json" with { type: "json" };
 
 type Preflight = {
   allowed_keys: Record<string, Record<string, string[]>>;
@@ -19,9 +20,7 @@ type Preflight = {
   addon: { slug_pattern: string; max_length: number; core_prefix: string; denylist: string[] };
 };
 
-const contract = JSON.parse(
-  readFileSync(new URL("../../../../contracts/approval-preflight.json", import.meta.url), "utf8"),
-) as Preflight;
+const contract = preflightContract as Preflight;
 
 const SLUG = new RegExp(contract.addon.slug_pattern);
 const LIFECYCLE = new Set(["ha.addon_start", "ha.addon_stop", "ha.addon_restart", "ha.addon_update"]);
@@ -33,6 +32,9 @@ function refusal(code: string, message: string): string {
 
 /** Slug policy the node applies before its approval gate (static part only). */
 export function addonSlugRefusal(slug: unknown): string | undefined {
+  // The node stringifies a present non-string slug and may accept it, so only
+  // an absent slug or a string is judged here.
+  if (slug !== undefined && typeof slug !== "string") return undefined;
   const value = typeof slug === "string" ? slug.trim() : "";
   if (!value) return refusal("MISSING_PARAM", "slug is required");
   if (value.length > contract.addon.max_length || !SLUG.test(value)) {

@@ -41,6 +41,16 @@ describe("refuse before prompting", () => {
     expectRefused(run(""), "MISSING_PARAM: slug is required");
   });
 
+  it("leaves a numeric slug on a direct nodes call to the node, which stringifies it", () => {
+    const result = beforeToolCall(nodesCall("ha.addon_restart", { slug: 123 })) as { block?: boolean; requireApproval?: unknown };
+    expect(result.block).toBeUndefined();
+    expect(result.requireApproval).toBeDefined();
+  });
+
+  it("refuses an absent slug on the admin tool", () => {
+    expectRefused(beforeToolCall({ toolName: "ha_addon_restart", params: {} }), "MISSING_PARAM");
+  });
+
   it("accepts the helper type's own id key and refuses another", () => {
     const ok = beforeToolCall(nodesCall("ha.config.helpers", { action: "delete", helper_type: "timer", timer_id: "k" })) as { requireApproval?: unknown };
     expect(ok.requireApproval).toBeDefined();
