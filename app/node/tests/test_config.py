@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from openclaw_node.config import (
     allowed_roots_for_env,

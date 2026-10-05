@@ -1872,7 +1872,7 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
     Covers HACS integrations, HACS frontend, HA Core, add-ons, and any other
     entity in the ``update.*`` domain.  This is the general-purpose update path
     and is distinct from ``ha.addon_update``, which targets Supervisor add-ons
-    directly via the Supervisor API (slug-based, allowlist-gated).
+    directly via the Supervisor API (slug-based, hard-deny and denylist gated).
 
     Tier B admin — refused unless the call carries a valid native approval
     marker (same gate as ``ha.reload_config``).
