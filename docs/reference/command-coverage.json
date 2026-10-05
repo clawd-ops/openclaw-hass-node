@@ -10445,7 +10445,7 @@
       "capability_conditions": "HA REST API is reachable. Accepts only start_time, end_time, entity_ids, minimal_response, no_attributes, and significant_changes_only; unknown keys and null, non-string, or empty time values are refused with INVALID_PARAM before any HA request. Values are percent-encoded, so the +00:00 offset form is accepted. When entity_ids is given and HA returns an empty result, the requested IDs (at most 10, within a 2 s budget) are probed and any that HA reports as 404 yield HA_NOT_FOUND naming them. Shipped in 2026.10.4b1.",
       "command": "ha.history",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path.",
+      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path. Rolls up to partial until node-direct unknown-key refusal and the entity_id vs entity_ids naming are verified (#344).",
       "first_shipped_in": "2026.6.8a8",
       "handler": "openclaw_node.commands.ha:handle_ha_history",
       "id": "ha.history",
@@ -10464,7 +10464,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "pass",
+      "outcome": "partial",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",

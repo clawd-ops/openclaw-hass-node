@@ -1136,8 +1136,8 @@
         345
       ],
       "evidence_method": "PRODUCTION-LIVE",
-      "outcome": "pass",
-      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path.",
+      "outcome": "partial",
+      "evidence_note": "Sept 11 direct-path probe (add-on 2026.7.23b1) reproduced the +00:00 percent-encoding failure and a silent unknown-entity result. Re-probed on the direct path on 2026.10.4b1 (2026-10-04): Z and +00:00 offsets returned identical results and an unknown entity returned an unknown entity_id(s) error. The stale Sept 11 failure is superseded by the current-version direct-path pass; the Sept 13 Assist wrapper pass is retained for that path. Rolls up to partial until node-direct unknown-key refusal and the entity_id vs entity_ids naming are verified (#344).",
       "caller_observations": {
         "direct_nodes_invoke": [
           {
@@ -2548,6 +2548,6 @@
   "evidence_hashes": {
     "docs/VERIFICATION-2026-09-11.md": "5b94d348ea439060f869840f63f1928fb29f464b511e4da2b5171bf6f8206fd0",
     "docs/evidence/sweep-2026-09-13.md": "1e7f7ed9494ceb2d0a46f047ad1779fcbdf8046e0cd2beae8b5cd278ec0f2cff",
-    "docs/evidence/uat-2026-10-04-b1.md": "59859b7593fb7dbf8c2de6316e180afe82707f4f06550e4832a2ff56e3f91928"
+    "docs/evidence/uat-2026-10-04-b1.md": "0c1d815007c947687f8b2d69deeca4c48b075d1d1c1a265f1540f7cf23bc48d1"
   }
 }
