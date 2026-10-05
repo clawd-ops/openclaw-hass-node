@@ -1817,6 +1817,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_authz.py",
         "app/node/tests/test_effect_policy.py",
@@ -2539,6 +2540,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
         "app/node/tests/test_gateway_ws.py",
@@ -2671,6 +2673,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
@@ -2940,6 +2943,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",
@@ -3071,6 +3075,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
         "app/node/tests/test_dispatcher.py",
@@ -3559,6 +3564,7 @@
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "Allowed calls return the HA changed_states list. service_data is normalized to data before dispatch. Privileged or malformed calls fail before HA I/O.",
       "source_mentions": [
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_authz.py",
         "app/node/tests/test_caller_extraction.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
@@ -4605,6 +4611,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -4756,6 +4763,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -4894,6 +4902,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -5079,6 +5088,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_config_automation.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/invoke-contract.test.ts"
@@ -12589,6 +12599,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_dispatch_gate_boundary.py",
         "app/node/tests/test_gateway_ws.py",
@@ -12876,6 +12887,7 @@
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_approval_gated_commands.py",
+        "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_gateway_ws.py",
         "app/node/tests/test_ha_strict_keys.py",

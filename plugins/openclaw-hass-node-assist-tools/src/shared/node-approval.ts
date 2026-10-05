@@ -12,7 +12,8 @@
 // docs/design/AUTHORIZATION-MODEL.md, "Native approvals for node mutations".
 
 import { createHash, randomUUID } from "node:crypto";
-import { CALLER_PARAM } from "./caller-context.js";
+import { assistSkipsPrompt } from "./approval-policy.js";
+import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.js";
 import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
 
 /** Reserved node.invoke param carrying the approval marker. */
@@ -222,11 +223,17 @@ function newMarker(command: string, action: string, params: Record<string, unkno
  * `before_tool_call` handler for the plugin's own admin tools: always replaces
  * any model-supplied marker with a fresh one bound to the exact node params.
  */
-function beforeAdminToolCall(command: string, params: Record<string, unknown>, nowMs: () => number) {
+function beforeAdminToolCall(
+  command: string,
+  params: Record<string, unknown>,
+  nowMs: () => number,
+  assistSessionKey?: string,
+) {
   const { [APPROVAL_PARAM]: _supplied, ...clean } = params;
   const commandParams = adminCommandParams(command, clean);
   const refused = command.startsWith("ha.addon_") ? addonSlugRefusal(commandParams.slug) : undefined;
   if (refused !== undefined) return { block: true, blockReason: refused };
+  if (assistSessionKey !== undefined && assistSkipsPrompt(command, "")) return { params: clean };
   const title = titleOf(command, "");
   return {
     params: { ...clean, [APPROVAL_PARAM]: newMarker(command, "", commandParams, nowMs) },
@@ -247,17 +254,25 @@ function beforeAdminToolCall(command: string, params: Record<string, unknown>, n
  * params hold an integer beyond 2^53 is blocked: re-serializing it would alter
  * the value the human approved.
  */
-export function beforeToolCall(event: NodesCallEvent, nowMs: () => number = Date.now) {
+export function beforeToolCall(
+  event: NodesCallEvent,
+  nowMs: () => number = Date.now,
+  sessionKey?: unknown,
+) {
   const { params } = event;
+  const assistSessionKey = normalizeAssistSessionKey(sessionKey);
   const adminCommand = Object.hasOwn(ADMIN_TOOL_COMMANDS, event.toolName)
     ? ADMIN_TOOL_COMMANDS[event.toolName]
     : undefined;
-  if (adminCommand !== undefined) return beforeAdminToolCall(adminCommand, params, nowMs);
+  if (adminCommand !== undefined) return beforeAdminToolCall(adminCommand, params, nowMs, assistSessionKey);
   if (event.toolName !== "nodes" || normalized(params.action) !== "invoke") return undefined;
   const inner = parseInnerParams(params.invokeParamsJson);
   if (inner === undefined) return undefined;
 
-  const { [APPROVAL_PARAM]: supplied, ...clean } = inner;
+  // A model-supplied marker or caller hint is never trusted. The hint is set only
+  // from the host's session key, so the node can resolve the verified Assist caller.
+  const { [APPROVAL_PARAM]: supplied, [CALLER_PARAM]: suppliedHint, ...clean } = inner;
+  const hinted = assistSessionKey === undefined ? clean : { ...clean, [CALLER_PARAM]: { sessionKey: assistSessionKey } };
   const rewrite = (innerParams: Record<string, unknown>) => ({
     ...params,
     invokeParamsJson: JSON.stringify(innerParams),
@@ -265,7 +280,9 @@ export function beforeToolCall(event: NodesCallEvent, nowMs: () => number = Date
   const command = normalized(params.invokeCommand);
   const action = typeof clean.action === "string" ? clean.action.trim() : "";
   const needsApproval = Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true;
-  if (!needsApproval) return supplied === undefined ? undefined : { params: rewrite(clean) };
+  if (!needsApproval) {
+    return supplied === undefined && suppliedHint === undefined ? undefined : { params: rewrite(clean) };
+  }
 
   const refused = gatedCallRefusal(command, action, clean);
   if (refused !== undefined) return { block: true, blockReason: refused };
@@ -275,8 +292,11 @@ export function beforeToolCall(event: NodesCallEvent, nowMs: () => number = Date
       blockReason: "Call contains an integer beyond 2^53 that cannot be approved exactly; use a string.",
     };
   }
+  if (assistSessionKey !== undefined && assistSkipsPrompt(command, action)) {
+    return { params: rewrite(hinted) };
+  }
   return {
-    params: rewrite({ ...clean, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) }),
+    params: rewrite({ ...hinted, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) }),
     requireApproval: approvalRequest(
       titleOf(command, action),
       `${titleOf(command, action)}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
