@@ -4,10 +4,17 @@ from __future__ import annotations
 
 import base64
 import json
+from pathlib import Path
 
 import pytest
+import yaml
 
-from openclaw_node.config import allowed_roots_for_env, load_config, normalize_pairing_token
+from openclaw_node.config import (
+    allowed_roots_for_env,
+    load_config,
+    normalize_pairing_token,
+    warn_ignored_legacy_allowlist,
+)
 
 
 def test_load_config_addon_mode(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,7 +49,6 @@ def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
         "OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS",
         '{"user":{"add":["ha.call_service:lock.unlock"],"remove":["script.*"]}}',
     )
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
     monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_DENYLIST", '["bad_addon"]')
 
     config = load_config()
@@ -56,7 +62,6 @@ def test_load_config_identity_options(monkeypatch: pytest.MonkeyPatch) -> None:
         {"ha.call_service:lock.unlock"}
     )
     assert config.identity.forbidden_commands["user"].remove == frozenset({"script.*"})
-    assert config.identity.addon_lifecycle_allowlist == frozenset({"openclaw_hass_node"})
     assert config.identity.addon_lifecycle_denylist == frozenset({"bad_addon"})
 
 
@@ -68,14 +73,14 @@ def test_load_config_identity_options_ignore_invalid_shapes(
     monkeypatch.setenv("OPENCLAW_IDENTITY_SUPER_ADMINS", '{"not":"a list"}')
     monkeypatch.setenv("OPENCLAW_IDENTITY_USER_AGENT_MAP", '["not", "a map"]')
     monkeypatch.setenv("OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS", '["not", "a map"]')
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "not-json,other")
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_DENYLIST", "not-json,other")
 
     config = load_config()
 
     assert config.identity.super_admins == frozenset()
     assert config.identity.user_agent_map == {}
     assert config.identity.forbidden_commands == {}
-    assert config.identity.addon_lifecycle_allowlist == frozenset({"not-json", "other"})
+    assert config.identity.addon_lifecycle_denylist == frozenset({"not-json", "other"})
 
 
 def test_load_config_identity_options_ignore_bad_forbidden_patch(
@@ -278,3 +283,43 @@ def test_load_config_decodes_setup_code(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("GATEWAY_URL", "wss://gw.example/ws")
     config = load_config()
     assert config.pairing_token == "decoded-bootstrap"
+
+
+def test_warn_ignored_legacy_allowlist_logs_when_configured(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    options = tmp_path / "options.json"
+    options.write_text('{"addon_lifecycle": {"allowlist": ["a_addon"]}}', encoding="utf-8")
+
+    with caplog.at_level("INFO", logger="openclaw_node.config"):
+        assert warn_ignored_legacy_allowlist(options) is True
+
+    assert "allowlist is configured but ignored" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "content",
+    ['{"addon_lifecycle": {"allowlist": []}}', '{"addon_lifecycle": {}}', "[]", "not json", None],
+)
+def test_warn_ignored_legacy_allowlist_silent_otherwise(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, content: str | None
+) -> None:
+    options = tmp_path / "options.json"
+    if content is not None:
+        options.write_text(content, encoding="utf-8")
+
+    with caplog.at_level("INFO", logger="openclaw_node.config"):
+        assert warn_ignored_legacy_allowlist(options) is False
+
+    assert "ignored" not in caplog.text
+
+
+def test_config_yaml_loads_and_keeps_optional_legacy_allowlist() -> None:
+    """The add-on manifest parses and its schema keeps the optional legacy key."""
+    manifest = Path(__file__).resolve().parents[2] / "config.yaml"
+
+    parsed = yaml.safe_load(manifest.read_text())
+
+    lifecycle = parsed["schema"]["addon_lifecycle"]
+    assert lifecycle["allowlist"] == ["str?"]
+    assert lifecycle["denylist"] == ["str"]

@@ -297,7 +297,6 @@ ADMIN: dict[str, dict[str, Any]] = {
 
 @pytest.fixture
 def admin_requests(monkeypatch: pytest.MonkeyPatch) -> list[AsyncMock]:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", json.dumps([_SLUG]))
     mocks: list[AsyncMock] = []
     for name in ("ha_get", "ha_post", "supervisor_get_json", "supervisor_post_json"):
         mock = AsyncMock(name=name, return_value={"data": {"state": "stopped"}})
@@ -364,10 +363,10 @@ async def test_admin_invalid_marker_is_approval_invalid(
 
 
 @pytest.mark.parametrize("command", [c for c in sorted(ADMIN) if c.startswith("ha.addon_")])
-async def test_admin_allowlist_refusal_precedes_approval(
+async def test_admin_policy_refusal_precedes_approval(
     command: str, admin_requests: list[AsyncMock]
 ) -> None:
-    params = {"slug": "other_addon"}
+    params = {"slug": "core_other"}
     marker = _marker(command, "", params)
     result = await dispatch_async(command, {**params, APPROVAL_PARAM: marker}, caller=_OPERATOR)
     assert result["error"] == "PERMISSION_DENIED"

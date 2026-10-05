@@ -215,26 +215,15 @@ or `user` role for Assist turns.
   Removing defaults loosens the policy advertised to the model;
   invoke-time protection still lives in each command handler.
 
-### `addon_lifecycle.allowlist`
+### `addon_lifecycle.allowlist` (removed)
 
-- **Purpose**: List of Supervisor add-on slugs that may be controlled
-  by the Tier B lifecycle commands `ha.addon_start`, `ha.addon_stop`,
-  and `ha.addon_restart`. Tier B default-denies every slug; a slug
-  must appear here to be allowed at all.
-- **Type**: list of `str`.
-- **Example**:
-  ```yaml
-  addon_lifecycle:
-    allowlist:
-      - openclaw_hass_node
-      - my-safe-addon
-  ```
-- **Default**: `[]` (no Tier B lifecycle action is allowed).
-- **Security**: Allowing a slug here means any caller who can
-  authenticate to the local API (via `local_api_token`) and reach this
-  app can start/stop/restart that add-on. Only add slugs you accept
-  the operator-side risk of remote restart for. The denylist below
-  still applies on top, and `core_*` slugs are always denied.
+- **Status**: Removed and ignored. Every slug other than `homeassistant`,
+  `supervisor` and `core_*` is now governed by the caller's role and a
+  native OpenClaw approval for each call. Use `addon_lifecycle.denylist`
+  to fence off specific add-ons.
+- **Upgrade**: A saved `allowlist` still validates for one release, has no
+  effect, and is noted in the add-on log at startup. Delete it from the
+  options when convenient.
 
 ### `addon_lifecycle.denylist`
 
@@ -255,9 +244,9 @@ or `user` role for Assist turns.
   - homeassistant
   - supervisor
   ```
-- **Security**: A slug listed both here and in `allowlist` is denied;
-  the denylist wins. Use this to make sure even an accidental
-  allowlist entry cannot bypass policy.
+- **Security**: There is no allowlist. Slugs not denied here or by the
+  always-denied set go through the caller's role and a native OpenClaw
+  approval for each call.
 
 ### `hass_url`
 
@@ -322,7 +311,7 @@ by Supervisor's own role limits on this app. The app manifest
 asks for `hassio_role: manager`, which is narrower than `admin` but
 covers add-on management read endpoints.
 
-### Tier B — lifecycle (allowlist-gated)
+### Tier B — lifecycle (approval-gated)
 
 State-changing Supervisor calls:
 
@@ -335,13 +324,13 @@ Tier B authorization is:
 1. The request must be authenticated by the pairing session — that is,
    the caller has already proved possession of `local_api_token`. This
    is the same gate every local API call passes through.
-2. The target slug must appear in `addon_lifecycle.allowlist` (and not
-   in `addon_lifecycle.denylist`, and not a `core_*` slug).
+2. The target slug must not be `homeassistant`, `supervisor` or a `core_*`
+   slug, and must not be in `addon_lifecycle.denylist`.
 
-The pairing session is the authentication boundary; the allowlist and a
+The pairing session is the authentication boundary; the caller's role and a
 native OpenClaw approval for each call are the authorization boundary. If
-you do not want a particular add-on to be restartable remotely, leave its
-slug out of the allowlist.
+you do not want a particular add-on to be restartable remotely, add its
+slug to `addon_lifecycle.denylist`.
 
 ## Related references
 

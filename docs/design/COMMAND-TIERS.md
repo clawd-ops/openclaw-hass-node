@@ -77,7 +77,7 @@ native OpenClaw approval for the exact call; see
 ### Tier B lifecycle (pairing auth + slug policy + native approval)
 
 Authenticated by the established pairing session. The node checks
-slug allowlist/denylist policy first, then verifies the native approval marker
+slug policy (hard deny and denylist) first, then verifies the native approval marker
 the plugin hook minted after an operator approved the call. Without a marker the
 command returns `PROPOSAL_REQUIRED`; a bad, expired, mismatched, or reused
 marker returns `APPROVAL_INVALID`; neither touches Supervisor. The plugin has no
@@ -108,10 +108,11 @@ its known gap.
 
 Additional constraints on lifecycle ops (on top of native approval):
 
-- **Slug allow/deny list at addon-config level.** Always deny
+- **Slug deny list at addon-config level.** Always deny
   `homeassistant`, `supervisor`, and `core_*` regardless of approval.
-  Other slugs default-deny via `addon_lifecycle.allowlist`, with an
-  optional extra `addon_lifecycle.denylist`.
+  Other slugs are governed by role and native approval, with an
+  optional extra `addon_lifecycle.denylist`. The former allowlist was
+  removed (#408).
 - **Audit log every invocation** at WARNING with command + slug. Per-HA-user
   actor is currently available only on the Assist ingress, not on the
   `node.invoke.request` envelope for command dispatch.
@@ -129,7 +130,7 @@ file a separate proposal — not an opportunistic add.
 Note: `ha.addon_update` and `ha.update_install` are intentionally Tier B rather
 than Tier C. Both bring existing installations forward without changing which
 component is installed. `ha.update_install` is entity-scoped (must be `update.*`)
-and is gated by operator approval without a slug allowlist, since update
+and is gated by operator approval since update
 entities are HA-registry objects rather than Supervisor slugs.
 
 ## Gateway allowlist sync — required, easy to forget

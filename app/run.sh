@@ -74,9 +74,6 @@ if isinstance(identity, dict):
         values['OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS'] = forbidden_commands.strip()
 addon_lifecycle = data.get('addon_lifecycle') or {}
 if isinstance(addon_lifecycle, dict):
-    allowlist = addon_lifecycle.get('allowlist') or []
-    if isinstance(allowlist, list):
-        values['OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST'] = json.dumps(allowlist)
     denylist = addon_lifecycle.get('denylist') or []
     if isinstance(denylist, list):
         values['OPENCLAW_ADDON_LIFECYCLE_DENYLIST'] = json.dumps(denylist)

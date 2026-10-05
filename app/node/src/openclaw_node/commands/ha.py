@@ -33,10 +33,10 @@ Commands in this module:
   (read-only); ``hostname`` and network fields are deliberately not exposed.
 - ``ha.addon_changelog``      — per-addon changelog markdown (read-only).
 - ``ha.addon_documentation``  — per-addon documentation markdown (read-only).
-- ``ha.addon_start``          — start an explicitly allowlisted add-on (Tier B).
-- ``ha.addon_stop``           — stop an explicitly allowlisted add-on (Tier B).
-- ``ha.addon_restart``        — restart an explicitly allowlisted add-on (Tier B).
-- ``ha.addon_update``         — update an explicitly allowlisted add-on to the latest available
+- ``ha.addon_start``          — start an add-on (Tier B).
+- ``ha.addon_stop``           — stop an add-on (Tier B).
+- ``ha.addon_restart``        — restart an add-on (Tier B).
+- ``ha.addon_update``         — update an add-on to the latest available
   version (Tier B).
 - ``ha.update_install``       — install a pending update via HA's ``update.install`` service for
   HACS integrations, HA core, add-ons, and any other ``update.*`` entity (Tier B,
@@ -1322,7 +1322,7 @@ def _parse_slug_env(name: str, *, default: frozenset[str] = frozenset()) -> froz
 
 
 def _addon_lifecycle_policy_error(slug: str) -> dict[str, Any] | None:
-    """Return an error if slug is not allowed for Tier B lifecycle commands."""
+    """Return an error if slug is hard-denied (core_*) or on the denylist."""
     if slug.startswith(_CORE_ADDON_PREFIX):
         return _error("PERMISSION_DENIED", f"addon lifecycle denied for core slug: {slug}")
     denylist = DEFAULT_ADDON_LIFECYCLE_DENYLIST | _parse_slug_env(
@@ -1330,9 +1330,6 @@ def _addon_lifecycle_policy_error(slug: str) -> dict[str, Any] | None:
     )
     if slug.casefold() in denylist:
         return _error("PERMISSION_DENIED", f"addon lifecycle denied for slug: {slug}")
-    allowlist = _parse_slug_env("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
-    if slug.casefold() not in allowlist:
-        return _error("PERMISSION_DENIED", f"addon lifecycle slug not allowlisted: {slug}")
     return None
 
 
@@ -1356,8 +1353,8 @@ async def _handle_addon_lifecycle(
 
     Authorization: the request is already authenticated by the local API
     bearer (the established pairing session). Tier B further requires the
-    slug to be present in ``addon_lifecycle.allowlist`` (and not in any
-    denylist / not a core add-on); only then is the native approval marker
+    slug to be neither a reserved/core add-on nor on
+    ``addon_lifecycle.denylist``; only then is the native approval marker
     checked, so a policy refusal never consumes an approval.
     """
     slug = str(params.get("slug", "")).strip()
@@ -1827,7 +1824,7 @@ async def handle_ha_addon_documentation(params: dict[str, Any]) -> dict[str, Any
 
 
 async def handle_ha_addon_start(params: dict[str, Any]) -> dict[str, Any]:
-    """Start an explicitly allowlisted Supervisor add-on (Tier B)."""
+    """Start a Supervisor add-on (Tier B)."""
     return await _handle_addon_lifecycle(
         params,
         command="ha.addon_start",
@@ -1837,7 +1834,7 @@ async def handle_ha_addon_start(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def handle_ha_addon_stop(params: dict[str, Any]) -> dict[str, Any]:
-    """Stop an explicitly allowlisted Supervisor add-on (Tier B)."""
+    """Stop a Supervisor add-on (Tier B)."""
     return await _handle_addon_lifecycle(
         params,
         command="ha.addon_stop",
@@ -1847,7 +1844,7 @@ async def handle_ha_addon_stop(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def handle_ha_addon_restart(params: dict[str, Any]) -> dict[str, Any]:
-    """Restart an explicitly allowlisted Supervisor add-on (Tier B)."""
+    """Restart a Supervisor add-on (Tier B)."""
     return await _handle_addon_lifecycle(
         params,
         command="ha.addon_restart",
@@ -1857,9 +1854,9 @@ async def handle_ha_addon_restart(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def handle_ha_addon_update(params: dict[str, Any]) -> dict[str, Any]:
-    """Update an explicitly allowlisted Supervisor add-on to the latest available version.
+    """Update a Supervisor add-on to the latest available version.
 
-    Tier B operation — requires an explicit addon slug in the lifecycle allowlist.
+    Tier B operation — requires an explicit addon slug that passes lifecycle policy.
     """
     return await _handle_addon_lifecycle(
         params,
@@ -1875,7 +1872,7 @@ async def handle_ha_update_install(params: dict[str, Any]) -> dict[str, Any]:
     Covers HACS integrations, HACS frontend, HA Core, add-ons, and any other
     entity in the ``update.*`` domain.  This is the general-purpose update path
     and is distinct from ``ha.addon_update``, which targets Supervisor add-ons
-    directly via the Supervisor API (slug-based, allowlist-gated).
+    directly via the Supervisor API (slug-based, hard-deny and denylist gated).
 
     Tier B admin — refused unless the call carries a valid native approval
     marker (same gate as ``ha.reload_config``).

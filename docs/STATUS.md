@@ -272,8 +272,8 @@ released `2026.9.13b1` source and artifact surface, not a claim of live UAT:
     `addon_documentation`, `supervisor_info`), Tier B addon lifecycle
     (`addon_start`, `addon_stop`, `addon_restart`, `addon_update`) and
     `update_install`, authenticated
-    by the paired session, constrained by an explicit slug allowlist for the
-    add-on commands, and each needing a native approval, and the nine
+    by the paired session, with `homeassistant`, `supervisor` and `core_*` always
+    denied (the add-on allowlist was removed under #408), and each needing a native approval, and the nine
     `ha.config.*` domain-config editors: `lovelace`, `automation`,
     `script`, `scene`, `helpers`, `area_registry`, `device_registry`,
     `entity_registry`, `config_entries`. Every `ha.config.*` mutation is
@@ -368,8 +368,9 @@ candidate ready. Still open:
   implemented.
 - **[#403](https://github.com/clawd-ops/openclaw-hass-node/issues/403)** is
   partly advanced: unknown parameters, `.storage/` writes and bad add-on slugs are
-  refused before the approval prompt. An add-on allowlist miss and malformed
-  parameter values are still refused only after a prompt.
+  refused before the approval prompt. Malformed parameter values are still
+  refused only after a prompt. The add-on allowlist is gone (#408), so a slug
+  miss can no longer occur.
 - **[#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)**
   (executable command contract and strict unknown-key refusal) is deferred. No
   complete accepted-key authority exists yet.

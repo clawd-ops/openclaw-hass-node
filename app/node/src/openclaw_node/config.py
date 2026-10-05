@@ -83,7 +83,6 @@ class IdentityConfig:
     user_role_agent_id: str = ""
     admin_role_agent_id: str = ""
     forbidden_commands: dict[str, ForbiddenCommandPatch] = field(default_factory=dict)
-    addon_lifecycle_allowlist: frozenset[str] = field(default_factory=frozenset)
     addon_lifecycle_denylist: frozenset[str] = field(
         default_factory=lambda: DEFAULT_ADDON_LIFECYCLE_DENYLIST
     )
@@ -188,6 +187,27 @@ class NodeConfig:
         return self.data_dir / f"device-token.{role}"
 
 
+def warn_ignored_legacy_allowlist(options_path: Path = Path("/data/options.json")) -> bool:
+    """Log (INFO) that a saved ``addon_lifecycle.allowlist`` is now ignored.
+
+    The option was removed; it stays in the add-on schema for one release so
+    saved options still validate. Returns True when a notice was logged.
+    """
+    try:
+        data = json.loads(options_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    lifecycle = data.get("addon_lifecycle") if isinstance(data, dict) else None
+    legacy = lifecycle.get("allowlist") if isinstance(lifecycle, dict) else None
+    if not legacy:
+        return False
+    _LOG.info(
+        "addon_lifecycle.allowlist is configured but ignored: the option was removed; "
+        "use addon_lifecycle.denylist to fence off add-ons"
+    )
+    return True
+
+
 def load_config() -> NodeConfig:
     """Build a :class:`NodeConfig` from environment variables.
 
@@ -283,9 +303,6 @@ def _parse_identity_config() -> IdentityConfig:
         user_role_agent_id=os.environ.get("OPENCLAW_IDENTITY_USER_ROLE_AGENT_ID", "").strip(),
         admin_role_agent_id=os.environ.get("OPENCLAW_IDENTITY_ADMIN_ROLE_AGENT_ID", "").strip(),
         forbidden_commands=_parse_forbidden_patches_env("OPENCLAW_IDENTITY_FORBIDDEN_COMMANDS"),
-        addon_lifecycle_allowlist=frozenset(
-            _parse_string_list_env("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST")
-        ),
         addon_lifecycle_denylist=frozenset(
             _parse_string_list_env(
                 "OPENCLAW_ADDON_LIFECYCLE_DENYLIST",

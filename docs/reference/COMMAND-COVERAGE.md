@@ -964,6 +964,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_approval_policy.py`
   - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
+  - `app/node/tests/test_ha_commands.py`
   - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts`
@@ -1067,7 +1068,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Semantic errors: Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.
 - Evidence method: `PRODUCTION-LIVE`
 - **Outcome: `refused-as-designed`**
-- Evidence note: AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only the allowlist refusal was observed; no add-on update completed.
+- Evidence note: AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only a slug-policy refusal was observed; no add-on update completed.
 - Advertisement: Present in the node connect frame; gateway allowlisting and runtime availability are separate.
 - Direct caller: A dispatcher and advertised path exist; end-to-end availability is not implied.
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.

@@ -14,7 +14,7 @@
 // trim or strip could change them); an absent slug and unknown parameter names
 // (exact keys) are always judged. Anything else is left to the node.
 //
-// Not mirrored (the node alone knows): the add-on lifecycle allowlist (node
+// Not mirrored (the node alone knows): the add-on lifecycle denylist (node
 // environment config) and parameter value shapes.
 
 import { CALLER_PARAM } from "./caller-context.js";

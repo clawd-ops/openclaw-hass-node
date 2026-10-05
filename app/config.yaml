@@ -158,12 +158,10 @@ options:
     # Example: {"user":{"add":["ha.call_service:lock.unlock"],"remove":[]}}
     forbidden_commands: ""
   addon_lifecycle:
-    # Tier B lifecycle commands (`ha.addon_start`/stop/restart) default-deny
-    # every slug and require explicit opt-in here. Authorization is the
-    # pairing-session bearer (local_api_token), this allowlist, and a native
-    # OpenClaw approval for each call. Add a slug ONLY for add-ons you accept
-    # the operator-side risk of remote start/stop/restart on.
-    allowlist: []
+    # Tier B lifecycle commands (`ha.addon_start`/stop/restart/update) are
+    # governed by the caller's role and a native OpenClaw approval for each
+    # call. `allowlist` was removed and is ignored; it stays in the schema
+    # for one release only so saved options still validate.
     # Always denied in code too: homeassistant, supervisor, and core_*.
     denylist:
       - homeassistant
@@ -216,7 +214,7 @@ schema:
     forbidden_commands: str?
   addon_lifecycle:
     allowlist:
-      - str
+      - str?
     denylist:
       - str
   hass_url: str?

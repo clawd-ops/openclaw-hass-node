@@ -262,7 +262,6 @@ def _safe_config(config: NodeConfig) -> dict[str, Any]:
         "default_agent_id_configured": bool(config.identity.default_agent_id),
         "actor_signing_configured": bool(config.local_api_token),
         "forbidden_commands_roles": sorted(config.identity.forbidden_commands),
-        "addon_lifecycle_allowlist_count": len(config.identity.addon_lifecycle_allowlist),
         "addon_lifecycle_denylist_count": len(config.identity.addon_lifecycle_denylist),
     }
     return data

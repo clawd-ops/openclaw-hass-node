@@ -2428,19 +2428,43 @@ async def test_addon_documentation_not_found() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_addon_start_requires_allowlisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
+async def test_addon_start_arbitrary_slug_passes_policy_to_approval_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A non-reserved slug is no longer refused by an allowlist; it reaches the approval check."""
+    reached: list[str] = []
 
-    result = await handle_ha_addon_start({"slug": "openclaw_hass_node"})
+    def _approval(command: str, *_args: Any) -> dict[str, Any]:
+        reached.append(command)
+        return {"ok": False, "error": "PROPOSAL_REQUIRED", "message": "approval needed"}
+
+    monkeypatch.setattr(ha_module, "consume_approval_marker", _approval)
+
+    result = await handle_ha_addon_start({"slug": "a0d7b954_vscode"})
+
+    assert result["error"] == "PROPOSAL_REQUIRED"
+    assert reached == ["ha.addon_start"]
+
+
+@pytest.mark.parametrize("slug", ["homeassistant", "supervisor", "core_ssh"])
+async def test_addon_update_refuses_hard_denied_slugs(slug: str) -> None:
+    result = await handle_ha_addon_update({"slug": slug})
 
     assert result["error"] == "PERMISSION_DENIED"
-    assert "allowlisted" in result["message"]
+
+
+async def test_addon_start_refuses_denylisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_DENYLIST", '["a0d7b954_vscode"]')
+
+    result = await handle_ha_addon_start({"slug": "a0d7b954_vscode"})
+
+    assert result["error"] == "PERMISSION_DENIED"
+    assert "denied for slug" in result["message"]
 
 
 async def test_addon_lifecycle_always_denies_core_slugs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["core_mosquitto"]')
 
     result = await handle_ha_addon_restart({"slug": "core_mosquitto"})
 
@@ -2451,7 +2475,6 @@ async def test_addon_lifecycle_always_denies_core_slugs(
 async def test_addon_start_idempotent_when_already_started(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",
@@ -2472,7 +2495,6 @@ async def test_addon_start_idempotent_when_already_started(
 
 
 async def test_addon_stop_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",
@@ -2492,7 +2514,6 @@ async def test_addon_stop_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch
 
 
 async def test_addon_restart_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",
@@ -2522,7 +2543,6 @@ async def test_addon_restart_posts_when_allowlisted(monkeypatch: pytest.MonkeyPa
 async def test_addon_lifecycle_timeout_is_outcome_unknown(
     monkeypatch: pytest.MonkeyPatch, handler: Any, state: str, action: str
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",
@@ -2546,7 +2566,6 @@ async def test_addon_lifecycle_timeout_is_outcome_unknown(
 async def test_addon_lifecycle_timeout_reading_state_after_post_is_outcome_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",
@@ -2563,7 +2582,6 @@ async def test_addon_lifecycle_timeout_reading_state_after_post_is_outcome_unkno
 async def test_addon_lifecycle_real_failure_keeps_its_error_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", "openclaw_hass_node")
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",
@@ -2584,19 +2602,9 @@ async def test_addon_lifecycle_real_failure_keeps_its_error_code(
 # ---------------------------------------------------------------------------
 
 
-async def test_addon_update_requires_allowlisted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", raising=False)
-
-    result = await handle_ha_addon_update({"slug": "openclaw_hass_node"})
-
-    assert result["error"] == "PERMISSION_DENIED"
-    assert "allowlisted" in result["message"]
-
-
 async def test_addon_update_always_denies_core_slugs(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["core_mosquitto"]')
 
     result = await handle_ha_addon_update({"slug": "core_mosquitto"})
 
@@ -2604,8 +2612,7 @@ async def test_addon_update_always_denies_core_slugs(
     assert "core slug" in result["message"]
 
 
-async def test_addon_update_posts_when_allowlisted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", '["openclaw_hass_node"]')
+async def test_addon_update_posts_for_permitted_slug(monkeypatch: pytest.MonkeyPatch) -> None:
     with (
         patch(
             "openclaw_node.commands.ha.supervisor_get_json",

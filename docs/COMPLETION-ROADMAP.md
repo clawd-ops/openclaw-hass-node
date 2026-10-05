@@ -288,8 +288,8 @@ store, or approval application.
 - [ ] Consume each `allow-once` decision exactly once and refuse self-approval.
   Approval prompts and decisions remain on native operator surfaces.
 - [ ] Refuse every certain-to-fail call before prompting. Done: unknown
-  parameters, `.storage/` writes, bad add-on slugs. Open: add-on allowlist miss
-  and malformed parameter values ([#403](https://github.com/clawd-ops/openclaw-hass-node/issues/403)).
+  parameters, `.storage/` writes, bad add-on slugs. Open: malformed parameter
+  values ([#403](https://github.com/clawd-ops/openclaw-hass-node/issues/403)).
 - [ ] Wire accepted native approvals to protected `fs.*` and every mutating
   `ha.config.*` action, with precondition revalidation immediately before apply.
 - [ ] Record domain-appropriate preimages and expose explicit recovery actions.
