@@ -103,9 +103,42 @@ describe("plugin entrypoint registration", () => {
     };
     const toolA = factory({ sessionKey: "agent:main:ha-assist:a" });
     const toolB = factory({ sessionKey: "agent:main:ha-assist:b" });
-    const toolNone = factory({});
-    await Promise.all([toolA.execute("1", {}), toolB.execute("2", {}), toolNone.execute("3", {})]);
-    expect(seen.sort()).toEqual([undefined, "agent:main:ha-assist:a", "agent:main:ha-assist:b"].sort());
+    await Promise.all([toolA!.execute("1", {}), toolB!.execute("2", {})]);
+    expect(seen.sort()).toEqual(["agent:main:ha-assist:a", "agent:main:ha-assist:b"]);
     expect(readAssistSessionKey()).toBeUndefined();
+  });
+
+  it("offers each ha_* tool only to Assist sessions", () => {
+    const registerTool = vi.fn();
+    (entry as unknown as { register(api: unknown): void }).register({
+      registerTool,
+      registerNodeInvokePolicy: vi.fn(),
+      on: vi.fn(),
+    });
+    expect(registerTool.mock.calls.length).toBeGreaterThan(0);
+    for (const [factory, opts] of registerTool.mock.calls as Array<
+      [(ctx: unknown) => { name: string } | null, { name: string }]
+    >) {
+      expect(factory({ sessionKey: "ha-assist:abc" })?.name).toBe(opts.name);
+      expect(factory({ sessionKey: "agent:main:ha-assist:abc" })?.name).toBe(opts.name);
+      for (const key of [
+        "agent:clawd:main",
+        "agent:main:discord:channel:1",
+        "agent:main:cron:job",
+        "agent:main:subagent:xyz",
+        "ha-assist:",
+        "xha-assist:abc",
+        "",
+        "   ",
+        undefined,
+        null,
+        42,
+        { toString: () => "ha-assist:abc" },
+      ]) {
+        expect(factory({ sessionKey: key })).toBeNull();
+      }
+      expect(factory({})).toBeNull();
+      expect(factory(undefined)).toBeNull();
+    }
   });
 });

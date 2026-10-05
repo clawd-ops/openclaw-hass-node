@@ -9,7 +9,7 @@ import {
   definePluginEntry,
   type AnyAgentTool,
 } from "openclaw/plugin-sdk/plugin-entry";
-import { runWithCallerContext } from "./src/shared/caller-context.js";
+import { normalizeAssistSessionKey, runWithCallerContext } from "./src/shared/caller-context.js";
 import { ADMIN_TOOL_COMMANDS, beforeToolCall } from "./src/shared/node-approval.js";
 import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.js";
 import {
@@ -19,10 +19,11 @@ import {
 
 // The bundled SDK stub in types/ predates per-run factory registration; the
 // real host accepts `registerTool(factory, { name })` and passes the run's
-// tool context (`sessionKey?: string`) to the factory.
+// tool context (`sessionKey?: string`) to the factory. A factory returning
+// null offers no tool for that run.
 type ToolFactoryApi = {
   registerTool(
-    factory: (toolContext: { sessionKey?: string }) => AnyAgentTool,
+    factory: (toolContext: { sessionKey?: string }) => AnyAgentTool | null,
     opts: { name: string },
   ): void;
 };
@@ -71,8 +72,14 @@ export default definePluginEntry({
     });
     for (const registration of resolvedAssistCommandRegistrations()) {
       (api as unknown as ToolFactoryApi).registerTool(
-        (toolContext) =>
-          createLazyTool(registration.descriptor, registration.loadTool, toolContext?.sessionKey),
+        (toolContext) => {
+          // Offer ha_* tools only in Assist sessions; every other session
+          // (main, chat, cron, sub-agent) uses the core nodes tool instead.
+          const sessionKey = normalizeAssistSessionKey(toolContext?.sessionKey);
+          return sessionKey === undefined
+            ? null
+            : createLazyTool(registration.descriptor, registration.loadTool, sessionKey);
+        },
         { name: registration.descriptor.name },
       );
     }

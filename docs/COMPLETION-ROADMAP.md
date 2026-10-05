@@ -393,6 +393,7 @@ reconnect, and recovery evidence.
   presentation-only: it may display native Gateway state or relay the
   operator's decision to the native approval API, but it cannot mint, store, or
   resolve authority independently.
+- [x] Offer `ha_*` tools only in Assist sessions (#414); other sessions use `nodes`.
 - [ ] Add the option to show or hide tool progress in HA Assist.
 - [ ] Verify tool-progress and final-answer rendering on real HA clients.
 - [ ] Implement durable Assist transcript/resume state across disconnects and

@@ -34,7 +34,11 @@ export function runWithCallerContext<T>(sessionKey: unknown, fn: () => T): T {
  * missing, not a string, or not Assist-shaped. Callers must refuse on undefined.
  */
 export function readAssistSessionKey(): string | undefined {
-  const sessionKey = storage.getStore()?.sessionKey;
+  return normalizeAssistSessionKey(storage.getStore()?.sessionKey);
+}
+
+/** The trimmed key when it is a string and Assist-shaped, otherwise undefined. */
+export function normalizeAssistSessionKey(sessionKey: unknown): string | undefined {
   if (typeof sessionKey !== "string") return undefined;
   const trimmed = sessionKey.trim();
   return ASSIST_SESSION_KEY.test(trimmed) ? trimmed : undefined;
