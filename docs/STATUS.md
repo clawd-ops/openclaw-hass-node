@@ -172,6 +172,14 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
 - A non-destructive approval prompt also offers "allow always" ([#407](https://github.com/clawd-ops/openclaw-hass-node/issues/407)):
   the same session, command and action skip the prompt for one hour, until the session
   ends, or until a restart. Destructive calls never offer it; nothing is persisted.
+- A pending approval is announced on the Assist stream ([#404](https://github.com/clawd-ops/openclaw-hass-node/issues/404)):
+  the relay subscribes to the Assist session with `includeApprovals: true` and renders the
+  gateway's `session.approval` events (and any `approvalReplay` open at subscribe time) as
+  "Approval required, waiting on you (Discord / Control UI)" and a one-line decision
+  (approved, denied, timed out), on the plain-text stream only. If the gateway refuses the
+  opt-in the relay logs one warning and subscribes without it. Agent turns outside Assist,
+  and the agent-facing tool result, rely on the gateway's own denied/timeout results; a
+  plugin hook cannot rewrite them. Unverified live (needs UAT to confirm delivery).
 - The multi-agent gateway fix for [#347](https://github.com/clawd-ops/openclaw-hass-node/issues/347)
   is merged at source ([#351](https://github.com/clawd-ops/openclaw-hass-node/pull/351),
   [#366](https://github.com/clawd-ops/openclaw-hass-node/pull/366),
