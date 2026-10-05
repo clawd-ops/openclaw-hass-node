@@ -31,6 +31,14 @@ describe("refuse before prompting", () => {
     expectRefused(result, "INVALID_PARAM: unknown parameter(s): name; allowed: _openclaw_approval, action, attrs, entity_id, proposal_id");
   });
 
+  it("does not refuse the reserved caller hint, and still refuses a genuinely unknown key", () => {
+    const hinted = { action: "update", entity_id: "light.a", _openclaw_caller: "agent:main:main" };
+    const ok = beforeToolCall(nodesCall("ha.config.entity_registry", hinted)) as { block?: boolean; requireApproval?: unknown };
+    expect(ok.block).toBeUndefined();
+    expect(ok.requireApproval).toBeDefined();
+    expectRefused(beforeToolCall(nodesCall("ha.config.entity_registry", { ...hinted, name: "x" })), "unknown parameter(s): name;");
+  });
+
   it.each([
     ["nodes invoke", (slug: string) => beforeToolCall(nodesCall("ha.addon_restart", { slug }))],
     ["admin tool", (slug: string) => beforeToolCall({ toolName: "ha_addon_restart", params: { slug } })],

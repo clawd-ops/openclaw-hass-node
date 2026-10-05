@@ -17,6 +17,7 @@
 // Not mirrored (the node alone knows): the add-on lifecycle allowlist (node
 // environment config) and parameter value shapes.
 
+import { CALLER_PARAM } from "./caller-context.js";
 import preflightContract from "./approval-preflight.json" with { type: "json" };
 
 type Preflight = {
@@ -83,7 +84,7 @@ export function gatedCallRefusal(
   if (allowed !== undefined) {
     const known = allowed;
     const unknown = Object.keys(inner)
-      .filter((key) => !known.includes(key) && !(exemptSuffix !== undefined && key.endsWith(exemptSuffix)))
+      .filter((key) => key !== CALLER_PARAM && !known.includes(key) && !(exemptSuffix !== undefined && key.endsWith(exemptSuffix)))
       .sort();
     if (unknown.length > 0) {
       return refusal(
