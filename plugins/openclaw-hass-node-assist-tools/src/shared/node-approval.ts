@@ -13,6 +13,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { CALLER_PARAM } from "./caller-context.js";
+import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
 
 /** Reserved node.invoke param carrying the approval marker. */
 export const APPROVAL_PARAM = "_openclaw_approval";
@@ -224,6 +225,8 @@ function newMarker(command: string, action: string, params: Record<string, unkno
 function beforeAdminToolCall(command: string, params: Record<string, unknown>, nowMs: () => number) {
   const { [APPROVAL_PARAM]: _supplied, ...clean } = params;
   const commandParams = adminCommandParams(command, clean);
+  const refused = command.startsWith("ha.addon_") ? addonSlugRefusal(commandParams.slug) : undefined;
+  if (refused !== undefined) return { block: true, blockReason: refused };
   const title = titleOf(command, "");
   return {
     params: { ...clean, [APPROVAL_PARAM]: newMarker(command, "", commandParams, nowMs) },
@@ -264,6 +267,8 @@ export function beforeToolCall(event: NodesCallEvent, nowMs: () => number = Date
   const needsApproval = Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true;
   if (!needsApproval) return supplied === undefined ? undefined : { params: rewrite(clean) };
 
+  const refused = gatedCallRefusal(command, action, clean);
+  if (refused !== undefined) return { block: true, blockReason: refused };
   if (hasUnsafeInteger(params.invokeParamsJson as string)) {
     return {
       block: true,

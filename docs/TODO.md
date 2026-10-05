@@ -405,3 +405,8 @@ All four items from the original audit have since been confirmed or resolved:
 - <del>Item 4: stale-trailer race</del> — closed as documented (streaming variant fixed in b3; non-streaming variant structurally accepted).
 - <del>Item 5: household device issue</del> — closed per the owner.
 - <del>Item 10: gateway stream finalization</del> — closed as gateway-side, not actionable from this repo.
+
+### Refuse certain-to-fail calls before prompting (#403)
+- Done in the plugin hook: unknown parameters, `.storage/` writes, bad add-on slugs.
+- Open: add-on allowlist miss and malformed parameter values need the node's own
+  verdict (node preflight or published policy); the allowlist may go away under #408.
