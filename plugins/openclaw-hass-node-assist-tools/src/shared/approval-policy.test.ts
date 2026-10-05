@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DESTRUCTIVE, LIFECYCLE_NO_APPROVAL, USER_DIRECTED, assistSkipsPrompt } from "./approval-policy.js";
+import preflight from "./approval-preflight.json" with { type: "json" };
 import { ADMIN_TOOL_COMMANDS, APPROVAL_GATED, APPROVAL_PARAM, beforeToolCall } from "./node-approval.js";
 
 type Table = Record<string, string[]>;
@@ -29,8 +30,13 @@ function innerOf(result: { params?: Record<string, unknown> } | undefined) {
   return JSON.parse(result!.params!.invokeParamsJson as string) as Record<string, unknown>;
 }
 
+// Every key the node accepts for the call, so the approval preflight lets it through.
 function inner(command: string, action: string) {
-  return action ? { action, id: "example" } : { slug: "example" };
+  const keys = (preflight.allowed_keys as Record<string, Record<string, string[]>>)[command]?.[action] ?? [];
+  const values = keys
+    .filter((key) => ![APPROVAL_PARAM, "action", "proposal_id", "config", "attrs"].includes(key))
+    .map((key) => [key, "example"]);
+  return { ...(action ? { action } : {}), ...Object.fromEntries(values) };
 }
 
 describe("approval policy tables", () => {
@@ -86,6 +92,15 @@ describe("nodes tool hook by origin", () => {
         expect(result).toHaveProperty("requireApproval");
       }
     }
+  });
+
+  it("refuses a certain-to-fail call before the Assist role decision", () => {
+    const bad = nodesCall("ha.config.automation", { ...inner("ha.config.automation", "save"), bogus: 1 });
+    expect(beforeToolCall(bad, undefined, ASSIST)).toMatchObject({ block: true });
+    const core = nodesCall("ha.addon_start", { slug: "core_ssh" });
+    expect(beforeToolCall(core, undefined, ASSIST)).toMatchObject({ block: true });
+    const tool = { toolName: "ha_addon_start", params: { slug: "core_ssh" } };
+    expect(beforeToolCall(tool, undefined, ASSIST)).toMatchObject({ block: true });
   });
 
   it("replaces a model-supplied caller hint and marker", () => {
