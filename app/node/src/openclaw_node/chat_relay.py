@@ -330,7 +330,8 @@ class ChatRelay:
         self._gateway_agents: tuple[str, ...] | None = None
         self._inventory_lock = asyncio.Lock()
         self._subscribed: set[str] = set()  # canonical keys
-        self._replay_pending: set[str] = set()  # canonical keys with an open approval
+        # canonical key -> ids of approvals replayed as pending on subscribe
+        self._replay_pending: dict[str, set[str]] = {}
         # Running buffer — overwritten by every assistant event (deltas
         # included). Used as the BEST-EFFORT fallback when the turn times
         # out without ever seeing a terminal event.
@@ -621,8 +622,7 @@ class ChatRelay:
         self._text_status_open[canonical_key] = False
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
-        if canonical_key in self._replay_pending:
-            self._replay_pending.discard(canonical_key)
+        if self._replay_pending.pop(canonical_key, None):
             self._push_approval_line(canonical_key, _APPROVAL_WAITING_LINE)
 
         idempotency_key = str(uuid.uuid4())
@@ -1093,8 +1093,14 @@ class ChatRelay:
                 canonical_key = response_key
             replay = sub_response.get("approvalReplay")
             approvals = replay.get("approvals") if isinstance(replay, dict) else None
-            if isinstance(approvals, list) and approvals:
-                self._replay_pending.add(canonical_key)
+            if isinstance(approvals, list):
+                pending_ids = {
+                    str(a["id"])
+                    for a in approvals
+                    if isinstance(a, dict) and a.get("id") is not None
+                }
+                if pending_ids:
+                    self._replay_pending[canonical_key] = pending_ids
 
         if canonical_key != session_key:
             _LOG.info(
@@ -1295,6 +1301,13 @@ class ChatRelay:
         if phase == "pending":
             self._push_approval_line(key, _APPROVAL_WAITING_LINE)
         elif phase == "terminal":
+            # A replayed approval that resolved is no longer waiting, whether or
+            # not a stream is open to show the decision.
+            replayed = self._replay_pending.get(key)
+            if replayed is not None:
+                replayed.discard(str(approval.get("id")))
+                if not replayed:
+                    del self._replay_pending[key]
             self._push_approval_line(key, _approval_terminal_line(approval))
 
     def handle_event(self, msg: dict[str, Any]) -> None:

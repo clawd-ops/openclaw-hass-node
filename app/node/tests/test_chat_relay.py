@@ -4298,3 +4298,65 @@ async def test_other_subscribe_error_is_not_retried() -> None:
     with pytest.raises(ChatRelayError):
         await asyncio.gather(_consume(), _drive())
     assert len(sender.frames) == 2
+
+
+async def _replay_then_stream(conv_id: str, events: list[dict[str, Any]]) -> list[str]:
+    """Subscribe with one pending replayed approval, apply *events*, then stream."""
+    sender = FakeSender()
+    relay = _relay(sender)
+    canonical = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    ensure = asyncio.create_task(relay._ensure_session(f"{_SESSION_KEY_PREFIX}{conv_id}", conv_id))
+    while len(sender.frames) < 1:
+        await asyncio.sleep(0.005)
+    relay.handle_response(_ok_response(sender.frames[0]["id"]))
+    while len(sender.frames) < 2:
+        await asyncio.sleep(0.005)
+    replay = {"approvals": [{"id": "plugin:1", "status": "pending"}]}
+    relay.handle_response(
+        _ok_response(
+            sender.frames[1]["id"],
+            {"subscribed": True, "key": canonical, "approvalReplay": replay},
+        )
+    )
+    await ensure
+    for ev in events:
+        relay.handle_event(ev)
+
+    async def _drive() -> None:
+        while len(sender.frames) < 3:
+            await asyncio.sleep(0.005)
+        relay.handle_response(_ok_response(sender.frames[2]["id"], {"runId": "run-ap"}))
+        await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "type": "event",
+                "event": "chat",
+                "payload": {
+                    "sessionKey": canonical,
+                    "state": "final",
+                    "runId": "run-ap",
+                    "message": {"role": "assistant", "content": "done"},
+                },
+            }
+        )
+
+    chunks: list[Any] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "restart it"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive())
+    return [c for c in chunks if isinstance(c, str)]
+
+
+async def test_replayed_approval_resolved_before_stream_is_not_announced() -> None:
+    conv = "01KVH_REPLAY_RESOLVED"
+    terminal = _approval_event(_key(conv), "terminal", "allowed", "allow-once")
+    text = await _replay_then_stream(conv, [terminal])
+    assert "Approval required" not in "".join(text)
+
+
+async def test_replayed_approval_still_pending_is_announced_on_stream_start() -> None:
+    text = await _replay_then_stream("01KVH_REPLAY_OPEN", [])
+    assert "".join(text).count("Approval required") == 1
