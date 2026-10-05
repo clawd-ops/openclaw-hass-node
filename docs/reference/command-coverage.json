@@ -4959,6 +4959,12 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
+            },
+            {
+              "method": "TEST-PROVEN",
+              "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request.",
+              "outcome": "refused-as-designed",
+              "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -6857,6 +6863,12 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
+            },
+            {
+              "method": "TEST-PROVEN",
+              "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request.",
+              "outcome": "refused-as-designed",
+              "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",

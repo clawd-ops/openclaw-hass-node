@@ -1903,6 +1903,14 @@
                 "node_version": "2026.10.4b1",
                 "plugin_version": "2026.10.4b1"
               }
+            ],
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
+              }
             ]
           },
           "outcome": "pass"
@@ -2399,6 +2407,14 @@
                 "observed_at": "2026-10-04",
                 "node_version": "2026.10.4b1",
                 "plugin_version": "2026.10.4b1"
+              }
+            ],
+            "handler_dispatch": [
+              {
+                "method": "TEST-PROVEN",
+                "outcome": "refused-as-designed",
+                "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha",
+                "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request."
               }
             ]
           },
