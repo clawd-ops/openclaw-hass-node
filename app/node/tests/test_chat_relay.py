@@ -3959,3 +3959,69 @@ async def test_active_caller_resolves_canonical_key_case_insensitively() -> None
     turn.cancel()
     await asyncio.gather(turn, return_exceptions=True)
     assert relay.active_caller(canonical) is None
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_mcp_prefixed_tool_yields_one_progress_line() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    conv_id = "01KVH_MCP_PREFIX"
+    key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    queued: list[str] = []
+
+    async def _drive() -> None:
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[0]["id"]))
+        await asyncio.sleep(0.01)
+        relay.handle_response(
+            _ok_response(sender.frames[1]["id"], {"subscribed": True, "key": key})
+        )
+        await asyncio.sleep(0.01)
+        relay.handle_response(_ok_response(sender.frames[2]["id"]))
+        await asyncio.sleep(0.005)
+        for name in ("ha_get_state", "mcp__openclaw__ha_get_state"):
+            relay.handle_event(
+                {
+                    "event": "agent",
+                    "payload": {
+                        "sessionKey": key,
+                        "runId": "run-1",
+                        "stream": "tool",
+                        "data": {"phase": "start", "name": name, "id": "t1"},
+                    },
+                }
+            )
+            queued.extend(str(i) for i in list(relay._delta_queues[key]._queue))  # type: ignore[attr-defined]
+            await asyncio.sleep(0.005)
+        relay.handle_event(
+            {
+                "event": "agent",
+                "payload": {
+                    "sessionKey": key,
+                    "runId": "run-1",
+                    "stream": "assistant",
+                    "data": {"text": "Done."},
+                },
+            }
+        )
+        relay.handle_event(
+            {
+                "event": "chat",
+                "payload": {
+                    "sessionKey": key,
+                    "runId": "run-1",
+                    "state": "final",
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": "Done."}],
+                    },
+                },
+            }
+        )
+
+    async def _consume() -> None:
+        async for _ in relay.stream_turn(conv_id, "lights?"):
+            pass
+
+    await asyncio.gather(_consume(), _drive())
+    assert queued == ["🔧 Calling ha_get_state...", " (x2)..."]

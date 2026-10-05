@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any, Final
@@ -61,6 +62,14 @@ _TURN_TIMEOUT_S: Final[float] = 30.0
 _STREAM_TURN_TIMEOUT_S: Final[float] = 180.0
 _RPC_TIMEOUT_S: Final[float] = 10.0
 _SESSION_KEY_PREFIX: Final[str] = "ha-assist:"
+
+
+_MCP_PREFIX: Final[re.Pattern[str]] = re.compile(r"^mcp__[A-Za-z0-9-]+__")
+
+
+def _strip_mcp_prefix(name: str) -> str:
+    """Drop the claude-cli ``mcp__<server>__`` prefix so one tool call is one line."""
+    return _MCP_PREFIX.sub("", name, count=1) or name
 
 
 def _session_key(conversation_id: str, agent_id: str | None) -> str:
@@ -1282,7 +1291,9 @@ class ChatRelay:
                     raw_tool_name = data.get("name") or (
                         data.get("title") if payload_stream == "item" else None
                     )
-                    tool_name = raw_tool_name if isinstance(raw_tool_name, str) else None
+                    tool_name = (
+                        _strip_mcp_prefix(raw_tool_name) if isinstance(raw_tool_name, str) else None
+                    )
                     raw_tool_id = data.get("id") or data.get("toolCallId") or data.get("itemId")
                     tool_id = str(raw_tool_id or "")
                     use_frames = self._use_tool_frames.get(tool_canonical_key, False)
