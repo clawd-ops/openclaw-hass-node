@@ -69,6 +69,29 @@ what a running system had installed.
 
 ## Recorded environments
 
+### 2026-10-05 — 2026.10.4b1 live UAT
+
+Environment for [`evidence/uat-2026-10-04-b1.md`](evidence/uat-2026-10-04-b1.md). The
+UAT ran 2026-10-04 to 2026-10-05 and was partial (approvals blocked by an
+OpenClaw core issue, openclaw/openclaw#158550).
+
+| Field | Value | Source |
+|---|---|---|
+| Verification | `evidence/uat-2026-10-04-b1.md` | — |
+| Date | 2026-10-05 | — |
+| App (add-on) | `2026.10.4b1` | observed-live |
+| Add-on state | `started` | observed-live |
+| HACS integration | `2026.10.4b1` | observed-live |
+| Plugin | `2026.10.4b1` plus a local patch equal to the unmerged PR #402 | observed-live |
+| Gateway | `2026.9.8` | observed-live |
+| HA Core | `2026.9.1` | observed-live (`ha.get_config`) |
+| Supervisor | not recorded | — |
+| Host OS | not recorded | — |
+| HACS | not recorded | — |
+| Architecture | not recorded | see [Known recording gaps](#known-recording-gaps) |
+| Advertised commands (live) | 54 | observed-live |
+| Advertised commands (source) | 57 | repo-declared (`862a96d`) |
+
 ### 2026-09-12 — current installed environment
 
 Observed through read-only node commands against the running production node. No

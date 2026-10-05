@@ -4,19 +4,22 @@
 > result you should see. If anything diverges, paste the diff into
 > the channel and the agent will dig in.
 >
-> **Release and installed state:** the latest published beta is
-> [`2026.9.13b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.9.13b1),
-> but the last observed live installation remains `2026.7.23b1` until an
-> operator performs the Tier B add-on install. Install, pair, connect,
-> gateway-side tool invokes, and Assist conversation relay have prior
-> end-to-end evidence; they are not yet fresh UAT evidence for `2026.9.13b1`.
-> Local HTTP API is fail-closed (a token is required); HACS integration probes
-> for the local API at config-flow time. The native OpenClaw approval/write flow
-> is still planned. The Gateway remains the sole approval authority; any add-on
-> view is presentation-only.
+> **Release and installed state:** the installed and live-tested build is
+> [`2026.10.4b1`](https://github.com/clawd-ops/openclaw-hass-node/releases/tag/v2026.10.4b1)
+> (add-on, HACS integration and gateway plugin), on OpenClaw `2026.9.8`. A live
+> UAT of it ran on 2026-10-04/05; results are in
+> [`docs/evidence/uat-2026-10-04-b1.md`](../evidence/uat-2026-10-04-b1.md). The
+> gateway plugin carried a local patch equal to the unmerged PR #402 during that
+> run. Local HTTP API is fail-closed (a token is required); HACS integration
+> probes for the local API at config-flow time. The native OpenClaw approval flow
+> is live but only partly verified: approvals worked whenever the requester was
+> still waiting, and the rest are blocked by an OpenClaw core issue
+> (openclaw/openclaw#158550). The Gateway remains the sole approval authority;
+> any add-on view is presentation-only.
 >
 > **Scope of the current plan:** Phases A to C and E apply to the published
-> beta. [Phase G](#phase-g-policy-gate-bounds-and-assist-remedy-unreleased-source)
+> beta; Phases D and G were run against `2026.10.4b1` (see the evidence file for
+> what is still open). [Phase G](#phase-g-policy-gate-bounds-and-assist-remedy-run-2026-10-05-partial)
 > covers behaviour that is merged on `main` but not in any published beta; run it
 > only against a build that contains it. No release-candidate claim is made
 > until these phases have been run against an installed build and the result is
@@ -87,7 +90,7 @@
    `conversation.openclaw_hass_node_assist` shows up under Settings → Voice
    Assistants → Conversation agents.
 
-## Phase B — Pairing to OpenClaw gateway *(working)*
+## Phase B — Pairing to OpenClaw gateway *(working; node connected 2026-10-04, 54 commands advertised)*
 
 ### B1. Approve the pairing on the gateway
 
@@ -119,7 +122,7 @@ openclaw nodes describe --node <your-node-id>
 #         Commands: list of 57 (ha.*, fs.*, system.*, ping)
 ```
 
-## Phase C — Tool invokes through the gateway *(working)*
+## Phase C — Tool invokes through the gateway *(working; run 2026-10-04: PASS)*
 
 ### C1. ping
 
@@ -148,11 +151,17 @@ all hit the node. The gateway-side allowlist
 (`gateway.nodes.commands.allow` in `openclaw.json`) controls which
 commands are surfaced — see `INSTALL.md` step 1.
 
-## Phase D — Native approval and protected writes *(planned)*
+## Phase D — Native approval and protected writes *(live, partial: run 2026-10-04/05)*
+
+**Run 2026-10-04/05 on `2026.10.4b1`: PARTIAL.** Approve, deny, tampered-marker
+refusal and the `.storage/` node refusal passed; the helper lifecycle, approval
+timeout and D2 file edit were blocked by OpenClaw core (see the
+[evidence](../evidence/uat-2026-10-04-b1.md#section-2-approvals)). Re-run tracked
+in #415.
 
 The write side of `fs.*` (`fs.write`, `fs.restore`, `fs.move`,
-`fs.delete`, `fs.patch`) is implemented in the node but does not yet consume
-native OpenClaw plugin approvals for protected mutations.
+`fs.delete`, `fs.patch`) is implemented in the node; protected mutations consume
+native OpenClaw plugin approvals.
 
 ### D1. Toggle a light.
 
@@ -194,7 +203,7 @@ native OpenClaw plugin approvals for protected mutations.
   before a fresh approved operation is forwarded. Both attempts must fail
   closed without a second side effect.
 
-## Phase E — Assist conversation agent *(live)*
+## Phase E — Assist conversation agent *(live; run 2026-10-05: PASS with findings)*
 
 The node opens parallel node-role and operator-role gateway
 connections; the operator-role connection owns the conversation relay
@@ -237,7 +246,7 @@ profile via `openclaw qr`.
 - Every PR has all CI gates green (ruff check + format, mypy strict,
   pytest with branch coverage gated at 95%, security, app-smoke).
 
-## Phase G — Policy gate, bounds, and Assist remedy *(unreleased source)*
+## Phase G — Policy gate, bounds, and Assist remedy *(run 2026-10-05: partial)*
 
 These cases cover behaviour merged after `2026.9.13b1`. Every Gateway-forwarded
 invoke reaches the node as an operator call, so the household-user gate cannot
@@ -265,16 +274,18 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
   `INVALID_PARAM`.
 - Invoke `ha.list_states` with an `entity_filter` glob (for example
   `light.kitchen*`). Expect a small filtered set, not every entity.
-- Invoke `ha.history` and `ha.logbook` directly with `start` / `end`. Expect
-  `INVALID_PARAM`: the direct-path names are `start_time` / `end_time` (the
-  Assist tool maps `start` / `end` itself).
+- Invoke `ha.history` and `ha.logbook` with `start` / `end` through the gateway.
+  Expect them to be accepted: the plugin's node-invoke policy maps `start` /
+  `end` to `start_time` / `end_time`. Only the node alone refuses the
+  unmapped names with `INVALID_PARAM`.
 - Invoke `ha.history` twice with the same bound, once as `...Z` and once as
   `...+00:00`. Expect identical results.
 
 ### G4. Oversized request.
 
-- Send an invoke whose `paramsJSON` exceeds the documented limit: expect
-  `REQUEST_TOO_LARGE` and no command run.
+- Send an invoke whose `paramsJSON` exceeds the documented limit: expect the
+  gateway to refuse it at ingress with `INVALID_REQUEST` ("Malformed invoke
+  params"), not `REQUEST_TOO_LARGE`, and no command run.
 - This specifically exercises the gateway ingress bound (`paramsJSON` above
   512 KiB). The 8 MiB `fs.write` content cap sits behind that smaller ingress
   bound for the invoke path, and the local HTTP API does not expose `fs.write`,

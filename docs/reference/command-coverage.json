@@ -357,6 +357,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "fs.glob returned matches.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -511,6 +521,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "fs.history returned the version history for a path.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -622,6 +642,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "fs.list returned a directory listing.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1120,6 +1150,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "fs.read returned file content.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1495,6 +1535,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "fs.stat returned file metadata.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1607,6 +1657,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "fs.write under /config/.storage/ refused at the node with STORAGE_READONLY; file unchanged. The plugin prompts before the node refuses (#403).",
+              "observed_at": "2026-10-05",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1808,6 +1868,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.addon_changelog returned the changelog markdown.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -1936,6 +2006,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.addon_documentation returned the documentation markdown.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2064,6 +2144,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.addon_info returned add-on metadata.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2194,6 +2284,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.addon_logs returned a bounded log tail.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2308,6 +2408,26 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Super_admin Assist: approved within seconds, ok, state started, reply accurate. Deny returned \"Denied by user\"; add-on untouched. A non-allowlisted slug was approved then refused by the node (#403). An earlier attempt approved after about 10 minutes failed on the requester (OpenClaw core #158550 family).",
+              "observed_at": "2026-10-05",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Admin Assist: refused with no prompt because the live admin forbidden list includes add-on lifecycle; contradicts IDENTITY-AND-SCOPES.md (#406).",
+              "observed_at": "2026-10-05",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
             }
           ],
           "factory": "createHaAddonRestartTool",
@@ -2408,7 +2528,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -2601,6 +2721,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.addon_stats returned utilisation metrics.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -2831,6 +2961,16 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Agent-issued after the ambiguous update_install error; approved, then refused by the node (slug not allowlisted). Refuse-before-prompt (#403), agent escalation (#410).",
+              "observed_at": "2026-10-05",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
             }
           ],
           "factory": "createHaAddonUpdateTool",
@@ -2900,8 +3040,8 @@
       ],
       "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_update",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only the allowlist refusal was observed; no add-on update completed.",
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_update",
       "id": "ha.addon_update",
@@ -2917,7 +3057,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "refused-as-designed",
       "registered": true,
       "semantic_errors": "Supervisor timeout (POST or follow-up state read) returns OUTCOME_UNKNOWN: the action may or may not have happened; callers must not retry automatically and should ask the user/operator. ha.addon_info reports a current snapshot, not action history: after a restart it cannot distinguish completed from not; after an update only a changed version shows completion.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -2986,6 +3126,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.calendar_get_events returned events for the window.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -3237,6 +3387,26 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Deny-class service update.skip refused: \"ha.call_service denies update.skip\".",
+              "observed_at": "2026-10-05",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+              "stale": false
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Agent nodes tool light.turn_on: ok, no approval prompt, changed_states populated, changed_states_complete true (light group was unavailable in HA, so no physical change).",
+              "observed_at": "2026-10-05",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -3439,6 +3609,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.check_config validated the configuration.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4023,6 +4203,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.config.area_registry list returned areas.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4597,6 +4787,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "get on a real automation id returned its config.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4726,6 +4926,26 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Agent nodes tool: approval prompt shown, approved, automation saved and enabled (after the PR #402 clock fix, applied locally).",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-2-approvals",
+              "stale": false
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Tampered markers (mismatch, malformed, expired) returned APPROVAL_INVALID; nothing created.",
+              "observed_at": "2026-10-04",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-2-approvals",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -4739,12 +4959,6 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
-            },
-            {
-              "method": "TEST-PROVEN",
-              "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request.",
-              "outcome": "refused-as-designed",
-              "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -4825,7 +5039,7 @@
       ],
       "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.automation",
-      "evidence_method": "TEST-PROVEN",
+      "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "The read-only get action passed the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_automation:handle_ha_config_automation",
@@ -4844,7 +5058,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "refused-as-designed",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -5321,6 +5535,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "get on a real entry id returned the entry.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -5621,6 +5845,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "list returned 887 KB.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6129,6 +6363,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "get on a real registry entity returned its entry.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6255,9 +6499,19 @@
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
-              "reprobe_owed": true,
+              "reprobe_owed": false,
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Unfiltered list returned 11,359 entities (11.7 MB) with no transport failure; domain=light returned 131.",
+              "observed_at": "2026-10-05",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-3-policy-gate-and-limits",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6384,7 +6638,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "fail",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -6580,6 +6834,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Agent nodes tool: prompt shown, approved, category set; read-back confirmed. A malformed first call was rejected INVALID_PARAM only after the approval gate (#403).",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-2-approvals",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -6593,12 +6857,6 @@
               "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
               "outcome": "unverified",
               "source": "handler and dispatch_async test matrix"
-            },
-            {
-              "method": "TEST-PROVEN",
-              "observation": "Handler and dispatcher matrices refuse caller-supplied proposal data before any HA request.",
-              "outcome": "refused-as-designed",
-              "source": "app/node/tests/test_ha_config_mutation_boundary.py::test_config_mutations_never_contact_ha"
             }
           ],
           "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
@@ -6679,7 +6937,7 @@
       ],
       "capability_conditions": "Without an approval marker, fails closed (PROPOSAL_REQUIRED); with a valid native approval marker the mutation runs once.",
       "command": "ha.config.entity_registry",
-      "evidence_method": "TEST-PROVEN",
+      "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "The read-only get action passed and list action failed in the Sept 13 live sweep. Mutation actions are fail-closed via the `_require_proposal` gate, proven 2026-09-13 (docs/VERIFICATION-2026-09-11.md \u00a70, PR #339); all callers receive refused-as-designed before any HA I/O. The Sept 11 CODE-FAIL was historical evidence against 2026.7.23b1; #265 replaced it with fail-closed mutation handling before these current-version probes.",
       "first_shipped_in": "2026.7.23b1",
       "handler": "openclaw_node.commands.ha_config_entity_registry:handle_ha_config_entity_registry",
@@ -6698,7 +6956,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "refused-as-designed",
+      "outcome": "pass",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -6900,6 +7158,16 @@
               "plugin_version": "2026.9.13b1",
               "source": "docs/evidence/sweep-2026-09-13.md#mutation-surface-2026-09-13",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Create without an approval marker returned PROPOSAL_REQUIRED; get_state returned 404, nothing created.",
+              "observed_at": "2026-10-04",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#mutation-gate-without-approval",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7229,6 +7497,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "list returned helpers.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -7822,6 +8100,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Clear error: the default dashboard is auto-generated and has no stored config.",
+              "observed_at": "2026-10-04",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9591,6 +9879,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.core_logs returned a bounded tail; an explicit null parameter was refused with \"omit it instead\".",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9717,6 +10015,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.get_config returned the core configuration (15.9 KB).",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9812,6 +10120,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Super_admin Assist turn read a sun state via the wrapper.",
+              "observed_at": "2026-10-05",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
             }
           ],
           "factory": "createHaGetStateTool",
@@ -9830,6 +10148,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Known entity returned its state; unknown entity returned a clear 404 error; unknown parameter was refused listing allowed params.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -9982,9 +10310,19 @@
               "observed_at": "2026-09-11",
               "outcome": "fail",
               "plugin_version": "not recorded",
-              "reprobe_owed": true,
+              "reprobe_owed": false,
               "source": "docs/VERIFICATION-2026-09-11.md#26-new-query-parameters-are-interpolated-without-percent-encoding",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Z and +00:00 offsets returned identical results; an unknown entity returned \"unknown entity_id(s)\". start/end are mapped to start_time/end_time by the plugin policy on the gateway path.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10161,6 +10499,16 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Super_admin and admin Assist turns turned the entrance light group off with read-back; no prompt.",
+              "observed_at": "2026-10-05",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
             }
           ],
           "factory": "createHaLightTurnOffTool",
@@ -10339,6 +10687,16 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Super_admin and admin Assist turns turned the entrance light group on with read-back; no prompt.",
+              "observed_at": "2026-10-05",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
             }
           ],
           "factory": "createHaLightTurnOnTool",
@@ -10594,6 +10952,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.list_addons returned the add-on inventory.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10705,6 +11073,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.list_areas returned the area list.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -10839,6 +11217,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Unfiltered and entity_filter calls both worked; unknown parameter was refused.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11012,6 +11400,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.list_config_entries returned 709 KB.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11139,6 +11537,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.list_devices returned 887 KB, no pagination (#330).",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11282,6 +11690,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Unfiltered call returned 11.7 MB in 3.2 s with no transport failure.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11451,6 +11869,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.list_events returned the listener summary.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11562,6 +11990,16 @@
               "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
               "outcome": "unverified",
               "source": "dispatcher + node connect frame"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.list_services returned the service catalog (481 KB).",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11705,9 +12143,19 @@
               "observed_at": "2026-09-13",
               "outcome": "fail",
               "plugin_version": "not recorded",
-              "reprobe_owed": true,
+              "reprobe_owed": false,
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Unfiltered call returned 5.5 MB; entity_filter via invoke returned a small filtered set.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -11872,6 +12320,16 @@
               "observation": "Documented direct start/end keys do not match the handler's start_time/end_time keys.",
               "outcome": "fail",
               "source": "docs/VERIFICATION-2026-09-11.md#12-the-documented-arguments-are-not-one-contract"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.logbook with a +00:00 offset returned results.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -12160,6 +12618,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ha.supervisor_info returned Supervisor metadata.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -12249,6 +12717,16 @@
               "observation": "The executable Assist registration contract maps this tool to the node command.",
               "outcome": "pass",
               "source": "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-contract.json"
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Approved; the install started but the node returned COMMAND_ERROR after 10.9 s (aiohttp timeout while update.install blocks). Should be OUTCOME_UNKNOWN (#409).",
+              "observed_at": "2026-10-05",
+              "outcome": "fail",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-4-assist",
+              "stale": false
             }
           ],
           "factory": "createHaUpdateInstallTool",
@@ -12346,8 +12824,8 @@
       ],
       "capability_conditions": "HA `update.install` service is reachable via the paired session and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED before dispatch). Entity ID must be in the `update.` domain.",
       "command": "ha.update_install",
-      "evidence_method": "CODE-PROVEN",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing.",
+      "evidence_method": "PRODUCTION-LIVE",
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): approval OK, install started, returned COMMAND_ERROR on timeout (#409).",
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_update_install",
       "id": "ha.update_install",
@@ -12365,7 +12843,7 @@
         "semantic_result": "manual reality pass",
         "source_mentions": "source-derived textual references; not proof"
       },
-      "outcome": "partial",
+      "outcome": "fail",
       "registered": true,
       "semantic_errors": "UNVERIFIED CONTRACT: handler-specific semantic error dictionary; stacked PR #267 preserves it separately from Gateway and transport errors.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
@@ -12412,6 +12890,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "ping returned pong.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -12530,6 +13018,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "Refused by the gateway: use exec.approvals.node.*. Still advertised (Sept backlog #15).",
+              "observed_at": "2026-10-04",
+              "outcome": "refused-as-designed",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
@@ -13234,6 +13732,16 @@
               "plugin_version": "not recorded",
               "source": "docs/evidence/sweep-2026-09-13.md#second-pass-gap-closing-probes",
               "stale": true
+            },
+            {
+              "method": "PRODUCTION-LIVE",
+              "node_version": "2026.10.4b1",
+              "observation": "system.which (param name) found python3.",
+              "observed_at": "2026-10-04",
+              "outcome": "pass",
+              "plugin_version": "2026.10.4b1",
+              "source": "docs/evidence/uat-2026-10-04-b1.md#section-1-read-only-sweep-direct-invoke",
+              "stale": false
             }
           ],
           "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
