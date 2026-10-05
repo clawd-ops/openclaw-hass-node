@@ -190,6 +190,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Curated acceptance-test IDs:
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.diff` {#row-fs-diff}
@@ -412,6 +413,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.patch` {#row-fs-patch}
@@ -471,6 +473,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.read` {#row-fs-read}
@@ -591,6 +594,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
 
 ### `fs.stat` {#row-fs-stat}
@@ -685,6 +689,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_authz.py`
   - `app/node/tests/test_effect_policy.py`
   - `app/node/tests/test_gateway_ws.py`
@@ -908,6 +913,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
@@ -953,6 +959,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
@@ -1040,6 +1047,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`
@@ -1084,6 +1092,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_dispatcher.py`
   - `app/node/tests/test_effect_policy.py`
@@ -2333,6 +2342,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2387,6 +2397,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2439,6 +2450,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2480,6 +2492,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -2537,6 +2550,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - `app/node/tests/test_ha_config_mutation_boundary.py::test_mutation_denial_precedes_payload_validation` / `handler_dispatch` / `refused-as-designed`
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_config_helpers.py`
   - `app/node/tests/test_ha_config_mutation_boundary.py`
@@ -4038,6 +4052,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_dispatch_gate_boundary.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
@@ -4133,6 +4148,7 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
   - none; do not treat source mentions as behavioral proof
 - Source mentions (not acceptance evidence):
   - `app/node/tests/test_approval_gated_commands.py`
+  - `app/node/tests/test_approval_preflight_contract.py`
   - `app/node/tests/test_gateway_ws.py`
   - `app/node/tests/test_ha_strict_keys.py`
   - `plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts`

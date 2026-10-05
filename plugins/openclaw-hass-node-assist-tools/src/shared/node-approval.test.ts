@@ -16,6 +16,10 @@ const contract = JSON.parse(
   readFileSync(new URL("../../../../contracts/approval-gated-commands.json", import.meta.url), "utf8"),
 ) as { gated: Record<string, string[]> };
 
+const preflight = JSON.parse(
+  readFileSync(new URL("../../../../contracts/approval-preflight.json", import.meta.url), "utf8"),
+) as { allowed_keys: Record<string, Record<string, string[]>> };
+
 const NOW = 1_800_000_000_000;
 const SAVE = { action: "save", id: "morning", config: { alias: "Morning", trigger: [] } };
 
@@ -131,7 +135,13 @@ function innerFor(command: string, action: string): Record<string, unknown> {
   if (command.startsWith("fs.")) {
     return command === "fs.move" ? { src: "/config/a.yaml", dst: "/config/b.yaml" } : { path: "/config/a.yaml" };
   }
-  return { action, id: "target", config: { alias: "Alias" } };
+  const keys = preflight.allowed_keys[command]?.[action] ?? [];
+  return Object.fromEntries(
+    [...(action ? ["action"] : []), ...keys.filter((key) => key !== "action" && key !== APPROVAL_PARAM)].map((key) => [
+      key,
+      key === "action" ? action : ["attrs", "config"].includes(key) ? { alias: "Alias" } : "target",
+    ]),
+  );
 }
 
 describe("approval-gated command table", () => {

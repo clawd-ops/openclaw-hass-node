@@ -1,0 +1,281 @@
+{
+  "comment": "Static refusals the node makes BEFORE its approval gate, so the plugin hook can refuse without prompting. Source of truth is the node; app/node/tests/test_approval_preflight_contract.py asserts every value here equals the node's own tables and the TypeScript plugin tests read this file. Order on the node: unknown-parameter check, then path or slug policy, then the approval gate. Not covered: add-on allowlist (node env config) and value-shape validation (node only). ha.config.helpers update and delete additionally accept one `<helper_type>_id` key.",
+  "allowed_keys": {
+    "ha.config.automation": {
+      "save": [
+        "_openclaw_approval",
+        "action",
+        "config",
+        "id",
+        "proposal_id"
+      ],
+      "delete": [
+        "_openclaw_approval",
+        "action",
+        "id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.script": {
+      "save": [
+        "_openclaw_approval",
+        "action",
+        "config",
+        "id",
+        "proposal_id"
+      ],
+      "delete": [
+        "_openclaw_approval",
+        "action",
+        "id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.scene": {
+      "save": [
+        "_openclaw_approval",
+        "action",
+        "config",
+        "id",
+        "proposal_id"
+      ],
+      "delete": [
+        "_openclaw_approval",
+        "action",
+        "id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.helpers": {
+      "create": [
+        "_openclaw_approval",
+        "action",
+        "attrs",
+        "helper_type",
+        "proposal_id"
+      ],
+      "update": [
+        "_openclaw_approval",
+        "action",
+        "attrs",
+        "helper_type",
+        "proposal_id"
+      ],
+      "delete": [
+        "_openclaw_approval",
+        "action",
+        "helper_type",
+        "proposal_id"
+      ]
+    },
+    "ha.config.area_registry": {
+      "create": [
+        "_openclaw_approval",
+        "action",
+        "attrs",
+        "name",
+        "proposal_id"
+      ],
+      "update": [
+        "_openclaw_approval",
+        "action",
+        "area_id",
+        "attrs",
+        "proposal_id"
+      ],
+      "delete": [
+        "_openclaw_approval",
+        "action",
+        "area_id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.device_registry": {
+      "update": [
+        "_openclaw_approval",
+        "action",
+        "attrs",
+        "device_id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.entity_registry": {
+      "update": [
+        "_openclaw_approval",
+        "action",
+        "attrs",
+        "entity_id",
+        "proposal_id"
+      ],
+      "remove": [
+        "_openclaw_approval",
+        "action",
+        "entity_id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.config_entries": {
+      "disable": [
+        "_openclaw_approval",
+        "action",
+        "entry_id",
+        "proposal_id"
+      ],
+      "enable": [
+        "_openclaw_approval",
+        "action",
+        "entry_id",
+        "proposal_id"
+      ]
+    },
+    "ha.config.lovelace": {
+      "save": [
+        "_openclaw_approval",
+        "action",
+        "config",
+        "proposal_id",
+        "url_path"
+      ],
+      "resources_create": [
+        "_openclaw_approval",
+        "action",
+        "proposal_id",
+        "res_type",
+        "url"
+      ]
+    },
+    "ha.reload_config": {
+      "": [
+        "_openclaw_approval",
+        "domain"
+      ]
+    },
+    "ha.update_install": {
+      "": [
+        "_openclaw_approval",
+        "backup",
+        "entity_id",
+        "version"
+      ]
+    },
+    "ha.addon_start": {
+      "": [
+        "_openclaw_approval",
+        "slug"
+      ]
+    },
+    "ha.addon_stop": {
+      "": [
+        "_openclaw_approval",
+        "slug"
+      ]
+    },
+    "ha.addon_restart": {
+      "": [
+        "_openclaw_approval",
+        "slug"
+      ]
+    },
+    "ha.addon_update": {
+      "": [
+        "_openclaw_approval",
+        "slug"
+      ]
+    },
+    "fs.write": {
+      "": [
+        "_openclaw_approval",
+        "actor",
+        "agent_bridge",
+        "content",
+        "encoding",
+        "path",
+        "proposal_id"
+      ]
+    },
+    "fs.restore": {
+      "": [
+        "_openclaw_approval",
+        "actor",
+        "agent_bridge",
+        "at",
+        "path",
+        "proposal_id",
+        "version",
+        "version_id"
+      ]
+    },
+    "fs.patch": {
+      "": [
+        "_openclaw_approval",
+        "actor",
+        "agent_bridge",
+        "dry_run",
+        "patch",
+        "path",
+        "proposal_id"
+      ]
+    },
+    "fs.move": {
+      "": [
+        "_openclaw_approval",
+        "actor",
+        "agent_bridge",
+        "dst",
+        "proposal_id",
+        "src"
+      ]
+    },
+    "fs.delete": {
+      "": [
+        "_openclaw_approval",
+        "actor",
+        "agent_bridge",
+        "path",
+        "proposal_id"
+      ]
+    }
+  },
+  "dynamic_keys": {
+    "ha.config.helpers": {
+      "actions": [
+        "update",
+        "delete"
+      ],
+      "type_key": "helper_type",
+      "key_suffix": "_id"
+    }
+  },
+  "storage": {
+    "path_keys": {
+      "fs.write": [
+        "path"
+      ],
+      "fs.restore": [
+        "path"
+      ],
+      "fs.patch": [
+        "path"
+      ],
+      "fs.delete": [
+        "path"
+      ],
+      "fs.move": [
+        "src",
+        "dst"
+      ]
+    },
+    "marker": "/config/.storage/",
+    "suffix": "/config/.storage",
+    "message": "Writes to .storage/ are refused; use the HA REST config API instead"
+  },
+  "addon": {
+    "slug_pattern": "^[a-z0-9][a-z0-9_-]*$",
+    "max_length": 128,
+    "core_prefix": "core_",
+    "denylist": [
+      "homeassistant",
+      "supervisor"
+    ]
+  }
+}

@@ -352,6 +352,10 @@ candidate ready. Still open:
   selected D4 default (same agent plus a soft prompt-level block).
   Native approval consumption, operation binding, and replay protection are not
   implemented.
+- **[#403](https://github.com/clawd-ops/openclaw-hass-node/issues/403)** is
+  partly advanced: unknown parameters, `.storage/` writes and bad add-on slugs are
+  refused before the approval prompt. An add-on allowlist miss and malformed
+  parameter values are still refused only after a prompt.
 - **[#288](https://github.com/clawd-ops/openclaw-hass-node/issues/288)**
   (executable command contract and strict unknown-key refusal) is deferred. No
   complete accepted-key authority exists yet.
