@@ -14,6 +14,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { assistSkipsPrompt } from "./approval-policy.js";
 import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.js";
+import { grantable, grantSessionKey, sessionGrants, type GrantStore } from "./approval-grants.js";
 import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
 
 /** Reserved node.invoke param carrying the approval marker. */
@@ -201,14 +202,34 @@ function titleOf(command: string, action: string): string {
   return `${verb} ${NOUNS[command]}`;
 }
 
-function approvalRequest(title: string, description: string) {
-  return {
+type Decision = "allow-once" | "allow-always" | "deny";
+
+/** Everything a session grant keys on, or undefined when allow-always must not be offered. */
+type GrantScope = { grants: GrantStore; sessionKey: string; command: string; action: string; nowMs: () => number };
+
+function approvalRequest(title: string, description: string, scope?: GrantScope) {
+  const base = {
     title,
     description,
     severity: "warning" as const,
-    allowedDecisions: ["allow-once", "deny"] as Array<"allow-once" | "deny">,
+    allowedDecisions: ["allow-once", "deny"] as Decision[],
     timeoutMs: APPROVAL_TIMEOUT_MS,
   };
+  if (scope === undefined) return base;
+  return {
+    ...base,
+    description: `${description} Allow always trusts this command and action in this session for 1 hour.`,
+    allowedDecisions: ["allow-once", "allow-always", "deny"] as Decision[],
+    onResolution(decision: unknown) {
+      if (decision === "allow-always") scope.grants.grant(scope.sessionKey, scope.command, scope.action, scope.nowMs());
+    },
+  };
+}
+
+/** Scope for a grant, or undefined for a destructive pair or a call without a session key. */
+function grantScope(grants: GrantStore, sessionKey: unknown, command: string, action: string, nowMs: () => number) {
+  const key = grantSessionKey(sessionKey);
+  return key === undefined || !grantable(command, action) ? undefined : { grants, sessionKey: key, command, action, nowMs };
 }
 
 function newMarker(command: string, action: string, params: Record<string, unknown>, nowMs: () => number) {
@@ -227,7 +248,8 @@ function beforeAdminToolCall(
   command: string,
   params: Record<string, unknown>,
   nowMs: () => number,
-  assistSessionKey?: string,
+  assistSessionKey: string | undefined,
+  scope: GrantScope | undefined,
 ) {
   const { [APPROVAL_PARAM]: _supplied, ...clean } = params;
   const commandParams = adminCommandParams(command, clean);
@@ -235,11 +257,14 @@ function beforeAdminToolCall(
   if (refused !== undefined) return { block: true, blockReason: refused };
   if (assistSessionKey !== undefined && assistSkipsPrompt(command, "")) return { params: clean };
   const title = titleOf(command, "");
+  const approved = { ...clean, [APPROVAL_PARAM]: newMarker(command, "", commandParams, nowMs) };
+  if (scope?.grants.has(scope.sessionKey, command, "", nowMs()) === true) return { params: approved };
   return {
-    params: { ...clean, [APPROVAL_PARAM]: newMarker(command, "", commandParams, nowMs) },
+    params: approved,
     requireApproval: approvalRequest(
       title,
       `${title}: ${describeTarget(commandParams, command)} via ${command}.`,
+      scope,
     ),
   };
 }
@@ -258,13 +283,20 @@ export function beforeToolCall(
   event: NodesCallEvent,
   nowMs: () => number = Date.now,
   sessionKey?: unknown,
+  grants: GrantStore = sessionGrants,
 ) {
   const { params } = event;
   const assistSessionKey = normalizeAssistSessionKey(sessionKey);
   const adminCommand = Object.hasOwn(ADMIN_TOOL_COMMANDS, event.toolName)
     ? ADMIN_TOOL_COMMANDS[event.toolName]
     : undefined;
-  if (adminCommand !== undefined) return beforeAdminToolCall(adminCommand, params, nowMs, assistSessionKey);
+  if (adminCommand !== undefined) return beforeAdminToolCall(
+      adminCommand,
+      params,
+      nowMs,
+      assistSessionKey,
+      grantScope(grants, sessionKey, adminCommand, "", nowMs),
+    );
   if (event.toolName !== "nodes" || normalized(params.action) !== "invoke") return undefined;
   const inner = parseInnerParams(params.invokeParamsJson);
   if (inner === undefined) return undefined;
@@ -295,11 +327,15 @@ export function beforeToolCall(
   if (assistSessionKey !== undefined && assistSkipsPrompt(command, action)) {
     return { params: rewrite(hinted) };
   }
+  const scope = grantScope(grants, sessionKey, command, action, nowMs);
+  const approved = rewrite({ ...hinted, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) });
+  if (scope?.grants.has(scope.sessionKey, command, action, nowMs()) === true) return { params: approved };
   return {
-    params: rewrite({ ...hinted, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) }),
+    params: approved,
     requireApproval: approvalRequest(
       titleOf(command, action),
       `${titleOf(command, action)}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
+      scope,
     ),
   };
 }

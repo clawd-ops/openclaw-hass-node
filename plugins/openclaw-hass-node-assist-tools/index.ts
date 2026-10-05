@@ -10,6 +10,7 @@ import {
   type AnyAgentTool,
 } from "openclaw/plugin-sdk/plugin-entry";
 import { normalizeAssistSessionKey, runWithCallerContext } from "./src/shared/caller-context.js";
+import { grantSessionKey, sessionGrants } from "./src/shared/approval-grants.js";
 import { ADMIN_TOOL_COMMANDS, beforeToolCall } from "./src/shared/node-approval.js";
 import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.js";
 import {
@@ -29,6 +30,10 @@ type ToolFactoryApi = {
 };
 
 type HookApi = {
+  on(
+    hook: "session_end",
+    handler: (event: { sessionKey?: unknown }) => void,
+  ): void;
   on(
     hook: "before_tool_call",
     handler: (event: Parameters<typeof beforeToolCall>[0], ctx?: unknown) => ReturnType<typeof beforeToolCall>,
@@ -69,6 +74,11 @@ export default definePluginEntry({
     // The host calls handlers as (event, ctx); pass only ctx.sessionKey, never ctx itself, so it cannot reach the clock param.
     (api as unknown as HookApi).on("before_tool_call", (event, ctx) => beforeToolCall(event, undefined, (ctx as { sessionKey?: unknown } | undefined)?.sessionKey), {
       matcher: ["nodes", ...Object.keys(ADMIN_TOOL_COMMANDS)],
+    });
+    // A session's allow-always grants end with the session.
+    (api as unknown as HookApi).on("session_end", (event) => {
+      const key = grantSessionKey(event?.sessionKey);
+      if (key !== undefined) sessionGrants.revokeSession(key);
     });
     for (const registration of resolvedAssistCommandRegistrations()) {
       (api as unknown as ToolFactoryApi).registerTool(

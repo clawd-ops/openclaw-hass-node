@@ -68,7 +68,9 @@ describe("nodes tool hook by origin", () => {
   it.each(PAIRS)("agent-initiated (no Assist session) %s %s always prompts", (command, action) => {
     for (const sessionKey of [undefined, "agent:main:main", "discord:123", "cron:nightly", "agent:main:subagent:x"]) {
       const result = beforeToolCall(nodesCall(command, inner(command, action)), undefined, sessionKey);
-      expect(result).toMatchObject({ requireApproval: { allowedDecisions: ["allow-once", "deny"] } });
+      const offersAlways = sessionKey !== undefined && !(contract.destructive[command]?.includes(action) === true);
+      const allowedDecisions = offersAlways ? ["allow-once", "allow-always", "deny"] : ["allow-once", "deny"];
+      expect(result).toMatchObject({ requireApproval: { allowedDecisions } });
       expect(innerOf(result)[APPROVAL_PARAM]).toBeDefined();
     }
   });
