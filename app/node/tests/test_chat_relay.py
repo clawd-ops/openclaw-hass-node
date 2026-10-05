@@ -439,8 +439,8 @@ async def test_relay_turn_waits_for_final_not_first_delta() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
-    """stream_turn yields each chunk as deltas arrive, closes on state='final'."""
+async def test_stream_turn_withholds_deltas_and_yields_final_once() -> None:
+    """Deltas are not forwarded; the final text is yielded once and closes."""
     sender = FakeSender()
     relay = _relay(sender)
 
@@ -494,7 +494,7 @@ async def test_stream_turn_yields_deltas_and_closes_on_final() -> None:
 
     await asyncio.gather(_consume(), _drive())
 
-    assert chunks == ["Hello", " there", "!"]
+    assert chunks == ["Hello there!"]
 
 
 @pytest.mark.asyncio
@@ -534,8 +534,8 @@ async def test_stream_turn_session_message_yields_full_text_when_no_deltas() -> 
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
-    """If the final's full text is longer than the sum of deltas, the tail is yielded."""
+async def test_stream_turn_partial_deltas_never_reach_stream() -> None:
+    """Partial deltas are dropped; only the final text reaches the stream."""
     sender = FakeSender()
     relay = _relay(sender)
 
@@ -589,7 +589,7 @@ async def test_stream_turn_terminal_yields_tail_when_deltas_partial() -> None:
 
     await asyncio.gather(_consume(), _drive())
 
-    assert chunks == ["Hello", ", world!"]
+    assert chunks == ["Hello, world!"]
 
 
 def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -617,20 +617,10 @@ def test_stream_turn_timeout_returns_drained_chunks(monkeypatch: pytest.MonkeyPa
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
         await asyncio.sleep(0.005)
-        # Two deltas land back to back, then no final ever arrives.
+        # Two chunks land back to back, then no final ever arrives.
+        queue = relay._delta_queues[canonical_session_key]
         for text in ("partial", " tail"):
-            relay.handle_event(
-                {
-                    "type": "event",
-                    "event": "chat",
-                    "payload": {
-                        "sessionKey": canonical_session_key,
-                        "state": "delta",
-                        "deltaText": text,
-                        "message": {"role": "assistant", "content": text},
-                    },
-                }
-            )
+            queue.put_nowait(text)
 
     chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
 
@@ -786,19 +776,8 @@ async def test_stream_turn_reset_raises_disconnected() -> None:
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
         await asyncio.sleep(0.005)
-        # Yield ONE delta, then disconnect mid-stream.
-        relay.handle_event(
-            {
-                "type": "event",
-                "event": "chat",
-                "payload": {
-                    "sessionKey": canonical_session_key,
-                    "state": "delta",
-                    "deltaText": "partial",
-                    "message": {"role": "assistant", "content": "partial"},
-                },
-            }
-        )
+        # Yield ONE chunk, then disconnect mid-stream.
+        relay._delta_queues[canonical_session_key].put_nowait("partial")
         await asyncio.sleep(0.01)
         relay.reset()
 
@@ -980,7 +959,7 @@ async def test_stream_turn_no_keepalive_on_fast_turn(
 
     await asyncio.gather(_consume(), _drive())
 
-    assert chunks == ["Hi", " there", "!"], f"keepalive leaked into fast turn: {chunks!r}"
+    assert chunks == ["Hi there!"], f"keepalive leaked into fast turn: {chunks!r}"
 
 
 @pytest.mark.asyncio
@@ -1077,7 +1056,7 @@ async def test_stream_turn_uses_tool_name_in_silent_gap_progress(
 
 
 @pytest.mark.asyncio
-async def test_progress_chunk_gets_leading_newline_after_text_delta(
+async def test_preamble_text_before_tool_call_is_not_streamed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When the model emits preamble text BEFORE the first tool call,
@@ -1159,16 +1138,120 @@ async def test_progress_chunk_gets_leading_newline_after_text_delta(
 
     await asyncio.gather(_consume(), _drive())
 
-    # The preamble delta and the tool-progress chunk should BOTH be in
-    # the stream, and the progress chunk must carry the leading newline.
-    assert "Sure, running a few." in chunks, f"preamble lost: {chunks!r}"
-    assert "\n🔧 Calling Bash..." in chunks, (
-        f"expected leading-newline-prefixed tool progress, got: {chunks!r}"
-    )
-    # Chunk must carry the leading \n but no trailing \n (compact format — #199).
-    assert "🔧 Calling Bash...\n" not in chunks, (
-        f"unexpected trailing newline in tool marker (causes blank-line gaps): {chunks!r}"
-    )
+    # The preamble delta is scratch and is withheld; the tool-progress
+    # line and keepalives stream during the turn, then the final text.
+    assert "Sure, running a few." not in chunks, f"preamble leaked: {chunks!r}"
+    assert "🔧 Calling Bash..." in chunks
+    assert any(isinstance(c, StreamKeepalive) for c in chunks)
+    # Final text is separated from the open status line by one newline.
+    assert chunks[-1] == "\nSure, running a few."
+
+
+_SCRATCH_TURN_CONTENT = [
+    {"type": "text", "text": "Need slug."},
+    {"type": "tool_use", "name": "ha_get_state"},
+    {"type": "tool_result", "content": "off"},
+    {"type": "text", "text": "The entrance"},
+    {"type": "text", "text": " lights are on."},
+]
+
+
+def _scratch_turn_events(key: str) -> list[dict[str, Any]]:
+    """Gateway events for: scratch text, tool call, split final answer."""
+    return [
+        {
+            "type": "event",
+            "event": "chat",
+            "payload": {
+                "sessionKey": key,
+                "state": "delta",
+                "deltaText": "Need slug.",
+                "message": {"role": "assistant", "content": "Need slug."},
+            },
+        },
+        {
+            "type": "event",
+            "event": "agent",
+            "payload": {
+                "sessionKey": key,
+                "stream": "tool",
+                "data": {"name": "ha_get_state", "phase": "start"},
+            },
+        },
+        {
+            "type": "event",
+            "event": "chat",
+            "payload": {
+                "sessionKey": key,
+                "state": "delta",
+                "deltaText": "The entrance",
+                "message": {"role": "assistant", "content": _SCRATCH_TURN_CONTENT},
+            },
+        },
+        {
+            "type": "event",
+            "event": "chat",
+            "payload": {
+                "sessionKey": key,
+                "state": "final",
+                "message": {"role": "assistant", "content": _SCRATCH_TURN_CONTENT},
+            },
+        },
+    ]
+
+
+async def _drive_scratch_turn(
+    sender: FakeSender, relay: ChatRelay, key: str, queue_log: list[str] | None = None
+) -> None:
+    await asyncio.sleep(0.01)
+    relay.handle_response(_ok_response(sender.frames[0]["id"]))
+    await asyncio.sleep(0.01)
+    relay.handle_response(_ok_response(sender.frames[1]["id"], {"subscribed": True, "key": key}))
+    await asyncio.sleep(0.01)
+    relay.handle_response(_ok_response(sender.frames[2]["id"]))
+    await asyncio.sleep(0.005)
+    for event in _scratch_turn_events(key):
+        relay.handle_event(event)
+        if queue_log is not None:
+            queue = relay._delta_queues[key]
+            queue_log.extend(str(i) for i in list(queue._queue))  # type: ignore[attr-defined]
+        await asyncio.sleep(0.005)
+
+
+@pytest.mark.asyncio
+async def test_relay_turn_scratch_then_tool_then_final_returns_only_final() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    conv_id = "01KVH_SCRATCH_RELAY"
+    key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    task = asyncio.create_task(_drive_scratch_turn(sender, relay, key))
+    reply = await relay.relay_turn(conv_id, "lights?")
+    await task
+    assert reply == "The entrance lights are on."
+
+
+@pytest.mark.asyncio
+async def test_stream_turn_scratch_then_tool_then_final_streams_only_final() -> None:
+    sender = FakeSender()
+    relay = _relay(sender)
+    conv_id = "01KVH_SCRATCH_STREAM"
+    key = f"agent:my-agent:{_SESSION_KEY_PREFIX}{conv_id.lower()}"
+    queued: list[str] = []
+    chunks: list[str | StreamKeepalive | ToolProgressFrame] = []
+
+    async def _consume() -> None:
+        async for chunk in relay.stream_turn(conv_id, "lights?"):
+            chunks.append(chunk)
+
+    await asyncio.gather(_consume(), _drive_scratch_turn(sender, relay, key, queued))
+
+    # Scratch text never reached the delta queue or the stream.
+    assert not any("Need slug." in item for item in queued)
+    assert not any(isinstance(c, str) and "Need slug." in c for c in chunks)
+    # Progress line streamed during the turn; final answer arrives whole, last.
+    assert "🔧 Calling ha_get_state..." in chunks
+    assert chunks[-1] == "\nThe entrance lights are on."
+    assert "".join(c for c in chunks if isinstance(c, str)).count("lights are on.") == 1
 
 
 @pytest.mark.asyncio
@@ -1803,7 +1886,88 @@ async def test_content_block_array() -> None:
             },
         }
     )
-    assert relay._last_assistant_text["ha-assist:blocks"] == "Hello\nworld"
+    assert relay._last_assistant_text["ha-assist:blocks"] == "Helloworld"
+
+
+def test_extract_text_scratch_tool_calls_then_final_answer() -> None:
+    """Scratch text and tool calls before the closing text never leak (#411)."""
+    content = [
+        {"type": "text", "text": "Need slug."},
+        {"type": "tool_use", "name": "ha_call_service"},
+        {"type": "text", "text": "Still shows off; check state."},
+        {"type": "tool_use", "name": "ha_get_state"},
+        {"type": "text", "text": "I turned the entrance lights on."},
+    ]
+    assert ChatRelay._extract_text(content) == "I turned the entrance lights on."
+
+
+def test_extract_text_single_block_unchanged() -> None:
+    assert ChatRelay._extract_text([{"type": "text", "text": "Done."}]) == "Done."
+    assert ChatRelay._extract_text("Done.") == "Done."
+
+
+def test_extract_text_split_final_answer_kept_whole() -> None:
+    """Consecutive text blocks after the last non-text block join verbatim."""
+    content = [
+        {"type": "text", "text": "scratch"},
+        {"type": "tool_use", "name": "x"},
+        {"type": "tool_result", "content": "ok"},
+        {"type": "text", "text": "The entrance"},
+        {"type": "text", "text": " lights are on."},
+    ]
+    assert ChatRelay._extract_text(content) == "The entrance lights are on."
+    assert (
+        ChatRelay._extract_text(
+            [{"type": "text", "text": "The entrance"}, {"type": "text", "text": " lights are on."}]
+        )
+        == "The entrance lights are on."
+    )
+
+
+@pytest.mark.parametrize(
+    "block_type",
+    [
+        "toolCall",
+        "toolUse",
+        "functionCall",
+        "tool_call",
+        "tool_use",
+        "function_call",
+        "toolResult",
+        "tool_result",
+        "tool_result_error",
+        "function_call_output",
+    ],
+)
+def test_extract_text_every_gateway_tool_block_type_is_a_boundary(block_type: str) -> None:
+    content = [
+        {"type": "text", "text": "scratch"},
+        {"type": block_type},
+        {"type": "text", "text": "final"},
+    ]
+    assert ChatRelay._extract_text(content) == "final"
+
+
+def test_extract_text_trailing_canvas_block_keeps_text() -> None:
+    """A display-only canvas block after the final text is not a boundary."""
+    content = [{"type": "text", "text": "All set."}, {"type": "canvas", "url": "x"}]
+    assert ChatRelay._extract_text(content) == "All set."
+
+
+def test_extract_text_scratch_tool_final_then_canvas() -> None:
+    content = [
+        {"type": "text", "text": "scratch"},
+        {"type": "toolCall", "name": "x"},
+        {"type": "toolResult", "content": "ok"},
+        {"type": "text", "text": "Done."},
+        {"type": "canvas", "url": "x"},
+    ]
+    assert ChatRelay._extract_text(content) == "Done."
+
+
+def test_extract_text_thinking_before_text_keeps_text() -> None:
+    content = [{"type": "thinking", "thinking": "hm"}, {"type": "text", "text": "Hi."}]
+    assert ChatRelay._extract_text(content) == "Hi."
 
 
 @pytest.mark.asyncio
@@ -1979,7 +2143,7 @@ async def test_turn_boundary_stale_event_does_not_leak_into_next_turn() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stream_turn_two_turns_both_stream_deltas() -> None:
+async def test_stream_turn_two_turns_each_yield_final_only() -> None:
     """Regression for #128: turn-2 of a multi-turn streaming conversation
     must also yield per-delta chunks, not dump the full text as a single
     chunk. Before the fix, the queue was installed before chat.send
@@ -2040,7 +2204,7 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
             chunks_t1.append(chunk)
 
     await asyncio.gather(_consume_t1(), _drive_t1())
-    assert chunks_t1 == ["Hello", " ", "world"], chunks_t1
+    assert chunks_t1 == ["Hello world"], chunks_t1
 
     # Turn 2: same conversation_id, only chat.send is sent.
     base = len(sender.frames)
@@ -2098,9 +2262,9 @@ async def test_stream_turn_two_turns_both_stream_deltas() -> None:
             chunks_t2.append(chunk)
 
     await asyncio.gather(_consume_t2(), _drive_t2())
-    # Turn-2 must stream as deltas (not a single dumped chunk) and must
-    # NOT contain the stale turn-1 leak text.
-    assert chunks_t2 == ["Great", "!"], chunks_t2
+    # Turn-2 yields only its final text and must NOT contain the stale
+    # turn-1 leak text.
+    assert chunks_t2 == ["Great!"], chunks_t2
     assert "STALE LEAK" not in "".join(c for c in chunks_t2 if isinstance(c, str))
 
 
@@ -2237,7 +2401,6 @@ async def test_stream_turn_send_failure_after_subscribe() -> None:
     canonical = relay._canonical_by_raw.get(session_key, session_key)
     assert canonical not in relay._active_run_id
     assert canonical not in relay._delta_queues
-    assert canonical not in relay._stream_yielded_chars
 
 
 @pytest.mark.asyncio
@@ -2334,7 +2497,6 @@ async def test_stream_turn_post_ack_runid_less_session_message_is_filtered() -> 
     relay._seen_same_run_event[key] = False
     queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
     relay._delta_queues[key] = queue
-    relay._stream_yielded_chars[key] = 0
 
     # Delayed prior-turn session.message arrives with NO runId before
     # any same-run event for turn 2. Must be dropped.

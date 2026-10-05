@@ -77,6 +77,14 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
 - The Assist plugin resolves per-node policy by the Gateway's canonical node ID
   only. A caller-supplied node name or self-declared display name is not an
   authorization identity.
+- Assist final reply (source, unreleased): the reply is the consecutive text
+  blocks after the last tool block of the final assistant message (display-only
+  blocks such as canvas or thinking never split it),
+  so scratch text written before a tool call no longer reaches the speaker.
+  Assistant text is no longer streamed token by token: intermediate text cannot
+  be told apart from the answer until the turn ends, so Assist receives the
+  answer at the end of the turn. Progress lines and keepalives still stream
+  (advances #411; live confirmation pending in the next UAT run).
 - Same-agent hardening (advances #275): the per-turn authorization block now
   limits OpenClaw-side use to conversation, web search and memory search for
   `user` and `admin`, fences itself with fixed markers that are stripped from
