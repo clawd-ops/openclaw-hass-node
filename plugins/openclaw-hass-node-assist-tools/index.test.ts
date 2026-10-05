@@ -47,6 +47,33 @@ describe("plugin entrypoint registration", () => {
     );
   });
 
+  it("survives the host passing a context object as the second handler argument", () => {
+    const on = vi.fn();
+    (entry as unknown as { register(api: unknown): void }).register({
+      registerTool: vi.fn(),
+      registerNodeInvokePolicy: vi.fn(),
+      on,
+    });
+    const handler = on.mock.calls[0]![1] as (event: unknown, ctx: unknown) => {
+      params?: { invokeParamsJson?: string };
+      requireApproval?: unknown;
+    };
+    const result = handler(
+      {
+        toolName: "nodes",
+        params: {
+          action: "invoke",
+          node: "hass",
+          invokeCommand: "ha.config.automation",
+          invokeParamsJson: JSON.stringify({ action: "save", id: "uat", config: {} }),
+        },
+      },
+      { agentId: "clawd", sessionKey: "agent:clawd:main" },
+    );
+    expect(result.requireApproval).toBeDefined();
+    expect(JSON.parse(result.params!.invokeParamsJson!)._openclaw_approval).toBeDefined();
+  });
+
   it("captures the per-run session key and exposes it to tool execution only", async () => {
     const seen: Array<string | undefined> = [];
     const registrations = assistRegistration.resolvedAssistCommandRegistrations();
