@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import time
+import types
 from collections.abc import AsyncGenerator, AsyncIterator
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,7 @@ import pytest_asyncio
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
+from openclaw_node import chat_relay
 from openclaw_node.authz import Actor, resolve_turn_authz
 from openclaw_node.chat_relay import ChatRelay
 from openclaw_node.commands import dispatcher
@@ -194,7 +197,7 @@ async def test_unknown_or_stale_hint_refused_with_zero_ha_requests(
         client, "ha.call_service", {"domain": "light", "service": "turn_on", **hint}
     )
     assert sent["ok"] is False
-    assert sent["error"]["code"] == "REQUEST_EXPIRED"
+    assert sent["error"]["code"] == "PERMISSION_DENIED"
     assert ha_requests == []
 
 
@@ -208,24 +211,38 @@ async def test_hint_for_finished_turn_is_refused(
     sent = await _ingress(
         client, "ha.call_service", {"domain": "light", "service": "turn_on", **_hint(_SESSION)}
     )
+    assert sent["ok"] is False
     assert sent["error"]["code"] == "REQUEST_EXPIRED"
+    assert "expired" in sent["error"]["message"]
     assert ha_requests == []
 
 
-async def test_ended_turn_gives_clear_expired_result_with_zero_ha_requests(
-    turn: tuple[GatewayClient, ChatRelay, asyncio.Task[str]], ha_requests: list[str]
+async def test_ended_turn_expiry_lapses_after_ttl(
+    turn: tuple[GatewayClient, ChatRelay, asyncio.Task[str]],
+    ha_requests: list[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client, _, task = turn
     task.cancel()
     await asyncio.gather(task, return_exceptions=True)
+    later = time.monotonic() + chat_relay._ENDED_TURN_TTL_S + 1
+    monkeypatch.setattr(chat_relay, "time", types.SimpleNamespace(monotonic=lambda: later))
     sent = await _ingress(
         client, "ha.call_service", {"domain": "light", "service": "turn_on", **_hint(_SESSION)}
     )
-    assert sent["ok"] is False
-    assert sent["error"]["code"] == "REQUEST_EXPIRED"
-    assert "expired" in sent["error"]["message"]
-    assert "refused" not in sent["error"]["message"].lower()
+    assert sent["error"]["code"] == "PERMISSION_DENIED"
     assert ha_requests == []
+
+
+async def test_ended_turn_record_is_capped(
+    turn: tuple[GatewayClient, ChatRelay, asyncio.Task[str]],
+) -> None:
+    _, relay, _ = turn
+    for i in range(chat_relay._ENDED_TURN_MAX + 10):
+        relay._record_ended(f"ha-assist:n{i}")
+    assert len(relay._ended_turns) <= chat_relay._ENDED_TURN_MAX
+    assert not relay.recently_ended("ha-assist:n0")
+    assert relay.recently_ended(f"ha-assist:n{chat_relay._ENDED_TURN_MAX + 9}")
 
 
 async def test_hint_without_any_relay_is_refused(tmp_path: Path, ha_requests: list[str]) -> None:
@@ -233,7 +250,7 @@ async def test_hint_without_any_relay_is_refused(tmp_path: Path, ha_requests: li
     sent = await _ingress(
         client, "ha.call_service", {"domain": "light", "service": "turn_on", **_hint(_SESSION)}
     )
-    assert sent["error"]["code"] == "REQUEST_EXPIRED"
+    assert sent["error"]["code"] == "PERMISSION_DENIED"
     assert ha_requests == []
 
 
@@ -394,7 +411,7 @@ async def test_case_only_distinct_turns_are_both_refused(
         send = {"domain": "notify", "service": "send_message"}
         for hint in ("ha-assist:Conv", "ha-assist:conv"):
             refused = await _ingress(client, "ha.call_service", {**send, **_hint(hint)})
-            assert refused["error"]["code"] == "REQUEST_EXPIRED"
+            assert refused["error"]["code"] == "PERMISSION_DENIED"
         assert ha_requests == []
     finally:
         for task in tasks:
@@ -448,7 +465,7 @@ async def test_canonical_key_equal_to_another_raw_key_is_ambiguous_and_refused(
 
         send = {"domain": "notify", "service": "send_message"}
         refused = await _ingress(client, "ha.call_service", {**send, **_hint(collided)})
-        assert refused["error"]["code"] == "REQUEST_EXPIRED"
+        assert refused["error"]["code"] == "PERMISSION_DENIED"
         assert ha_requests == []
     finally:
         for task in tasks:
@@ -525,7 +542,7 @@ async def test_admin_canonical_key_equal_to_household_raw_key_by_case_is_refused
 
         send = {"domain": "notify", "service": "send_message"}
         refused = await _ingress(client, "ha.call_service", {**send, **_hint(hint)})
-        assert refused["error"]["code"] == "REQUEST_EXPIRED"
+        assert refused["error"]["code"] == "PERMISSION_DENIED"
         assert ha_requests == []
     finally:
         for task in tasks:
@@ -577,7 +594,7 @@ async def test_single_turn_resolves_by_raw_canonical_and_other_case_key(
         refused = await _ingress(
             client, "ha.call_service", {**send, **_hint("agent:other:ha-assist:solo")}
         )
-        assert refused["error"]["code"] == "REQUEST_EXPIRED"
+        assert refused["error"]["code"] == "PERMISSION_DENIED"
         assert ha_requests == []
     finally:
         task.cancel()

@@ -1387,10 +1387,12 @@ class GatewayClient:
         relay = self._runtime.chat_relay if self._runtime is not None else None
         caller = relay.active_caller(session_key) if relay is not None else None
         if caller is None:
-            raise CallerRefusedError(
-                "REQUEST_EXPIRED",
-                "That request expired because the Assist turn has ended. Ask again.",
-            )
+            if relay is not None and relay.recently_ended(session_key):
+                raise CallerRefusedError(
+                    "REQUEST_EXPIRED",
+                    "That request expired because the Assist turn has ended. Ask again.",
+                )
+            raise CallerRefusedError("PERMISSION_DENIED", "No active Assist turn for caller")
         return caller
 
     def _notify_pairing_state(self) -> None:

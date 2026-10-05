@@ -85,11 +85,12 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
   be told apart from the answer until the turn ends, so Assist receives the
   answer at the end of the turn. Progress lines and keepalives still stream
   (advances #411; live confirmation pending in the next UAT run).
-- Assist progress and expiry (source, unreleased): the `mcp__<server>__` tool
-  prefix is stripped from progress lines, so one tool call is one line. A command
-  invoked after its Assist turn ended now returns one clear `REQUEST_EXPIRED`
-  result (no HA request) instead of `PERMISSION_DENIED` (live confirmation of #412 and #413 pending in
-  the next UAT run).
+- Assist progress and expiry (source, unreleased): the duplicating
+  `mcp__openclaw__` tool prefix is stripped from progress lines, so one tool call
+  is one line; other server prefixes are kept. A command invoked after its Assist
+  turn ended (within a few minutes) returns one clear `REQUEST_EXPIRED` result
+  with no HA request; an unknown or forged hint still gets `PERMISSION_DENIED`
+  (live confirmation of #412 and #413 pending in the next UAT run).
 - Same-agent hardening (advances #275): the per-turn authorization block now
   limits OpenClaw-side use to conversation, web search and memory search for
   `user` and `admin`, fences itself with fixed markers that are stripped from
