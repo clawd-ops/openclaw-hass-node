@@ -2513,7 +2513,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_restart",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: the restart succeeded but was reported as a failure.",
@@ -2648,7 +2648,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_start",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: start succeeded and the add-on reached the started state.",
@@ -2919,7 +2919,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_stop",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "Sept 13 Tier B lifecycle exercise: stop succeeded and the add-on reached the stopped state.",
@@ -3051,7 +3051,7 @@
           }
         }
       ],
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_update",
       "evidence_method": "PRODUCTION-LIVE",
       "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only a slug-policy refusal was observed; no add-on update completed.",

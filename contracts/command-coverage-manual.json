@@ -1579,7 +1579,7 @@
     },
     "ha.addon_start": {
       "authorization_class": "native_approval",
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
@@ -1602,7 +1602,7 @@
     },
     "ha.addon_stop": {
       "authorization_class": "native_approval",
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
@@ -1625,7 +1625,7 @@
     },
     "ha.addon_restart": {
       "authorization_class": "native_approval",
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "outcome": "pass",
       "first_shipped_in": "2026.6.20b7",
       "actions": {},
@@ -1672,7 +1672,7 @@
     },
     "ha.addon_update": {
       "authorization_class": "native_approval",
-      "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
+      "capability_conditions": "Supervisor API is reachable, the target slug is not denied (homeassistant, supervisor and core_* are always denied, plus any configured denylist), and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "outcome": "refused-as-designed",
       "first_shipped_in": "2026.9.13b1",
       "actions": {},
