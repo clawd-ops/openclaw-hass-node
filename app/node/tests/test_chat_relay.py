@@ -1924,6 +1924,30 @@ def test_extract_text_split_final_answer_kept_whole() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "block_type",
+    [
+        "toolCall",
+        "toolUse",
+        "functionCall",
+        "tool_call",
+        "tool_use",
+        "function_call",
+        "toolResult",
+        "tool_result",
+        "tool_result_error",
+        "function_call_output",
+    ],
+)
+def test_extract_text_every_gateway_tool_block_type_is_a_boundary(block_type: str) -> None:
+    content = [
+        {"type": "text", "text": "scratch"},
+        {"type": block_type},
+        {"type": "text", "text": "final"},
+    ]
+    assert ChatRelay._extract_text(content) == "final"
+
+
 def test_extract_text_trailing_canvas_block_keeps_text() -> None:
     """A display-only canvas block after the final text is not a boundary."""
     content = [{"type": "text", "text": "All set."}, {"type": "canvas", "url": "x"}]

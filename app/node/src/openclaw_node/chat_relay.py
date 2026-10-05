@@ -38,9 +38,23 @@ _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
 # Content-block types that mark a tool step in a gateway assistant message.
 # Only these split scratch text from the final answer; display-only blocks
-# (canvas, thinking, images) never do.
+# (canvas, thinking, images) never do. Copied from the gateway's
+# TOOL_CALL_BLOCK_TYPES and TOOL_RESULT_BLOCK_TYPES (src/shared/tool-block-contract.ts,
+# shipped as dist/tool-block-contract-*.mjs), checked 2026-10-04. The gateway
+# matches these exactly and case-sensitively, so this does too.
 _TOOL_BLOCK_TYPES: Final[frozenset[str]] = frozenset(
-    {"tool_use", "tool_result", "tool_call", "toolCall", "toolResult"}
+    {
+        "toolCall",
+        "toolUse",
+        "functionCall",
+        "tool_call",
+        "tool_use",
+        "function_call",
+        "toolResult",
+        "tool_result",
+        "tool_result_error",
+        "function_call_output",
+    }
 )
 
 _TURN_TIMEOUT_S: Final[float] = 30.0
