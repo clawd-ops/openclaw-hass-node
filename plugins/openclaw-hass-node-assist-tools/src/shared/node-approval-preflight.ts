@@ -8,6 +8,12 @@
 // stays self-contained), which a node-side
 // test asserts equals the node's own tables.
 //
+// Conservative rule: a refusal is issued only when the outcome cannot differ
+// between JS and Python string handling. Slugs and paths are judged only when
+// they are plain ASCII strings (no whitespace or control characters, so no
+// trim or strip could change them); an absent slug and unknown parameter names
+// (exact keys) are always judged. Anything else is left to the node.
+//
 // Not mirrored (the node alone knows): the add-on lifecycle allowlist (node
 // environment config) and parameter value shapes.
 
@@ -22,6 +28,8 @@ type Preflight = {
 
 const contract = preflightContract as Preflight;
 
+const PLAIN_SLUG = /^[A-Za-z0-9_-]*$/;
+const PLAIN_PATH = /^[\x21-\x7e]+$/;
 const SLUG = new RegExp(contract.addon.slug_pattern);
 const LIFECYCLE = new Set(["ha.addon_start", "ha.addon_stop", "ha.addon_restart", "ha.addon_update"]);
 
@@ -30,37 +38,19 @@ function refusal(code: string, message: string): string {
   return `${code}: ${message}`;
 }
 
-function pythonRepr(value: string): string {
-  const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
-  let out = "";
-  for (const ch of value) {
-    const code = ch.codePointAt(0) as number;
-    if (ch === "\\") out += "\\\\";
-    else if (ch === quote) out += `\\${quote}`;
-    else if (ch === "\n") out += "\\n";
-    else if (ch === "\r") out += "\\r";
-    else if (ch === "\t") out += "\\t";
-    else if (code < 0x20 || code === 0x7f) out += `\\x${code.toString(16).padStart(2, "0")}`;
-    else out += ch;
-  }
-  return `${quote}${out}${quote}`;
-}
-
 /** Slug policy the node applies before its approval gate (static part only). */
 export function addonSlugRefusal(slug: unknown): string | undefined {
-  // The node stringifies a present non-string slug and may accept it, so only
-  // an absent slug or a string is judged here.
-  if (slug !== undefined && typeof slug !== "string") return undefined;
-  const value = typeof slug === "string" ? slug.trim() : "";
-  if (!value) return refusal("MISSING_PARAM", "slug is required");
-  if (value.length > contract.addon.max_length || !SLUG.test(value)) {
-    return refusal("INVALID_PARAM", `invalid addon slug: ${pythonRepr(value)}`);
+  if (slug === undefined) return refusal("MISSING_PARAM", "slug is required");
+  if (typeof slug !== "string" || !PLAIN_SLUG.test(slug)) return undefined;
+  if (!slug) return refusal("MISSING_PARAM", "slug is required");
+  if (slug.length > contract.addon.max_length || !SLUG.test(slug)) {
+    return refusal("INVALID_PARAM", `invalid addon slug: '${slug}'`);
   }
-  if (value.startsWith(contract.addon.core_prefix)) {
-    return refusal("PERMISSION_DENIED", `addon lifecycle denied for core slug: ${value}`);
+  if (slug.startsWith(contract.addon.core_prefix)) {
+    return refusal("PERMISSION_DENIED", `addon lifecycle denied for core slug: ${slug}`);
   }
-  if (contract.addon.denylist.includes(value.toLowerCase())) {
-    return refusal("PERMISSION_DENIED", `addon lifecycle denied for slug: ${value}`);
+  if (contract.addon.denylist.includes(slug)) {
+    return refusal("PERMISSION_DENIED", `addon lifecycle denied for slug: ${slug}`);
   }
   return undefined;
 }
@@ -82,11 +72,19 @@ export function gatedCallRefusal(
   let allowed = contract.allowed_keys[command]?.[action];
   const dynamic = contract.dynamic_keys[command];
   const dynamicType = dynamic !== undefined ? inner[dynamic.type_key] : undefined;
-  if (allowed !== undefined && dynamic?.actions.includes(action) && typeof dynamicType === "string") {
-    allowed = [...allowed, `${dynamicType.trim()}${dynamic.key_suffix}`];
+  let exemptSuffix: string | undefined;
+  if (allowed !== undefined && dynamic?.actions.includes(action)) {
+    if (typeof dynamicType === "string" && PLAIN_SLUG.test(dynamicType)) {
+      allowed = [...allowed, `${dynamicType}${dynamic.key_suffix}`];
+    } else {
+      exemptSuffix = dynamic.key_suffix;
+    }
   }
   if (allowed !== undefined) {
-    const unknown = Object.keys(inner).filter((key) => !allowed.includes(key)).sort();
+    const known = allowed;
+    const unknown = Object.keys(inner)
+      .filter((key) => !known.includes(key) && !(exemptSuffix !== undefined && key.endsWith(exemptSuffix)))
+      .sort();
     if (unknown.length > 0) {
       return refusal(
         "INVALID_PARAM",
@@ -96,7 +94,7 @@ export function gatedCallRefusal(
   }
   for (const key of contract.storage.path_keys[command] ?? []) {
     const path = inner[key];
-    if (typeof path === "string" && (path.includes(contract.storage.marker) || path.endsWith(contract.storage.suffix))) {
+    if (typeof path === "string" && PLAIN_PATH.test(path) && (path.includes(contract.storage.marker) || path.endsWith(contract.storage.suffix))) {
       return refusal("STORAGE_READONLY", contract.storage.message);
     }
   }

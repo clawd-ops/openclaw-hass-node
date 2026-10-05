@@ -99,10 +99,16 @@ async def test_helpers_accept_exactly_the_contracted_dynamic_id_key() -> None:
 async def test_malformed_slug_message_matches_plugin_format() -> None:
     operator = Caller.operator("test")
     for slug, rendered in [
-        ("Bad Slug", "'Bad Slug'"),
-        ("it's", '"it\'s"'),
-        ("a\\b", "'a\\\\b'"),
+        ("Bad_Slug", "'Bad_Slug'"),
+        ("-a", "'-a'"),
     ]:
         result = await dispatch_async("ha.addon_restart", {"slug": slug}, caller=operator)
         assert result["error"] == "INVALID_PARAM"
         assert result["message"] == f"invalid addon slug: {rendered}"
+
+
+async def test_normalisation_dependent_slugs_are_not_judged_by_the_plugin_rule() -> None:
+    operator = Caller.operator("test")
+    for slug in ("\x1ca", " a", "a\n", "é"):
+        result = await dispatch_async("ha.addon_restart", {"slug": slug}, caller=operator)
+        assert result.get("error") != "MISSING_PARAM"

@@ -51,11 +51,31 @@ describe("refuse before prompting", () => {
     expectRefused(beforeToolCall(nodesCall(command, {})), "MISSING_PARAM: slug is required");
   });
 
-  it("renders a malformed slug the way the node's repr does", () => {
-    const run = (slug: string) => beforeToolCall(nodesCall("ha.addon_restart", { slug }));
-    expectRefused(run("Bad Slug"), "INVALID_PARAM: invalid addon slug: 'Bad Slug'");
-    expectRefused(run("it's"), `INVALID_PARAM: invalid addon slug: "it's"`);
-    expectRefused(run("a\\b"), "invalid addon slug: 'a\\\\b'");
+  it.each(["\u001ca", " a", "a\n", "é", "a b", "\u00a0core_ssh", " Supervisor ", "it's", "a\\b"])("leaves slug %j to the node", (slug) => {
+    const result = beforeToolCall(nodesCall("ha.addon_restart", { slug })) as { block?: boolean; requireApproval?: unknown };
+    expect(result.block).toBeUndefined();
+    expect(result.requireApproval).toBeDefined();
+  });
+
+  it.each(["\u001ca", "é"])("leaves slug %j to the node on the admin tool", (slug) => {
+    const result = beforeToolCall({ toolName: "ha_addon_restart", params: { slug } }) as { block?: boolean; requireApproval?: unknown };
+    expect(result.block).toBeUndefined();
+    expect(result.requireApproval).toBeDefined();
+  });
+
+  it("leaves non-plain paths and helper types to the node", () => {
+    for (const path of ["/config/.storage/\u001cx", " /config/.storage/a", "/config/é/.storage/a\n"]) {
+      const result = beforeToolCall(nodesCall("fs.delete", { path })) as { block?: boolean; requireApproval?: unknown };
+      expect(result.block).toBeUndefined();
+      expect(result.requireApproval).toBeDefined();
+    }
+    const odd = beforeToolCall(nodesCall("ha.config.helpers", { action: "delete", helper_type: "\u001ctimer", timer_id: "k" })) as { block?: boolean };
+    expect(odd.block).toBeUndefined();
+  });
+
+  it("renders a plain malformed slug in the node's format", () => {
+    expectRefused(beforeToolCall(nodesCall("ha.addon_restart", { slug: "Bad_Slug" })), "INVALID_PARAM: invalid addon slug: 'Bad_Slug'");
+    expectRefused(beforeToolCall(nodesCall("ha.addon_restart", { slug: "-a" })), "INVALID_PARAM: invalid addon slug: '-a'");
   });
 
   it("refuses an absent slug on the admin tool", () => {

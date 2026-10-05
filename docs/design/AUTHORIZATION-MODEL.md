@@ -413,7 +413,11 @@ hard-denied add-on slug. These are the checks the node makes before its approval
 gate. `plugins/openclaw-hass-node-assist-tools/src/shared/approval-preflight.json` carries them and a node test asserts it
 equals the node's own tables, so they cannot drift. The add-on lifecycle
 allowlist (node environment config) and parameter value shapes are known only to
-the node, so those refusals still arrive after a prompt
+the node, so those refusals still arrive after a prompt. The hook is conservative:
+it refuses a slug or path only when it is a plain ASCII string (no whitespace,
+control, or non-ASCII characters) whose outcome no JS or Python normalisation
+difference could change, plus an absent slug and unknown parameter names; all
+other input goes to the node and the normal approval flow
 ([#403](https://github.com/clawd-ops/openclaw-hass-node/issues/403)).
 
 The Tier B commands are reached two ways, and both are covered: through the core
