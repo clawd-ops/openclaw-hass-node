@@ -113,9 +113,8 @@ when it invokes the same commands) asks the operator to allow or deny that exact
 call (allow-once or deny, 10 minute window). Once allowed, the hook's params
 override carries a one-use approval marker in the reserved `_openclaw_approval`
 field; any model-supplied value is replaced. The tool forwards the marker and
-the node verifies it before it acts. The node also requires the target slug in
-`addon_lifecycle.allowlist` and always denies `homeassistant`, `supervisor`, and
-`core_*`; that check runs before the approval is consumed.
+the node verifies it before it acts. The node always denies `homeassistant`, `supervisor`, and
+`core_*` and any slug in `addon_lifecycle.denylist`; that check runs before the approval is consumed.
 
 ## Layout
 

@@ -131,7 +131,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - Status: OPEN (design) — captured 2026-06-28 from operator UX feedback.
 - Goal: serve a small web UI from the add-on over HA Ingress that renders user-friendly editors for the trickier config shapes:
   - HA-user dropdowns for `identity.super_admins` and `identity.user_agent_map.*.ha_user_id`, populated live from `config/auth/list`.
-  - Allowlist pickers for `identity.forbidden_commands` and `addon_lifecycle.allowlist` / `denylist`, populated from the live command catalog and installed-addon list.
+  - Allowlist pickers for `identity.forbidden_commands` and `addon_lifecycle.denylist`, populated from the live command catalog and installed-addon list.
   - Inline help / tooltips so the operator doesn't have to know what `addon_lifecycle` means before configuring it.
 - Replaces hand-edited YAML for the shapes HA's option-schema validators cannot express (no native dynamic enums for users or addon slugs).
 - Cross-link: promotes the footnote on closed #26 ("ingress management UI remains possible as a separate future feature") to a real open item. If this ships, the startup `config/auth/list` resolution stays as a safety net but the dropdown becomes the canonical input path.
@@ -409,5 +409,5 @@ All four items from the original audit have since been confirmed or resolved:
 
 ### Refuse certain-to-fail calls before prompting (#403)
 - Done in the plugin hook: unknown parameters, `.storage/` writes, bad add-on slugs.
-- Open: add-on allowlist miss and malformed parameter values need the node's own
-  verdict (node preflight or published policy); the allowlist may go away under #408.
+- Open: malformed parameter values need the node's own verdict (node preflight
+  or published policy). The add-on allowlist was removed under #408.

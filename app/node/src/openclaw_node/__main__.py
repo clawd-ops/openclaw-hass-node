@@ -15,7 +15,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from openclaw_node.config import NodeConfig, load_config
+from openclaw_node.config import NodeConfig, load_config, warn_ignored_legacy_allowlist
 from openclaw_node.gateway_ws import _OPERATOR_SCOPES, GatewayClient
 from openclaw_node.ha_client import HAClientError, ha_ws_call
 from openclaw_node.http_api import (
@@ -497,6 +497,7 @@ def build_runtime(
 async def _main() -> None:
     """Load config, resolve identity, and run the gateway + HTTP API concurrently."""
     config = load_config()
+    warn_ignored_legacy_allowlist()
     mode = "add-on" if config.addon_mode else "standalone"
     _LOG.info(
         "Starting openclaw-hass-node %s in %s mode",

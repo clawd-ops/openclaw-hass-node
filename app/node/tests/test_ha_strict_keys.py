@@ -103,11 +103,6 @@ COMMANDS = sorted(ALL)
 NULL_CASES = [(c, k) for c in COMMANDS for k in sorted(ALL[c][1]) if k != APPROVAL]
 
 
-@pytest.fixture(autouse=True)
-def env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCLAW_ADDON_LIFECYCLE_ALLOWLIST", SLUG)
-
-
 @pytest.fixture
 def ha_calls(monkeypatch: pytest.MonkeyPatch) -> list[AsyncMock]:
     mocks: list[AsyncMock] = []
@@ -185,7 +180,7 @@ async def test_lifecycle_policy_runs_before_key_check(
     command: str, ha_calls: list[AsyncMock]
 ) -> None:
     handler, _keys, _valid = ALL[command]
-    result = await handler({"slug": "other_addon", "bogus": 1})
+    result = await handler({"slug": "core_other", "bogus": 1})
     assert result["error"] == "PERMISSION_DENIED"
     for mock in ha_calls:
         mock.assert_not_awaited()

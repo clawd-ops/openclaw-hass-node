@@ -220,8 +220,7 @@ first successful pairing** — it's consumed.
 
 ### Tier B approvals
 
-If you populated `addon_lifecycle.allowlist`, nothing more is needed in the
-gateway plugin config: each Tier B command (add-on start, stop, restart, update,
+Nothing more is needed in the gateway plugin config for add-on slugs: each Tier B command (add-on start, stop, restart, update,
 `ha.reload_config`, `ha.update_install`) makes OpenClaw ask you to approve that
 exact call before it runs. Make sure `gateway.nodes.commands.allow` lists the
 commands you want the gateway to forward.

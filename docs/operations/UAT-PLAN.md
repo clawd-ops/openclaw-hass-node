@@ -336,11 +336,11 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
 
 ### G9. Tier B native approval.
 
-- Call `ha_addon_restart` for an allowlisted slug. Expect an approval prompt
+- Call `ha_addon_restart` for an ordinary add-on slug. Expect an approval prompt
   naming the command and the add-on. Deny it: nothing restarts. Repeat and
   approve: the add-on restarts once.
-- Call it for a slug outside `addon_lifecycle.allowlist`. Expect a refusal
-  before any approval prompt.
+- Call it for `core_ssh`, `homeassistant` or `supervisor`, or a slug listed in
+  `addon_lifecycle.denylist`. Expect a refusal before any approval prompt.
 - Repeat the approve and deny steps for `ha_reload_config` and
   `ha_update_install`.
 
@@ -355,7 +355,7 @@ result of each case in the [compatibility matrix](../COMPATIBILITY-MATRIX.md).
 
 ### G11. Lifecycle timeout *(optional, needs a slow add-on)*.
 
-- Restart an allowlisted add-on whose restart outlasts the Supervisor timeout.
+- Restart an add-on whose restart outlasts the Supervisor timeout.
   Expect `OUTCOME_UNKNOWN`, no automatic retry by the node, and
   `ha.addon_info` afterwards read as a current snapshot only (it cannot show
   whether the restart happened).

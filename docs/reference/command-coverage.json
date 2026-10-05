@@ -2676,6 +2676,7 @@
         "app/node/tests/test_approval_policy.py",
         "app/node/tests/test_approval_preflight_contract.py",
         "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_commands.py",
         "app/node/tests/test_ha_strict_keys.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
@@ -3053,7 +3054,7 @@
       "capability_conditions": "Supervisor API is reachable, the node-side slug allowlist/denylist policy permits the target, and the call carries a valid native approval marker (otherwise PROPOSAL_REQUIRED).",
       "command": "ha.addon_update",
       "evidence_method": "PRODUCTION-LIVE",
-      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only the allowlist refusal was observed; no add-on update completed.",
+      "evidence_note": "AWAITING-AUTHORIZATION-PROBE: Tier B mutation; requires per-command operator greenlight before live testing. Oct 5 UAT (2026.10.4b1): only a slug-policy refusal was observed; no add-on update completed.",
       "first_shipped_in": "2026.9.13b1",
       "handler": "openclaw_node.commands.ha:handle_ha_addon_update",
       "id": "ha.addon_update",
