@@ -1,5 +1,67 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.10.15b1 (2026-10-15) — Describe an image, clearer approvals, cleaner Assist replies
+
+This beta adds a one-call way to describe a photo, makes approvals easier to
+follow and less repetitive, and tidies what Assist says back. Read the upgrade
+notes below before updating.
+
+### Describe an image (#427)
+- **New `openclaw_hass_node_assist.describe_image` service.** Give it a camera
+  snapshot, a media-source item or a file and it returns a short description of
+  the picture in one call, with no agent turn and no tools involved. Tone
+  presets and a `default_style` option are available, and large images are
+  downscaled before sending.
+- **New `vision_model` add-on option** (`provider/model`). Agents that run on a
+  CLI-backed model cannot make the image call themselves, so set `vision_model`
+  to an image-capable model. The recommended value is `openai/gpt-6-astra`.
+  OpenRouter models are refused. If the call cannot be made, the error says to
+  set this option.
+- See the new "Describe an image" guide in the docs.
+
+### Approvals
+- **Assist tells you when it is waiting for approval** instead of going quiet
+  (#424).
+- **Role-aware approvals (#421).** Admins and owners acting from a live Assist
+  turn skip the prompt for non-destructive create and update changes and
+  allowed add-on actions. Destructive actions, and anything the agent starts on
+  its own, always prompt. Admins may now start and restart add-ons.
+- **Allow for this session (#425).** Non-destructive approval prompts offer
+  "Allow for this session". The grant covers the same session, command and
+  action for up to one hour, is held in memory only, and ends when the session
+  ends or the gateway restarts. Destructive actions still offer allow-once or
+  deny only.
+- **Add-on allowlist removed (#423).** Add-on start, stop, restart and update
+  no longer need a per-slug allowlist. `homeassistant`, `supervisor` and
+  `core_*` stay always denied, the optional denylist still applies, and every
+  other add-on goes through approval. The old allowlist option is accepted but
+  ignored for this release, with a notice at startup if it is set.
+- **No pointless prompts (#419).** Calls that are certain to fail, such as
+  unknown parameters, an invalid add-on name or a write into the protected
+  `.storage/` area, are refused before you are asked to approve them.
+- **Unclear update results (#418).** If installing an update times out, the
+  result is reported as `OUTCOME_UNKNOWN` with advice to check the update entity
+  and not retry. Ambiguous errors tell the agent not to try a different command
+  for the same change.
+
+### Assist replies
+- **Only the final answer is returned (#417).** Intermediate scratch text from
+  the agent's tool steps no longer appears in the reply. Progress lines still
+  stream while it works.
+- **One progress line per tool (#422).** A tool call is shown once rather than
+  twice. A request that arrives after its turn has ended now says to ask again
+  instead of showing a permission error.
+- **`ha_*` tools only appear in Assist sessions (#420).** Other sessions use the
+  core nodes tool and its approval prompts.
+
+### Upgrade notes
+1. **Update in this order:** the add-on first, then the integration, then the
+   gateway plugin.
+2. **To use `describe_image` when the agent's model runs on a CLI backend,** set
+   the add-on's `vision_model` option, for example `openai/gpt-6-astra`.
+3. If you had an add-on lifecycle allowlist configured, you can remove it; it is
+   now ignored.
+
 ## 2026.10.4b1 (2026-10-04) — Native approvals for changes, everyday household control, safer Assist callers
 
 This beta changes how risky actions are approved, makes everyday home control
