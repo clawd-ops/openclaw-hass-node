@@ -22,5 +22,56 @@
     "abort": {
       "already_configured": "This OpenClaw HA Node — Assist endpoint is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "OpenClaw HA Node — Assist options",
+        "description": "Choose the default tone for image descriptions. A service call can still pick its own tone.",
+        "data": {
+          "default_style": "Default description style"
+        },
+        "data_description": {
+          "default_style": "Pick a preset or type your own short tone, such as \"dry and sarcastic\"."
+        }
+      }
+    }
+  },
+  "selector": {
+    "describe_image_style": {
+      "options": {
+        "straightforward": "Straightforward",
+        "serious": "Serious",
+        "funny": "Funny"
+      }
+    }
+  },
+  "services": {
+    "describe_image": {
+      "name": "Describe image",
+      "description": "Describes a photo in one line using the OpenClaw vision model and returns the text. It usually takes 20 to 40 seconds, so call it from an automation and use a response variable. Provide exactly one image source.",
+      "fields": {
+        "camera_entity_id": {
+          "name": "Camera",
+          "description": "Camera to take a snapshot from."
+        },
+        "media_content_id": {
+          "name": "Media",
+          "description": "Media source item that is an image."
+        },
+        "file_path": {
+          "name": "File path",
+          "description": "Path to an image file in an allowed folder."
+        },
+        "style": {
+          "name": "Style",
+          "description": "How the description should sound. Defaults to the style set in the integration options."
+        },
+        "instructions": {
+          "name": "Focus",
+          "description": "Optional hint about what to pay attention to, such as packages or people."
+        }
+      }
+    }
   }
 }

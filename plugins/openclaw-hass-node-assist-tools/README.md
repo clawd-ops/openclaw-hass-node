@@ -222,3 +222,23 @@ The old `readPluginConfig` from `openclaw/plugin-sdk/plugin-config` is removed.
    plugin's own config subtree from the raw gateway config payload
 5. `ctx.invokeNode` return shape (`{ ok: boolean, payload?, error? }`) — the
    policy handlers forward it directly to callers
+
+## `hass-node.describe_image` gateway method
+
+Alongside the tools, the plugin registers one operator-write gateway method,
+`hass-node.describe_image`. The add-on calls it to describe a single image
+(for example a doorbell snapshot) through the gateway's image-understanding
+runtime. It runs one vision call with no agent turn, so the model has no
+tools.
+
+Params (all keys strict): `image_base64`, `mime` (`image/jpeg`, `image/png` or
+`image/webp`), `prompt` (at most 1000 characters), and optionally `model` (`provider/model`, at most 200 characters, overrides the configured model), `agent_id`
+(a configured agent) and `timeout_ms` (1000-120000, default 40000). Images
+are limited to 8 MB decoded. The result is `{ text, provider, model }`.
+
+The model is the configured image model (`agents.defaults.imageModel`), then
+the agent's own primary model; if neither is a `provider/model` reference the
+runtime auto-detects one. Failures carry one of `INVALID_PARAMS`,
+`UNSUPPORTED_MIME`, `IMAGE_TOO_LARGE`, `UNKNOWN_AGENT`, `VISION_UNAVAILABLE`
+or `TIMEOUT`. Image bytes are written to a private temporary directory for the
+call and removed afterwards; neither the image nor the prompt is logged.

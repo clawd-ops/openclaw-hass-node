@@ -1,7 +1,7 @@
 {
   "domain": "openclaw_hass_node_assist",
   "name": "OpenClaw HA Node — Assist",
-  "after_dependencies": ["conversation"],
+  "after_dependencies": ["conversation", "camera", "media_source"],
   "codeowners": ["@clawd-ops", "@roblandry"],
   "config_flow": true,
   "documentation": "https://github.com/clawd-ops/openclaw-hass-node",

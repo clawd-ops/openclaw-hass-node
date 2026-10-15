@@ -113,6 +113,11 @@ gateway side. Short version:
    its config flow at the app socket.
 5. Pick **OpenClaw HA Node — Assist** as your HA Assist conversation agent.
 
+Once installed, the integration also adds a **Describe image** service that
+turns a camera snapshot into a one-line description, for example for a
+doorbell notification. See
+**[`docs/DESCRIBE-IMAGE.md`](docs/DESCRIBE-IMAGE.md)**.
+
 > Standalone Docker (without HA Supervisor) is **not a supported install
 > path during beta**. The runtime entrypoint depends on
 > the HA base-python image's s6-overlay `with-contenv` wrapper to pick up

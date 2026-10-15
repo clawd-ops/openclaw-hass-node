@@ -10,6 +10,7 @@ import base64
 import binascii
 import json
 import logging
+import math
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -63,6 +64,9 @@ _ADDON_DATA_DIR = Path("/data/openclaw")
 _STANDALONE_DATA_DIR = Path.home() / ".openclaw" / "hass-node"
 _EMPTY = "".join(())
 DEFAULT_ADDON_LIFECYCLE_DENYLIST = frozenset({"homeassistant", "supervisor"})
+DEFAULT_VISION_TIMEOUT_SECONDS = 45.0
+_MIN_VISION_TIMEOUT_SECONDS = 10.0
+_MAX_VISION_TIMEOUT_SECONDS = 120.0
 
 
 @dataclass(frozen=True)
@@ -149,6 +153,11 @@ class NodeConfig:
     # more fetch.  Set back to False in add-on options after the integration
     # re-fetches its token — otherwise the marker is cleared on every restart.
     reset_bootstrap: bool = False
+    # Seconds the add-on waits for one image description (the model call
+    # itself typically takes 20-30 s).
+    vision_timeout_seconds: float = DEFAULT_VISION_TIMEOUT_SECONDS
+    # Optional provider/model for image descriptions; empty uses the agent's model.
+    vision_model: str = ""
 
     @property
     def key_path(self) -> Path:
@@ -254,7 +263,42 @@ def load_config() -> NodeConfig:
         reset_pairing=_parse_reset_pairing_env("OPENCLAW_RESET_PAIRING"),
         reset_bootstrap=os.environ.get("OPENCLAW_RESET_BOOTSTRAP", "").strip().lower()
         in {"1", "true", "yes", "on", "y"},
+        vision_timeout_seconds=_parse_vision_timeout_env("OPENCLAW_VISION_TIMEOUT_SECONDS"),
+        vision_model=_parse_vision_model_env("OPENCLAW_VISION_MODEL"),
     )
+
+
+def _parse_vision_model_env(name: str) -> str:
+    """Read the optional ``provider/model`` override (validated per request)."""
+    from openclaw_node.vision import VisionError, validate_model_ref
+
+    raw = os.environ.get(name, "").strip()
+    try:
+        validate_model_ref(raw)
+    except VisionError as exc:
+        # Kept as-is so every describe request is refused with a clear error
+        # instead of silently using a different model.
+        _LOG.error("%s is invalid: %s", name, exc.detail)
+    return raw
+
+
+def _parse_vision_timeout_env(name: str) -> float:
+    """Parse the image-description timeout, clamped to a sane range.
+
+    Unset or unparseable values fall back to the default; out-of-range values
+    are clamped, so a typo cannot disable the timeout or make it absurd.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return DEFAULT_VISION_TIMEOUT_SECONDS
+    try:
+        value = float(raw)
+    except ValueError:
+        _LOG.warning("%s=%r is not a number; using the default", name, raw)
+        return DEFAULT_VISION_TIMEOUT_SECONDS
+    if not math.isfinite(value):
+        return DEFAULT_VISION_TIMEOUT_SECONDS
+    return max(_MIN_VISION_TIMEOUT_SECONDS, min(_MAX_VISION_TIMEOUT_SECONDS, value))
 
 
 _RESET_PAIRING_MODES = frozenset({"none", "token", "identity"})

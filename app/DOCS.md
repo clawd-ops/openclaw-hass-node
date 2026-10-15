@@ -116,6 +116,27 @@ control surface. The manifest field reference is at
   still only be open intentionally. See `docs/security-notes.md` for the
   full bootstrap threat model.
 
+### `vision_timeout_seconds`
+
+- **Purpose**: How long to wait for one image description from the
+  **Describe image** service before giving up. The vision model itself
+  usually needs 20 to 30 seconds.
+- **Type**: `int(10,120)?`.
+- **Example**: `60`.
+- **Default**: `45`.
+
+### `vision_model`
+
+- **Purpose**: Which model describes images for the **Describe image**
+  service, as `provider/model`. Leave empty to use your agent's own model.
+  Set it if your agent runs on a CLI backend, which cannot make the direct
+  API call a description needs; the service then reports
+  `VISION_UNAVAILABLE`.
+- **Type**: `str?`.
+- **Example**: `openai/gpt-6-astra` (recommended for agents on a
+  CLI-backed model). The value is used as written.
+- **Default**: empty.
+
 ### `identity.super_admins`
 
 - **Purpose**: List of Home Assistant usernames whose Assist turns

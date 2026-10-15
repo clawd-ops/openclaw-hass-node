@@ -24,7 +24,7 @@ from typing import Any, Final
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from openclaw_node import __version__
-from openclaw_node.authz import actor_from_signed_body, resolve_turn_authz
+from openclaw_node.authz import actor_from_signed_body, resolve_agent_id, resolve_turn_authz
 from openclaw_node.caller import Caller
 from openclaw_node.chat_relay import (
     ChatRelay,
@@ -37,6 +37,20 @@ from openclaw_node.config import NodeConfig
 from openclaw_node.identity import _open_private_fd
 from openclaw_node.pairing import PairingState
 from openclaw_node.token_store import rotate_local_api_token
+from openclaw_node.vision import (
+    ERROR_MESSAGES,
+    MAX_IMAGE_BYTES,
+    MAX_SOURCE_CHARS,
+    SUPPORTED_MIMES,
+    SingleFlight,
+    VisionError,
+    build_prompt,
+    classify_gateway_error,
+    decoded_size,
+    plugin_timeout_ms,
+    sanitize_text,
+    validate_model_ref,
+)
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -83,6 +97,23 @@ _HTTP_COMMAND_ALLOWLIST: Final[frozenset[str]] = frozenset(
 
 _Handler = Callable[[web.Request], Awaitable[web.StreamResponse]]
 
+# Base64 inflates by 4/3; leave room for the JSON envelope around the image.
+_VISION_MAX_BODY_BYTES: Final[int] = (MAX_IMAGE_BYTES * 4) // 3 + 64 * 1024
+
+_VISION_STATUS: Final[dict[str, int]] = {
+    "INVALID_REQUEST": 400,
+    "INVALID_PARAMS": 400,
+    "INVALID_MODEL": 400,
+    "UNSUPPORTED_MIME": 415,
+    "IMAGE_TOO_LARGE": 413,
+    "SUPERSEDED": 409,
+    "TIMEOUT": 504,
+    "NOT_PAIRED": 503,
+    "OPERATOR_NOT_CONNECTED": 503,
+    "RELAY_NOT_INITIALISED": 503,
+    "INTERNAL_ERROR": 500,
+}
+
 
 class NodeRuntime:
     """Shared runtime state for the local HTTP API.
@@ -126,6 +157,8 @@ class NodeRuntime:
         self.node_connected: bool = False
         self.operator_connected: bool = False
         self.chat_relay: ChatRelay | None = None
+        # Single-flight registry for /v1/vision/describe.
+        self.vision_flights: SingleFlight = SingleFlight()
 
     @property
     def gateway_connected(self) -> bool:
@@ -227,6 +260,9 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_get("/v1/conversation/info", conversation_info)
     app.router.add_get("/v1/bootstrap", bootstrap)
     app.router.add_post("/v1/bootstrap/claim", bootstrap_claim)
+    # Images are far larger than any other request body; the handler enforces
+    # its own bound instead of raising the limit for the whole API.
+    app.router.add_post("/v1/vision/describe", vision_describe)
     return app
 
 
@@ -355,6 +391,41 @@ async def _json_body(request: web.Request) -> dict[str, Any]:
     if not request.can_read_body:  # pragma: no cover — GET/HEAD requests only
         return {}
     body = await request.json()
+    if body is None:
+        return {}
+    if not isinstance(body, dict):
+        raise web.HTTPBadRequest(text="JSON body must be an object")
+    return body
+
+
+async def _json_body_limited(request: web.Request, limit: int) -> dict[str, Any]:
+    """Parse a JSON object body, reading at most ``limit`` bytes.
+
+    The application-wide body limit is small, and aiohttp applies the root
+    application's limit to ``request.json()``, so large bodies are read here
+    with an explicit bound instead.
+
+    Args:
+        request: Incoming request.
+        limit: Largest body to accept, in bytes.
+
+    Returns:
+        The parsed dict.
+
+    Raises:
+        web.HTTPRequestEntityTooLarge: If the body exceeds ``limit``.
+        web.HTTPBadRequest: If the body is not a JSON object.
+    """
+    if request.content_length is not None and request.content_length > limit:
+        raise web.HTTPRequestEntityTooLarge(max_size=limit, actual_size=request.content_length)
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.content.iter_chunked(64 * 1024):
+        total += len(chunk)
+        if total > limit:
+            raise web.HTTPRequestEntityTooLarge(max_size=limit, actual_size=total)
+        chunks.append(chunk)
+    body = json.loads(b"".join(chunks) or b"null")
     if body is None:
         return {}
     if not isinstance(body, dict):
@@ -694,6 +765,111 @@ async def _stream_error(request: web.Request, code: str, status: int) -> web.Str
     return response
 
 
+def _vision_error(code: str) -> web.Response:
+    """Return the JSON error body for a describe-image failure.
+
+    Only the curated message for ``code`` is sent; node, gateway and plugin
+    text never reach the caller.
+    """
+    return web.json_response(
+        {
+            "ok": False,
+            "error": code,
+            "message": ERROR_MESSAGES.get(code, ERROR_MESSAGES["VISION_FAILED"]),
+        },
+        status=_VISION_STATUS.get(code, 502),
+        headers=_JSON_HEADERS,
+    )
+
+
+async def vision_describe(request: web.Request) -> web.Response:
+    """Describe one image in a single vision call.
+
+    Body (JSON): ``image_base64`` and ``mime`` (required), ``style`` (a preset
+    name or short custom tone), ``instructions`` (optional focus text) and
+    ``source`` (optional single-flight key: a newer request with the same
+    source replaces an older one still running, and the older caller receives
+    ``SUPERSEDED``).
+
+    The prompt is built here from a fixed wrapper; callers only supply a tone
+    and an optional focus. There is no agent turn and no tool access.
+
+    Args:
+        request: Incoming authenticated request.
+
+    Returns:
+        ``{"ok": true, "text": "..."}`` or ``{"ok": false, "error": CODE,
+        "message": "..."}``.
+    """
+    runtime = _runtime(request)
+    try:
+        body = await _json_body_limited(request, _VISION_MAX_BODY_BYTES)
+    except (ValueError, web.HTTPBadRequest):
+        return _vision_error("INVALID_REQUEST")
+    except web.HTTPRequestEntityTooLarge:
+        return _vision_error("IMAGE_TOO_LARGE")
+
+    image = body.get("image_base64")
+    mime = body.get("mime")
+    if not isinstance(image, str) or not image:
+        return _vision_error("INVALID_REQUEST")
+    if not isinstance(mime, str) or mime not in SUPPORTED_MIMES:
+        return _vision_error("UNSUPPORTED_MIME")
+    if decoded_size(image) > MAX_IMAGE_BYTES:
+        return _vision_error("IMAGE_TOO_LARGE")
+    try:
+        prompt = build_prompt(body.get("style"), body.get("instructions"))
+    except VisionError as exc:
+        return _vision_error(exc.code)
+    source = sanitize_text(body.get("source"), MAX_SOURCE_CHARS)
+    try:
+        vision_model = validate_model_ref(runtime.config.vision_model)
+    except VisionError as exc:
+        return _vision_error(exc.code)
+
+    if not runtime.is_paired:
+        return _vision_error("NOT_PAIRED")
+    if not runtime.operator_connected:
+        return _vision_error("OPERATOR_NOT_CONNECTED")
+    relay = runtime.chat_relay
+    if relay is None:
+        return _vision_error("RELAY_NOT_INITIALISED")
+
+    timeout_s = runtime.config.vision_timeout_seconds
+    # The agent Assist routes anonymous turns to, so the description uses the
+    # same model configuration.
+    agent_id = resolve_agent_id(runtime.config.identity, None)
+
+    async def _call() -> dict[str, Any]:
+        return await relay.describe_image(
+            image_base64=image,
+            mime=mime,
+            prompt=prompt,
+            agent_id=agent_id,
+            plugin_timeout_ms=plugin_timeout_ms(timeout_s),
+            timeout=timeout_s,
+            model=vision_model,
+        )
+
+    try:
+        result = await runtime.vision_flights.run(source, _call)
+    except VisionError as exc:
+        _LOG.info("describe_image: %s", exc.code)
+        return _vision_error(exc.code)
+    except ChatRelayError as exc:
+        code = classify_gateway_error(exc.code, exc.message)
+        _LOG.warning("describe_image failed: %s %s", exc.code, exc.message)
+        return _vision_error(code)
+    except Exception:
+        _LOG.exception("Unexpected error in describe_image")
+        return _vision_error("INTERNAL_ERROR")
+
+    text = result.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return _vision_error("VISION_UNAVAILABLE")
+    return web.json_response({"ok": True, "text": text.strip()}, headers=_JSON_HEADERS)
+
+
 async def conversation_info(request: web.Request) -> web.Response:
     """Return Assist-integration diagnostic metadata.
 
@@ -718,6 +894,9 @@ async def conversation_info(request: web.Request) -> web.Response:
             # falls back to /v1/conversation otherwise.
             "supports_streaming": True,
             "streaming_endpoint": "/v1/conversation/stream",
+            # The companion integration checks this before offering the
+            # describe_image service.
+            "supports_vision": True,
         },
         status=200,
         headers=_JSON_HEADERS,

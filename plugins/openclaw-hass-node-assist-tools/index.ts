@@ -13,6 +13,7 @@ import { normalizeAssistSessionKey, runWithCallerContext } from "./src/shared/ca
 import { grantSessionKey, sessionGrants } from "./src/shared/approval-grants.js";
 import { ADMIN_TOOL_COMMANDS, beforeToolCall } from "./src/shared/node-approval.js";
 import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.js";
+import { registerDescribeImage, type DescribeImageApi, type GatewayRegistrar } from "./src/vision/describe-image.js";
 import {
   resolvedAssistCommandRegistrations,
   type AssistToolDescriptor,
@@ -71,6 +72,8 @@ export default definePluginEntry({
     "Scoped tool wrappers so HA Assist sessions can operate the paired Home Assistant node without the operator-only nodes.invoke tool.",
   register(api) {
     api.registerNodeInvokePolicy(createLazyAssistToolsNodeInvokePolicy());
+    // The bundled SDK stub omits `config`, `runtime` and `registerGatewayMethod`; the real host provides them.
+    registerDescribeImage(api as unknown as DescribeImageApi & GatewayRegistrar);
     // The host calls handlers as (event, ctx); pass only ctx.sessionKey, never ctx itself, so it cannot reach the clock param.
     (api as unknown as HookApi).on("before_tool_call", (event, ctx) => beforeToolCall(event, undefined, (ctx as { sessionKey?: unknown } | undefined)?.sessionKey), {
       matcher: ["nodes", ...Object.keys(ADMIN_TOOL_COMMANDS)],
