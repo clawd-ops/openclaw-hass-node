@@ -162,10 +162,37 @@ def _build_ha_assist_message(text: str, authz: TurnAuthz | None) -> str:
     return f"{_HA_ASSIST_CONTEXT}\n\n{body}"
 
 
+# `session.approval` events (sessions.messages.subscribe with includeApprovals)
+# carry phase "pending" | "terminal" plus a sanitized approval snapshot while a
+# plugin approval (the before_tool_call hook in
+# plugins/openclaw-hass-node-assist-tools) holds a tool call.
+_APPROVAL_WAITING_LINE: Final[str] = "\n⏸ Approval required, waiting on you (Discord / Control UI)"
+_APPROVAL_DECISION_PREFIX: Final[str] = "\nApproval decision: "
+_APPROVAL_OPT_IN_REFUSALS: Final[frozenset[str]] = frozenset(
+    {"FORBIDDEN", "UNAVAILABLE", "INVALID_REQUEST"}
+)
+
+
+def _approval_terminal_line(approval: dict[str, Any]) -> str:
+    """Describe a terminal approval snapshot (status/decision) in one line."""
+    status = approval.get("status")
+    decision = approval.get("decision")
+    if status == "allowed" and decision in ("allow-once", "allow-always"):
+        outcome = f"approved ({decision})"
+    elif status == "denied":
+        outcome = "denied (deny)"
+    elif status == "expired":
+        outcome = "timed out"
+    else:
+        outcome = "approval ended"
+    return f"{_APPROVAL_DECISION_PREFIX}{outcome}"
+
+
 def _is_plain_text_status_chunk(text: str) -> bool:
     """Return True when *text* is a relay-generated progress/status chunk."""
     return (
-        text == _STREAM_PROGRESS_DELTA
+        text in (_STREAM_PROGRESS_DELTA, _APPROVAL_WAITING_LINE)
+        or text.startswith(_APPROVAL_DECISION_PREFIX)
         or text.startswith("\n🔧 Calling ")
         or text.startswith("🔧 Calling ")
         or text.startswith(" (x")
@@ -303,6 +330,8 @@ class ChatRelay:
         self._gateway_agents: tuple[str, ...] | None = None
         self._inventory_lock = asyncio.Lock()
         self._subscribed: set[str] = set()  # canonical keys
+        # canonical key -> ids of approvals replayed as pending on subscribe
+        self._replay_pending: dict[str, set[str]] = {}
         # Running buffer — overwritten by every assistant event (deltas
         # included). Used as the BEST-EFFORT fallback when the turn times
         # out without ever seeing a terminal event.
@@ -593,6 +622,8 @@ class ChatRelay:
         self._text_status_open[canonical_key] = False
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
         self._delta_queues[canonical_key] = queue
+        if self._replay_pending.pop(canonical_key, None):
+            self._push_approval_line(canonical_key, _APPROVAL_WAITING_LINE)
 
         idempotency_key = str(uuid.uuid4())
         message = _build_ha_assist_message(text, authz)
@@ -1018,25 +1049,58 @@ class ChatRelay:
             else:
                 raise
 
+        # includeApprovals is per subscribe call, not sticky: every subscribe for
+        # an Assist session must carry it or the approval events stop.
         try:
             sub_response = await self._rpc(
                 "sessions.messages.subscribe",
-                {"key": session_key},
+                {"key": session_key, "includeApprovals": True},
                 timeout=_RPC_TIMEOUT_S,
             )
         except ChatRelayError as exc:
+            if exc.code.upper() not in _APPROVAL_OPT_IN_REFUSALS:
+                _LOG.warning(
+                    "sessions.messages.subscribe failed for %s: %s",
+                    session_key,
+                    exc.code,
+                )
+                raise
             _LOG.warning(
-                "sessions.messages.subscribe failed for %s: %s",
-                session_key,
+                "Gateway refused includeApprovals on sessions.messages.subscribe "
+                "(%s: %s); subscribing without it, so no approval notice on the "
+                "Assist stream",
                 exc.code,
+                exc.message,
             )
-            raise
+            try:
+                sub_response = await self._rpc(
+                    "sessions.messages.subscribe",
+                    {"key": session_key},
+                    timeout=_RPC_TIMEOUT_S,
+                )
+            except ChatRelayError as retry_exc:
+                _LOG.warning(
+                    "sessions.messages.subscribe failed for %s: %s",
+                    session_key,
+                    retry_exc.code,
+                )
+                raise
 
         canonical_key = session_key
         if isinstance(sub_response, dict):
             response_key = sub_response.get("key")
             if isinstance(response_key, str) and response_key:
                 canonical_key = response_key
+            replay = sub_response.get("approvalReplay")
+            approvals = replay.get("approvals") if isinstance(replay, dict) else None
+            if isinstance(approvals, list):
+                pending_ids = {
+                    str(a["id"])
+                    for a in approvals
+                    if isinstance(a, dict) and a.get("id") is not None
+                }
+                if pending_ids:
+                    self._replay_pending[canonical_key] = pending_ids
 
         if canonical_key != session_key:
             _LOG.info(
@@ -1217,6 +1281,35 @@ class ChatRelay:
             )
         return str(content) if content else ""
 
+    def _push_approval_line(self, key: str, line: str) -> None:
+        """Queue *line* on the plain-text stream of the current turn, if any."""
+        queue = self._delta_queues.get(key)
+        if queue is None or self._use_tool_frames.get(key, False):
+            return
+        queue.put_nowait(line)
+        self._text_has_visible_output[key] = True
+        self._text_status_open[key] = True
+
+    def _handle_approval_event(self, payload: dict[str, Any]) -> None:
+        """Show a pending/terminal plugin approval on the plain-text stream."""
+        raw_key = str(payload.get("sessionKey", ""))
+        key = self._canonical_by_raw.get(raw_key) or raw_key
+        approval = payload.get("approval")
+        phase = payload.get("phase")
+        if not isinstance(approval, dict):
+            return
+        if phase == "pending":
+            self._push_approval_line(key, _APPROVAL_WAITING_LINE)
+        elif phase == "terminal":
+            # A replayed approval that resolved is no longer waiting, whether or
+            # not a stream is open to show the decision.
+            replayed = self._replay_pending.get(key)
+            if replayed is not None:
+                replayed.discard(str(approval.get("id")))
+                if not replayed:
+                    del self._replay_pending[key]
+            self._push_approval_line(key, _approval_terminal_line(approval))
+
     def handle_event(self, msg: dict[str, Any]) -> None:
         """Process session/chat events to capture assistant reply text.
 
@@ -1278,6 +1371,9 @@ class ChatRelay:
         # the seq of the currently active tool — race fix for interleaved
         # out-of-order ``end`` deliveries on multi-tool turns.
         payload_stream = payload.get("stream")
+        if event == "session.approval":
+            self._handle_approval_event(payload)
+            return
         if event in ("agent", "session.tool") and payload_stream in ("tool", "item"):
             raw_session_key = str(payload.get("sessionKey", ""))
             tool_canonical_key = self._canonical_by_raw.get(raw_session_key) or raw_session_key
@@ -1619,6 +1715,7 @@ class ChatRelay:
         self._chat_send_canonical.clear()
         self._canonical_by_raw.clear()
         self._subscribed.clear()
+        self._replay_pending.clear()
         self._last_assistant_text.clear()
         self._terminal_assistant_text.clear()
         # Close any active stream consumers with a DISCONNECTED error

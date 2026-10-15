@@ -41,6 +41,7 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
 - `ha_*` wrappers are hidden outside Assist sessions (#414); non-Assist sessions use the `nodes` tool and its approval hook.
 - Role-aware approvals (#405, #406) shipped. Open: the plugin cannot see the caller's role, so a super_admin add-on stop still prompts in the plugin even though the node would allow it; HA restart and stop services remain denied for every caller until an approval path exists.
 - "Allow always" approvals (#407) are session + command + action scoped, in memory, 1 hour; never offered for destructive calls.
+- Approval waiting notice (#404): Assist stream line via `sessions.messages.subscribe` `includeApprovals` (`session.approval` events); needs live UAT to confirm delivery, with a warning-and-fallback if the gateway refuses the opt-in. Agent-facing wording stays gateway-owned; a hook cannot rewrite results.
 
 ### 12. Generated docs site for node command surface + protocols
 - Status: OPEN (partially implemented) — the MkDocs Material site and strict CI
