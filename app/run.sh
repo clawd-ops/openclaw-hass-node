@@ -105,6 +105,9 @@ if reset_bootstrap_raw is True:
 vision_timeout = data.get('vision_timeout_seconds')
 if isinstance(vision_timeout, (int, float)) and not isinstance(vision_timeout, bool):
     values['OPENCLAW_VISION_TIMEOUT_SECONDS'] = vision_timeout
+vision_model = data.get('vision_model')
+if isinstance(vision_model, str) and vision_model.strip():
+    values['OPENCLAW_VISION_MODEL'] = vision_model.strip()
 # Optional HA credentials fallback. ha_client.py already reads HASS_URL
 # and HASS_TOKEN from env when SUPERVISOR_TOKEN is missing; surface them
 # only when the user actually filled the option in, so we don't clobber a

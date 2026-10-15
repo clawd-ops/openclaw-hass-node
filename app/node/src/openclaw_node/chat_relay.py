@@ -1022,6 +1022,7 @@ class ChatRelay:
         agent_id: str,
         plugin_timeout_ms: int,
         timeout: float,
+        model: str = "",
     ) -> dict[str, Any]:
         """Describe one image through the gateway plugin's vision method.
 
@@ -1036,6 +1037,7 @@ class ChatRelay:
                 empty to let the plugin pick its default.
             plugin_timeout_ms: Time budget the plugin gives the model call.
             timeout: Seconds to wait for the RPC reply.
+            model: Optional ``provider/model`` override for the vision call.
 
         Returns:
             The method payload: ``text``, ``provider`` and ``model``.
@@ -1052,6 +1054,8 @@ class ChatRelay:
         }
         if agent_id:
             params["agent_id"] = agent_id
+        if model:
+            params["model"] = model
         return await self._rpc("hass-node.describe_image", params, timeout=timeout)
 
     async def _ensure_session(self, session_key: str, conversation_id: str) -> str:

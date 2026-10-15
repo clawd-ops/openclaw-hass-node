@@ -156,6 +156,8 @@ class NodeConfig:
     # Seconds the add-on waits for one image description (the model call
     # itself typically takes 20-30 s).
     vision_timeout_seconds: float = DEFAULT_VISION_TIMEOUT_SECONDS
+    # Optional provider/model for image descriptions; empty uses the agent's model.
+    vision_model: str = ""
 
     @property
     def key_path(self) -> Path:
@@ -262,7 +264,19 @@ def load_config() -> NodeConfig:
         reset_bootstrap=os.environ.get("OPENCLAW_RESET_BOOTSTRAP", "").strip().lower()
         in {"1", "true", "yes", "on", "y"},
         vision_timeout_seconds=_parse_vision_timeout_env("OPENCLAW_VISION_TIMEOUT_SECONDS"),
+        vision_model=_parse_vision_model_env("OPENCLAW_VISION_MODEL"),
     )
+
+
+def _parse_vision_model_env(name: str) -> str:
+    """Parse the optional ``provider/model`` override, ignoring malformed values."""
+    from openclaw_node.vision import parse_model_ref
+
+    raw = os.environ.get(name, "").strip()
+    value = parse_model_ref(raw)
+    if raw and not value:
+        _LOG.warning("%s is not a valid provider/model reference; ignoring it", name)
+    return value
 
 
 def _parse_vision_timeout_env(name: str) -> float:

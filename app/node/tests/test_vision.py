@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 from collections.abc import AsyncGenerator
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -27,6 +28,7 @@ from openclaw_node.vision import (
     VisionError,
     build_prompt,
     classify_gateway_error,
+    parse_model_ref,
     plugin_timeout_ms,
     resolve_tone,
     sanitize_text,
@@ -607,3 +609,77 @@ async def test_conversation_info_advertises_vision(make_client: Any) -> None:
     tc = await make_client()
     data = await (await tc.get("/v1/conversation/info")).json()
     assert data["supports_vision"] is True
+
+
+# --- vision_model option ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("openai/gpt-6-astra", "openai/gpt-6-astra"),
+        ("  openai/gpt-6-astra  ", "openai/gpt-6-astra"),
+        ("", ""),
+        ("gpt", ""),
+        ("/x", ""),
+        ("a/b c", ""),
+        ("a/" + "x" * 200, ""),
+        (5, ""),
+        (None, ""),
+    ],
+)
+def test_parse_model_ref(raw: object, expected: str) -> None:
+    assert parse_model_ref(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [(None, ""), ("openai/gpt-6-astra", "openai/gpt-6-astra"), ("not a model", "")],
+)
+def test_vision_model_env(monkeypatch: pytest.MonkeyPatch, raw: str | None, expected: str) -> None:
+    monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
+    if raw is None:
+        monkeypatch.delenv("OPENCLAW_VISION_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("OPENCLAW_VISION_MODEL", raw)
+    assert load_config().vision_model == expected
+
+
+@pytest.mark.asyncio
+async def test_relay_sends_model_only_when_set() -> None:
+    frames: list[dict[str, Any]] = []
+
+    async def send(frame: dict[str, Any]) -> None:
+        frames.append(frame)
+
+    relay = ChatRelay(send)
+    for model in ("openai/gpt-6-astra", ""):
+        task = asyncio.ensure_future(
+            relay.describe_image(
+                image_base64=_JPEG,
+                mime="image/jpeg",
+                prompt="p",
+                agent_id="",
+                plugin_timeout_ms=1000,
+                timeout=5,
+                model=model,
+            )
+        )
+        await asyncio.sleep(0)
+        relay.handle_response({"type": "res", "id": frames[-1]["id"], "ok": True, "payload": {}})
+        await task
+    assert frames[0]["params"]["model"] == "openai/gpt-6-astra"
+    assert "model" not in frames[1]["params"]
+
+
+@pytest.mark.asyncio
+async def test_describe_passes_the_configured_model(tmp_path: Path, make_client: Any) -> None:
+    runtime = _runtime(tmp_path)
+    runtime.config = replace(runtime.config, vision_model="openai/gpt-6-astra")
+    tc = await make_client(runtime)
+    assert (await tc.post("/v1/vision/describe", json=_body())).status == 200
+    assert _relay(runtime).describe_image.call_args.kwargs["model"] == "openai/gpt-6-astra"
+
+
+def test_vision_unavailable_message_points_at_vision_model() -> None:
+    assert "vision_model" in VisionError("VISION_UNAVAILABLE").message

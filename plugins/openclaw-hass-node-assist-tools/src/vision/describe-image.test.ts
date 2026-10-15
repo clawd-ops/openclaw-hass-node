@@ -106,6 +106,39 @@ describe("parseDescribeImageParams", () => {
   });
 });
 
+describe("model override", () => {
+  it("validates provider/model and length", () => {
+    expect(parseDescribeImageParams(goodParams({ model: "openai/gpt-6-astra" }))).toMatchObject({
+      ok: true,
+      value: { model: { provider: "openai", model: "gpt-6-astra" } },
+    });
+    for (const bad of ["gpt", "/x", "a/", 5, "a/b c", `a/${"x".repeat(200)}`]) {
+      expect(parseDescribeImageParams(goodParams({ model: bad }))).toMatchObject({ ok: false, code: "INVALID_PARAMS" });
+    }
+  });
+
+  it("wins over the configured agent model", async () => {
+    const { api, mediaUnderstanding } = makeApi();
+    const [ok] = await call(api, goodParams({ agent_id: "clawd", model: "openai/gpt-6-astra-2" }));
+    expect(ok).toBe(true);
+    expect(mediaUnderstanding.describeImageFileWithModel).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "openai", model: "gpt-6-astra-2" }),
+    );
+  });
+
+  it("maps an auth failure to VISION_UNAVAILABLE naming vision_model", async () => {
+    const { api } = makeApi({
+      describeImageFileWithModel: vi.fn(async () => {
+        throw new Error('No API key found for provider "anthropic"');
+      }),
+    });
+    const [ok, , error] = await call(api, goodParams());
+    expect(ok).toBe(false);
+    expect(error?.code).toBe("VISION_UNAVAILABLE");
+    expect(error?.message).toContain("vision_model");
+  });
+});
+
 describe("resolveVisionModel", () => {
   it("prefers the image model, then the agent primary, then the default primary", () => {
     expect(

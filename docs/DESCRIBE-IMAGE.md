@@ -52,6 +52,13 @@ running, the older one stops with a `SUPERSEDED` error and the newer one
 continues. This keeps a doorbell that is pressed repeatedly from piling up
 requests.
 
+## Choosing the model
+
+By default the description uses your agent's own model. If your agent runs on a
+CLI backend (for example the Claude CLI), that model has no direct API access
+and the service fails with `VISION_UNAVAILABLE`. Set the app option
+`vision_model` to a `provider/model` that does, such as `openai/gpt-6-astra`.
+
 The app waits up to 45 seconds by default. Change this with the
 `vision_timeout_seconds` option in the app configuration.
 
@@ -107,7 +114,7 @@ The service raises an error that starts with a short code.
 | --- | --- |
 | `TIMEOUT` | The description took longer than the app's limit. Raise `vision_timeout_seconds`. |
 | `SUPERSEDED` | A newer request for the same source replaced this one. |
-| `VISION_UNAVAILABLE` | The gateway's vision model returned nothing. Check that an image-capable model is configured. |
+| `VISION_UNAVAILABLE` | The vision model returned nothing or could not be reached. Set `vision_model` to an image-capable `provider/model`. |
 | `VISION_PLUGIN_MISSING` | The gateway plugin is out of date. Update it. |
 | `NODE_UNREACHABLE` | Home Assistant could not reach the app. |
 | `IMAGE_UNREADABLE`, `IMAGE_TOO_LARGE`, `IMAGE_PATH_NOT_ALLOWED` | The image source could not be used. |

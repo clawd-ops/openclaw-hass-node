@@ -813,6 +813,7 @@ async def vision_describe(request: web.Request) -> web.Response:
             agent_id=agent_id,
             plugin_timeout_ms=plugin_timeout_ms(timeout_s),
             timeout=timeout_s,
+            model=runtime.config.vision_model,
         )
 
     try:

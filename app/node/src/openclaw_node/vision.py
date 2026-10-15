@@ -68,13 +68,40 @@ ERROR_MESSAGES: Final[dict[str, str]] = {
     "UNSUPPORTED_MIME": "Only JPEG, PNG and WebP images are supported.",
     "IMAGE_TOO_LARGE": "The image is too large.",
     "UNKNOWN_AGENT": "The configured OpenClaw agent was not found.",
-    "VISION_UNAVAILABLE": "No vision model produced a description.",
+    "VISION_UNAVAILABLE": (
+        "No vision model produced a description. If your agent runs on a CLI backend, "
+        "set the add-on option vision_model."
+    ),
     "VISION_PLUGIN_MISSING": "The OpenClaw gateway plugin does not support image descriptions.",
     "VISION_FAILED": "The image could not be described.",
     "TIMEOUT": "The description took too long.",
     "SUPERSEDED": "A newer request for the same source replaced this one.",
     "INTERNAL_ERROR": "Internal error while describing the image.",
 }
+
+MAX_MODEL_CHARS: Final[int] = 200
+_MODEL_REF: Final[re.Pattern[str]] = re.compile(
+    r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._:/@+-]*"
+)
+
+
+def parse_model_ref(raw: object) -> str:
+    """Return ``raw`` as a clean ``provider/model`` string, or ``""`` when unset or invalid.
+
+    Args:
+        raw: Untrusted option value.
+
+    Returns:
+        The stripped reference, or an empty string if it is not a valid
+        ``provider/model`` of at most :data:`MAX_MODEL_CHARS` characters.
+    """
+    if not isinstance(raw, str):
+        return ""
+    value = raw.strip()
+    if len(value) > MAX_MODEL_CHARS or not _MODEL_REF.fullmatch(value):
+        return ""
+    return value
+
 
 _WHITESPACE: Final[re.Pattern[str]] = re.compile(r"\s+")
 

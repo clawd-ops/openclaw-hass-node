@@ -48,9 +48,12 @@ const ALLOWED_KEYS: ReadonlySet<string> = new Set([
   "prompt",
   "agent_id",
   "timeout_ms",
+  "model",
 ]);
 
 const AGENT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+const MAX_MODEL_CHARS = 200;
+const MODEL_REF = /^[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._:/@+-]*$/;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 /** Validated request parameters. */
@@ -59,6 +62,8 @@ export type DescribeImageRequest = {
   mime: string;
   prompt: string;
   agentId?: string;
+  /** Explicit `provider/model` override; wins over configured models. */
+  model?: ModelRef;
   timeoutMs: number;
 };
 
@@ -109,7 +114,7 @@ export function parseDescribeImageParams(raw: unknown): Parsed {
     if (!ALLOWED_KEYS.has(key)) return fail("INVALID_PARAMS", `unknown param: ${key}`);
   }
 
-  const { mime, prompt, image_base64: encoded, agent_id: agentId, timeout_ms: timeoutRaw } = params;
+  const { mime, prompt, image_base64: encoded, agent_id: agentId, timeout_ms: timeoutRaw, model: modelRaw } = params;
   if (typeof mime !== "string" || !Object.hasOwn(EXTENSION_BY_MIME, mime)) {
     return fail("UNSUPPORTED_MIME", "mime must be image/jpeg, image/png or image/webp");
   }
@@ -142,6 +147,15 @@ export function parseDescribeImageParams(raw: unknown): Parsed {
     resolvedAgent = agentId;
   }
 
+  let model: ModelRef | undefined;
+  if (modelRaw !== undefined) {
+    const ref = typeof modelRaw === "string" ? parseModelRef(modelRaw.trim()) : undefined;
+    if (typeof modelRaw !== "string" || modelRaw.trim().length > MAX_MODEL_CHARS || !MODEL_REF.test(modelRaw.trim()) || !ref) {
+      return fail("INVALID_PARAMS", `model must be provider/model, at most ${MAX_MODEL_CHARS} characters`);
+    }
+    model = ref;
+  }
+
   let timeoutMs = DEFAULT_TIMEOUT_MS;
   if (timeoutRaw !== undefined) {
     if (
@@ -157,7 +171,7 @@ export function parseDescribeImageParams(raw: unknown): Parsed {
 
   return {
     ok: true,
-    value: { image, mime, prompt, ...(resolvedAgent ? { agentId: resolvedAgent } : {}), timeoutMs },
+    value: { image, mime, prompt, ...(resolvedAgent ? { agentId: resolvedAgent } : {}), ...(model ? { model } : {}), timeoutMs },
   };
 }
 
@@ -250,6 +264,10 @@ function timeoutLike(error: unknown): boolean {
   return error instanceof Error && (error.name === "TimeoutError" || /time(d)? ?out/i.test(error.message));
 }
 
+function authFailureLike(error: unknown): boolean {
+  return error instanceof Error && /api key|unauthori[sz]ed|\b40[13]\b|auth(entication|orization)?\b.*(fail|missing|required)|no .*credentials?/i.test(error.message);
+}
+
 class DeadlineError extends Error {}
 
 async function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
@@ -293,7 +311,7 @@ export async function describeImage(
       timeoutMs: request.timeoutMs,
       ...(agentId ? { agentId } : {}),
     };
-    const explicit = resolveVisionModel(cfg, agentId);
+    const explicit = request.model ?? resolveVisionModel(cfg, agentId);
     const media = api.runtime.mediaUnderstanding;
     const attempt = explicit
       ? media.describeImageFileWithModel({ ...base, ...explicit })
@@ -313,6 +331,12 @@ export async function describeImage(
     if (error instanceof DescribeImageError) throw error;
     if (error instanceof DeadlineError || timeoutLike(error)) {
       throw new DescribeImageError("TIMEOUT", "the vision call timed out");
+    }
+    if (authFailureLike(error)) {
+      throw new DescribeImageError(
+        "VISION_UNAVAILABLE",
+        "no API access for the vision model; set vision_model to a provider/model with direct API access",
+      );
     }
     throw new DescribeImageError("VISION_UNAVAILABLE", "the vision call failed");
   } finally {

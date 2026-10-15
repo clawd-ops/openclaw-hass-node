@@ -232,7 +232,7 @@ runtime. It runs one vision call with no agent turn, so the model has no
 tools.
 
 Params (all keys strict): `image_base64`, `mime` (`image/jpeg`, `image/png` or
-`image/webp`), `prompt` (at most 1000 characters), and optionally `agent_id`
+`image/webp`), `prompt` (at most 1000 characters), and optionally `model` (`provider/model`, at most 200 characters, overrides the configured model), `agent_id`
 (a configured agent) and `timeout_ms` (1000-120000, default 40000). Images
 are limited to 8 MB decoded. The result is `{ text, provider, model }`.
 
