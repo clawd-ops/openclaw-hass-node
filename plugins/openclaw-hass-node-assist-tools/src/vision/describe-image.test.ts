@@ -112,10 +112,9 @@ describe("model override", () => {
       ok: true,
       value: { model: { provider: "openai", model: "gpt-6-astra" } },
     });
-    expect(parseDescribeImageParams(goodParams({ model: "OpenRouter/openai/gpt-6" }))).toMatchObject({
-      ok: false,
-      code: "INVALID_PARAMS",
-      message: expect.stringContaining("openrouter"),
+    expect(parseDescribeImageParams(goodParams({ model: "openrouter/openai/gpt-6" }))).toMatchObject({
+      ok: true,
+      value: { model: { provider: "openrouter", model: "openai/gpt-6" } },
     });
     for (const bad of ["gpt", "/x", "a/", 5, "a/b c", `a/${"x".repeat(200)}`]) {
       expect(parseDescribeImageParams(goodParams({ model: bad }))).toMatchObject({ ok: false, code: "INVALID_PARAMS" });
@@ -128,6 +127,15 @@ describe("model override", () => {
     expect(ok).toBe(true);
     expect(mediaUnderstanding.describeImageFileWithModel).toHaveBeenCalledWith(
       expect.objectContaining({ provider: "openai", model: "gpt-6-astra-2" }),
+    );
+  });
+
+  it("passes any provider through to the runtime unchanged", async () => {
+    const { api, mediaUnderstanding } = makeApi();
+    const [ok] = await call(api, goodParams({ model: "openrouter/openai/gpt-6" }));
+    expect(ok).toBe(true);
+    expect(mediaUnderstanding.describeImageFileWithModel).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "openrouter", model: "openai/gpt-6" }),
     );
   });
 

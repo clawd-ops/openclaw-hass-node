@@ -65,9 +65,7 @@ ERROR_MESSAGES: Final[dict[str, str]] = {
     "RELAY_NOT_INITIALISED": "The OpenClaw gateway connection is not ready.",
     "INVALID_REQUEST": "The image request was malformed.",
     "INVALID_PARAMS": "The image request was malformed.",
-    "INVALID_MODEL": (
-        "The vision_model option must be a provider/model, and not an openrouter model."
-    ),
+    "INVALID_MODEL": ("The vision_model option must be written as provider/model."),
     "UNSUPPORTED_MIME": "Only JPEG, PNG and WebP images are supported.",
     "IMAGE_TOO_LARGE": "The image is too large.",
     "UNKNOWN_AGENT": "The configured OpenClaw agent was not found.",
@@ -98,15 +96,13 @@ def validate_model_ref(raw: str) -> str:
         ``raw`` unchanged when it is empty or a valid ``provider/model``.
 
     Raises:
-        VisionError: ``INVALID_MODEL`` when it is malformed, too long, or an
-            ``openrouter/*`` model (paid per-token routing is never used here).
+        VisionError: ``INVALID_MODEL`` when it is malformed or too long. The
+            provider is never judged: the value is used verbatim.
     """
     if not raw:
         return ""
     if len(raw) > MAX_MODEL_CHARS or not _MODEL_REF.fullmatch(raw):
         raise VisionError("INVALID_MODEL", "vision_model is not a valid provider/model")
-    if raw.split("/", 1)[0].casefold() == "openrouter":
-        raise VisionError("INVALID_MODEL", "vision_model must not be an openrouter model")
     return raw
 
 

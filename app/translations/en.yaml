@@ -4,4 +4,4 @@ configuration:
     description: How long to wait for one image description. The vision model usually needs 20 to 30 seconds.
   vision_model:
     name: Image description model
-    description: Optional provider/model used to describe images, for example openai/gpt-6-astra. Leave empty to use the agent's own model. Set it to a model your gateway can call directly when the agent runs on a CLI-backed model. OpenRouter models are refused.
+    description: Optional provider/model used to describe images, for example openai/gpt-6-astra. Leave empty to use the agent's own model. Set it to a model your gateway can call directly when the agent runs on a CLI-backed model.

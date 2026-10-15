@@ -150,9 +150,6 @@ export function parseDescribeImageParams(raw: unknown): Parsed {
   let model: ModelRef | undefined;
   if (modelRaw !== undefined) {
     const ref = typeof modelRaw === "string" ? parseModelRef(modelRaw.trim()) : undefined;
-    if (typeof modelRaw === "string" && modelRaw.trim().toLowerCase().startsWith("openrouter/")) {
-      return fail("INVALID_PARAMS", "model must not be an openrouter model");
-    }
     if (typeof modelRaw !== "string" || modelRaw.trim().length > MAX_MODEL_CHARS || !MODEL_REF.test(modelRaw.trim()) || !ref) {
       return fail("INVALID_PARAMS", `model must be provider/model, at most ${MAX_MODEL_CHARS} characters`);
     }

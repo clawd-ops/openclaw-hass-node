@@ -614,14 +614,14 @@ async def test_conversation_info_advertises_vision(make_client: Any) -> None:
 # --- vision_model option ---------------------------------------------------
 
 
-@pytest.mark.parametrize("raw", ["", "openai/gpt-6-astra", "google/gemini-3:free"])
+@pytest.mark.parametrize(
+    "raw", ["", "openai/gpt-6-astra", "google/gemini-3:free", "openrouter/openai/gpt-6"]
+)
 def test_validate_model_ref_accepts(raw: str) -> None:
     assert validate_model_ref(raw) == raw
 
 
-@pytest.mark.parametrize(
-    "raw", ["gpt", "/x", "a/b c", "a/" + "x" * 200, "openrouter/openai/gpt-6", "OpenRouter/x/y"]
-)
+@pytest.mark.parametrize("raw", ["gpt", "/x", "a/b c", "a/" + "x" * 200])
 def test_validate_model_ref_refuses(raw: str) -> None:
     with pytest.raises(VisionError) as exc:
         validate_model_ref(raw)
@@ -681,7 +681,7 @@ def test_vision_unavailable_message_points_at_vision_model() -> None:
     assert "vision_model" in VisionError("VISION_UNAVAILABLE").message
 
 
-@pytest.mark.parametrize("bad", ["not a model", "openrouter/openai/gpt-6"])
+@pytest.mark.parametrize("bad", ["not a model", "a/b c"])
 @pytest.mark.asyncio
 async def test_describe_refuses_an_invalid_vision_model(
     tmp_path: Path, make_client: Any, bad: str
@@ -697,3 +697,14 @@ async def test_describe_refuses_an_invalid_vision_model(
 
 def test_vision_unavailable_remedy_wording() -> None:
     assert "model your gateway can call directly" in VisionError("VISION_UNAVAILABLE").message
+
+
+@pytest.mark.asyncio
+async def test_describe_passes_any_provider_through_unchanged(
+    tmp_path: Path, make_client: Any
+) -> None:
+    runtime = _runtime(tmp_path)
+    runtime.config = replace(runtime.config, vision_model="openrouter/openai/gpt-6")
+    tc = await make_client(runtime)
+    assert (await tc.post("/v1/vision/describe", json=_body())).status == 200
+    assert _relay(runtime).describe_image.call_args.kwargs["model"] == "openrouter/openai/gpt-6"

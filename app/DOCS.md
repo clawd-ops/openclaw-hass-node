@@ -134,7 +134,7 @@ control surface. The manifest field reference is at
   `VISION_UNAVAILABLE`.
 - **Type**: `str?`.
 - **Example**: `openai/gpt-6-astra` (recommended for agents on a
-  CLI-backed model). `openrouter/*` models are refused.
+  CLI-backed model). The value is used as written.
 - **Default**: empty.
 
 ### `identity.super_admins`
