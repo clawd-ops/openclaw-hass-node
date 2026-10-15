@@ -299,6 +299,32 @@ describe("handler", () => {
     expect((await call(api, goodParams({ agent_id: "clawd" })))[2]?.code).toBe("UNKNOWN_AGENT");
   });
 
+  it("accepts agents from the agents.entries roster and refuses unknown ids", async () => {
+    const { api, mediaUnderstanding } = makeApi({}, { agents: { entries: { clawd: { model: "openai/gpt-6-astra" }, Coding: {} } } });
+    expect((await call(api, goodParams({ agent_id: "clawd" })))[0]).toBe(true);
+    expect(mediaUnderstanding.describeImageFileWithModel).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "openai", model: "gpt-6-astra" }),
+    );
+    expect((await call(api, goodParams({ agent_id: "coding" })))[0]).toBe(true);
+    expect((await call(api, goodParams({ agent_id: "ghost" })))[2]?.code).toBe("UNKNOWN_AGENT");
+    expect((await call(api, goodParams({ agent_id: "main" })))[2]?.code).toBe("UNKNOWN_AGENT");
+  });
+
+  it("merges ids from agents.list and agents.entries", async () => {
+    const { api } = makeApi({}, { agents: { list: [{ id: "other" }], entries: { clawd: {} } } });
+    expect((await call(api, goodParams({ agent_id: "other" })))[0]).toBe(true);
+    expect((await call(api, goodParams({ agent_id: "clawd" })))[0]).toBe(true);
+    expect((await call(api, goodParams({ agent_id: "ghost" })))[2]?.code).toBe("UNKNOWN_AGENT");
+  });
+
+  it("falls back to main-only when entries is not an object or is empty", async () => {
+    for (const entries of [[], "x", {}]) {
+      const { api } = makeApi({}, { agents: { entries } });
+      expect((await call(api, goodParams({ agent_id: "main" })))[0]).toBe(true);
+      expect((await call(api, goodParams({ agent_id: "clawd" })))[2]?.code).toBe("UNKNOWN_AGENT");
+    }
+  });
+
   it("returns validation errors without calling the runtime and never logs image data", async () => {
     const { api, mediaUnderstanding, logger } = makeApi();
     const [ok, , error] = await call(api, goodParams({ mime: "image/gif" }));

@@ -224,23 +224,32 @@ function parseModelRef(raw: string | undefined): ModelRef | undefined {
   return { provider: raw.slice(0, slash), model: raw.slice(slash + 1) };
 }
 
-function configuredAgentIds(cfg: unknown): string[] {
+/** Agent roster: `agents.list[]` (array of `{id}`) and/or `agents.entries` (object keyed by agent id). */
+function agentRoster(cfg: unknown): Array<{ id: string; entry: Record<string, unknown> | undefined }> {
   const agents = record(record(cfg)?.agents);
-  const list = agents?.list;
-  const ids: string[] = [];
-  if (Array.isArray(list)) {
-    for (const entry of list) {
-      const id = record(entry)?.id;
-      if (typeof id === "string" && id.trim()) ids.push(id.trim().toLowerCase());
+  const roster: Array<{ id: string; entry: Record<string, unknown> | undefined }> = [];
+  if (Array.isArray(agents?.list)) {
+    for (const item of agents.list) {
+      const entry = record(item);
+      const id = entry?.id;
+      if (typeof id === "string" && id.trim()) roster.push({ id: id.trim().toLowerCase(), entry });
     }
   }
-  return ids;
+  const entries = record(agents?.entries);
+  if (entries) {
+    for (const [key, value] of Object.entries(entries)) {
+      if (key.trim()) roster.push({ id: key.trim().toLowerCase(), entry: record(value) });
+    }
+  }
+  return roster;
+}
+
+function configuredAgentIds(cfg: unknown): string[] {
+  return agentRoster(cfg).map((agent) => agent.id);
 }
 
 function agentEntry(cfg: unknown, agentId: string): Record<string, unknown> | undefined {
-  const list = record(record(cfg)?.agents)?.list;
-  if (!Array.isArray(list)) return undefined;
-  return list.map(record).find((entry) => typeof entry?.id === "string" && entry.id.trim().toLowerCase() === agentId);
+  return agentRoster(cfg).find((agent) => agent.id === agentId)?.entry;
 }
 
 /**
