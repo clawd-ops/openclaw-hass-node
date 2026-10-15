@@ -15,8 +15,8 @@ notes below before updating.
 - **New `vision_model` add-on option** (`provider/model`). Agents that run on a
   CLI-backed model cannot make the image call themselves, so set `vision_model`
   to an image-capable model. The recommended value is `openai/gpt-6-astra`.
-  OpenRouter models are refused. If the call cannot be made, the error says to
-  set this option.
+  Any `provider/model` is used as given. If the model cannot take the image
+  call, the error says to set this option.
 - See the new "Describe an image" guide in the docs.
 
 ### Approvals
