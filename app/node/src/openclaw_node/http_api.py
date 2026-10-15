@@ -46,6 +46,7 @@ from openclaw_node.vision import (
     VisionError,
     build_prompt,
     classify_gateway_error,
+    decoded_size,
     plugin_timeout_ms,
     sanitize_text,
     validate_model_ref,
@@ -259,16 +260,9 @@ def create_app(runtime: NodeRuntime) -> web.Application:
     app.router.add_get("/v1/conversation/info", conversation_info)
     app.router.add_get("/v1/bootstrap", bootstrap)
     app.router.add_post("/v1/bootstrap/claim", bootstrap_claim)
-    # Images are far larger than any other request body, so the vision route
-    # lives in its own sub-application with its own body limit rather than
-    # raising the limit for the whole API.
-    vision_app = web.Application(
-        middlewares=[_bearer_auth_middleware],
-        client_max_size=_VISION_MAX_BODY_BYTES,
-    )
-    vision_app["runtime"] = runtime
-    vision_app.router.add_post("/describe", vision_describe)
-    app.add_subapp("/v1/vision", vision_app)
+    # Images are far larger than any other request body; the handler enforces
+    # its own bound instead of raising the limit for the whole API.
+    app.router.add_post("/v1/vision/describe", vision_describe)
     return app
 
 
@@ -397,6 +391,41 @@ async def _json_body(request: web.Request) -> dict[str, Any]:
     if not request.can_read_body:  # pragma: no cover — GET/HEAD requests only
         return {}
     body = await request.json()
+    if body is None:
+        return {}
+    if not isinstance(body, dict):
+        raise web.HTTPBadRequest(text="JSON body must be an object")
+    return body
+
+
+async def _json_body_limited(request: web.Request, limit: int) -> dict[str, Any]:
+    """Parse a JSON object body, reading at most ``limit`` bytes.
+
+    The application-wide body limit is small, and aiohttp applies the root
+    application's limit to ``request.json()``, so large bodies are read here
+    with an explicit bound instead.
+
+    Args:
+        request: Incoming request.
+        limit: Largest body to accept, in bytes.
+
+    Returns:
+        The parsed dict.
+
+    Raises:
+        web.HTTPRequestEntityTooLarge: If the body exceeds ``limit``.
+        web.HTTPBadRequest: If the body is not a JSON object.
+    """
+    if request.content_length is not None and request.content_length > limit:
+        raise web.HTTPRequestEntityTooLarge(max_size=limit, actual_size=request.content_length)
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.content.iter_chunked(64 * 1024):
+        total += len(chunk)
+        if total > limit:
+            raise web.HTTPRequestEntityTooLarge(max_size=limit, actual_size=total)
+        chunks.append(chunk)
+    body = json.loads(b"".join(chunks) or b"null")
     if body is None:
         return {}
     if not isinstance(body, dict):
@@ -774,7 +803,7 @@ async def vision_describe(request: web.Request) -> web.Response:
     """
     runtime = _runtime(request)
     try:
-        body = await _json_body(request)
+        body = await _json_body_limited(request, _VISION_MAX_BODY_BYTES)
     except (ValueError, web.HTTPBadRequest):
         return _vision_error("INVALID_REQUEST")
     except web.HTTPRequestEntityTooLarge:
@@ -786,7 +815,7 @@ async def vision_describe(request: web.Request) -> web.Response:
         return _vision_error("INVALID_REQUEST")
     if not isinstance(mime, str) or mime not in SUPPORTED_MIMES:
         return _vision_error("UNSUPPORTED_MIME")
-    if (len(image) * 3) // 4 > MAX_IMAGE_BYTES:
+    if decoded_size(image) > MAX_IMAGE_BYTES:
         return _vision_error("IMAGE_TOO_LARGE")
     try:
         prompt = build_prompt(body.get("style"), body.get("instructions"))

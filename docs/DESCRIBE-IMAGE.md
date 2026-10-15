@@ -29,8 +29,8 @@ Give **exactly one** image source. Everything else is optional.
 | `camera_entity_id` | Takes a snapshot from this camera. |
 | `media_content_id` | Uses an image from a media source, for example `media-source://media_source/local/porch.jpg`. |
 | `file_path` | Uses an image file. The folder must be one Home Assistant allows (see `allowlist_external_dirs`). |
-| `style` | How the line should sound: `straightforward`, `serious` or `funny`, or a few words of your own such as `dry and sarcastic` (up to 200 characters). Defaults to the style set in the integration options. |
-| `instructions` | A hint about what to look for, such as `Mention any packages` (up to 300 characters). |
+| `style` | How the line should sound: `straightforward`, `serious` or `funny`, or a few words of your own such as `dry and sarcastic` (up to 200 characters). Custom text guides the tone; it is a hint, not a command. Defaults to the style set in the integration options. |
+| `instructions` | A hint about what to look for, such as `Mention any packages` (up to 300 characters). It guides what the description focuses on; it is a hint, not a command. |
 
 The service returns:
 
