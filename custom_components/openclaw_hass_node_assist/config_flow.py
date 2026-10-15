@@ -12,18 +12,30 @@ import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers import aiohttp_client
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig, TextSelectorType
+from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .const import (
     BOOTSTRAP_ENDPOINT,
     CONF_API_TOKEN,
+    CONF_DEFAULT_STYLE,
     CONF_SOCKET_URL,
     CONVERSATION_INFO_ENDPOINT,
     DEFAULT_SOCKET_URL,
+    DEFAULT_STYLE,
     DOMAIN,
+    MAX_STYLE_CHARS,
     NODE_LOCAL_PORT,
     PROBE_CANDIDATE_HOSTS,
     PROBE_TIMEOUT_S,
+    STYLE_PRESETS,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -272,6 +284,43 @@ def _normalise_socket_url(raw: str) -> str:
     return urlunparse(parsed._replace(netloc=netloc))
 
 
+class OpenClawOptionsFlow(config_entries.OptionsFlow):
+    """Options for the image description service."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Choose the default description style.
+
+        Args:
+            user_input: Submitted values, or None while showing the form.
+
+        Returns:
+            A Home Assistant options flow result.
+        """
+        if user_input is not None:
+            style = str(user_input.get(CONF_DEFAULT_STYLE) or DEFAULT_STYLE).strip()
+            return self.async_create_entry(data={CONF_DEFAULT_STYLE: style or DEFAULT_STYLE})
+
+        current = str(self.config_entry.options.get(CONF_DEFAULT_STYLE) or DEFAULT_STYLE)
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_DEFAULT_STYLE, default=current): vol.All(
+                    SelectSelector(
+                        SelectSelectorConfig(
+                            options=list(STYLE_PRESETS),
+                            custom_value=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                            translation_key="describe_image_style",
+                        )
+                    ),
+                    vol.Length(max=MAX_STYLE_CHARS),
+                )
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
+
+
 class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OpenClaw HA Node — Assist.
 
@@ -280,6 +329,14 @@ class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> OpenClawOptionsFlow:
+        """Return the options flow for an existing entry."""
+        return OpenClawOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

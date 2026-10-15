@@ -1013,6 +1013,47 @@ class ChatRelay:
             ),
         )
 
+    async def describe_image(
+        self,
+        *,
+        image_base64: str,
+        mime: str,
+        prompt: str,
+        agent_id: str,
+        plugin_timeout_ms: int,
+        timeout: float,
+    ) -> dict[str, Any]:
+        """Describe one image through the gateway plugin's vision method.
+
+        This is a single RPC, not a chat turn: no session is created and the
+        model has no tools. The image is never logged.
+
+        Args:
+            image_base64: Base64-encoded image bytes.
+            mime: ``image/jpeg``, ``image/png`` or ``image/webp``.
+            prompt: Fully built prompt text.
+            agent_id: Gateway agent whose model configuration applies, or
+                empty to let the plugin pick its default.
+            plugin_timeout_ms: Time budget the plugin gives the model call.
+            timeout: Seconds to wait for the RPC reply.
+
+        Returns:
+            The method payload: ``text``, ``provider`` and ``model``.
+
+        Raises:
+            ChatRelayError: On timeout or when the gateway or plugin rejects
+                the call.
+        """
+        params: dict[str, Any] = {
+            "image_base64": image_base64,
+            "mime": mime,
+            "prompt": prompt,
+            "timeout_ms": plugin_timeout_ms,
+        }
+        if agent_id:
+            params["agent_id"] = agent_id
+        return await self._rpc("hass-node.describe_image", params, timeout=timeout)
+
     async def _ensure_session(self, session_key: str, conversation_id: str) -> str:
         """Create the session and subscribe for messages if not already done.
 

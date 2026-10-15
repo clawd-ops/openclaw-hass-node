@@ -35,3 +35,20 @@ PROBE_CANDIDATE_HOSTS: Final[tuple[str, ...]] = (
 )
 PROBE_TIMEOUT_S: Final[float] = 1.0
 NODE_LOCAL_PORT: Final[int] = 8099
+
+# Image description (see ``vision.py``).
+SERVICE_DESCRIBE_IMAGE: Final[str] = "describe_image"
+DESCRIBE_IMAGE_ENDPOINT: Final[str] = "/v1/vision/describe"
+CONF_DEFAULT_STYLE: Final[str] = "default_style"
+STYLE_PRESETS: Final[tuple[str, ...]] = ("straightforward", "serious", "funny")
+DEFAULT_STYLE: Final[str] = "straightforward"
+MAX_STYLE_CHARS: Final[int] = 200
+MAX_INSTRUCTIONS_CHARS: Final[int] = 300
+# Longest side after downscaling, in pixels.
+IMAGE_MAX_DIMENSION: Final[int] = 1280
+IMAGE_JPEG_QUALITY: Final[int] = 85
+# Largest source image accepted before downscaling.
+IMAGE_MAX_SOURCE_BYTES: Final[int] = 25 * 1024 * 1024
+# A description takes tens of seconds; the node enforces its own (shorter,
+# configurable) limit, so this only bounds a node that stops answering.
+DESCRIBE_IMAGE_TIMEOUT_S: Final[float] = 135.0

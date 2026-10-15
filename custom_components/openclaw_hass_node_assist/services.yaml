@@ -1,0 +1,35 @@
+describe_image:
+  fields:
+    camera_entity_id:
+      required: false
+      example: camera.front_door
+      selector:
+        entity:
+          domain: camera
+    media_content_id:
+      required: false
+      example: media-source://media_source/local/snapshot.jpg
+      selector:
+        text:
+    file_path:
+      required: false
+      example: /config/www/snapshot.jpg
+      selector:
+        text:
+    style:
+      required: false
+      example: funny
+      selector:
+        select:
+          options:
+            - straightforward
+            - serious
+            - funny
+          custom_value: true
+          translation_key: describe_image_style
+    instructions:
+      required: false
+      example: Mention any packages or visitors.
+      selector:
+        text:
+          multiline: true

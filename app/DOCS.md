@@ -116,6 +116,15 @@ control surface. The manifest field reference is at
   still only be open intentionally. See `docs/security-notes.md` for the
   full bootstrap threat model.
 
+### `vision_timeout_seconds`
+
+- **Purpose**: How long to wait for one image description from the
+  **Describe image** service before giving up. The vision model itself
+  usually needs 20 to 30 seconds.
+- **Type**: `int(10,120)?`.
+- **Example**: `60`.
+- **Default**: `45`.
+
 ### `identity.super_admins`
 
 - **Purpose**: List of Home Assistant usernames whose Assist turns

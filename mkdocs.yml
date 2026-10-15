@@ -90,6 +90,7 @@ plugins:
 nav:
   - Overview: README.md
   - Install: INSTALL.md
+  - Describe an Image: DESCRIBE-IMAGE.md
   - Status: STATUS.md
   - Contributing: CONTRIBUTING.md
   - Security: security-notes.md
@@ -132,6 +133,7 @@ nav:
                   - ha_client: reference/api/python/ha_client.md
                   - http_api: reference/api/python/http_api.md
                   - chat_relay: reference/api/python/chat_relay.md
+                  - vision: reference/api/python/vision.md
               - Utilities:
                   - backup_store: reference/api/python/backup_store.md
                   - safe_fd: reference/api/python/safe_fd.md

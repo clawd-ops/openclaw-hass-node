@@ -123,6 +123,9 @@ options:
   # Set back to false after the integration fetches its token — otherwise
   # the markers are cleared on every restart.
   reset_bootstrap: false
+  # Seconds to wait for one image description (the describe_image service).
+  # The vision model itself usually needs 20-30 s.
+  vision_timeout_seconds: 45
   identity:
     # HA usernames allowed to receive the super_admin prompt context.
     # The addon resolves usernames to HA user IDs at startup. HA admins
@@ -202,6 +205,7 @@ schema:
   # rare case the UI toggle is not enough.
   reset_pairing: bool?
   reset_bootstrap: bool?
+  vision_timeout_seconds: int(10,120)?
   identity:
     super_admins:
       - str

@@ -15,6 +15,7 @@ describe("plugin entrypoint registration", () => {
   it("registers every executable Assist contract row and its invoke policy", () => {
     const registerTool = vi.fn();
     const registerNodeInvokePolicy = vi.fn();
+    const registerGatewayMethod = vi.fn();
     const on = vi.fn();
     const plugin = entry as unknown as {
       register(api: {
@@ -23,7 +24,11 @@ describe("plugin entrypoint registration", () => {
       }): void;
     };
 
-    plugin.register({ registerTool, registerNodeInvokePolicy, on } as never);
+    plugin.register({ registerTool, registerNodeInvokePolicy, registerGatewayMethod, on } as never);
+    expect(registerGatewayMethod).toHaveBeenCalledWith("hass-node.describe_image", expect.any(Function), {
+      scope: "operator.write",
+      profileAccess: "independent",
+    });
     expect(on).toHaveBeenCalledWith("before_tool_call", expect.any(Function), {
       matcher: [
         "nodes",
@@ -52,6 +57,7 @@ describe("plugin entrypoint registration", () => {
     (entry as unknown as { register(api: unknown): void }).register({
       registerTool: vi.fn(),
       registerNodeInvokePolicy: vi.fn(),
+      registerGatewayMethod: vi.fn(),
       on,
     });
     const handler = on.mock.calls[0]![1] as (event: unknown, ctx: unknown) => {
@@ -94,6 +100,7 @@ describe("plugin entrypoint registration", () => {
     (entry as unknown as { register(api: unknown): void }).register({
       registerTool,
       registerNodeInvokePolicy: vi.fn(),
+      registerGatewayMethod: vi.fn(),
       on: vi.fn(),
     });
     spy.mockRestore();
@@ -114,6 +121,7 @@ describe("plugin entrypoint registration", () => {
     (entry as unknown as { register(api: unknown): void }).register({
       registerTool: vi.fn(),
       registerNodeInvokePolicy: vi.fn(),
+      registerGatewayMethod: vi.fn(),
       on,
     });
     const sessionEnd = on.mock.calls.find(([hook]) => hook === "session_end")![1] as (e: unknown) => void;
@@ -144,6 +152,7 @@ describe("plugin entrypoint registration", () => {
     (entry as unknown as { register(api: unknown): void }).register({
       registerTool,
       registerNodeInvokePolicy: vi.fn(),
+      registerGatewayMethod: vi.fn(),
       on: vi.fn(),
     });
     expect(registerTool.mock.calls.length).toBeGreaterThan(0);
