@@ -128,7 +128,8 @@ options:
   vision_timeout_seconds: 45
   # Optional provider/model for image descriptions, e.g. openai/gpt-6-astra.
   # Leave empty to use the agent's own model. Set it when that agent runs on a
-  # CLI backend, which has no direct API access for the vision call.
+  # CLI backend, which has no direct API access for the vision call. Recommended:
+  # openai/gpt-6-astra. openrouter/* is refused.
   vision_model: ""
   identity:
     # HA usernames allowed to receive the super_admin prompt context.

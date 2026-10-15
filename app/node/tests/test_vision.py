@@ -28,10 +28,10 @@ from openclaw_node.vision import (
     VisionError,
     build_prompt,
     classify_gateway_error,
-    parse_model_ref,
     plugin_timeout_ms,
     resolve_tone,
     sanitize_text,
+    validate_model_ref,
 )
 
 _TOKEN = "vision-test-token"
@@ -614,27 +614,23 @@ async def test_conversation_info_advertises_vision(make_client: Any) -> None:
 # --- vision_model option ---------------------------------------------------
 
 
+@pytest.mark.parametrize("raw", ["", "openai/gpt-6-astra", "google/gemini-3:free"])
+def test_validate_model_ref_accepts(raw: str) -> None:
+    assert validate_model_ref(raw) == raw
+
+
 @pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        ("openai/gpt-6-astra", "openai/gpt-6-astra"),
-        ("  openai/gpt-6-astra  ", "openai/gpt-6-astra"),
-        ("", ""),
-        ("gpt", ""),
-        ("/x", ""),
-        ("a/b c", ""),
-        ("a/" + "x" * 200, ""),
-        (5, ""),
-        (None, ""),
-    ],
+    "raw", ["gpt", "/x", "a/b c", "a/" + "x" * 200, "openrouter/openai/gpt-6", "OpenRouter/x/y"]
 )
-def test_parse_model_ref(raw: object, expected: str) -> None:
-    assert parse_model_ref(raw) == expected
+def test_validate_model_ref_refuses(raw: str) -> None:
+    with pytest.raises(VisionError) as exc:
+        validate_model_ref(raw)
+    assert exc.value.code == "INVALID_MODEL"
 
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
-    [(None, ""), ("openai/gpt-6-astra", "openai/gpt-6-astra"), ("not a model", "")],
+    [(None, ""), ("openai/gpt-6-astra", "openai/gpt-6-astra"), ("not a model", "not a model")],
 )
 def test_vision_model_env(monkeypatch: pytest.MonkeyPatch, raw: str | None, expected: str) -> None:
     monkeypatch.setenv("SUPERVISOR_TOKEN", "sv-tok")
@@ -683,3 +679,21 @@ async def test_describe_passes_the_configured_model(tmp_path: Path, make_client:
 
 def test_vision_unavailable_message_points_at_vision_model() -> None:
     assert "vision_model" in VisionError("VISION_UNAVAILABLE").message
+
+
+@pytest.mark.parametrize("bad", ["not a model", "openrouter/openai/gpt-6"])
+@pytest.mark.asyncio
+async def test_describe_refuses_an_invalid_vision_model(
+    tmp_path: Path, make_client: Any, bad: str
+) -> None:
+    runtime = _runtime(tmp_path)
+    runtime.config = replace(runtime.config, vision_model=bad)
+    tc = await make_client(runtime)
+    response = await tc.post("/v1/vision/describe", json=_body())
+    assert response.status == 400
+    assert (await response.json())["error"] == "INVALID_MODEL"
+    _relay(runtime).describe_image.assert_not_called()
+
+
+def test_vision_unavailable_remedy_wording() -> None:
+    assert "model your gateway can call directly" in VisionError("VISION_UNAVAILABLE").message

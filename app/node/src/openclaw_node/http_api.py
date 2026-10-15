@@ -48,6 +48,7 @@ from openclaw_node.vision import (
     classify_gateway_error,
     plugin_timeout_ms,
     sanitize_text,
+    validate_model_ref,
 )
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
@@ -101,6 +102,7 @@ _VISION_MAX_BODY_BYTES: Final[int] = (MAX_IMAGE_BYTES * 4) // 3 + 64 * 1024
 _VISION_STATUS: Final[dict[str, int]] = {
     "INVALID_REQUEST": 400,
     "INVALID_PARAMS": 400,
+    "INVALID_MODEL": 400,
     "UNSUPPORTED_MIME": 415,
     "IMAGE_TOO_LARGE": 413,
     "SUPERSEDED": 409,
@@ -791,6 +793,10 @@ async def vision_describe(request: web.Request) -> web.Response:
     except VisionError as exc:
         return _vision_error(exc.code)
     source = sanitize_text(body.get("source"), MAX_SOURCE_CHARS)
+    try:
+        vision_model = validate_model_ref(runtime.config.vision_model)
+    except VisionError as exc:
+        return _vision_error(exc.code)
 
     if not runtime.is_paired:
         return _vision_error("NOT_PAIRED")
@@ -813,7 +819,7 @@ async def vision_describe(request: web.Request) -> web.Response:
             agent_id=agent_id,
             plugin_timeout_ms=plugin_timeout_ms(timeout_s),
             timeout=timeout_s,
-            model=runtime.config.vision_model,
+            model=vision_model,
         )
 
     try:

@@ -57,7 +57,7 @@ requests.
 By default the description uses your agent's own model. If your agent runs on a
 CLI backend (for example the Claude CLI), that model has no direct API access
 and the service fails with `VISION_UNAVAILABLE`. Set the app option
-`vision_model` to a `provider/model` that does, such as `openai/gpt-6-astra`.
+`vision_model` to a `provider/model` that does, such as `openai/gpt-6-astra`, which is the recommended value for agents on a CLI-backed model. OpenRouter models are not accepted.
 
 The app waits up to 45 seconds by default. Change this with the
 `vision_timeout_seconds` option in the app configuration.

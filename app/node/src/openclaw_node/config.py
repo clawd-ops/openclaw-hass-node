@@ -269,14 +269,17 @@ def load_config() -> NodeConfig:
 
 
 def _parse_vision_model_env(name: str) -> str:
-    """Parse the optional ``provider/model`` override, ignoring malformed values."""
-    from openclaw_node.vision import parse_model_ref
+    """Read the optional ``provider/model`` override (validated per request)."""
+    from openclaw_node.vision import VisionError, validate_model_ref
 
     raw = os.environ.get(name, "").strip()
-    value = parse_model_ref(raw)
-    if raw and not value:
-        _LOG.warning("%s is not a valid provider/model reference; ignoring it", name)
-    return value
+    try:
+        validate_model_ref(raw)
+    except VisionError as exc:
+        # Kept as-is so every describe request is refused with a clear error
+        # instead of silently using a different model.
+        _LOG.error("%s is invalid: %s", name, exc.detail)
+    return raw
 
 
 def _parse_vision_timeout_env(name: str) -> float:

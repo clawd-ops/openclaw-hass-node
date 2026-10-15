@@ -65,12 +65,15 @@ ERROR_MESSAGES: Final[dict[str, str]] = {
     "RELAY_NOT_INITIALISED": "The OpenClaw gateway connection is not ready.",
     "INVALID_REQUEST": "The image request was malformed.",
     "INVALID_PARAMS": "The image request was malformed.",
+    "INVALID_MODEL": (
+        "The vision_model option must be a provider/model, and not an openrouter model."
+    ),
     "UNSUPPORTED_MIME": "Only JPEG, PNG and WebP images are supported.",
     "IMAGE_TOO_LARGE": "The image is too large.",
     "UNKNOWN_AGENT": "The configured OpenClaw agent was not found.",
     "VISION_UNAVAILABLE": (
-        "No vision model produced a description. If your agent runs on a CLI backend, "
-        "set the add-on option vision_model."
+        "No vision model produced a description. Set vision_model to a model "
+        "your gateway can call directly."
     ),
     "VISION_PLUGIN_MISSING": "The OpenClaw gateway plugin does not support image descriptions.",
     "VISION_FAILED": "The image could not be described.",
@@ -85,22 +88,26 @@ _MODEL_REF: Final[re.Pattern[str]] = re.compile(
 )
 
 
-def parse_model_ref(raw: object) -> str:
-    """Return ``raw`` as a clean ``provider/model`` string, or ``""`` when unset or invalid.
+def validate_model_ref(raw: str) -> str:
+    """Validate the optional ``vision_model`` option.
 
     Args:
-        raw: Untrusted option value.
+        raw: The stripped option value; empty means "use the agent's model".
 
     Returns:
-        The stripped reference, or an empty string if it is not a valid
-        ``provider/model`` of at most :data:`MAX_MODEL_CHARS` characters.
+        ``raw`` unchanged when it is empty or a valid ``provider/model``.
+
+    Raises:
+        VisionError: ``INVALID_MODEL`` when it is malformed, too long, or an
+            ``openrouter/*`` model (paid per-token routing is never used here).
     """
-    if not isinstance(raw, str):
+    if not raw:
         return ""
-    value = raw.strip()
-    if len(value) > MAX_MODEL_CHARS or not _MODEL_REF.fullmatch(value):
-        return ""
-    return value
+    if len(raw) > MAX_MODEL_CHARS or not _MODEL_REF.fullmatch(raw):
+        raise VisionError("INVALID_MODEL", "vision_model is not a valid provider/model")
+    if raw.split("/", 1)[0].casefold() == "openrouter":
+        raise VisionError("INVALID_MODEL", "vision_model must not be an openrouter model")
+    return raw
 
 
 _WHITESPACE: Final[re.Pattern[str]] = re.compile(r"\s+")

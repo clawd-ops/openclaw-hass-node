@@ -112,6 +112,11 @@ describe("model override", () => {
       ok: true,
       value: { model: { provider: "openai", model: "gpt-6-astra" } },
     });
+    expect(parseDescribeImageParams(goodParams({ model: "OpenRouter/openai/gpt-6" }))).toMatchObject({
+      ok: false,
+      code: "INVALID_PARAMS",
+      message: expect.stringContaining("openrouter"),
+    });
     for (const bad of ["gpt", "/x", "a/", 5, "a/b c", `a/${"x".repeat(200)}`]) {
       expect(parseDescribeImageParams(goodParams({ model: bad }))).toMatchObject({ ok: false, code: "INVALID_PARAMS" });
     }
@@ -135,7 +140,7 @@ describe("model override", () => {
     const [ok, , error] = await call(api, goodParams());
     expect(ok).toBe(false);
     expect(error?.code).toBe("VISION_UNAVAILABLE");
-    expect(error?.message).toContain("vision_model");
+    expect(error?.message).toBe("set vision_model to a model your gateway can call directly");
   });
 });
 

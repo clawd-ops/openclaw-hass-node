@@ -133,7 +133,8 @@ control surface. The manifest field reference is at
   API call a description needs; the service then reports
   `VISION_UNAVAILABLE`.
 - **Type**: `str?`.
-- **Example**: `openai/gpt-6-astra`.
+- **Example**: `openai/gpt-6-astra` (recommended for agents on a
+  CLI-backed model). `openrouter/*` models are refused.
 - **Default**: empty.
 
 ### `identity.super_admins`
