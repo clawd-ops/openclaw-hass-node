@@ -224,6 +224,8 @@ function parseModelRef(raw: string | undefined): ModelRef | undefined {
   return { provider: raw.slice(0, slash), model: raw.slice(slash + 1) };
 }
 
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
 /** Agent roster: `agents.list[]` (array of `{id}`) and/or `agents.entries` (object keyed by agent id). */
 function agentRoster(cfg: unknown): Array<{ id: string; entry: Record<string, unknown> | undefined }> {
   const agents = record(record(cfg)?.agents);
@@ -238,7 +240,9 @@ function agentRoster(cfg: unknown): Array<{ id: string; entry: Record<string, un
   const entries = record(agents?.entries);
   if (entries) {
     for (const [key, value] of Object.entries(entries)) {
-      if (key.trim()) roster.push({ id: key.trim().toLowerCase(), entry: record(value) });
+      const id = key.trim().toLowerCase();
+      const entry = record(value);
+      if (id && entry && !RESERVED_KEYS.has(id)) roster.push({ id, entry });
     }
   }
   return roster;
@@ -249,7 +253,9 @@ function configuredAgentIds(cfg: unknown): string[] {
 }
 
 function agentEntry(cfg: unknown, agentId: string): Record<string, unknown> | undefined {
-  return agentRoster(cfg).find((agent) => agent.id === agentId)?.entry;
+  // Entries are listed after `agents.list`; merge so entries fields win.
+  const matches = agentRoster(cfg).filter((agent) => agent.id === agentId && agent.entry);
+  return matches.length ? Object.assign({}, ...matches.map((agent) => agent.entry)) : undefined;
 }
 
 /**

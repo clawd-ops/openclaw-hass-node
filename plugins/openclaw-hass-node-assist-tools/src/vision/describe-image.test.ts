@@ -175,6 +175,11 @@ describe("resolveVisionModel", () => {
     expect(resolveVisionModel(withImage, "clawd")).toEqual({ provider: "google", model: "vision-1" });
   });
 
+  it("uses the agents.entries model when the same id is also in agents.list", () => {
+    const cfg = { agents: { list: [{ id: "clawd" }], entries: { clawd: { model: "openai/vision-1" } } } };
+    expect(resolveVisionModel(cfg, "clawd")).toEqual({ provider: "openai", model: "vision-1" });
+  });
+
   it("ignores agents.defaults.mediaModels.image (an image generation model)", () => {
     const cfg = { agents: { defaults: { mediaModels: { image: "openai/gpt-image-2" } } } };
     expect(resolveVisionModel(cfg, undefined)).toBeUndefined();
@@ -361,6 +366,16 @@ describe("handler", () => {
       expect((await call(api, goodParams({ agent_id: "main" })))[0]).toBe(true);
       expect((await call(api, goodParams({ agent_id: "clawd" })))[2]?.code).toBe("UNKNOWN_AGENT");
     }
+  });
+
+  it("refuses null entries and prototype-like keys in the agents.entries roster", async () => {
+    const { api } = makeApi({}, { agents: { entries: { ghost: null } } });
+    expect((await call(api, goodParams({ agent_id: "ghost" })))[2]?.code).toBe("UNKNOWN_AGENT");
+    expect((await call(api, goodParams({ agent_id: "main" })))[0]).toBe(true);
+    const parsed = JSON.parse('{"agents":{"entries":{"constructor":{},"__proto__":{},"prototype":{}}}}');
+    const second = makeApi({}, parsed);
+    expect((await call(second.api, goodParams({ agent_id: "constructor" })))[2]?.code).toBe("UNKNOWN_AGENT");
+    expect((await call(second.api, goodParams({ agent_id: "main" })))[0]).toBe(true);
   });
 
   it("returns validation errors without calling the runtime and never logs image data", async () => {
