@@ -175,6 +175,14 @@ describe("resolveVisionModel", () => {
     expect(resolveVisionModel(withImage, "clawd")).toEqual({ provider: "google", model: "vision-1" });
   });
 
+  it("ignores agents.defaults.mediaModels.image (an image generation model)", () => {
+    const cfg = { agents: { defaults: { mediaModels: { image: "openai/gpt-image-2" } } } };
+    expect(resolveVisionModel(cfg, undefined)).toBeUndefined();
+    expect(resolveVisionModel(cfg, "clawd")).toBeUndefined();
+    const withModel = { agents: { defaults: { mediaModels: { image: "openai/gpt-image-2" }, model: "openai/gpt-6-sol" } } };
+    expect(resolveVisionModel(withModel, undefined)).toEqual({ provider: "openai", model: "gpt-6-sol" });
+  });
+
   it("returns undefined for refs that are not provider/model", () => {
     expect(resolveVisionModel({ agents: { defaults: { model: "alias" } } }, undefined)).toBeUndefined();
     expect(resolveVisionModel({}, undefined)).toBeUndefined();
@@ -295,6 +303,23 @@ describe("handler", () => {
     expect(ok).toBe(false);
     expect(error?.code).toBe("UNKNOWN_AGENT");
     expect(mediaUnderstanding.describeImageFileWithModel).not.toHaveBeenCalled();
+  });
+
+  it("uses exactly the explicit request model; the agent id is only validated", async () => {
+    const { api, mediaUnderstanding } = makeApi();
+    const [ok] = await call(
+      api,
+      goodParams({ agent_id: "clawd", model: "openai/gpt-6-astra-explicit" }),
+    );
+    expect(ok).toBe(true);
+    expect(mediaUnderstanding.describeImageFileWithModel).toHaveBeenCalledTimes(1);
+    expect(mediaUnderstanding.describeImageFileWithModel).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "clawd", provider: "openai", model: "gpt-6-astra-explicit" }),
+    );
+    expect(mediaUnderstanding.describeImageFile).not.toHaveBeenCalled();
+    const [bad, , error] = await call(api, goodParams({ agent_id: "ghost", model: "openai/gpt-6-astra" }));
+    expect(bad).toBe(false);
+    expect(error?.code).toBe("UNKNOWN_AGENT");
   });
 
   it("matches agent ids case-insensitively", async () => {
