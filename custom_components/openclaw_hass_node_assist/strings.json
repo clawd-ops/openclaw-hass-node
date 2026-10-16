@@ -35,6 +35,9 @@
           "default_style": "Pick a preset or type your own short tone, such as \"dry and sarcastic\"."
         }
       }
+    },
+    "error": {
+      "style_too_long": "Use 200 characters or fewer."
     }
   },
   "selector": {

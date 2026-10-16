@@ -298,27 +298,30 @@ class OpenClawOptionsFlow(config_entries.OptionsFlow):
         Returns:
             A Home Assistant options flow result.
         """
+        errors: dict[str, str] = {}
+        current = str(self.config_entry.options.get(CONF_DEFAULT_STYLE) or DEFAULT_STYLE)
         if user_input is not None:
             style = str(user_input.get(CONF_DEFAULT_STYLE) or DEFAULT_STYLE).strip()
-            return self.async_create_entry(data={CONF_DEFAULT_STYLE: style or DEFAULT_STYLE})
+            if len(style) <= MAX_STYLE_CHARS:
+                return self.async_create_entry(data={CONF_DEFAULT_STYLE: style or DEFAULT_STYLE})
+            # The cap is enforced here, not in the schema, so the user gets a
+            # translated field error instead of a generic validation failure.
+            errors[CONF_DEFAULT_STYLE] = "style_too_long"
+            current = style
 
-        current = str(self.config_entry.options.get(CONF_DEFAULT_STYLE) or DEFAULT_STYLE)
         schema = vol.Schema(
             {
-                vol.Optional(CONF_DEFAULT_STYLE, default=current): vol.All(
-                    SelectSelector(
-                        SelectSelectorConfig(
-                            options=list(STYLE_PRESETS),
-                            custom_value=True,
-                            mode=SelectSelectorMode.DROPDOWN,
-                            translation_key="describe_image_style",
-                        )
-                    ),
-                    vol.Length(max=MAX_STYLE_CHARS),
+                vol.Optional(CONF_DEFAULT_STYLE, default=current): SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(STYLE_PRESETS),
+                        custom_value=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        translation_key="describe_image_style",
+                    )
                 )
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
 
 
 class OpenClawGatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

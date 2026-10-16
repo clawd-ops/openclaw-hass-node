@@ -625,8 +625,10 @@ async def test_options_form_defaults_to_the_current_style(mods: types.SimpleName
     assert marker.schema == "default_style"
     assert marker.default() == "funny"
     selector = form["data_schema"].schema[marker]
-    assert selector.validators[0].config.options == ["straightforward", "serious", "funny"]
-    assert selector.validators[0].config.custom_value is True
+    assert selector.config.options == ["straightforward", "serious", "funny"]
+    assert selector.config.custom_value is True
+    assert selector.config.translation_key == "describe_image_style"
+    assert form["errors"] == {}
 
     flow.config_entry = types.SimpleNamespace(options={})
     [marker2] = list((await flow.async_step_init())["data_schema"].schema)
@@ -641,3 +643,76 @@ async def test_options_submit_stores_the_style(mods: types.SimpleNamespace) -> N
     assert created["data"] == {"default_style": "dry and sarcastic"}
     blank = await flow.async_step_init({"default_style": "  "})
     assert blank["data"] == {"default_style": "straightforward"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("preset", ["straightforward", "serious", "funny"])
+async def test_options_submit_stores_each_preset(mods: types.SimpleNamespace, preset: str) -> None:
+    flow = mods.config_flow.OpenClawOptionsFlow()
+    flow.config_entry = types.SimpleNamespace(options={})
+    created = await flow.async_step_init({"default_style": preset})
+    assert created["type"] == "create_entry"
+    assert created["data"] == {"default_style": preset}
+
+
+@pytest.mark.asyncio
+async def test_options_submit_accepts_exactly_the_cap(mods: types.SimpleNamespace) -> None:
+    flow = mods.config_flow.OpenClawOptionsFlow()
+    flow.config_entry = types.SimpleNamespace(options={})
+    text = "x" * mods.const.MAX_STYLE_CHARS
+    created = await flow.async_step_init({"default_style": text})
+    assert created["data"] == {"default_style": text}
+
+
+@pytest.mark.asyncio
+async def test_options_submit_rejects_over_long_text_with_a_form_error(
+    mods: types.SimpleNamespace,
+) -> None:
+    flow = mods.config_flow.OpenClawOptionsFlow()
+    flow.config_entry = types.SimpleNamespace(options={"default_style": "funny"})
+    text = "x" * (mods.const.MAX_STYLE_CHARS + 1)
+    form = await flow.async_step_init({"default_style": text})
+    assert form["type"] == "form"
+    assert form["step_id"] == "init"
+    assert form["errors"] == {"default_style": "style_too_long"}
+    [marker] = list(form["data_schema"].schema)
+    assert marker.default() == text
+    # Padding around an in-range value is trimmed before the cap is applied.
+    padded = await flow.async_step_init({"default_style": f"  {'x' * 200}  "})
+    assert padded["type"] == "create_entry"
+
+
+@pytest.mark.asyncio
+async def test_saved_option_is_used_when_no_style_is_passed(
+    mods: types.SimpleNamespace,
+    setup: Callable[..., tuple[_Hass, _Session]],
+    tmp_path: Path,
+) -> None:
+    image = tmp_path / "a.png"
+    image.write_bytes(_png())
+    flow = mods.config_flow.OpenClawOptionsFlow()
+    flow.config_entry = types.SimpleNamespace(options={})
+    saved = (await flow.async_step_init({"default_style": "dry and sarcastic"}))["data"]
+    hass, session = setup(entry=_entry(saved))
+    await mods.vision._async_describe_image(_call(hass, file_path=str(image)))
+    await mods.vision._async_describe_image(_call(hass, file_path=str(image), style="serious"))
+    assert session.posts[0]["json"]["style"] == "dry and sarcastic"
+    assert session.posts[1]["json"]["style"] == "serious"
+
+
+def test_translations_mirror_strings_and_cover_every_key_the_code_uses(
+    mods: types.SimpleNamespace,
+) -> None:
+    strings = json.loads((_PKG_DIR / "strings.json").read_text())
+    translations = json.loads((_PKG_DIR / "translations" / "en.json").read_text())
+    assert translations == strings
+    init = translations["options"]["step"]["init"]
+    assert set(init["data"]) == {"default_style"} == set(init["data_description"])
+    assert init["title"]
+    assert "style_too_long" in translations["options"]["error"]
+    assert set(translations["selector"]["describe_image_style"]["options"]) == set(
+        mods.const.STYLE_PRESETS
+    )
+    service = translations["services"]["describe_image"]
+    assert service["name"]
+    assert service["description"]
