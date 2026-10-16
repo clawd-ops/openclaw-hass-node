@@ -224,23 +224,38 @@ function parseModelRef(raw: string | undefined): ModelRef | undefined {
   return { provider: raw.slice(0, slash), model: raw.slice(slash + 1) };
 }
 
-function configuredAgentIds(cfg: unknown): string[] {
+const RESERVED_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** Agent roster: `agents.list[]` (array of `{id}`) and/or `agents.entries` (object keyed by agent id). */
+function agentRoster(cfg: unknown): Array<{ id: string; entry: Record<string, unknown> | undefined }> {
   const agents = record(record(cfg)?.agents);
-  const list = agents?.list;
-  const ids: string[] = [];
-  if (Array.isArray(list)) {
-    for (const entry of list) {
-      const id = record(entry)?.id;
-      if (typeof id === "string" && id.trim()) ids.push(id.trim().toLowerCase());
+  const roster: Array<{ id: string; entry: Record<string, unknown> | undefined }> = [];
+  if (Array.isArray(agents?.list)) {
+    for (const item of agents.list) {
+      const entry = record(item);
+      const id = entry?.id;
+      if (typeof id === "string" && id.trim()) roster.push({ id: id.trim().toLowerCase(), entry });
     }
   }
-  return ids;
+  const entries = record(agents?.entries);
+  if (entries) {
+    for (const [key, value] of Object.entries(entries)) {
+      const id = key.trim().toLowerCase();
+      const entry = record(value);
+      if (id && entry && !RESERVED_KEYS.has(id)) roster.push({ id, entry });
+    }
+  }
+  return roster;
+}
+
+function configuredAgentIds(cfg: unknown): string[] {
+  return agentRoster(cfg).map((agent) => agent.id);
 }
 
 function agentEntry(cfg: unknown, agentId: string): Record<string, unknown> | undefined {
-  const list = record(record(cfg)?.agents)?.list;
-  if (!Array.isArray(list)) return undefined;
-  return list.map(record).find((entry) => typeof entry?.id === "string" && entry.id.trim().toLowerCase() === agentId);
+  // Entries are listed after `agents.list`; merge so entries fields win.
+  const matches = agentRoster(cfg).filter((agent) => agent.id === agentId && agent.entry);
+  return matches.length ? Object.assign({}, ...matches.map((agent) => agent.entry)) : undefined;
 }
 
 /**
