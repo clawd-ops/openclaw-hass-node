@@ -162,6 +162,19 @@ describe("resolveVisionModel", () => {
     expect(resolveVisionModel(CONFIG, undefined)).toEqual({ provider: "openai", model: "gpt-6-sol" });
   });
 
+  it("finds an agents.entries agent's primary model when no image model is set", () => {
+    const cfg = {
+      agents: {
+        defaults: { model: { primary: "openai/gpt-6-sol" } },
+        entries: { Clawd: { model: { primary: "openai/gpt-6-astra" } }, plain: {} },
+      },
+    };
+    expect(resolveVisionModel(cfg, "clawd")).toEqual({ provider: "openai", model: "gpt-6-astra" });
+    expect(resolveVisionModel(cfg, "plain")).toEqual({ provider: "openai", model: "gpt-6-sol" });
+    const withImage = { agents: { ...cfg.agents, defaults: { imageModel: "google/vision-1" } } };
+    expect(resolveVisionModel(withImage, "clawd")).toEqual({ provider: "google", model: "vision-1" });
+  });
+
   it("returns undefined for refs that are not provider/model", () => {
     expect(resolveVisionModel({ agents: { defaults: { model: "alias" } } }, undefined)).toBeUndefined();
     expect(resolveVisionModel({}, undefined)).toBeUndefined();
