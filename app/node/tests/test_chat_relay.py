@@ -4034,7 +4034,7 @@ async def test_stream_turn_mcp_prefixed_tool_yields_one_progress_line() -> None:
         await asyncio.sleep(0.01)
         relay.handle_response(_ok_response(sender.frames[2]["id"]))
         await asyncio.sleep(0.005)
-        for name in ("ha_get_state", "mcp__openclaw__ha_get_state"):
+        for call_id, name in (("t1", "ha_get_state"), ("t2", "mcp__openclaw__ha_get_state")):
             relay.handle_event(
                 {
                     "event": "agent",
@@ -4042,7 +4042,7 @@ async def test_stream_turn_mcp_prefixed_tool_yields_one_progress_line() -> None:
                         "sessionKey": key,
                         "runId": "run-1",
                         "stream": "tool",
-                        "data": {"phase": "start", "name": name, "id": "t1"},
+                        "data": {"phase": "start", "name": name, "id": call_id},
                     },
                 }
             )
@@ -4360,3 +4360,88 @@ async def test_replayed_approval_resolved_before_stream_is_not_announced() -> No
 async def test_replayed_approval_still_pending_is_announced_on_stream_start() -> None:
     text = await _replay_then_stream("01KVH_REPLAY_OPEN", [])
     assert "".join(text).count("Approval required") == 1
+
+
+def _gateway_pair_start_events(
+    session_key: str, name: str, run_id: str, call_id: str
+) -> list[dict[str, Any]]:
+    """The two start events the gateway emits for ONE tool call.
+
+    A ``stream='tool'`` event and a ``stream='item'`` event (``kind='tool'``,
+    ``itemId='tool:<id>'``) that share ``data.toolCallId``.
+    """
+    base = {"sessionKey": session_key, "runId": run_id}
+    return [
+        {
+            "type": "event",
+            "event": "agent",
+            "payload": {
+                **base,
+                "stream": "tool",
+                "data": {"phase": "start", "name": name, "toolCallId": call_id},
+            },
+        },
+        {
+            "type": "event",
+            "event": "agent",
+            "payload": {
+                **base,
+                "stream": "item",
+                "data": {
+                    "kind": "tool",
+                    "phase": "start",
+                    "name": name,
+                    "itemId": f"tool:{call_id}",
+                    "toolCallId": call_id,
+                },
+            },
+        },
+    ]
+
+
+def _dup_relay(session_key: str, *, frames: bool) -> tuple[ChatRelay, asyncio.Queue[Any]]:
+    relay = _relay(FakeSender())
+    relay._canonical_by_raw[session_key] = session_key
+    relay._active_run_id[session_key] = "run-dup"
+    relay._seen_same_run_event[session_key] = True
+    relay._use_tool_frames[session_key] = frames
+    queue: asyncio.Queue[Any] = asyncio.Queue()
+    relay._delta_queues[session_key] = queue
+    return relay, queue
+
+
+def _drain(queue: asyncio.Queue[Any]) -> list[Any]:
+    items: list[Any] = []
+    while not queue.empty():
+        items.append(queue.get_nowait())
+    return items
+
+
+def test_text_progress_duplicate_start_events_same_id_show_once() -> None:
+    """tool + item start for one call (same toolCallId) -> one line, no (x2)."""
+    key = "agent:my-agent:ha-assist:01kvh_dup_text"
+    relay, queue = _dup_relay(key, frames=False)
+    for evt in _gateway_pair_start_events(key, "ha_list_states", "run-dup", "call-1"):
+        relay.handle_event(evt)
+    assert _drain(queue) == ["🔧 Calling ha_list_states..."]
+
+
+def test_text_progress_distinct_ids_still_count_repeats() -> None:
+    """Two real calls (different ids), each announced twice -> (x2)."""
+    key = "agent:my-agent:ha-assist:01kvh_dup_real"
+    relay, queue = _dup_relay(key, frames=False)
+    for call_id in ("call-1", "call-2"):
+        for evt in _gateway_pair_start_events(key, "ha_get_state", "run-dup", call_id):
+            relay.handle_event(evt)
+    assert _drain(queue) == ["🔧 Calling ha_get_state...", " (x2)..."]
+
+
+def test_frames_duplicate_start_events_do_not_double_seq() -> None:
+    """Frames path: duplicate announcements of one call yield one start frame."""
+    key = "agent:my-agent:ha-assist:01kvh_dup_frames"
+    relay, queue = _dup_relay(key, frames=True)
+    for call_id in ("call-1", "call-2"):
+        for evt in _gateway_pair_start_events(key, "ha_light_turn_off", "run-dup", call_id):
+            relay.handle_event(evt)
+    frames = [f for f in _drain(queue) if isinstance(f, ToolProgressFrame)]
+    assert [(f.phase, f.seq) for f in frames] == [("start", 1), ("start", 2)]
