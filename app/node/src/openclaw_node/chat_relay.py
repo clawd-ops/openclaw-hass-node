@@ -392,6 +392,11 @@ class ChatRelay:
         # the second start appends " (xN)..." inline rather than a fresh line.
         self._text_tool_name: dict[str, str] = {}  # canonical keys
         self._text_tool_count: dict[str, int] = {}  # canonical keys
+        # Tool-call ids whose start was already surfaced this turn. The
+        # gateway emits one start as ``stream='tool'`` and another as
+        # ``stream='item'`` (same ``toolCallId``) for every call; without
+        # this a single call is counted twice (progress "(x2)", seq +2).
+        self._started_tool_ids: dict[str, set[str]] = {}  # canonical keys
         self._text_has_visible_output: dict[str, bool] = {}  # canonical keys
         self._text_status_open: dict[str, bool] = {}  # canonical keys
         self._turn_locks: dict[str, asyncio.Lock] = {}  # raw keys
@@ -618,6 +623,7 @@ class ChatRelay:
         self._use_tool_frames[canonical_key] = use_tool_frames
         self._text_tool_name.pop(canonical_key, None)
         self._text_tool_count.pop(canonical_key, None)
+        self._started_tool_ids.pop(canonical_key, None)
         self._text_has_visible_output[canonical_key] = False
         self._text_status_open[canonical_key] = False
         queue: asyncio.Queue[str | None | ChatRelayError | ToolProgressFrame] = asyncio.Queue()
@@ -826,6 +832,7 @@ class ChatRelay:
             self._active_tool_seq.pop(canonical_key, None)
             self._text_tool_name.pop(canonical_key, None)
             self._text_tool_count.pop(canonical_key, None)
+            self._started_tool_ids.pop(canonical_key, None)
             self._text_has_visible_output.pop(canonical_key, None)
             self._text_status_open.pop(canonical_key, None)
 
@@ -1460,6 +1467,17 @@ class ChatRelay:
                     tool_id = str(raw_tool_id or "")
                     use_frames = self._use_tool_frames.get(tool_canonical_key, False)
                     if phase == "start" and isinstance(tool_name, str) and tool_name:
+                        # Both the ``tool`` and ``item`` streams announce the
+                        # same call with a shared ``toolCallId``; surface only
+                        # the first start per id. Id-less starts always pass.
+                        dedup_id = str(
+                            data.get("toolCallId") or data.get("id") or data.get("itemId") or ""
+                        ).removeprefix("tool:")
+                        if dedup_id:
+                            started = self._started_tool_ids.setdefault(tool_canonical_key, set())
+                            if dedup_id in started:
+                                return
+                            started.add(dedup_id)
                         self._active_tool[tool_canonical_key] = tool_name
                         if use_frames:
                             # Monotonic seq: increment on every start.
@@ -1783,6 +1801,7 @@ class ChatRelay:
         self._use_tool_frames.clear()
         self._text_tool_name.clear()
         self._text_tool_count.clear()
+        self._started_tool_ids.clear()
         self._text_has_visible_output.clear()
         self._text_status_open.clear()
         self._turn_locks.clear()
