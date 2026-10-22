@@ -20,6 +20,9 @@ dev = [
     "types-PyYAML>=6.0",
     "pillow>=12.3.0",
     "voluptuous>=0.16.0",
+    # HA Supervisor orders add-on versions with AwesomeVersion; pinned to the
+    # version Home Assistant pins. Used by the release version-increase gate.
+    "awesomeversion==25.8.0",
 ]
 
 # ---------------------------------------------------------------------------

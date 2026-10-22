@@ -1,9 +1,9 @@
 """CI gate: ``scripts/bump-version.py`` must refuse pre-release counters past 9.
 
-The owner's rule (memory: ``feedback_beta_cap_b9``): for ``YYYY.M.D{a|b|rc}n``
-versions, never go past ``b9`` (or ``a9`` / ``rc9``). When the next bump
-would be ``b10``, roll the calendar portion forward and reset the counter
-to ``b1`` instead.
+The owner's rule (memory: ``feedback_beta_cap_b9``): for
+``YYYY.M.D-{alpha,beta,rc}.N`` versions, never go past ``beta.9`` (or
+``alpha.9`` / ``rc.9``). When the next bump would be ``beta.10``, roll the
+calendar portion forward and reset the counter to ``beta.1`` instead.
 
 Concrete failure mode this prevents: ``2026.6.20`` got stuck for a week
 with bumps tacking on betas to a stale date, ending up at ``b11``. The
@@ -35,25 +35,27 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_b10_rejected_with_cap_message() -> None:
-    """Bumping to ``b10`` exits non-zero and names the cap."""
-    result = _run("2026.7.1b10")
+def test_beta10_rejected_with_cap_message() -> None:
+    """Bumping to ``beta.10`` exits non-zero, names the cap and the reset."""
+    result = _run("2026.7.1-beta.10")
     assert result.returncode != 0
-    assert "exceeds the b9 prerelease cap" in (result.stdout + result.stderr)
+    output = result.stdout + result.stderr
+    assert "exceeds the beta.9 prerelease cap" in output
+    assert "reset to beta.1" in output
 
 
-def test_a10_rejected_with_cap_message() -> None:
+def test_alpha10_rejected_with_cap_message() -> None:
     """The cap applies to the alpha track too."""
-    result = _run("2026.7.1a10")
+    result = _run("2026.7.1-alpha.10")
     assert result.returncode != 0
-    assert "exceeds the a9 prerelease cap" in (result.stdout + result.stderr)
+    assert "exceeds the alpha.9 prerelease cap" in (result.stdout + result.stderr)
 
 
 def test_rc10_rejected_with_cap_message() -> None:
     """The cap applies to release candidates too."""
-    result = _run("2026.7.1rc10")
+    result = _run("2026.7.1-rc.10")
     assert result.returncode != 0
-    assert "exceeds the rc9 prerelease cap" in (result.stdout + result.stderr)
+    assert "exceeds the rc.9 prerelease cap" in (result.stdout + result.stderr)
 
 
 def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedProcess[str]:
@@ -72,14 +74,19 @@ def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedPr
     shutil.copy2(_SCRIPT, scripts_dir / "bump-version.py")
 
     layout = {
-        "app/config.yaml": 'version: "2026.6.20b9"\n',
-        "app/build.yaml": '  io.hass.version: "2026.6.20b9"\n',
+        "app/config.yaml": 'version: "2026.6.20-beta.9"\n',
+        "app/build.yaml": '  io.hass.version: "2026.6.20-beta.9"\n',
+        # The two Python-side sources hold the PEP 440 normalized form.
         "app/node/pyproject.toml": 'version = "2026.6.20b9"\n',
         "app/node/src/openclaw_node/__init__.py": '    __version__ = "2026.6.20b9"\n',
-        "custom_components/openclaw_hass_node_assist/manifest.json": '  "version": "2026.6.20b9"\n',
+        "custom_components/openclaw_hass_node_assist/manifest.json": (
+            '  "version": "2026.6.20-beta.9"\n'
+        ),
         # Trailing comma: this key is mid-object, unlike the HACS manifest.
-        "plugins/openclaw-hass-node-assist-tools/package.json": ('  "version": "2026.6.20b9",\n'),
-        "skills/openclaw-hass-node-skill/SKILL.md": "version: 2026.6.20b9\n",
+        "plugins/openclaw-hass-node-assist-tools/package.json": (
+            '  "version": "2026.6.20-beta.9",\n'
+        ),
+        "skills/openclaw-hass-node-skill/SKILL.md": "version: 2026.6.20-beta.9\n",
     }
     for rel, content in layout.items():
         target = tmp_path / rel
@@ -95,27 +102,52 @@ def _run_bump_in_tmp(tmp_path: Path, new_version: str) -> subprocess.CompletedPr
     )
 
 
-def test_b9_still_accepted(tmp_path: Path) -> None:
-    """``b9`` is the highest allowed counter — must not fire the cap.
+def test_beta9_still_accepted(tmp_path: Path) -> None:
+    """``beta.9`` is the highest allowed counter — must not fire the cap.
 
     Runs the real ``_bump`` path (where the cap logic lives) against an
     isolated copy of the version-bearing sources.
     """
-    result = _run_bump_in_tmp(tmp_path, "2026.7.1b9")
+    result = _run_bump_in_tmp(tmp_path, "2026.7.1-beta.9")
     assert result.returncode == 0, result.stderr
     assert "exceeds" not in (result.stdout + result.stderr)
 
 
 def test_final_version_unaffected(tmp_path: Path) -> None:
-    """A non-prerelease (e.g. ``2026.7.0``) must not trigger the cap."""
-    result = _run_bump_in_tmp(tmp_path, "2026.7.0")
+    """A non-prerelease (e.g. ``2026.7.1``) must not trigger the cap."""
+    result = _run_bump_in_tmp(tmp_path, "2026.7.1")
     assert result.returncode == 0, result.stderr
     assert "exceeds" not in (result.stdout + result.stderr)
 
 
-@pytest.mark.parametrize("version", ["2026.9.12\n", "2026.9.12suffix"])
-def test_version_with_trailing_content_is_rejected(tmp_path: Path, version: str) -> None:
+@pytest.mark.parametrize(
+    "version",
+    [
+        "2026.9.12\n",
+        "2026.9.12suffix",
+        "2026.10.22-beta.0",  # counter starts at 1
+        "2026.10.22-beta.01",  # no leading zeros in the counter
+        "2026.10.22-beta1",  # the dot is required
+        "2026.10.22-Beta.1",
+        "2026.10.22-dev.1",
+        "2026.10.022-beta.1",  # no leading zeros in day
+        "2026.13.1",  # not a real month
+        "2026.2.30",  # not a real day
+        "2026.010.22-beta.1",  # ...or month
+        "2026.10.22b1",  # the old form can no longer be written
+        "2026.10.22.dev1",
+        "v2026.10.22-beta.1",
+    ],
+)
+def test_invalid_version_is_rejected(tmp_path: Path, version: str) -> None:
     """The bump command requires the entire argument to be canonical."""
     result = _run_bump_in_tmp(tmp_path, version)
     assert result.returncode != 0
-    assert "does not look like a PEP 440 version" in (result.stdout + result.stderr)
+    assert "is not a valid version" in (result.stdout + result.stderr)
+
+
+def test_old_form_rejection_suggests_the_dash_form(tmp_path: Path) -> None:
+    """A maintainer typing the old form is told what to type instead."""
+    result = _run_bump_in_tmp(tmp_path, "2026.10.22b3")
+    assert result.returncode != 0
+    assert "use 2026.10.22-beta.3" in (result.stdout + result.stderr)

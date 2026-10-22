@@ -3,7 +3,7 @@
 """Stamp unreleased commands while preparing a version-bump PR.
 
 Run this locally after ``scripts/bump-version.py <version>`` and commit the
-manual ledger, both generated artifacts, all five version sources, and the
+manual ledger, both generated artifacts, all seven version sources, and the
 CHANGELOG entry in the same PR. This is release preparation, not tag
 automation. CI and the release workflow use ``--check-release-bump`` to verify
 the base-to-head command-history transition before a release is cut.
@@ -23,17 +23,23 @@ from types import ModuleType
 ROOT = Path(__file__).resolve().parent.parent
 MANUAL_PATH = ROOT / "contracts" / "command-coverage-manual.json"
 GENERATOR = ROOT / "scripts" / "generate-command-coverage.py"
-VERSION_SOURCE = "app/node/pyproject.toml"
+# The release version is the literal app/config.yaml carries (the dash form, and
+# the tag name). pyproject.toml holds the PEP 440 normalized form of it, which
+# AwesomeVersion does not order against the dash form.
+VERSION_SOURCE = "app/config.yaml"
 MANUAL_SOURCE = "contracts/command-coverage-manual.json"
 
 UNRELEASED = "unreleased"
 BASELINE_MISSING = "__baseline_missing__"
 
-# Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE. Historical
-# command releases include alpha and beta tags; current release tooling also
-# supports release candidates, development releases, and final releases.
-VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
-PYPROJECT_VERSION_RE = re.compile(r'^version = "([^"]+)"$', re.MULTILINE)
+# Keep this exactly aligned with scripts/generate-command-coverage.py::
+# _FIRST_SHIPPED_VERSION_RE. Historical command releases carry the old `bN` form;
+# new releases use `-beta.N`/`-alpha.N`/`-rc.N` or are final.
+VERSION_RE = re.compile(
+    r"^(?:\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?"
+    r"|(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){2}-(?:alpha|beta|rc)\.[1-9]\d*)$"
+)
+CONFIG_VERSION_RE = re.compile(r'^version: "([^"]+)"$', re.MULTILINE)
 
 
 class ShipError(RuntimeError):
@@ -45,6 +51,17 @@ def _load_generator() -> ModuleType:
     if spec is None or spec.loader is None:
         raise ShipError(f"cannot load generator at {GENERATOR}")
     module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_bump_version() -> ModuleType:
+    path = ROOT / "scripts" / "bump-version.py"
+    spec = importlib.util.spec_from_file_location("bump_version_shared", path)
+    if spec is None or spec.loader is None:
+        raise ShipError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolves its module here
     spec.loader.exec_module(module)
     return module
 
@@ -169,10 +186,26 @@ def _require_current_version(version: str) -> None:
 
 def _version_at_ref(ref: str) -> str:
     text = _read_ref_file(ref, VERSION_SOURCE).decode("utf-8")
-    match = PYPROJECT_VERSION_RE.search(text)
+    match = CONFIG_VERSION_RE.search(text)
     if match is None:
         raise ShipError(f"version pattern did not match {VERSION_SOURCE} at {ref}")
     return match.group(1)
+
+
+def _awesome_greater(new: str, old: str) -> bool:
+    """True when Home Assistant's AwesomeVersion orders *new* after *old*.
+
+    The Supervisor decides whether an add-on update exists with AwesomeVersion,
+    not PEP 440, so the version-increase gate asserts both orderings.
+    """
+    try:
+        from awesomeversion import AwesomeVersion
+    except ImportError as exc:
+        raise ShipError(
+            "awesomeversion is required for the version-increase check; "
+            "install it with `pip install awesomeversion==25.8.0`"
+        ) from exc
+    return bool(AwesomeVersion(new) > AwesomeVersion(old))
 
 
 def _check_release_bump(base_ref: str) -> int:
@@ -182,6 +215,9 @@ def _check_release_bump(base_ref: str) -> int:
     base_version = _version_at_ref(base_ref)
     current_version = _current_version()
     base_commands = _read_manual_at_ref(base_ref, generator)
+    # Decided on the verbatim config.yaml literal, not the normalized value: a
+    # form-only change (2026.10.22-beta.1 -> 2026.10.22b1) is still a version
+    # change and must hit the old-form rejection and both ordering gates.
     release_bump = base_version != current_version
     errors: list[str] = []
     baseline_initialization = bool(base_commands) and all(
@@ -202,10 +238,23 @@ def _check_release_bump(base_ref: str) -> int:
                 "release version change"
             )
             return 0
-    if release_bump and generator._version_sort_key(current_version) <= generator._version_sort_key(
-        base_version
-    ):
-        errors.append(f"version must advance: base {base_version!r}, head {current_version!r}")
+    if release_bump:
+        # A changed head must be writable by bump-version.py: the same validator,
+        # not a second copy. The lenient legacy parsing is for the base only.
+        head_problem = _load_bump_version().writable_version_error(current_version)
+        if head_problem is not None:
+            errors.append(f"head version is not writable: {head_problem}")
+        if head_problem is not None:
+            pass  # ordering is meaningless for a version that cannot be written
+        elif generator._version_sort_key(current_version) <= generator._version_sort_key(
+            base_version
+        ):
+            errors.append(f"version must advance: base {base_version!r}, head {current_version!r}")
+        elif not _awesome_greater(current_version, base_version):
+            errors.append(
+                f"AwesomeVersion does not order head {current_version!r} after base "
+                f"{base_version!r}; Home Assistant would not offer this update"
+            )
     removed = sorted(set(base_commands) - set(commands))
     if removed:
         errors.append(
