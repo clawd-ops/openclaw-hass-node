@@ -114,8 +114,8 @@ def test_beta9_still_accepted(tmp_path: Path) -> None:
 
 
 def test_final_version_unaffected(tmp_path: Path) -> None:
-    """A non-prerelease (e.g. ``2026.7.0``) must not trigger the cap."""
-    result = _run_bump_in_tmp(tmp_path, "2026.7.0")
+    """A non-prerelease (e.g. ``2026.7.1``) must not trigger the cap."""
+    result = _run_bump_in_tmp(tmp_path, "2026.7.1")
     assert result.returncode == 0, result.stderr
     assert "exceeds" not in (result.stdout + result.stderr)
 
@@ -131,6 +131,8 @@ def test_final_version_unaffected(tmp_path: Path) -> None:
         "2026.10.22-Beta.1",
         "2026.10.22-dev.1",
         "2026.10.022-beta.1",  # no leading zeros in day
+        "2026.13.1",  # not a real month
+        "2026.2.30",  # not a real day
         "2026.010.22-beta.1",  # ...or month
         "2026.10.22b1",  # the old form can no longer be written
         "2026.10.22.dev1",

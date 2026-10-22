@@ -472,7 +472,7 @@ def test_head_in_the_old_form_is_rejected() -> None:
 
         result = _run_in(repo, "--check-release-bump", base)
         assert result.returncode == 1
-        assert "old pre-release form" in result.stderr
+        assert "the old form is no longer written" in result.stderr
 
 
 def test_form_only_change_to_the_old_form_is_rejected() -> None:
@@ -486,7 +486,7 @@ def test_form_only_change_to_the_old_form_is_rejected() -> None:
 
         result = _run_in(repo, "--check-release-bump", base)
         assert result.returncode == 1
-        assert "old pre-release form" in result.stderr
+        assert "the old form is no longer written" in result.stderr
 
 
 def test_unchanged_old_form_on_a_non_release_pr_is_allowed() -> None:
@@ -497,6 +497,43 @@ def test_unchanged_old_form_on_a_non_release_pr_is_allowed() -> None:
         result = _run_in(repo, "--check-release-bump", base)
         assert result.returncode == 0, result.stdout + result.stderr
         assert "no release version bump" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "head",
+    ["2026.10.023", "2026.010.22", "2026.10.22-beta.10", "2026.10.22b1", "2026.13.1", "2026.2.30"],
+)
+def test_changed_head_must_be_writable(head: str) -> None:
+    """A changed head is held to the exact validator bump-version.py writes with."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        _set_versions(repo, head)
+        _commit_all(repo, f"set {head}")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 1, result.stdout
+        assert "head version is not writable" in result.stderr
+
+
+@pytest.mark.parametrize("head", ["2026.10.22", "2026.10.22-beta.2"])
+def test_changed_writable_head_is_accepted(head: str) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        _set_versions(repo, head)
+        _stamp_pending(repo, head)
+        _commit_all(repo, f"release {head}")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_the_check_and_the_writer_share_one_validator() -> None:
+    """No second copy of the writable format in the release-bump check."""
+    text = _SCRIPT.read_text(encoding="utf-8")
+    assert "writable_version_error" in text
+    assert "LEGACY_PRERELEASE_RE" not in text
 
 
 def test_a_version_that_does_not_advance_is_rejected() -> None:

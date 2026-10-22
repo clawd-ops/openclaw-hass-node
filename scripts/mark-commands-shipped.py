@@ -39,8 +39,6 @@ VERSION_RE = re.compile(
     r"^(?:\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?"
     r"|(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){2}-(?:alpha|beta|rc)\.[1-9]\d*)$"
 )
-# A previous-version-only form: readable at the base, refused at the head.
-LEGACY_PRERELEASE_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)$")
 CONFIG_VERSION_RE = re.compile(r'^version: "([^"]+)"$', re.MULTILINE)
 
 
@@ -53,6 +51,17 @@ def _load_generator() -> ModuleType:
     if spec is None or spec.loader is None:
         raise ShipError(f"cannot load generator at {GENERATOR}")
     module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_bump_version() -> ModuleType:
+    path = ROOT / "scripts" / "bump-version.py"
+    spec = importlib.util.spec_from_file_location("bump_version_shared", path)
+    if spec is None or spec.loader is None:
+        raise ShipError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # dataclasses resolves its module here
     spec.loader.exec_module(module)
     return module
 
@@ -230,12 +239,14 @@ def _check_release_bump(base_ref: str) -> int:
             )
             return 0
     if release_bump:
-        if LEGACY_PRERELEASE_RE.fullmatch(current_version):
-            errors.append(
-                f"head version {current_version!r} uses the old pre-release form; new "
-                "versions must be YYYY.M.D-{alpha,beta,rc}.N or a stable YYYY.M.D"
-            )
-        if generator._version_sort_key(current_version) <= generator._version_sort_key(
+        # A changed head must be writable by bump-version.py: the same validator,
+        # not a second copy. The lenient legacy parsing is for the base only.
+        head_problem = _load_bump_version().writable_version_error(current_version)
+        if head_problem is not None:
+            errors.append(f"head version is not writable: {head_problem}")
+        if head_problem is not None:
+            pass  # ordering is meaningless for a version that cannot be written
+        elif generator._version_sort_key(current_version) <= generator._version_sort_key(
             base_version
         ):
             errors.append(f"version must advance: base {base_version!r}, head {current_version!r}")

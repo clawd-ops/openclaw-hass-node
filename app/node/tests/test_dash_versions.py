@@ -85,7 +85,7 @@ def _run(tree: Path, *args: str) -> subprocess.CompletedProcess[str]:
         "2026.10.22-rc.1",
         "2026.1.5-beta.2",
         "2026.10.22",
-        "2026.7.0",
+        "2026.7.1",
     ],
 )
 def test_dash_form_parses(bump: ModuleType, version: str) -> None:
@@ -286,7 +286,7 @@ def test_pre_release_regex_matches_the_dash_form() -> None:
         "2026.9.12.dev1",
     ):
         assert is_prerelease(version), version
-    for version in ("2026.10.22", "2026.7.0", "1.0.0"):
+    for version in ("2026.10.22", "2026.7.1", "1.0.0"):
         assert not is_prerelease(version), version
 
 

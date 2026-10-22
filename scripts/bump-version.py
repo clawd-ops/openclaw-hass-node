@@ -28,6 +28,7 @@ this with the `git commit` / `git tag` / `gh release create` steps.
 from __future__ import annotations
 
 import argparse
+import datetime
 import re
 import sys
 from collections.abc import Iterable
@@ -195,31 +196,51 @@ def _check(version: str | None) -> int:
     return 0
 
 
-def _bump(new_version: str, sources: Iterable[VersionFile]) -> int:
-    """Rewrite each source to *new_version*. Returns 0 if any change applied."""
-    match = _VERSION_RE.fullmatch(new_version)
+def writable_version_error(version: str) -> str | None:
+    """Return why *version* cannot be written as a new version, or None if it can.
+
+    The single definition of the writable format, shared by ``_bump`` and by
+    ``mark-commands-shipped.py --check-release-bump`` (which applies it to a
+    changed head). It covers the shape (stable ``YYYY.M.D`` or
+    ``-{alpha,beta,rc}.N``, no leading zeros), a real calendar date, and the
+    pre-release cap. The old ``bN`` form is readable elsewhere but never valid here.
+    """
+    match = _VERSION_RE.fullmatch(version)
     if match is None:
         hint = ""
-        legacy = _LEGACY_RE.fullmatch(new_version)
+        legacy = _LEGACY_RE.fullmatch(version)
         if legacy and legacy.group(2):
             stage = _STAGE_NAME[legacy.group(2)]
             hint = (
                 f"; the old form is no longer written, use "
                 f"{legacy.group(1)}-{stage}.{legacy.group(3)}"
             )
-        raise SystemExit(  # noqa: TRY003
-            f"error: {new_version!r} is not a valid version; expected YYYY.M.D-beta.N "
+        return (
+            f"{version!r} is not a valid version; expected YYYY.M.D-beta.N "
             f"(also -alpha.N, -rc.N) or a stable YYYY.M.D, no leading zeros, "
             f"e.g. 2026.10.22-beta.1 or 2026.10.22{hint}"
         )
-    _, stage, serial = match.groups()
+    base, stage, serial = match.groups()
+    year, month, day = (int(part) for part in base.split("."))
+    try:
+        datetime.date(year, month, day)
+    except ValueError:
+        return f"{version!r} is not a valid version: {base} is not a real calendar date"
     if stage and int(serial) > _PRERELEASE_CAP:
         marker = f"{stage}.{_PRERELEASE_CAP}"
-        raise SystemExit(  # noqa: TRY003
-            f"error: {new_version!r} exceeds the {marker} prerelease cap. Roll the "
+        return (
+            f"{version!r} exceeds the {marker} prerelease cap. Roll the "
             f"calendar portion forward to today and reset to {stage}.1 instead "
             f"(e.g. 2026.7.1-{stage}.1). See feedback_beta_cap_b9 in user memory."
         )
+    return None
+
+
+def _bump(new_version: str, sources: Iterable[VersionFile]) -> int:
+    """Rewrite each source to *new_version*. Returns 0 if any change applied."""
+    problem = writable_version_error(new_version)
+    if problem is not None:
+        raise SystemExit(f"error: {problem}")  # noqa: TRY003
     changed: list[Path] = []
     for source in sources:
         if _write_new(source, new_version):
