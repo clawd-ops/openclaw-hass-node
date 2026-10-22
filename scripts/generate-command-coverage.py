@@ -88,8 +88,30 @@ ROW_CALLERS = frozenset(
 # Acceptance test callers must name a ROW_CALLER.
 VALID_TEST_CALLERS = ROW_CALLERS
 
-# Keep this exactly aligned with scripts/bump-version.py::_PEP440_RE.
-_FIRST_SHIPPED_VERSION_RE = re.compile(r"^\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?$")
+# Keep this exactly aligned with scripts/bump-version.py::_VERSION_RE (the dash
+# form, `2026.10.22-beta.1`) and ::_LEGACY_RE (the old `2026.10.15b1` form, which
+# stays valid because shipped history still carries it).
+_FIRST_SHIPPED_VERSION_RE = re.compile(
+    r"^(?:\d+(?:\.\d+){2}(?:(?:a|b|rc)\d+|\.dev\d+)?"
+    r"|(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){2}-(?:alpha|beta|rc)\.[1-9]\d*)$"
+)
+_PEP440_STAGE = {"alpha": "a", "beta": "b", "rc": "rc"}
+_DASH_VERSION_RE = re.compile(r"^(\d+(?:\.\d+){2})-(alpha|beta|rc)\.(\d+)$")
+
+
+def _normalize_version(version: str) -> str:
+    """Return the PEP 440 form of *version* (`2026.10.22-beta.1` -> `2026.10.22b1`).
+
+    Stable and legacy-form versions are already normalized. Evidence authored
+    from what a node reports (importlib.metadata, always normalized) and the
+    tracked release version (dash form) then compare equal.
+    """
+    match = _DASH_VERSION_RE.fullmatch(version)
+    if match is None:
+        return version
+    base, stage, serial = match.groups()
+    return f"{base}{_PEP440_STAGE[stage]}{serial}"
+
 
 # An issue citation is an integer, not a string. The field cannot express
 # `banana`, `GH-316`, a trailing space, a Markdown link or a raw anchor, because
@@ -277,7 +299,9 @@ def _version_sort_key(version: str) -> tuple[int, int, int, int, int]:
     as text, because `2` precedes `8`. PEP 440 stage order is development,
     alpha, beta, release candidate, then final.
     """
-    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+)|\.dev(\d+))?", version)
+    match = re.fullmatch(
+        r"(\d+)\.(\d+)\.(\d+)(?:(a|b|rc)(\d+)|\.dev(\d+))?", _normalize_version(version)
+    )
     if not match:  # pragma: no cover - guarded by _validate_first_shipped_in
         raise ValueError(f"unsortable version: {version!r}")
     major, minor, patch, stage, serial, dev_serial = match.groups()
@@ -304,10 +328,14 @@ def _tracked_release_version() -> str:
             label = str(path)
         versions[label] = match.group(1)
 
-    distinct = set(versions.values())
+    # pyproject.toml and the __init__.py fallback carry the PEP 440 form of the
+    # dash-form release; compare normalized so that is not read as drift. The
+    # release version itself is the literal app/config.yaml carries (the tag),
+    # which is the first entry in _VERSION_SOURCES.
+    distinct = {_normalize_version(v) for v in versions.values()}
     if len(distinct) != 1:
         raise LedgerError(f"version drift across tracked sources: {versions}")
-    version = next(iter(distinct))
+    version = next(iter(versions.values()))
     if not _FIRST_SHIPPED_VERSION_RE.fullmatch(version):
         raise LedgerError(f"tracked release version {version!r} is not a supported release version")
     return version
@@ -1555,7 +1583,9 @@ def build_ledger() -> dict[str, Any]:
                                 f"missing required field: plugin_version "
                                 f"(a version or 'not recorded'; got {obs_plugin_version!r})"
                             )
-                        obs_stale = obs_node_version != current_release
+                        obs_stale = _normalize_version(obs_node_version) != _normalize_version(
+                            current_release
+                        )
                     item = _evidence(
                         observation["method"],
                         observation["outcome"],

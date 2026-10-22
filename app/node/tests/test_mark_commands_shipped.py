@@ -7,6 +7,7 @@ matters: given this manual ledger and this version, produce that ledger.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import shutil
@@ -14,6 +15,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from types import ModuleType
+
+import pytest
 
 _ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _ROOT / "scripts/mark-commands-shipped.py"
@@ -95,17 +99,22 @@ def _clone_repo(tmp_path: Path) -> Path:
         check=True,
         capture_output=True,
     )
-    # A clone carries committed state, so copy in the script under test; these
+    # A clone carries committed state, so copy in the scripts under test; these
     # probes must exercise the working tree, not the last commit.
-    shutil.copy2(_SCRIPT, work / "scripts/mark-commands-shipped.py")
+    for script in ("mark-commands-shipped.py", "generate-command-coverage.py", "bump-version.py"):
+        shutil.copy2(_ROOT / "scripts" / script, work / "scripts" / script)
     return work
 
 
 def _tracked_version(repo: Path) -> str:
-    """Read the synchronized version the stamper will insist on."""
-    current = (repo / "app/node/pyproject.toml").read_text(encoding="utf-8")
-    match = re.search(r'^version = "([^"]+)"$', current, re.MULTILINE)
-    assert match is not None, "pyproject must carry a version"
+    """Read the synchronized version the stamper will insist on.
+
+    That is the literal app/config.yaml carries (the dash form and the tag);
+    pyproject.toml holds its PEP 440 normalized form.
+    """
+    current = (repo / "app/config.yaml").read_text(encoding="utf-8")
+    match = re.search(r'^version: "([^"]+)"$', current, re.MULTILINE)
+    assert match is not None, "app/config.yaml must carry a version"
     return match.group(1)
 
 
@@ -254,16 +263,23 @@ def _commit_all(repo: Path, message: str) -> str:
     ).stdout.strip()
 
 
+def _pep440(version: str) -> str:
+    """`2026.10.22-beta.1` -> `2026.10.22b1`; anything else is unchanged."""
+    stage = {"alpha": "a", "beta": "b", "rc": "rc"}
+    return re.sub(r"-(alpha|beta|rc)\.(\d+)$", lambda m: f"{stage[m[1]]}{m[2]}", version)
+
+
 def _set_versions(repo: Path, version: str) -> None:
     """Move all seven tracked version sources so the gate sees a real bump."""
+    normalized = _pep440(version)
     for rel, pattern, repl in (
-        ("app/node/pyproject.toml", r'^version = "[^"]+"$', f'version = "{version}"'),
+        ("app/node/pyproject.toml", r'^version = "[^"]+"$', f'version = "{normalized}"'),
         ("app/config.yaml", r'^version: "[^"]+"$', f'version: "{version}"'),
         ("app/build.yaml", r'^  io\.hass\.version: "[^"]+"$', f'  io.hass.version: "{version}"'),
         (
             "app/node/src/openclaw_node/__init__.py",
             r'__version__ = "[^"]+"',
-            f'__version__ = "{version}"',
+            f'__version__ = "{normalized}"',
         ),
         (
             "custom_components/openclaw_hass_node_assist/manifest.json",
@@ -391,10 +407,126 @@ def test_steady_state_rejects_an_unstamped_release_bump() -> None:
         assert pending in result.stderr
 
 
-# Not covered here: the accept-a-correct-bump happy path. Building a fixture for
-# it means hand-constructing a two-commit release transition, and the version
-# both commits must agree on interacts with values the generator rewrites. The
-# fixture kept asserting a state the gate correctly rejected, which tests the
-# fixture rather than the gate. The real transition runs on every release PR via
-# the CI gate, so the uncovered path is the one with live coverage; the two
-# rejection paths above are the ones nothing else exercises.
+def _stamp_pending(repo: Path, version: str) -> None:
+    """Stamp the baseline's pending command with *version* and regenerate."""
+    manual = repo / "contracts/command-coverage-manual.json"
+    data = json.loads(manual.read_text(encoding="utf-8"))
+    data["commands"][_pending_command(repo)]["first_shipped_in"] = version
+    manual.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    subprocess.run(
+        [sys.executable, "scripts/generate-command-coverage.py"],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_transition_from_the_old_form_to_the_dash_form_passes() -> None:
+    """`2026.10.15b1` -> `2026.10.22-beta.1`: the base is old-form, the head is not."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        assert _tracked_version(repo) == "2026.10.15b1"
+        _set_versions(repo, "2026.10.22-beta.1")
+        _stamp_pending(repo, "2026.10.22-beta.1")
+        _commit_all(repo, "release 2026.10.22-beta.1")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "2026.10.15b1 to 2026.10.22-beta.1" in result.stdout
+
+
+def test_dash_to_dash_beta_bump_passes() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        _set_versions(repo, "2026.10.22-beta.1")
+        base = _baseline(repo)
+        _set_versions(repo, "2026.10.22-beta.2")
+        _stamp_pending(repo, "2026.10.22-beta.2")
+        _commit_all(repo, "release 2026.10.22-beta.2")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_dash_form_with_no_bump_is_not_mistaken_for_a_release() -> None:
+    """pyproject holds the normalized form; that must not read as a version change."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        _set_versions(repo, "2026.10.22-beta.1")
+        base = _baseline(repo)
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "no release version bump" in result.stdout
+
+
+def test_head_in_the_old_form_is_rejected() -> None:
+    """New versions must use the dash form even though the old one stays readable."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        _set_versions(repo, "2026.10.22b1")
+        _stamp_pending(repo, "2026.10.22b1")
+        _commit_all(repo, "release in the old form")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 1
+        assert "old pre-release form" in result.stderr
+
+
+def test_a_version_that_does_not_advance_is_rejected() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        _set_versions(repo, "2026.10.22-beta.2")
+        base = _baseline(repo)
+        _set_versions(repo, "2026.10.22-beta.1")
+        _stamp_pending(repo, "2026.10.22-beta.1")
+        _commit_all(repo, "go backwards")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 1
+        assert "version must advance" in result.stderr
+
+
+def _load_script() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("mark_commands_shipped_under_test", _SCRIPT)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize(
+    ("new", "old"),
+    [
+        ("2026.10.22-beta.2", "2026.10.22-beta.1"),
+        ("2026.10.22", "2026.10.22-beta.2"),
+        ("2026.10.22-beta.1", "2026.10.15b1"),
+        ("2026.10.22-rc.1", "2026.10.22-beta.9"),
+        ("2026.11.1-beta.1", "2026.10.31"),
+        ("2026.10.22-beta.1", "2026.10.9b1"),  # two-digit day vs one-digit day
+    ],
+)
+def test_awesomeversion_gate_orders_increases(new: str, old: str) -> None:
+    script = _load_script()
+    assert script._awesome_greater(new, old) is True
+    assert script._awesome_greater(old, new) is False
+
+
+def test_awesomeversion_gate_requires_the_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A missing pin fails loudly with an install hint instead of skipping the check."""
+    monkeypatch.setitem(sys.modules, "awesomeversion", None)
+    script = _load_script()
+    with pytest.raises(script.ShipError, match=r"awesomeversion==25\.8\.0"):
+        script._awesome_greater("2026.10.22-beta.1", "2026.10.15b1")
+
+
+def test_awesomeversion_pin_matches_across_workflows_and_dev_dependencies() -> None:
+    """CI installs the same AwesomeVersion the dev group pins (Home Assistant's pin)."""
+    pin = re.search(r'"(awesomeversion==[\d.]+)"', (_ROOT / "pyproject.toml").read_text())
+    assert pin is not None
+    for workflow in ("ci.yaml", "release-on-version-bump.yml"):
+        text = (_ROOT / ".github/workflows" / workflow).read_text(encoding="utf-8")
+        assert f"pip install {pin[1]}" in text, workflow

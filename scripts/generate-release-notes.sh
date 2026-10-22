@@ -2,7 +2,7 @@
 # generate-release-notes.sh — group Conventional Commit subjects since PREV_TAG.
 #
 # Usage: generate-release-notes.sh [<prev-tag>] [<end-ref>]
-#   prev-tag : last release tag (e.g. v2026.7.1b1); omit for first-ever release
+#   prev-tag : last release tag (e.g. v2026.10.22-beta.1); omit for first-ever release
 #   end-ref  : defaults to HEAD
 #
 # Prints grouped Markdown to stdout. Suitable for piping into a GitHub Release
@@ -32,7 +32,7 @@ other=()
 for subject in "${SUBJECTS[@]-}"; do
   [[ -z "$subject" ]] && continue
 
-  # Skip release-bump chore commits (e.g. "chore(release): 2026.7.1b2")
+  # Skip release-bump chore commits (e.g. "chore(release): 2026.10.22-beta.2")
   # Use variables to avoid bash [[ ]] bracket-parsing conflicts with char classes.
   _chore_ver_re='^chore(\([^)]*\))?:[[:space:]]*[0-9]'
   _chore_rel_re='^chore\(release\):[[:space:]]'

@@ -24,9 +24,10 @@ name: Auto-cut release on version bump
 # which got forgotten more than once (LESSONS.md → "Release PR merged ≠
 # release cut"). This closes that gap.
 #
-# Versions on the alpha (`aN`) / beta (`bN`) / rc (`rcN`) tracks are
-# cut as prereleases. Final releases (`1.0.0`, `2026.7.0`) are full
-# releases.
+# Versions on the `-alpha.N` / `-beta.N` / `-rc.N` tracks (e.g.
+# `2026.10.22-beta.1`) are cut as prereleases; the old `aN`/`bN`/`rcN` form is
+# still recognised so history stays readable. Final releases (`2026.10.22`) are
+# full releases. The tag is `v<version>` verbatim.
 on:
   push:
     branches: [main]
@@ -61,12 +62,14 @@ jobs:
           VERSION=$(scripts/bump-version.py --get)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          if [[ "$VERSION" =~ (a|b|rc|\.dev)[0-9]+$ ]]; then
+          if [[ "$VERSION" =~ (a|b|rc|\.dev|-(alpha|beta|rc)\.)[0-9]+$ ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
           echo "Current synced version: $VERSION"
+      - name: Install AwesomeVersion for the version-increase check
+        run: python -m pip install awesomeversion==25.8.0
       - name: Verify command shipment transition before tagging
         env:
           BASE_SHA: ${{ github.event.before }}
@@ -91,7 +94,10 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          PREV=$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1 || true)
+          # versionsort.suffix makes `-beta.N`/`-rc.N` sort before the stable
+          # tag they lead up to; plain version sort puts them after it.
+          PREV=$(git -c versionsort.suffix=-alpha -c versionsort.suffix=-beta \
+            -c versionsort.suffix=-rc tag --sort=-v:refname | grep -v "^${TAG}$" | head -1 || true)
           if [[ -z "$PREV" ]]; then
             echo "No previous tag found (first release)."
             echo "prev_tag=" >> "$GITHUB_OUTPUT"
@@ -110,7 +116,7 @@ jobs:
           set -euo pipefail
 
           # 1. Extract any hand-written CHANGELOG section for this version.
-          # Matches headings like: ## 2026.7.1b2 (2026-07-01) — title
+          # Matches headings like: ## 2026.10.22-beta.1 (2026-10-22) — title
           # and captures everything until the next "## " heading.
           HANDWRITTEN=$(mktemp)
           awk -v ver="$VERSION" '

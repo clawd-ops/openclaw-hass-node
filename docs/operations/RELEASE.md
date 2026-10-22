@@ -34,11 +34,11 @@ ledger sweep.
 3. **Releases are cut by CI, not by hand.** Pushing a version bump to
    `main` is what triggers the tag + GitHub release. No human runs
    `git tag` in the normal flow.
-4. **Pre-release markers are first-class.** The project is currently
-   on the beta track (`2026.9.13b1` at time of writing); pre-1.0 it
-   lives on `aN`/`bN`/`rcN` markers. Versions carrying any of those
-   suffixes are cut as **prereleases**; final tags (`1.0.0`,
-   `2026.7.0`) are full releases.
+4. **Pre-release markers are first-class.** Versions use the OpenClaw
+   style `YYYY.M.D-beta.N` (also `-alpha.N` and `-rc.N`); pre-1.0 the
+   project lives on those markers. Versions carrying any of those
+   suffixes are cut as **prereleases**; the stable `YYYY.M.D` is a full
+   release.
 5. **No backports, no parallel branches.** `main` is the only branch
    that ships. Hot-fixes are forward-fixes that cut a new release.
 
@@ -73,18 +73,45 @@ makes manual changelog drafting fast.
 
 ## Versioning policy
 
-- **Pre-1.0:** the project stays on a single prerelease-channel CalVer
-  (`YYYY.M.Pb<N>` during the current beta track; the prior alpha track
-  used `YYYY.M.Pa<N>`). Every release bumps the prerelease increment
-  (`b1` → `b2` → `b3` …) unless a breaking change forces a `Y.M.P`
-  rev. Date-based bumps (`2026.6.20b7` → `2026.7.0b1`) happen when
-  there's a deliberate cut, not because the calendar rolled over.
+- **Format:** `YYYY.M.D` for a stable release, `YYYY.M.D-alpha.N`,
+  `YYYY.M.D-beta.N` or `YYYY.M.D-rc.N` for a pre-release. No leading zeros in
+  month or day, and `N` starts at 1. `2026.10.22-beta.1` → `2026.10.22-beta.2`
+  → stable `2026.10.22`. The git tag is `v<version>` verbatim
+  (`v2026.10.22-beta.1`).
+- **Ordering:** `-beta.2` > `-beta.1`, `-rc.1` > `-beta.9`, and the stable
+  release sorts after all of its pre-releases. Home Assistant's
+  `AwesomeVersion` (what the Supervisor uses to offer add-on updates) and PEP
+  440 agree on this; the release gate checks both.
+- **Cap:** the counter stops at 9 (`-beta.9`). Past that, roll the date forward
+  to today and reset to `-beta.1`. `scripts/bump-version.py` refuses `-beta.10`.
+- **Old form:** versions before the switch (`2026.10.15b1`) used
+  `YYYY.M.DbN`. That form stays readable as the *previous* version, so the
+  transition `2026.10.15b1` → `2026.10.22-beta.1` passes the gates, but it can no
+  longer be written as a new version.
+- **Per-file storage:** the dash form is stored verbatim everywhere except the
+  two Python-side files.
+
+  | File | Stored as | Why |
+  | --- | --- | --- |
+  | `app/config.yaml` | dash form | Supervisor reads it as a string; it parses as SemVer |
+  | `app/build.yaml` (label) | dash form | informational label |
+  | `custom_components/.../manifest.json` | dash form | HA/hassfest accept SemVer |
+  | `plugins/.../package.json` | dash form | valid npm semver |
+  | `skills/.../SKILL.md` | dash form | documentation only |
+  | `app/node/pyproject.toml` | PEP 440 normalized (`2026.10.22b1`) | what `uv.lock`, the built wheel and `importlib.metadata` record |
+  | `app/node/src/openclaw_node/__init__.py` | PEP 440 normalized | fallback must equal what the installed package reports |
+
+  `scripts/bump-version.py` writes each file in its form and `--check`
+  compares the normalized forms, so `2026.10.22b1` in `pyproject.toml` is not
+  reported as drift against `2026.10.22-beta.1` in `app/config.yaml`. The node
+  therefore reports the normalized form to the gateway while the add-on and
+  tag use the dash form.
 - **1.0 and beyond:** semver from the same base. Breaking changes
   bump major; new functionality bumps minor; fixes bump patch.
 - **Hot-fixes** are forward-fixes off `main`; we don't maintain
-  long-lived release branches. If a stable user is on `2026.6.20b7`
-  and we ship `2026.6.20b8` with a regression, the fix is `b9` not
-  `b8.1`. This keeps the release pipeline single-tracked.
+  long-lived release branches. If a stable user is on `2026.10.22-beta.7`
+  and we ship `2026.10.22-beta.8` with a regression, the fix is `-beta.9`
+  not `-beta.8.1`. This keeps the release pipeline single-tracked.
 
 ## Release procedure (automated)
 
@@ -107,10 +134,10 @@ The seven files are:
 Hand-editing them is how drift happens. Use the script:
 
 ```sh
-scripts/bump-version.py 2026.6.20b8
+scripts/bump-version.py 2026.10.22-beta.2
 ```
 
-It enforces a PEP 440 shape and exits non-zero if any regex misses
+It enforces the format above and exits non-zero if any regex misses
 (so a renamed key surfaces loudly instead of silently skipping).
 
 Verify locally:
@@ -129,7 +156,7 @@ required merge gate.
 Run the command stamp locally with the same version:
 
 ```sh
-scripts/mark-commands-shipped.py 2026.6.20b8
+scripts/mark-commands-shipped.py 2026.10.22-beta.2
 python scripts/generate-command-coverage.py --check
 ```
 
@@ -142,9 +169,9 @@ implementation of that code carried a real defect of its own. If regeneration
 fails after the ledger was rewritten, the helper says so and tells you to reset
 and retry.
 
-Shipment values accept the same canonical forms as `scripts/bump-version.py`:
-historical alpha and beta versions (`aN` and `bN`), release candidates (`rcN`),
-development releases (`.devN`), and final releases. If a release has no new
+Shipment values accept the dash form (`-alpha.N`, `-beta.N`, `-rc.N`), final
+releases, and the historical `aN`/`bN`/`rcN`/`.devN` forms already recorded in
+the ledger. If a release has no new
 commands, the helper still refreshes the generated `latest_release` from the
 synchronized version sources.
 
@@ -152,7 +179,9 @@ The `Command Coverage Ledger` PR check always compares the base and head
 ledgers. Without a version change, existing shipment values must remain exact
 and new commands must stay `unreleased`. With a version change, existing
 released history must remain exact, every previously-unreleased or newly-added
-command must equal the head version, and the version must advance. This is an
+command must equal the head version, and the version must advance under both
+PEP 440 and `AwesomeVersion` ordering (the head must use the dash form; CI
+installs `awesomeversion==25.8.0`, Home Assistant's pin). This is an
 executable PR check, not a claim about branch protection. The push-triggered
 release workflow reruns the same transition check
 against the pre-push commit before any tag or GitHub release is created, which
@@ -167,7 +196,7 @@ format matters because the release workflow extracts notes by parsing
 this file:
 
 ```md
-## 2026.6.20b8 (YYYY-MM-DD) — short one-line title
+## 2026.10.22-beta.2 (YYYY-MM-DD) — short one-line title
 
 ### Features
 - ...
@@ -176,7 +205,7 @@ this file:
 - ...
 ```
 
-PR title: `release: 2026.6.20b8 — <one-line summary>`. Merge it.
+PR title: `release: 2026.10.22-beta.2 — <one-line summary>`. Merge it.
 
 ### Step 4 — CI cuts the release (no human action)
 
@@ -194,11 +223,12 @@ PR title: `release: 2026.6.20b8 — <one-line summary>`. Merge it.
 3. Skips if a matching `v<version>` git tag already exists
    (idempotent — safe to re-trigger).
 4. Extracts the `app/CHANGELOG.md` section matching this version
-   (heading line like `## 2026.6.20b8 (...)`). Falls back to a stub
+   (heading line like `## 2026.10.22-beta.2 (...)`). Falls back to a stub
    if no matching section is found.
 5. Creates the tag and a GitHub release with those notes. Versions
-   carrying a PEP 440 prerelease marker (`aN`/`bN`/`rcN`/`.devN`) are
-   cut as prereleases; final releases are full.
+   carrying a pre-release marker (`-alpha.N`/`-beta.N`/`-rc.N`, or the
+   old `aN`/`bN`/`rcN`/`.devN`) are cut as prereleases; final releases
+   are full.
 
 HA Supervisor's Update prompt reads from published GitHub releases,
 not from `main`, so this is what users actually see.
@@ -224,12 +254,12 @@ need it.
 
 ```sh
 SHA=$(git rev-parse main)
-git tag v2026.6.20b8 $SHA
-git push origin v2026.6.20b8
-gh release create v2026.6.20b8 \
-  --title "2026.6.20b8 — <line from CHANGELOG>" \
+git tag v2026.10.22-beta.2 $SHA
+git push origin v2026.10.22-beta.2
+gh release create v2026.10.22-beta.2 \
+  --title "2026.10.22-beta.2 — <line from CHANGELOG>" \
   --prerelease \
-  --notes "$(awk '/^## 2026\.6\.20b8/{flag=1;next}/^## /{flag=0}flag' app/CHANGELOG.md)"
+  --notes "$(awk '/^## 2026\.10\.22-beta\.2/{flag=1;next}/^## /{flag=0}flag' app/CHANGELOG.md)"
 ```
 
 If you find yourself running this regularly, fix the workflow instead.
