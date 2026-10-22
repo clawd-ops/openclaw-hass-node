@@ -1,7 +1,7 @@
 ---
 name: openclaw-hass-node-skill
 description: Use when inspecting, diagnosing, operating, or safely editing Home Assistant through OpenClaw's Home Assistant node command surface.
-version: 2026.10.15b1
+version: 2026.10.22-beta.1
 ---
 
 # Home Assistant Node

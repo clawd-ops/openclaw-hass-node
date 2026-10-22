@@ -1,5 +1,40 @@
 # OpenClaw Node Add-on Changelog
 
+## 2026.10.22-beta.1 (2026-10-22) — Describe image fixes, translated options, cleaner progress lines
+
+This beta fixes `describe_image` on gateways that list agents under
+`agents.entries`, ships the Assist integration's translations, tidies the
+progress lines Assist streams, and updates dependencies for security advisories.
+Read the upgrade notes below before updating.
+
+### Describe an image
+- **Works with `agents.entries` (#429).** `describe_image` no longer fails with
+  `UNKNOWN_AGENT` when the gateway lists its agents under `agents.entries`. A
+  per-agent model set there is now honoured.
+
+### Assist integration
+- **Translations are included (#432).** The options dialog, the default style
+  field and the `describe_image` action labels now show proper text instead of
+  raw keys.
+- **Clear error for an over-long style (#432).** A custom default style that is
+  too long is reported on the field with a clear message.
+
+### Assist replies
+- **No more "(x2)" on a single tool call (#433).** The gateway reports each tool
+  call on two streams; Assist now ignores the duplicate start event, so a single
+  call shows once in the progress lines.
+
+### Security
+- **Dependency updates (#434).** `aiohttp`, `certifi` and `pillow` are updated
+  for published security advisories.
+
+### Upgrade notes
+1. **Update in this order:** the add-on first (its code changed for #433 and its
+   dependencies for #434), then the integration through HACS, then the gateway
+   plugin.
+2. After updating the integration, restart Home Assistant.
+3. After updating the gateway plugin, reload it.
+
 ## 2026.10.15b1 (2026-10-15) — Describe an image, clearer approvals, cleaner Assist replies
 
 This beta adds a one-call way to describe a photo, makes approvals easier to

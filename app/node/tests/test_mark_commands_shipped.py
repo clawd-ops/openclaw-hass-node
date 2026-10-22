@@ -425,6 +425,7 @@ def test_transition_from_the_old_form_to_the_dash_form_passes() -> None:
     """`2026.10.15b1` -> `2026.10.22-beta.1`: the base is old-form, the head is not."""
     with tempfile.TemporaryDirectory() as tmp:
         repo = _clone_repo(Path(tmp))
+        _set_versions(repo, "2026.10.15b1")  # pin the old-form baseline
         base = _baseline(repo)
         assert _tracked_version(repo) == "2026.10.15b1"
         _set_versions(repo, "2026.10.22-beta.1")
@@ -492,6 +493,7 @@ def test_form_only_change_to_the_old_form_is_rejected() -> None:
 def test_unchanged_old_form_on_a_non_release_pr_is_allowed() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         repo = _clone_repo(Path(tmp))
+        _set_versions(repo, "2026.10.15b1")  # pin the old-form baseline
         base = _baseline(repo)
         assert _tracked_version(repo) == "2026.10.15b1"
         result = _run_in(repo, "--check-release-bump", base)
