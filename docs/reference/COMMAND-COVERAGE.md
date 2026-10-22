@@ -20,7 +20,7 @@ Shipment versions use the same canonical forms as `scripts/bump-version.py`:
 - Registered but unadvertised: `none`
 - Advertised but unregistered: `none`
 
-## New in this release (2026.10.15b1)
+## New in this release (2026.10.22-beta.1)
 
 Commands whose `first_shipped_in` matches the synchronized version in the five tracked project sources. These are new since the previous release.
 
