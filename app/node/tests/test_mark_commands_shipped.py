@@ -475,6 +475,30 @@ def test_head_in_the_old_form_is_rejected() -> None:
         assert "old pre-release form" in result.stderr
 
 
+def test_form_only_change_to_the_old_form_is_rejected() -> None:
+    """dash -> bN of the same release normalizes equal but is still a change."""
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        _set_versions(repo, "2026.10.22-beta.1")
+        base = _baseline(repo)
+        _set_versions(repo, "2026.10.22b1")
+        _commit_all(repo, "rewrite the dash form as the old form")
+
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 1
+        assert "old pre-release form" in result.stderr
+
+
+def test_unchanged_old_form_on_a_non_release_pr_is_allowed() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = _clone_repo(Path(tmp))
+        base = _baseline(repo)
+        assert _tracked_version(repo) == "2026.10.15b1"
+        result = _run_in(repo, "--check-release-bump", base)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "no release version bump" in result.stdout
+
+
 def test_a_version_that_does_not_advance_is_rejected() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         repo = _clone_repo(Path(tmp))

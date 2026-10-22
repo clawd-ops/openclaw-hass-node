@@ -206,9 +206,10 @@ def _check_release_bump(base_ref: str) -> int:
     base_version = _version_at_ref(base_ref)
     current_version = _current_version()
     base_commands = _read_manual_at_ref(base_ref, generator)
-    release_bump = generator._normalize_version(base_version) != generator._normalize_version(
-        current_version
-    )
+    # Decided on the verbatim config.yaml literal, not the normalized value: a
+    # form-only change (2026.10.22-beta.1 -> 2026.10.22b1) is still a version
+    # change and must hit the old-form rejection and both ordering gates.
+    release_bump = base_version != current_version
     errors: list[str] = []
     baseline_initialization = bool(base_commands) and all(
         entry["first_shipped_in"] == BASELINE_MISSING for entry in base_commands.values()
