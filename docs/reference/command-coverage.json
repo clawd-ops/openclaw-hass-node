@@ -1,6 +1,9 @@
 {
   "commands_new_in_latest_release": [],
-  "commands_unreleased": [],
+  "commands_unreleased": [
+    "ha.rest",
+    "ha.ws"
+  ],
   "evidence_methods": {
     "CODE-PROVEN": "Established from source review; not a live result.",
     "DISPOSABLE-LIVE": "Probed against a disposable non-production environment.",
@@ -12612,6 +12615,93 @@
     {
       "acceptance_test_ids": [],
       "action": null,
+      "authorization_class": "native_approval",
+      "callers": {
+        "assist_wrapper": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.",
+              "outcome": "refused-as-designed",
+              "source": "contracts/command-coverage-manual.json"
+            }
+          ],
+          "reason": "Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.",
+          "source": "contracts/command-coverage-manual.json",
+          "status": "unavailable"
+        },
+        "direct_nodes_invoke": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+              "outcome": "unverified",
+              "source": "dispatcher + node connect frame"
+            }
+          ],
+          "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+          "source": "dispatcher + node connect frame",
+          "status": "advertised-unverified"
+        },
+        "handler_dispatch": {
+          "evidence": [
+            {
+              "method": "UNVERIFIED",
+              "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
+              "outcome": "unverified",
+              "source": "handler and dispatch_async test matrix"
+            }
+          ],
+          "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
+          "source": "handler and dispatch_async test matrix",
+          "status": "path-present-unverified"
+        },
+        "node_advertisement": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+              "outcome": "pass",
+              "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS"
+            }
+          ],
+          "reason": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+          "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
+          "status": "advertised"
+        }
+      },
+      "canonical_parameters": [],
+      "capability_conditions": "HA Core REST API is reachable. Core-relative /api/ paths only; Supervisor routes are refused. Each request is classified and authorized like ha.ws.",
+      "command": "ha.rest",
+      "evidence_method": "CODE-PROVEN",
+      "evidence_note": "UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.",
+      "first_shipped_in": "unreleased",
+      "handler": "openclaw_node.commands.ha_passthrough:handle_ha_rest",
+      "id": "ha.rest",
+      "issues": [],
+      "metadata_provenance": {
+        "acceptance_test_ids": "manually curated behavioral IDs",
+        "authorization_class": "manual reality pass",
+        "capability_conditions": "manual reality pass",
+        "evidence_method": "manual evidence classification",
+        "inventory": "source-derived",
+        "outcome": "manual outcome classification",
+        "semantic_errors": "manual reality pass",
+        "semantic_result": "manual reality pass",
+        "source_mentions": "source-derived textual references; not proof"
+      },
+      "outcome": "unverified",
+      "registered": true,
+      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. HA failures keep their HA_* codes.",
+      "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
+      "source_mentions": [
+        "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_passthrough.py"
+      ]
+    },
+    {
+      "acceptance_test_ids": [],
+      "action": null,
       "authorization_class": "read_only",
       "callers": {
         "assist_wrapper": {
@@ -12894,6 +12984,93 @@
         "app/node/tests/test_ha_strict_keys.py",
         "plugins/openclaw-hass-node-assist-tools/src/tools/assist-command-registration.test.ts",
         "plugins/openclaw-hass-node-assist-tools/src/tools/ha-admin-tools.test.ts"
+      ]
+    },
+    {
+      "acceptance_test_ids": [],
+      "action": null,
+      "authorization_class": "native_approval",
+      "callers": {
+        "assist_wrapper": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.",
+              "outcome": "refused-as-designed",
+              "source": "contracts/command-coverage-manual.json"
+            }
+          ],
+          "reason": "Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.",
+          "source": "contracts/command-coverage-manual.json",
+          "status": "unavailable"
+        },
+        "direct_nodes_invoke": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+              "outcome": "unverified",
+              "source": "dispatcher + node connect frame"
+            }
+          ],
+          "reason": "A dispatcher and advertised path exist; end-to-end availability is not implied.",
+          "source": "dispatcher + node connect frame",
+          "status": "advertised-unverified"
+        },
+        "handler_dispatch": {
+          "evidence": [
+            {
+              "method": "UNVERIFIED",
+              "observation": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
+              "outcome": "unverified",
+              "source": "handler and dispatch_async test matrix"
+            }
+          ],
+          "reason": "A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.",
+          "source": "handler and dispatch_async test matrix",
+          "status": "path-present-unverified"
+        },
+        "node_advertisement": {
+          "evidence": [
+            {
+              "method": "CODE-PROVEN",
+              "observation": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+              "outcome": "pass",
+              "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS"
+            }
+          ],
+          "reason": "Present in the node connect frame; gateway allowlisting and runtime availability are separate.",
+          "source": "app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS",
+          "status": "advertised"
+        }
+      },
+      "canonical_parameters": [],
+      "capability_conditions": "HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Supervisor tunnels and updates are hard-deny.",
+      "command": "ha.ws",
+      "evidence_method": "CODE-PROVEN",
+      "evidence_note": "UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.",
+      "first_shipped_in": "unreleased",
+      "handler": "openclaw_node.commands.ha_passthrough:handle_ha_ws",
+      "id": "ha.ws",
+      "issues": [],
+      "metadata_provenance": {
+        "acceptance_test_ids": "manually curated behavioral IDs",
+        "authorization_class": "manual reality pass",
+        "capability_conditions": "manual reality pass",
+        "evidence_method": "manual evidence classification",
+        "inventory": "source-derived",
+        "outcome": "manual outcome classification",
+        "semantic_errors": "manual reality pass",
+        "semantic_result": "manual reality pass",
+        "source_mentions": "source-derived textual references; not proof"
+      },
+      "outcome": "unverified",
+      "registered": true,
+      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. HA failures keep their HA_* codes.",
+      "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
+      "source_mentions": [
+        "app/node/tests/test_gateway_ws.py",
+        "app/node/tests/test_ha_passthrough.py"
       ]
     },
     {
@@ -13864,11 +14041,11 @@
   "schema_version": 1,
   "summary": {
     "action_variants": 31,
-    "advertised_commands": 57,
+    "advertised_commands": 59,
     "advertised_not_registered": [],
     "assist_wrapped_commands": 31,
-    "ledger_rows": 88,
-    "registered_commands": 57,
+    "ledger_rows": 90,
+    "registered_commands": 59,
     "registered_not_advertised": [],
     "registered_without_assist_wrapper": [
       "fs.delete",
@@ -13891,6 +14068,8 @@
       "ha.config.lovelace",
       "ha.config.scene",
       "ha.config.script",
+      "ha.rest",
+      "ha.ws",
       "ping",
       "system.execApprovals.get",
       "system.execApprovals.set",

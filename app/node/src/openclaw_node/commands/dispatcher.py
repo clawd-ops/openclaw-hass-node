@@ -83,6 +83,7 @@ from openclaw_node.commands.ha_config_helpers import handle_ha_config_helpers
 from openclaw_node.commands.ha_config_lovelace import handle_ha_config_lovelace
 from openclaw_node.commands.ha_config_scene import handle_ha_config_scene
 from openclaw_node.commands.ha_config_script import handle_ha_config_script
+from openclaw_node.commands.ha_passthrough import handle_ha_rest, handle_ha_ws
 from openclaw_node.commands.ping import handle_ping
 from openclaw_node.commands.system import handle_system_which
 from openclaw_node.commands.system_run import handle_system_run
@@ -156,6 +157,8 @@ _REGISTRY: dict[str, CommandHandler] = {
     "ha.config.device_registry": handle_ha_config_device_registry,
     "ha.config.entity_registry": handle_ha_config_entity_registry,
     "ha.config.config_entries": handle_ha_config_config_entries,
+    "ha.ws": handle_ha_ws,
+    "ha.rest": handle_ha_rest,
 }
 
 

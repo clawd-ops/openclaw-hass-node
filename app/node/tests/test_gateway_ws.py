@@ -248,6 +248,8 @@ def test_connect_commands_advertise_full_surface() -> None:
         "ha.config.device_registry",
         "ha.config.entity_registry",
         "ha.config.config_entries",
+        "ha.ws",
+        "ha.rest",
     ]
 
 
