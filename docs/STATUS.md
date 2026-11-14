@@ -211,9 +211,13 @@ classified (control, diagnose, fix, configure, admin) by one pattern table, unkn
 means admin, and the caller's role decides: a household adult may control, diagnose
 and fix (including a Core restart) but not configure or administer; the owner may
 configure, and admin and hard-deny items (updates, host power, backup deletion,
-users and auth, Supervisor tunnels) need one approval per job, and the prompt lists
-every request in the job. Scripts, buttons and automation triggers count as admin
-because they run actions the node cannot see. Every call is audited, and a call whose
+users and auth) need one approval per job. A job may mix WebSocket and REST
+requests. A read-only plan (`"plan": true`) returns the full normalized list and the
+job digest first; the approval prompt is a summary (counts, every hard-deny item, a
+digest prefix) because the gateway caps it at 512 characters. Supervisor tunnels are
+refused outright. Scripts, buttons, automation triggers, `input_boolean` and
+`input_button` count as admin or configure because they run, or can set off, actions
+the node cannot see. Every call is audited, and a call whose
 audit line cannot be written does not run. `ha_ws_call` no longer lets a payload override `id` or `type`, and REST
 paths are Core-relative only. The granular `ha.*` commands remain; the Assist
 plugin tools and the skill do not use the pass-through yet. See the

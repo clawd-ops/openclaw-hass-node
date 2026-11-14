@@ -15,6 +15,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { assistSkipsPrompt, JOB_FORM_COMMANDS } from "./approval-policy.js";
 import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.js";
 import { grantable, grantSessionKey, sessionGrants, type GrantStore } from "./approval-grants.js";
+import { jobRefusal, jobSummary } from "./ha-job.js";
 import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
 
 /** Reserved node.invoke param carrying the approval marker. */
@@ -197,58 +198,6 @@ function describeTarget(inner: Record<string, unknown>, command = ""): string {
 
 /** Longest approval description the gateway accepts (its PLUGIN_APPROVAL_DESCRIPTION_MAX_LENGTH). */
 export const APPROVAL_DESCRIPTION_MAX = 512;
-const TARGET_ID_KEYS = ["entity_id", "device_id", "area_id"] as const;
-const PLAIN_TEXT = /^[A-Za-z0-9_.:+/-]*$/;
-
-/** A model-supplied value as it is shown: plain when it is simple, JSON-quoted otherwise, never cut. */
-function shown(value: unknown): string {
-  if (typeof value !== "string") return "?";
-  return PLAIN_TEXT.test(value) ? value : JSON.stringify(value);
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-/** Every entity, device and area id a request names, wherever HA reads it from: payload, payload.target, payload.service_data or body. */
-function targetsOf(r: Record<string, unknown>): string {
-  const payload = asRecord(r.payload);
-  const sources = [payload, asRecord(payload.target), asRecord(payload.service_data), asRecord(r.body)];
-  const found = TARGET_ID_KEYS.flatMap((key) =>
-    sources.flatMap((source) => {
-      const value = source[key];
-      if (value === undefined) return [];
-      const ids = Array.isArray(value) ? value : [value];
-      return [`${key}=${ids.map(shown).join(",")}`];
-    }),
-  );
-  return found.length > 0 ? ` [${found.join(" ")}]` : "";
-}
-
-/** One request of a job: type or method and path, domain.service for a service call, and its targets. Never cut. */
-function describeRequest(request: unknown): string {
-  if (request === null || typeof request !== "object" || Array.isArray(request)) return "(not a request object)";
-  const r = request as Record<string, unknown>;
-  if (typeof r.method === "string") return `${shown(r.method)} ${shown(r.path)}${targetsOf(r)}`;
-  const payload = asRecord(r.payload);
-  const service = r.type === "call_service" ? ` ${shown(payload.domain)}.${shown(payload.service)}` : "";
-  return `${shown(r.type)}${service}${targetsOf(r)}`;
-}
-
-/**
- * Every request of the job, in order, rendered from the same `requests` array the
- * approval digest binds. Identical requests are listed once with a count; nothing
- * else is merged, hidden or shortened.
- */
-function describeJob(requests: unknown[]): string {
-  const counts = new Map<string, number>();
-  for (const request of requests) {
-    const text = describeRequest(request);
-    counts.set(text, (counts.get(text) ?? 0) + 1);
-  }
-  const items = [...counts].map(([text, n]) => (n > 1 ? `${text} x${n}` : text));
-  return `${requests.length} request(s): ${items.join("; ")}`;
-}
 
 function titleOf(command: string, action: string): string {
   if (JOB_FORM_COMMANDS.includes(command)) return "Run HA job";
@@ -367,14 +316,16 @@ export function beforeToolCall(
   });
   const command = normalized(params.invokeCommand);
   const action = typeof clean.action === "string" ? clean.action.trim() : "";
-  const job = JOB_FORM_COMMANDS.includes(command) && Array.isArray(clean.requests) ? clean.requests : undefined;
+  // A plan only describes a job: the node sends no HA request and needs no approval for it.
+  const planning = JOB_FORM_COMMANDS.includes(command) && clean.plan !== undefined;
+  const job = JOB_FORM_COMMANDS.includes(command) && !planning && Array.isArray(clean.requests) ? clean.requests : undefined;
   const needsApproval =
     job !== undefined || (Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true);
   if (!needsApproval) {
     return supplied === undefined && suppliedHint === undefined ? undefined : { params: rewrite(clean) };
   }
 
-  const refused = gatedCallRefusal(command, action, clean);
+  const refused = job !== undefined ? jobRefusal(command, job) : gatedCallRefusal(command, action, clean);
   if (refused !== undefined) return { block: true, blockReason: refused };
   if (hasUnsafeInteger(params.invokeParamsJson as string)) {
     return {
@@ -388,16 +339,21 @@ export function beforeToolCall(
   const scope = grantScope(grants, sessionKey, command, action, nowMs);
   const approved = rewrite({ ...hinted, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) });
   if (scope?.grants.has(scope.sessionKey, command, action, nowMs()) === true) return { params: approved };
-  const requireApproval = approvalRequest(
-    titleOf(command, action),
-    `${titleOf(command, action)}: ${job !== undefined ? describeJob(job) : describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
-    scope,
-  );
-  if (job !== undefined && requireApproval.description.length > APPROVAL_DESCRIPTION_MAX) {
-    return {
-      block: true,
-      blockReason: `This job (${job.length} requests) is too large to show in full in an approval prompt (${requireApproval.description.length} characters; the limit is ${APPROVAL_DESCRIPTION_MAX}). Nothing was run. Split it into smaller jobs.`,
-    };
+  const title = titleOf(command, action);
+  let description: string;
+  if (job === undefined) {
+    description = `${title}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`;
+  } else {
+    const wrap = (summary: string) => `${title}: ${summary} via ${command}.`;
+    const summary = jobSummary(command, job, approvalBind(command, action, clean), (text) => wrap(text).length <= APPROVAL_DESCRIPTION_MAX);
+    if (summary === undefined) {
+      return {
+        block: true,
+        blockReason: `The hard-deny requests in this job (${job.length} requests in all) are too long to show in an approval prompt (the limit is ${APPROVAL_DESCRIPTION_MAX} characters). Nothing was run. Split the hard-deny items into smaller jobs.`,
+      };
+    }
+    description = wrap(summary);
   }
+  const requireApproval = approvalRequest(title, description, scope);
   return { params: approved, requireApproval };
 }

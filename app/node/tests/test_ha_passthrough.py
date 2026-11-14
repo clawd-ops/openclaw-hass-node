@@ -180,7 +180,19 @@ REFUSED_FOR_HOUSEHOLD: list[tuple[str, dict[str, Any], str]] = [
     ("ha.ws", svc("update", "install", entity_id="update.core"), "admin"),
     ("ha.ws", svc("hassio", "host_reboot"), "admin"),
     ("ha.ws", svc("hassio", "addon_update", addon="x"), "admin"),
-    ("ha.ws", {"type": "supervisor/api", "payload": {"endpoint": "/addons/x/install"}}, "admin"),
+    ("ha.ws", svc("input_boolean", "turn_on", entity_id="input_boolean.guest"), "configure"),
+    ("ha.ws", svc("input_boolean", "toggle", entity_id="input_boolean.guest"), "configure"),
+    ("ha.ws", svc("input_button", "press", entity_id="input_button.go"), "configure"),
+    (
+        "ha.rest",
+        {"method": "POST", "path": "/api/services/input_boolean/turn_off", "body": {}},
+        "configure",
+    ),
+    (
+        "ha.rest",
+        {"method": "POST", "path": "/api/services/input_button/press", "body": {}},
+        "configure",
+    ),
     ("ha.ws", {"type": "backup/remove", "payload": {"backup_id": "abc"}}, "admin"),
     ("ha.ws", {"type": "config/auth/delete", "payload": {"user_id": "u"}}, "admin"),
     (
@@ -249,7 +261,6 @@ async def test_hard_deny_inside_a_household_job_is_refused_with_a_valid_approval
         (OWNER, remove("light.old")),
         (OPERATOR, {"type": "config/entity_registry/update", "payload": {"entity_id": "a.b"}}),
         (OWNER, svc("update", "install", entity_id="update.core")),
-        (OWNER, {"type": "supervisor/api", "payload": {"endpoint": "/info"}}),
     ],
 )
 async def test_approval_needing_single_request_must_be_resubmitted_as_a_job(
@@ -286,6 +297,251 @@ async def test_one_approval_covers_n_requests(env: Env) -> None:
     assert {e["job"] for e in entries} == {result["job"]}
     assert len({e["approval"] for e in entries}) == 1
     assert all(e["result"] == "ok" and e["kind"] == "admin" for e in entries)
+
+
+# --- plan mode and mixed jobs ------------------------------------------------
+
+
+def distinct_cleanup() -> list[dict[str, Any]]:
+    """21 distinct removals whose targets are NOT entity, device or area ids."""
+    return [
+        *({"type": "backup/remove", "payload": {"backup_id": f"b{i}"}} for i in range(8)),
+        *(
+            {"type": "config/config_entries/remove", "payload": {"entry_id": f"e{i}"}}
+            for i in range(8)
+        ),
+        *(remove(f"light.old_{i}") for i in range(4)),
+        {"rest": {"method": "DELETE", "path": "/api/config/automation/config/12"}},
+    ]
+
+
+async def test_plan_returns_the_full_normalized_list_and_sends_nothing(env: Env) -> None:
+    requests = distinct_cleanup()
+
+    plan = await call("ha.ws", {"requests": requests, "plan": True}, OWNER)
+
+    assert plan["ok"] is True
+    assert plan["plan"] is True
+    env.assert_no_requests()
+    assert plan["count"] == 21
+    assert plan["counts"] == {"admin": 21}
+    assert plan["highest_kind"] == "admin"
+    assert plan["decision"] == "approval"
+    listed = plan["requests"]
+    assert [e["index"] for e in listed] == list(range(21))
+    assert listed[3] == {
+        "index": 3,
+        "kind": "admin",
+        "hard": True,
+        "decision": "approval",
+        "ws": {"type": "backup/remove", "payload": {"backup_id": "b3"}},
+    }
+    assert listed[9]["ws"]["payload"] == {"entry_id": "e1"}
+    assert listed[20]["rest"] == {"method": "DELETE", "path": "/api/config/automation/config/12"}
+    assert {e["ws"]["payload"]["backup_id"] for e in listed[:8]} == {f"b{i}" for i in range(8)}
+
+
+async def test_plan_digest_is_the_digest_the_approval_binds(env: Env) -> None:
+    requests = distinct_cleanup()
+    plan = await call("ha.ws", {"requests": requests, "plan": True}, OWNER)
+
+    marker = {"id": str(uuid.uuid4()), "exp": int(time.time()) + 600, "bind": plan["digest"]}
+    result = await call("ha.ws", {"requests": requests, "_openclaw_approval": marker}, OWNER)
+
+    assert plan["digest"] == approval_bind("ha.ws", "", {"requests": requests})
+    assert result["ok"] is True
+    assert env.ws.await_count + env.rest.await_count == 21
+
+
+async def test_execution_with_a_list_other_than_the_planned_one_is_refused(env: Env) -> None:
+    planned = [remove("light.a"), remove("light.b")]
+    plan = await call("ha.ws", {"requests": planned, "plan": True}, OWNER)
+    marker = {"id": str(uuid.uuid4()), "exp": int(time.time()) + 600, "bind": plan["digest"]}
+
+    for other in ([remove("light.a")], [remove("light.b"), remove("light.a")], planned[::-1]):
+        result = await call("ha.ws", {"requests": other, "_openclaw_approval": marker}, OWNER)
+        assert result["error"] == "APPROVAL_INVALID"
+        assert "does not match" in result["message"]
+    env.assert_no_requests()
+
+
+async def test_plan_writes_a_planned_audit_record_with_the_digest_and_list(env: Env) -> None:
+    requests = distinct_cleanup()
+
+    plan = await call("ha.ws", {"requests": requests, "plan": True}, OWNER)
+
+    (entry,) = env.lines()
+    assert entry["result"] == "planned"
+    assert entry["digest"] == plan["digest"]
+    assert entry["job"] == plan["digest"][:16]
+    assert entry["requests"] == plan["requests"]
+    assert entry["counts"] == {"admin": 21}
+    assert entry["actor"] == "owner-id"
+
+
+async def test_plan_and_execution_audit_share_one_job_id(env: Env) -> None:
+    job = {"requests": [svc("light", "turn_on")]}
+
+    await call("ha.ws", {**job, "plan": True}, HOUSEHOLD)
+    await call("ha.ws", job, HOUSEHOLD)
+
+    assert len({e["job"] for e in env.lines()}) == 1
+
+
+async def test_plan_masks_lock_codes_in_the_result_and_the_audit_log(env: Env) -> None:
+    job = {"requests": [svc("lock", "unlock", code="4821", entity_id="lock.front")], "plan": True}
+
+    plan = await call("ha.ws", job, HOUSEHOLD)
+
+    assert plan["ok"] is True
+    assert "4821" not in json.dumps(plan)
+    assert "4821" not in env.audit.read_text()
+    assert plan["requests"][0]["ws"]["payload"]["entity_id"] == "lock.front"
+
+
+async def test_plan_is_available_to_every_role_and_reports_the_callers_decision(env: Env) -> None:
+    job = {"requests": [svc("light", "turn_on"), remove("light.a")], "plan": True}
+
+    decisions = {
+        name: (await call("ha.ws", job, caller))["decision"]
+        for name, caller in {"household": HOUSEHOLD, "owner": OWNER, "guest": UNTRUSTED}.items()
+    }
+
+    assert decisions == {"household": "refuse", "owner": "approval", "guest": "refuse"}
+    safe = await call("ha.ws", {"requests": [svc("light", "turn_on")], "plan": True}, UNTRUSTED)
+    assert (safe["decision"], safe["counts"]) == ("allow", {"control": 1})
+    env.assert_no_requests()
+
+
+async def test_plan_ignores_and_never_consumes_an_approval_marker(env: Env) -> None:
+    job = {"requests": [remove("light.a")]}
+    marked = approved("ha.ws", job)
+
+    plan = await call("ha.ws", {**marked, "plan": True}, OWNER)
+    run = await call("ha.ws", marked, OWNER)
+
+    assert plan["plan"] is True
+    assert run["ok"] is True
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"requests": [{"type": "get_states"}], "plan": False},
+        {"requests": [{"type": "get_states"}], "plan": "yes"},
+        {"type": "get_states", "plan": True},
+        {"requests": [{"type": "get_states"}], "plan": True, "extra": 1},
+    ],
+)
+async def test_malformed_plan_requests_are_refused(env: Env, params: dict[str, Any]) -> None:
+    result = await call("ha.ws", params, OWNER)
+
+    assert result["error"] == "INVALID_PARAM"
+    env.assert_no_requests()
+
+
+async def test_plan_is_not_returned_when_it_cannot_be_recorded(env: Env) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    env.ws.reset_mock()
+    break_audit_after(0)
+
+    result = await call("ha.ws", {"requests": [remove("light.a")], "plan": True}, OWNER)
+
+    assert result["error"] == "AUDIT_UNAVAILABLE"
+    assert "plan" not in result
+    env.assert_no_requests()
+
+
+async def test_mixed_ws_and_rest_job_runs_under_one_approval(env: Env) -> None:
+    job = {
+        "requests": [
+            {"ws": remove("light.a")},
+            {"rest": {"method": "DELETE", "path": "/api/config/automation/config/12"}},
+            {"ws": svc("light", "turn_on")},
+            {"rest": {"method": "GET", "path": "/api/states/light.a"}},
+        ]
+    }
+    plan = await call("ha.rest", {**job, "plan": True}, OWNER)
+
+    result = await call("ha.rest", approved("ha.rest", job), OWNER)
+
+    assert plan["counts"] == {"control": 1, "diagnose": 1, "admin": 2}
+    assert plan["highest_kind"] == "admin"
+    assert [e["kind"] for e in plan["requests"]] == ["admin", "admin", "control", "diagnose"]
+    assert result["ok"] is True
+    assert (env.ws.await_count, env.rest.await_count) == (2, 2)
+    ran = [e for e in env.lines() if e["result"] == "ok"]
+    assert len(ran) == 4
+    assert len({e["approval"] for e in ran}) == 1
+
+
+async def test_a_mixed_job_follows_its_highest_kind(env: Env) -> None:
+    configure = {"ws": {"type": "config/entity_registry/update", "payload": {"entity_id": "a.b"}}}
+    read = {"rest": {"method": "GET", "path": "/api/states"}}
+
+    for caller, expected in ((OWNER, "allow"), (OPERATOR, "approval"), (HOUSEHOLD, "refuse")):
+        plan = await call("ha.ws", {"requests": [read, configure], "plan": True}, caller)
+        assert (plan["highest_kind"], plan["decision"]) == ("configure", expected)
+    refused = await call("ha.ws", {"requests": [read, configure]}, HOUSEHOLD)
+    assert refused["error"] == "PERMISSION_DENIED"
+    env.assert_no_requests()
+
+
+async def test_untagged_items_take_the_commands_own_shape(env: Env) -> None:
+    mixed = {
+        "requests": [{"type": "get_states"}, {"rest": {"method": "GET", "path": "/api/states"}}]
+    }
+
+    assert (await call("ha.ws", mixed, OWNER))["ok"] is True
+    bad = await call("ha.rest", mixed, OWNER)
+
+    assert bad["error"] == "INVALID_PARAM"
+    assert "request 0" in bad["message"]
+    assert (env.ws.await_count, env.rest.await_count) == (1, 1)
+
+
+@pytest.mark.parametrize(
+    ("item", "needle"),
+    [
+        ({"ws": "get_states"}, "'ws' must be an object"),
+        ({"rest": ["GET"]}, "'rest' must be an object"),
+        ({"rest": {"method": "GET", "path": "/api/hassio/x"}}, "Supervisor"),
+        ({"ws": {"type": "get_states", "extra": 1}}, "extra"),
+        ({"ws": {"type": "get_states"}, "rest": {"method": "GET", "path": "/api/states"}}, "type"),
+    ],
+)
+async def test_malformed_tagged_items_are_refused_before_any_request(
+    env: Env, item: dict[str, Any], needle: str
+) -> None:
+    result = await call("ha.ws", {"requests": [{"type": "get_states"}, item]}, OWNER)
+
+    assert result["error"] == "INVALID_PARAM"
+    assert needle in result["message"]
+    env.assert_no_requests()
+
+
+async def test_input_boolean_and_input_button_are_refused_for_a_household_adult(env: Env) -> None:
+    for item in (
+        svc("input_boolean", "turn_on", entity_id="input_boolean.away"),
+        svc("input_boolean", "turn_off", entity_id="input_boolean.away"),
+        svc("input_boolean", "toggle", entity_id="input_boolean.away"),
+        svc("input_button", "press", entity_id="input_button.go"),
+    ):
+        for caller in (HOUSEHOLD, HOUSEHOLD_ADMIN):
+            result = await call("ha.ws", {"requests": [item]}, caller)
+            assert result["error"] == "PERMISSION_DENIED"
+    env.assert_no_requests()
+    assert (
+        await call("ha.ws", svc("input_number", "set_value", entity_id="input_number.x"), HOUSEHOLD)
+    )["ok"]
+
+
+async def test_input_boolean_is_owner_allowed_and_operator_approved(env: Env) -> None:
+    item = svc("input_boolean", "toggle", entity_id="input_boolean.away")
+
+    assert (await call("ha.ws", item, OWNER))["ok"] is True
+    assert (await call("ha.ws", item, OPERATOR))["error"] == "APPROVAL_REQUIRED"
+    assert (await call("ha.ws", approved("ha.ws", {"requests": [item]}), OPERATOR))["ok"] is True
 
 
 async def test_replaying_an_approval_fails(env: Env) -> None:
@@ -532,11 +788,25 @@ async def test_ws_shape_errors_are_refused_before_any_request(
     env.assert_no_requests()
 
 
-async def test_supervisor_tunnel_needs_owner_job_approval(env: Env) -> None:
-    tunnel = {"type": "supervisor/api", "payload": {"endpoint": "/info", "method": "get"}}
+TUNNELS = [
+    {"type": "supervisor/api", "payload": {"endpoint": "/info", "method": "get"}},
+    {"type": "supervisor/event"},
+    {"type": "hassio/update/addon", "payload": {"addon": "x"}},
+]
 
-    assert (await call("ha.ws", tunnel, OWNER))["error"] == "APPROVAL_REQUIRED"
-    assert (await call("ha.ws", {"requests": [tunnel]}, OWNER))["error"] == "PROPOSAL_REQUIRED"
+
+@pytest.mark.parametrize("tunnel", TUNNELS)
+@pytest.mark.parametrize("caller", [OWNER, OPERATOR, HOUSEHOLD])
+async def test_ws_supervisor_tunnels_are_refused_even_for_the_owner_with_approval(
+    env: Env, caller: Caller, tunnel: dict[str, Any]
+) -> None:
+    single = await call("ha.ws", tunnel, caller)
+    as_job = await call("ha.ws", approved("ha.ws", {"requests": [tunnel]}), caller)
+    mixed = await call("ha.rest", approved("ha.rest", {"requests": [{"ws": tunnel}]}), caller)
+
+    for result in (single, as_job, mixed):
+        assert result["error"] == "INVALID_PARAM"
+        assert "Supervisor" in result["message"]
     env.assert_no_requests()
 
 
@@ -693,6 +963,38 @@ async def test_audit_write_failure_after_a_ha_error_is_reported_as_lost_audit(en
 
     assert result["error"] == "AUDIT_FAILED_AFTER_ACTION"
     assert result["ok"] is False
+    assert "HA_AUTH: rejected" in result["message"]
+    assert "WAS performed" not in result["message"]
+
+
+async def test_audit_failure_at_attempt_after_the_marker_is_spent_says_replan(env: Env) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    env.ws.reset_mock()
+    break_audit_after(0)
+    job = approved("ha.ws", {"requests": [remove("light.a")]})
+    replay = json.loads(json.dumps(job))
+
+    result = await call("ha.ws", job, OWNER)
+
+    assert result["error"] == "AUDIT_UNAVAILABLE"
+    assert "no request was sent" in result["message"]
+    assert "re-plan" in result["message"]
+    assert "new approval" in result["message"]
+    env.assert_no_requests()
+    break_audit_after(10)
+    reused = await call("ha.ws", replay, OWNER)
+    assert reused["error"] == "APPROVAL_INVALID"
+    assert "already used" in reused["message"]
+    env.assert_no_requests()
+
+
+async def test_audit_failure_at_attempt_without_an_approval_does_not_mention_one(env: Env) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    break_audit_after(0)
+
+    result = await call("ha.ws", {"type": "get_states"})
+
+    assert "re-plan" not in result["message"]
 
 
 async def test_audit_lines_record_attempt_before_result(env: Env) -> None:

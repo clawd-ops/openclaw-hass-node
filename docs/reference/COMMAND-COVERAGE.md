@@ -4077,11 +4077,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 ### `ha.rest` {#row-ha-rest}
 
 - Handler: `openclaw_node.commands.ha_passthrough:handle_ha_rest`
-- Canonical parameters: none observed
+- Canonical parameters: requests
 - Authorization: `native_approval`
 - Capability conditions: HA Core REST API is reachable. Core-relative /api/ paths only; Supervisor routes are refused. Each request is classified and authorized like ha.ws.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
-- Semantic errors: INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.
+- Semantic errors: INVALID_PARAM (shape, reserved WS keys, path rules, Supervisor tunnels), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.
 - Evidence method: `CODE-PROVEN`
 - **Outcome: `unverified`**
 - Evidence note: UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.
@@ -4090,7 +4090,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.
 - Parameter details:
-  - none observed
+  - `requests`
+    - aliases: `[]`
+    - defaults: `["required-or-validated-before-access"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)
@@ -4201,11 +4205,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 ### `ha.ws` {#row-ha-ws}
 
 - Handler: `openclaw_node.commands.ha_passthrough:handle_ha_ws`
-- Canonical parameters: none observed
+- Canonical parameters: requests
 - Authorization: `native_approval`
-- Capability conditions: HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Supervisor tunnels and updates are hard-deny.
+- Capability conditions: HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Updates, host power, backup deletion and users/auth are hard-deny; Supervisor tunnels are refused for every caller. A job may mix ws and rest items; a plan (plan: true) returns the full normalized list and digest with no HA request.
 - Semantic result: UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.
-- Semantic errors: INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.
+- Semantic errors: INVALID_PARAM (shape, reserved WS keys, path rules, Supervisor tunnels), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.
 - Evidence method: `CODE-PROVEN`
 - **Outcome: `unverified`**
 - Evidence note: UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.
@@ -4214,7 +4218,11 @@ A failing or partial observation marked **FIX MERGED, RE-PROBE OWED** is unchang
 - Handler/dispatch: A registered handler exists. Behavioral evidence comes from curated handler/dispatch_async tests, not live Gateway nodes.invoke.
 - Assist caller: Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.
 - Parameter details:
-  - none observed
+  - `requests`
+    - aliases: `[]`
+    - defaults: `["required-or-validated-before-access"]`
+    - bounds: unverified; no normalized contract yet
+    - provenance: `{"aliases": "manual declaration validated against source accepted keys", "bounds": "manual UNVERIFIED placeholder", "defaults": "source-derived AST expression", "name": "source-derived AST accepted key"}`
 - Caller evidence:
   - `node_advertisement` / `CODE-PROVEN` / **`pass`**: Present in the node connect frame; gateway allowlisting and runtime availability are separate. (source: `app/node/src/openclaw_node/gateway_ws.py::_NODE_COMMANDS`)
   - `direct_nodes_invoke` / `CODE-PROVEN` / **`unverified`**: A dispatcher and advertised path exist; end-to-end availability is not implied. (source: `dispatcher + node connect frame`)

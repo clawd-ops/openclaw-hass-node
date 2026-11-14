@@ -556,6 +556,17 @@ which is given on an operator surface the requester does not control. The
 approval marker is not a secret (the known gap above applies unchanged), so this
 guards against mistakes and prompt injection, not against a hostile operator.
 
+An owner acting through an agent session with no verified human stays unattributed,
+so an approval is still needed. Scripts and buttons are admin, and `input_boolean`
+turn_on, turn_off and toggle and `input_button.press` are configure (a household adult
+is refused), because each can set off an automation indirectly; a per-entity allowlist
+is a later step. Supervisor tunnels are refused outright for every caller.
+
+The approval prompt is a summary, because the gateway caps it at 512 characters: counts
+per kind and type, every hard-deny request in full, and a digest prefix. The full list
+comes from a read-only plan (`"plan": true`), which the agent shows the human in chat
+and which is also written to the audit log with the same digest the approval binds.
+
 ## Open validation
 
 The gateway approval APIs are confirmed to exist and to be in live production

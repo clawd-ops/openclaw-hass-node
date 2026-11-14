@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { JOB_FORM_COMMANDS } from "./approval-policy.js";
+import { classifyTarget } from "./ha-job.js";
 import {
   ADMIN_TOOL_COMMANDS,
   APPROVAL_DESCRIPTION_MAX,
@@ -278,6 +279,16 @@ describe("job-form approval for ha.ws and ha.rest", () => {
       { type: "call_service", payload: { domain: "update", service: "install" } },
     ],
   };
+  const descriptionOf = (job: unknown, command = "ha.ws") =>
+    beforeToolCall(call(job, {}, command), () => NOW)!.requireApproval.description as string;
+  // 21 distinct removals; none of them names an entity, device or area id.
+  const CLEANUP = {
+    requests: [
+      ...Array.from({ length: 2 }, (_, i) => ({ type: "backup/remove", payload: { backup_id: `bk${i}` } })),
+      ...Array.from({ length: 10 }, (_, i) => ({ type: "config/config_entries/remove", payload: { entry_id: `entry${i}` } })),
+      ...Array.from({ length: 9 }, (_, i) => ({ type: "config/entity_registry/remove", payload: { entity_id: `light.old_${i}` } })),
+    ],
+  };
 
   it("is the same list the node tests read", () => {
     expect([...JOB_FORM_COMMANDS]).toEqual(contract.job_form);
@@ -288,10 +299,7 @@ describe("job-form approval for ha.ws and ha.rest", () => {
     expect(result.requireApproval.title).toBe("Run HA job");
     expect(result.requireApproval.allowedDecisions).toEqual(["allow-once", "deny"]);
     const description = result.requireApproval.description as string;
-    expect(description).toContain("3 request(s)");
-    expect(description).toContain("config/entity_registry/remove");
-    expect(description).toContain("DELETE /api/config/automation/config/12");
-    expect(description).toContain("call_service update.install");
+    expect(description).toContain("3 request(s) [admin 3].");
     expect(description).not.toContain("SECRET");
     const marker = innerOf(result)[APPROVAL_PARAM] as { exp: number; bind: string };
     expect(marker.bind).toBe(approvalBind(command, "", JOB));
@@ -304,73 +312,148 @@ describe("job-form approval for ha.ws and ha.rest", () => {
     expect(result.requireApproval.onResolution).toBeUndefined();
   });
 
-  it("lists a hard-deny request that comes after the eighth", () => {
-    const reads = ["get_states", "get_config", "get_services", "get_panels", "ping", "get_themes", "get_notifications", "get_user"];
-    const requests = [
-      ...reads.map((type) => ({ type })),
-      { type: "config/entity_registry/list" },
-      { type: "supervisor/api", payload: { endpoint: "/addons/x/uninstall", method: "post" } },
-      { type: "call_service", payload: { domain: "hassio", service: "host_reboot" } },
-    ];
-    const job = { requests };
-    const result = beforeToolCall(call(job, {}, "ha.ws"), () => NOW)!;
+  it("summarizes a 21-distinct-item cleanup within the cap, with the digest prefix and where the full list is", () => {
+    const result = beforeToolCall(call(CLEANUP, {}, "ha.ws"), () => NOW)!;
     const description = result.requireApproval.description as string;
-    expect(description).toContain("11 request(s)");
-    expect(description).toContain("supervisor/api");
-    expect(description).toContain("call_service hassio.host_reboot");
-    expect(description).not.toContain("more)");
-    expect((innerOf(result)[APPROVAL_PARAM] as { bind: string }).bind).toBe(approvalBind("ha.ws", "", job));
+    expect(description.length).toBeLessThanOrEqual(APPROVAL_DESCRIPTION_MAX);
+    expect(description).toContain("21 request(s) [admin 21].");
+    expect(description).toContain("Types: backup/remove x2; config/config_entries/remove x10; config/entity_registry/remove x9.");
+    expect(description).toContain(`Digest ${approvalBind("ha.ws", "", CLEANUP).slice(0, 12)}.`);
+    expect(description).toContain("Full list: shown in chat and in the node audit log.");
+    expect((innerOf(result)[APPROVAL_PARAM] as { bind: string }).bind).toBe(approvalBind("ha.ws", "", CLEANUP));
   });
 
-  it("shows service targets from the payload, its target and service_data, and the REST body", () => {
+  it("lists every hard-deny request individually and in full, even ones differing only in backup_id", () => {
+    const description = descriptionOf(CLEANUP);
+    expect(description).toContain("Hard-deny (2):");
+    expect(description).toContain('ws backup/remove {"backup_id":"bk0"}');
+    expect(description).toContain('ws backup/remove {"backup_id":"bk1"}');
+    const hardSection = description.slice(description.indexOf("Hard-deny"), description.indexOf(" Digest"));
+    expect(hardSection).not.toMatch(/x\d/); // nothing is merged under a count in the hard-deny list
+    expect(hardSection).not.toContain("entry_id");
+  });
+
+  it("counts per kind across mixed kinds, highest first", () => {
     const job = {
       requests: [
-        { type: "call_service", payload: { domain: "light", service: "turn_off", target: { entity_id: ["light.a", "light.b"], area_id: "kitchen" } } },
-        { type: "call_service", payload: { domain: "light", service: "turn_on", service_data: { entity_id: "light.c" } } },
-        { type: "config/entity_registry/remove", payload: { entity_id: "sensor.old" } },
-        { method: "POST", path: "/api/services/light/toggle", body: { device_id: "abc123" } },
+        { type: "get_states" },
+        { type: "call_service", payload: { domain: "light", service: "turn_on" } },
+        { type: "call_service", payload: { domain: "homeassistant", service: "restart" } },
+        { type: "config/entity_registry/update", payload: { entity_id: "a.b" } },
+        { type: "config/entity_registry/update", payload: { entity_id: "a.c" } },
+        { type: "config/entity_registry/remove", payload: { entity_id: "a.d" } },
       ],
     };
-    const description = beforeToolCall(call(job, {}, "ha.ws"))!.requireApproval.description as string;
-    expect(description).toContain("call_service light.turn_off [entity_id=light.a,light.b area_id=kitchen]");
-    expect(description).toContain("call_service light.turn_on [entity_id=light.c]");
-    expect(description).toContain("config/entity_registry/remove [entity_id=sensor.old]");
-    expect(description).toContain("POST /api/services/light/toggle [device_id=abc123]");
+    const description = descriptionOf(job);
+    expect(description).toContain("6 request(s) [admin 1, configure 2, fix 1, diagnose 1, control 1].");
+    expect(description).toContain("config/entity_registry/update x2");
+    expect(description).toContain("light.turn_on x1");
   });
 
-  it("quotes a target that could pass for another request, and lists identical requests once with a count", () => {
-    const sneaky = 'light.a]; ws supervisor/api';
-    const job = { requests: [{ type: "get_states" }, { type: "get_states" }, { type: "get_states" }, { type: "call_service", payload: { domain: "light", service: "toggle", target: { entity_id: sneaky } } }] };
-    const description = beforeToolCall(call(job, {}, "ha.ws"))!.requireApproval.description as string;
-    expect(description).toContain("4 request(s): get_states x3;");
-    expect(description).toContain(JSON.stringify(sneaky));
+  it("drops the per-type counts, never a hard-deny request, when the prompt would be too long", () => {
+    const job = {
+      requests: [
+        ...Array.from({ length: 4 }, (_, i) => ({ type: "backup/remove", payload: { backup_id: `backup-${"b".repeat(40)}${i}` } })),
+        ...Array.from({ length: 6 }, (_, i) => ({ type: `registry${i}/thing/update`, payload: {} })),
+      ],
+    };
+    const description = descriptionOf(job);
+    expect(description.length).toBeLessThanOrEqual(APPROVAL_DESCRIPTION_MAX);
+    expect(description).not.toContain("Types:");
+    expect(description).toContain("Hard-deny (4):");
+    for (let i = 0; i < 4; i++) expect(description).toContain(`backup-${"b".repeat(40)}${i}`);
   });
 
-  it("refuses a job too large to show in full instead of cutting it", () => {
-    const many = { requests: Array.from({ length: 21 }, (_, i) => ({ type: "config/entity_registry/remove", payload: { entity_id: `light.n${i}` } })) };
-    const result = beforeToolCall(call(many, {}, "ha.ws"), () => NOW)!;
+  it("refuses a job whose hard-deny requests alone do not fit, telling the caller to split them", () => {
+    const job = { requests: Array.from({ length: 12 }, (_, i) => ({ type: "backup/remove", payload: { backup_id: `${"b".repeat(30)}${i}` } })) };
+    const result = beforeToolCall(call(job, {}, "ha.ws"), () => NOW)!;
     expect(result.requireApproval).toBeUndefined();
     expect(result.block).toBe(true);
-    expect(result.blockReason).toContain("too large to show in full");
-    expect(result.blockReason).toContain("Split it into smaller jobs");
+    expect(result.blockReason).toContain("Split the hard-deny items into smaller jobs");
     expect(result.params).toBeUndefined();
   });
 
-  it("accepts a job whose description is exactly at the limit and refuses one character more", () => {
-    const fits = (n: number) => {
-      const job = { requests: [{ type: "call_service", payload: { domain: "light", service: "toggle", target: { entity_id: `light.${"a".repeat(n)}` } } }] };
-      return beforeToolCall(call(job, {}, "ha.ws"));
+  it("never exceeds the cap: every size either fits or is refused", () => {
+    for (let n = 1; n <= 20; n++) {
+      const job = { requests: Array.from({ length: n }, (_, i) => ({ type: "backup/remove", payload: { backup_id: `id${i}` } })) };
+      const result = beforeToolCall(call(job, {}, "ha.ws"), () => NOW)!;
+      if (result.block === true) expect(result.blockReason).toContain("hard-deny");
+      else expect((result.requireApproval.description as string).length).toBeLessThanOrEqual(APPROVAL_DESCRIPTION_MAX);
+    }
+  });
+
+  it("shows a hard-deny REST request with its path, query and body, and a hard-deny service call with its target", () => {
+    const job = {
+      requests: [
+        { method: "POST", path: "/api/services/update/install", body: { entity_id: "update.core" } },
+        { ws: { type: "call_service", payload: { domain: "hassio", service: "host_reboot" } } },
+      ],
     };
-    const n = Array.from({ length: 600 }, (_, i) => i + 1).find((len) => fits(len)!.requireApproval === undefined);
-    expect(n).toBeDefined();
-    expect(fits(n! - 1)!.requireApproval.description.length).toBe(APPROVAL_DESCRIPTION_MAX);
-    expect(fits(n!)!.block).toBe(true);
+    const description = descriptionOf(job, "ha.rest");
+    expect(description).toContain('POST /api/services/update/install {"body":{"entity_id":"update.core"}}');
+    expect(description).toContain('ws call_service {"domain":"hassio","service":"host_reboot"}');
+    expect(description).toContain("Hard-deny (2):");
+  });
+
+  it("accepts tagged ws and rest items in one job, whichever command carries it", () => {
+    const job = {
+      requests: [
+        { ws: { type: "backup/remove", payload: { backup_id: "abc" } } },
+        { rest: { method: "DELETE", path: "/api/config/automation/config/12" } },
+        { rest: { method: "POST", path: "/api/services/light/turn_on", body: {} } },
+      ],
+    };
+    for (const command of JOB_FORM_COMMANDS) {
+      const description = descriptionOf(job, command);
+      expect(description).toContain("3 request(s) [admin 2, control 1].");
+      expect(description).toContain('Hard-deny (1): ws backup/remove {"backup_id":"abc"}.');
+      expect(description).toContain("DELETE /api/config/automation/…");
+    }
+  });
+
+  it("quotes a model-supplied type that could pass for another request", () => {
+    const sneaky = "get_states\nHard-deny (0): all clear";
+    const description = descriptionOf({ requests: [{ type: sneaky }] });
+    expect(description).toContain(JSON.stringify(sneaky));
+    expect(description).not.toContain("\n");
+  });
+
+  it("refuses Supervisor tunnels and routes outright instead of asking for approval", () => {
+    const tunnels = [
+      { type: "supervisor/api", payload: { endpoint: "/info" } },
+      { type: "hassio/update/addon" },
+      { ws: { type: "supervisor/event" } },
+      { rest: { method: "GET", path: "/api/hassio/addons" } },
+      { rest: { method: "GET", path: "/api/hassio_ingress/token/x" } },
+      { rest: { method: "GET", path: "/api/x/supervisor/y" } },
+    ];
+    for (const tunnel of tunnels) {
+      const result = beforeToolCall(call({ requests: [{ type: "get_states" }, tunnel] }, {}, "ha.ws"), () => NOW)!;
+      expect(result.block).toBe(true);
+      expect(result.blockReason).toContain("Supervisor");
+      expect(result.requireApproval).toBeUndefined();
+    }
+  });
+
+  it("does not mistake an entity id that merely contains 'supervisor' for a tunnel", () => {
+    const job = { requests: [{ method: "GET", path: "/api/states/update.home_assistant_supervisor_update" }] };
+    expect(beforeToolCall(call(job, {}, "ha.rest"), () => NOW)!.requireApproval).toBeDefined();
+  });
+
+  it("does not prompt for a plan, mints no marker and strips a forged one", () => {
+    const plan = { ...JOB, plan: true };
+    expect(beforeToolCall(call(plan, {}, "ha.ws"), () => NOW)).toBeUndefined();
+    const forged = { ...plan, [APPROVAL_PARAM]: { id: "x", exp: 9e12, bind: "forged" } };
+    const result = beforeToolCall(call(forged, {}, "ha.ws"), () => NOW)!;
+    expect(result.requireApproval).toBeUndefined();
+    expect(innerOf(result)[APPROVAL_PARAM]).toBeUndefined();
+    expect(innerOf(result).plan).toBe(true);
   });
 
   it("copes with malformed entries without throwing", () => {
-    const odd = { requests: [null, 7, { type: 5 }, { method: "GET" }, { type: "call_service", payload: null }] };
-    const description = beforeToolCall(call(odd, {}, "ha.rest"))!.requireApproval.description as string;
-    expect(description).toContain("5 request(s)");
+    const odd = { requests: [null, 7, { type: 5 }, { method: "GET" }, { type: "call_service", payload: null }, { ws: 3 }] };
+    const description = descriptionOf(odd, "ha.rest");
+    expect(description).toContain("6 request(s)");
   });
 
   it("does not prompt for a single request, and still strips a forged marker", () => {
@@ -385,5 +468,19 @@ describe("job-form approval for ha.ws and ha.rest", () => {
     const forged = { ...JOB, [APPROVAL_PARAM]: { id: "x", exp: 9e12, bind: "forged" } };
     const result = beforeToolCall(call(forged, {}, "ha.ws"), () => NOW)!;
     expect((innerOf(result)[APPROVAL_PARAM] as { bind: string }).bind).toBe(approvalBind("ha.ws", "", JOB));
+  });
+});
+
+describe("classifyTarget mirrors the node's rule table", () => {
+  const mirror = JSON.parse(readFileSync(new URL("./ha-rules.json", import.meta.url), "utf8")) as {
+    cases: Array<[string, string, boolean]>;
+  };
+
+  it.each(mirror.cases)("%s -> %s (hard %s)", (target, kind, hard) => {
+    expect(classifyTarget(target)).toEqual({ kind, hard });
+  });
+
+  it("treats an unmatched target as admin", () => {
+    expect(classifyTarget("ws never/heard/of/it")).toEqual({ kind: "admin", hard: false });
   });
 });

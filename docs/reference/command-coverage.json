@@ -12670,7 +12670,22 @@
           "status": "advertised"
         }
       },
-      "canonical_parameters": [],
+      "canonical_parameters": [
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "required-or-validated-before-access"
+          ],
+          "name": "requests",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        }
+      ],
       "capability_conditions": "HA Core REST API is reachable. Core-relative /api/ paths only; Supervisor routes are refused. Each request is classified and authorized like ha.ws.",
       "command": "ha.rest",
       "evidence_method": "CODE-PROVEN",
@@ -12692,7 +12707,7 @@
       },
       "outcome": "unverified",
       "registered": true,
-      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
+      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules, Supervisor tunnels), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",
@@ -13044,8 +13059,23 @@
           "status": "advertised"
         }
       },
-      "canonical_parameters": [],
-      "capability_conditions": "HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Supervisor tunnels and updates are hard-deny.",
+      "canonical_parameters": [
+        {
+          "aliases": [],
+          "bounds": "unverified; no normalized contract yet",
+          "defaults": [
+            "required-or-validated-before-access"
+          ],
+          "name": "requests",
+          "provenance": {
+            "aliases": "manual declaration validated against source accepted keys",
+            "bounds": "manual UNVERIFIED placeholder",
+            "defaults": "source-derived AST expression",
+            "name": "source-derived AST accepted key"
+          }
+        }
+      ],
+      "capability_conditions": "HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Updates, host power, backup deletion and users/auth are hard-deny; Supervisor tunnels are refused for every caller. A job may mix ws and rest items; a plan (plan: true) returns the full normalized list and digest with no HA request.",
       "command": "ha.ws",
       "evidence_method": "CODE-PROVEN",
       "evidence_note": "UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.",
@@ -13066,7 +13096,7 @@
       },
       "outcome": "unverified",
       "registered": true,
-      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
+      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules, Supervisor tunnels), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
       "semantic_result": "UNVERIFIED CONTRACT: handler-specific result dictionary; no normalized per-command result schema is enforced yet.",
       "source_mentions": [
         "app/node/tests/test_gateway_ws.py",

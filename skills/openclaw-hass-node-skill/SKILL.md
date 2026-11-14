@@ -133,6 +133,7 @@ Actions that need extra care:
 - Reloads.
 - Any command that changes Home Assistant state.
 - Any `ha.config.*` mutating action (`save` / `delete` / `create` / `update` / `remove`). **These paths refuse with `PROPOSAL_REQUIRED` unless the operator approves the exact call** (the plugin hook requests approval; see `docs/design/AUTHORIZATION-MODEL.md`). No `proposal_id` or params flag substitutes for it. Describe the change and its target plainly so the operator can judge it.
+- `ha.ws` / `ha.rest` jobs that need approval (configure, admin or hard-deny requests). **Plan first, then ask.** Send the job as `{"requests": [...], "plan": true}`: it makes no Home Assistant request and returns the full normalized list and a `digest`. Show your human that whole list in chat (every request with its full target, such as each `backup_id` or `entry_id`), then submit the identical `{"requests": [...]}` without `plan`. The approval prompt is only a summary (counts, every hard-deny item, and the first 12 characters of the digest) because the gateway caps it at 512 characters, so the chat listing is what the human actually checks. A different list than the one approved is refused. WS Supervisor tunnels are refused for everyone. If the audit log fails after an approval was consumed, re-plan and ask again; a spent approval is never reused.
 - Any command that changes add-on state.
 - Any command that edits configuration or files.
 - Any broad or generic command where the effect is unclear.

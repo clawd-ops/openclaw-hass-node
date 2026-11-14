@@ -2562,8 +2562,8 @@
     },
     "ha.ws": {
       "authorization_class": "native_approval",
-      "capability_conditions": "HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Supervisor tunnels and updates are hard-deny.",
-      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
+      "capability_conditions": "HA WebSocket API is reachable. Each request is classified (control, diagnose, fix, configure, admin) and the caller role decides: allow, native approval of a job, or refuse. Updates, host power, backup deletion and users/auth are hard-deny; Supervisor tunnels are refused for every caller. A job may mix ws and rest items; a plan (plan: true) returns the full normalized list and digest with no HA request.",
+      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules, Supervisor tunnels), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
       "evidence_note": "UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.",
       "assist_unavailable_reason": "Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.",
       "first_shipped_in": "unreleased",
@@ -2572,7 +2572,7 @@
     "ha.rest": {
       "authorization_class": "native_approval",
       "capability_conditions": "HA Core REST API is reachable. Core-relative /api/ paths only; Supervisor routes are refused. Each request is classified and authorized like ha.ws.",
-      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
+      "semantic_errors": "INVALID_PARAM (shape, reserved WS keys, path rules, Supervisor tunnels), PERMISSION_DENIED (role refusal), APPROVAL_REQUIRED (resubmit as a job), PROPOSAL_REQUIRED or APPROVAL_INVALID (job approval), AUDIT_UNAVAILABLE; all before any HA request. AUDIT_FAILED_AFTER_ACTION means the request ran but its audit line could not be written. HA failures keep their HA_* codes.",
       "evidence_note": "UNVERIFIED LIVE: new generic pass-through; covered by handler and dispatcher tests only.",
       "assist_unavailable_reason": "Assist has no pass-through wrapper yet; agent sessions reach it through nodes invoke.",
       "first_shipped_in": "unreleased",

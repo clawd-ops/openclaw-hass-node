@@ -22,13 +22,16 @@ or on ``.`` for ``svc``), glob characters work inside a segment, and a final
 Items marked hard are always ``admin`` and always need the owner's explicit
 approval of the job that carries them, whoever asks; no role allowance covers
 them (see :func:`decide`).
+
+Supervisor tunnels (WS ``supervisor/*`` and ``hassio/*``) are not in the table: the
+pass-through refuses them while normalizing, for every caller, like REST ones.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
-from typing import Final, Literal
+from typing import Final, Literal, get_args
 
 from openclaw_node.authz import HOUSEHOLD_ALLOWED_SERVICES
 from openclaw_node.caller import Caller
@@ -36,6 +39,7 @@ from openclaw_node.caller import Caller
 RULES_VERSION: Final = 1
 
 Kind = Literal["control", "diagnose", "fix", "configure", "admin"]
+KIND_ORDER: Final[tuple[Kind, ...]] = get_args(Kind)  # lowest to highest
 Decision = Literal["allow", "approval", "refuse"]
 PolicyRole = Literal["owner", "household", "operator", "guest"]
 
@@ -50,12 +54,24 @@ _EXECUTOR_DOMAINS: Final[frozenset[str]] = frozenset(
     pattern.split(" ")[1].split(".")[0] for pattern in INDIRECT_EXECUTORS
 )
 
+# Services that can set off an automation indirectly (an automation may trigger on the
+# helper's state or on the button). Their effect cannot be told from the service name,
+# so they are configure: refused for a household adult, an approval otherwise. A
+# per-entity allowlist is a later step.
+INDIRECT_TRIGGERS: Final[tuple[str, ...]] = (
+    "svc input_boolean.turn_on",
+    "svc input_boolean.turn_off",
+    "svc input_boolean.toggle",
+    "svc input_button.press",
+)
+_TRIGGER_SERVICES: Final[frozenset[tuple[str, str]]] = frozenset(
+    (d, s) for d, s in (p.split(" ")[1].split(".") for p in INDIRECT_TRIGGERS)
+)
+
 # (pattern, kind, hard). Order matters: hard-deny first, then specific rules,
 # then the broad read rules. Anything not matched is ``admin``.
 RULES: Final[tuple[tuple[str, Kind, bool], ...]] = (
-    # Hard-deny: updates, host power, backup deletion, users/auth, Supervisor tunnels.
-    ("ws supervisor/**", "admin", True),
-    ("ws hassio/**", "admin", True),
+    # Hard-deny: updates, host power, backup deletion, users/auth.
     ("ws auth/**", "admin", True),
     ("ws config/auth*/**", "admin", True),
     ("ws backup/remove", "admin", True),
@@ -122,12 +138,13 @@ RULES: Final[tuple[tuple[str, Kind, bool], ...]] = (
     ("ws lovelace/dashboards/update", "configure", False),
     ("ws zwave_js/set_config_parameter", "configure", False),
     ("ws energy/save_prefs", "configure", False),
+    *((pattern, "configure", False) for pattern in INDIRECT_TRIGGERS),
     # Control: the everyday-control services, from the one table in ``authz``.
     *(
         (f"svc {domain}.{service}", "control", False)
         for domain, services in HOUSEHOLD_ALLOWED_SERVICES.items()
         for service in sorted(services)
-        if domain not in _EXECUTOR_DOMAINS
+        if domain not in _EXECUTOR_DOMAINS and (domain, service) not in _TRIGGER_SERVICES
     ),
 )
 

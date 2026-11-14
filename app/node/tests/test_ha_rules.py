@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from openclaw_node import ha_rules
@@ -9,6 +12,7 @@ from openclaw_node.authz import HOUSEHOLD_ALLOWED_SERVICES
 from openclaw_node.caller import UNTRUSTED, Caller
 from openclaw_node.ha_rules import (
     ROLE_KINDS,
+    RULES,
     Classification,
     PolicyRole,
     classify,
@@ -17,9 +21,6 @@ from openclaw_node.ha_rules import (
 )
 
 HARD = [
-    "ws supervisor/api",
-    "ws supervisor/event",
-    "ws hassio/update/addon",
     "ws auth/sign_path",
     "ws config/auth/list",
     "ws config/auth_provider/homeassistant/create",
@@ -57,6 +58,12 @@ KINDS = [
     ("ws config/entity_registry/update", "configure"),
     ("ws lovelace/config/save", "configure"),
     ("ws input_boolean/create", "configure"),
+    ("svc input_boolean.turn_on", "configure"),
+    ("svc input_boolean.turn_off", "configure"),
+    ("svc input_boolean.toggle", "configure"),
+    ("svc input_button.press", "configure"),
+    ("svc input_number.set_value", "control"),
+    ("svc input_select.select_option", "control"),
     ("ws zwave_js/set_config_parameter", "configure"),
     ("POST /api/config/automation/config/12", "configure"),
     ("svc hassio.addon_stop", "configure"),
@@ -90,7 +97,9 @@ def test_every_everyday_control_service_stays_control() -> None:
     """No earlier rule may shadow the one control table in authz."""
     for domain, services in HOUSEHOLD_ALLOWED_SERVICES.items():
         for service in services:
-            expected = "admin" if domain in {"script", "button"} else "control"
+            expected = {"script": "admin", "button": "admin", "input_boolean": "configure"}.get(
+                domain, "control"
+            )
             assert classify(f"svc {domain}.{service}").kind == expected, (domain, service)
 
 
@@ -195,3 +204,19 @@ def test_caller_to_role_mapping() -> None:
     assert policy_role(Caller(role="user", actor_id="<anonymous>")) == "guest"
     assert policy_role(UNTRUSTED) == "guest"
     assert policy_role(None) == "guest"
+
+
+_MIRROR = (
+    Path(__file__).parents[3] / "plugins/openclaw-hass-node-assist-tools/src/shared/ha-rules.json"
+)
+
+
+def test_plugin_mirror_equals_the_rules_table_and_its_cases() -> None:
+    """The approval prompt's summary reads this mirror; it must be the node's own table."""
+    mirror = json.loads(_MIRROR.read_text())
+
+    assert mirror["rules"] == [list(rule) for rule in RULES], (
+        "ha-rules.json is stale: rewrite its 'rules' from ha_rules.RULES"
+    )
+    for target, kind, hard in mirror["cases"]:
+        assert (classify(target).kind, classify(target).hard) == (kind, hard), target

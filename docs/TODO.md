@@ -98,7 +98,8 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   exact request list). A call with no verified person is treated as an
   unattributed operator: household power plus the approval route. Still open:
   the Assist plugin tools and the skill do not use the pass-through, and the
-  granular commands and per-command tables are not retired.
+  granular commands and per-command tables are not retired. Next: a per-entity
+  allowlist for scripts, buttons and `input_*` services (empty by default).
 - Accepted limitation for now: the session-key caller hint is unauthenticated, so a
   direct operator-level `node.invoke` caller could supply a guessed key. This does
   not widen access beyond operator callers. A hint matching more than one active

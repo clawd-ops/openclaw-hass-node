@@ -11,13 +11,21 @@ before any request reaches Home Assistant:
 - A call whose role decision is ``approval`` must be a **job**: ``{"requests":
   [...]}``. One native approval, bound to the exact request list, covers the
   whole job. The marker is the existing one (``config_mutation``); it is
-  verified and consumed only after every policy check has passed.
+  verified and consumed only after every policy check has passed. A job may mix
+  WebSocket and REST requests: an item is ``{"ws": {...}}`` or ``{"rest": {...}}``,
+  and an untagged item takes the command's own shape.
+- A **plan** (``{"requests": [...], "plan": true}``) normalizes and classifies a
+  job and returns the full normalized list, per-kind counts and the job digest the
+  approval binds. It sends no HA request and needs no approval; it writes one
+  ``planned`` audit line. The caller shows that list to the human before asking.
 - *audit* appends one JSON line per request (who, role, kind, target, approval,
   result). It never records tokens, headers, payloads, or response bodies. It
   fails closed: an ``attempt`` line for every request is written before the
   first one runs, and if that write fails nothing runs (``AUDIT_UNAVAILABLE``).
   If a result line cannot be written afterwards, the remaining requests are not
-  run and the error (``AUDIT_FAILED_AFTER_ACTION``) says the action was performed.
+  run and the error (``AUDIT_FAILED_AFTER_ACTION``) says what ran and keeps any HA
+  error. A marker is spent once consumed; if the attempt write then fails, the job
+  never ran and the caller must re-plan and get a new approval.
 
 ``ha.ws`` takes ``{type, payload?}``; ``ha.rest`` takes ``{method, path, query?,
 body?}``. A job of either command takes ``{requests: [<that shape>, ...]}``.
@@ -29,7 +37,7 @@ import json
 import logging
 import re
 import sys
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
@@ -37,6 +45,7 @@ from typing import Any, Final, NoReturn
 
 from openclaw_node import ha_client
 from openclaw_node.approval_policy import CURRENT_CALLER
+from openclaw_node.authz import redact_code
 from openclaw_node.commands.config_mutation import (
     APPROVAL_PARAM,
     approval_bind,
@@ -45,7 +54,7 @@ from openclaw_node.commands.config_mutation import (
 from openclaw_node.commands.params import strict_keys_error
 from openclaw_node.config import load_config
 from openclaw_node.ha_client import HAClientError
-from openclaw_node.ha_rules import Classification, classify, decide, policy_role
+from openclaw_node.ha_rules import KIND_ORDER, Classification, classify, decide, policy_role
 
 _LOG: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -82,6 +91,7 @@ class Request:
 
     target: str
     label: str
+    item: dict[str, Any]  # the normalized request, tagged ``ws`` or ``rest``
     run: Callable[[], Awaitable[Any]]
 
 
@@ -103,6 +113,8 @@ def _ws_request(item: dict[str, Any]) -> Request:
     payload = item.get("payload", {})
     if not isinstance(payload, dict):
         _bad("payload must be an object")
+    if msg_type.split("/")[0] in _SUPERVISOR_SEGMENTS:
+        _bad("Supervisor tunnels are not available through ha.ws")
     clash = ha_client.RESERVED_WS_KEYS & set(payload)
     if clash:
         _bad(f"payload must not set reserved key(s): {', '.join(sorted(clash))}")
@@ -118,7 +130,8 @@ def _ws_request(item: dict[str, Any]) -> Request:
         target, label = f"svc {domain}.{service}", f"ws call_service {domain}.{service}"
     else:
         target, label = f"ws {msg_type}", f"ws {msg_type}"
-    return Request(target, label, lambda: ha_client.ha_ws_call(msg_type, payload or None))
+    item = {"ws": {"type": msg_type, "payload": payload}}
+    return Request(target, label, item, lambda: ha_client.ha_ws_call(msg_type, payload or None))
 
 
 def _rest_path(path: Any) -> list[str]:
@@ -166,17 +179,24 @@ def _rest_request(item: dict[str, Any]) -> Request:
         if not all(_NAME.fullmatch(seg) for seg in segments[2:]):
             _bad("service routes need lowercase [a-z0-9_] domain and service")
         target = f"svc {segments[2]}.{segments[3]}"
-    return Request(target, label, lambda: ha_client.ha_rest(str(method), str(path), query, body))
+    return Request(
+        target,
+        label,
+        {"rest": dict(item)},
+        lambda: ha_client.ha_rest(str(method), str(path), query, body),
+    )
 
 
-def _parse(command: str, params: dict[str, Any]) -> tuple[list[Request], bool]:
-    """Return the normalized requests and whether the call is a job."""
+def _parse(command: str, params: dict[str, Any]) -> tuple[list[Request], bool, bool]:
+    """Return the normalized requests, whether the call is a job, and whether it is a plan."""
     body = {k: v for k, v in params.items() if k != APPROVAL_PARAM}
-    build = _ws_request if command == "ha.ws" else _rest_request
+    default = _ws_request if command == "ha.ws" else _rest_request
     if "requests" not in body:
-        return [build(body)], False
-    if set(body) != {"requests"}:
-        _bad("a job takes only 'requests'")
+        return [default(body)], False, False
+    if not set(body) <= {"requests", "plan"}:
+        _bad("a job takes only 'requests' (and 'plan': true)")
+    if "plan" in body and body["plan"] is not True:
+        _bad("plan must be true")
     raw = body["requests"]
     if not isinstance(raw, list) or not 1 <= len(raw) <= _MAX_JOB_REQUESTS:
         _bad(f"requests must be a list of 1 to {_MAX_JOB_REQUESTS} requests")
@@ -185,11 +205,17 @@ def _parse(command: str, params: dict[str, Any]) -> tuple[list[Request], bool]:
         try:
             if not isinstance(item, dict):
                 _bad("each request must be an object")
-            out.append(build(item))
+            tag = next(iter(item)) if len(item) == 1 else None
+            if tag not in {"ws", "rest"}:
+                out.append(default(item))
+            elif not isinstance(item[tag], dict):
+                _bad(f"'{tag}' must be an object")
+            else:
+                out.append((_ws_request if tag == "ws" else _rest_request)(item[tag]))
         except _Invalid as exc:
             message = f"request {index}: {exc}"
             raise _Invalid(message) from None
-    return out, True
+    return out, True, "plan" in body
 
 
 class _StrictAuditHandler(RotatingFileHandler):
@@ -228,9 +254,12 @@ def _audit_logger() -> logging.Logger:
 
 
 def _job_id(command: str, params: dict[str, Any]) -> str | None:
-    """Short digest naming the call in the audit log; None if the params cannot be digested."""
+    """Short digest naming the call in the audit log; None if the params cannot be digested.
+
+    A plan's ``plan`` flag is left out so it names the job it plans, as the approval does.
+    """
     try:
-        return approval_bind(command, "", params)[:16]
+        return approval_bind(command, "", {k: v for k, v in params.items() if k != "plan"})[:16]
     except (AttributeError, TypeError):  # a non-string key; normalization refuses it
         return None
 
@@ -239,6 +268,46 @@ def _marker_id(params: dict[str, Any]) -> str | None:
     marker = params.get(APPROVAL_PARAM)
     marker_id = marker.get("id") if isinstance(marker, dict) else None
     return marker_id if isinstance(marker_id, str) else None
+
+
+def _plan(
+    command: str,
+    params: dict[str, Any],
+    requests: list[Request],
+    classes: Sequence[Classification],
+    decisions: Sequence[str],
+    write: Callable[..., bool],
+) -> dict[str, Any]:
+    """Describe a job without running it: the full normalized list, counts and digest.
+
+    No HA request is made and nothing is consumed. The digest is the one the approval
+    binds, because the executed job is exactly ``{"requests": [...]}``. The ``planned``
+    audit line carries the same list so the approver can check it later; lock codes are
+    masked as everywhere else. If that line cannot be written the plan is not returned.
+    """
+    digest = approval_bind(command, "", {"requests": params["requests"]})
+    entries = [
+        {"index": i, "kind": c.kind, "hard": c.hard, "decision": d, **r.item}
+        for i, (r, c, d) in enumerate(zip(requests, classes, decisions, strict=True))
+    ]
+    listing = redact_code({"requests": entries})["requests"]
+    counts = {k: sum(c.kind == k for c in classes) for k in KIND_ORDER}
+    plan = {
+        "ok": True,
+        "plan": True,
+        "digest": digest,
+        "count": len(requests),
+        "counts": {k: n for k, n in counts.items() if n},
+        "highest_kind": max((c.kind for c in classes), key=KIND_ORDER.index),
+        "decision": next(
+            (d for d in ("refuse", "approval") if d in decisions),
+            "allow",
+        ),
+        "requests": listing,
+    }
+    if not write(None, None, "planned", None, {k: v for k, v in plan.items() if k != "ok"}):
+        return _error("AUDIT_UNAVAILABLE", "audit log is not writable; the plan was not recorded")
+    return plan
 
 
 async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -257,7 +326,11 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
         return _error("AUDIT_UNAVAILABLE", "audit log is not writable; no request was sent")
 
     def write(
-        request: Request | None, c: Classification | None, result: str, reason: str | None
+        request: Request | None,
+        c: Classification | None,
+        result: str,
+        reason: str | None,
+        extra: dict[str, Any] | None = None,
     ) -> bool:
         """Append one audit line; False (and a line on stderr) if it could not be written."""
         entry = {
@@ -269,6 +342,7 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
             "approval": approval_id,
             "result": result,
             "reason": reason,
+            **(extra or {}),
         }
         try:
             audit_log.info(json.dumps(entry, sort_keys=True))
@@ -278,13 +352,16 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
         return True
 
     approval_id: str | None = None
+    spent = False  # the approval marker was consumed; it is never usable again
     try:
-        requests, is_job = _parse(command, params)
+        requests, is_job, is_plan = _parse(command, params)
     except _Invalid as exc:
         write(None, None, "refused", "INVALID_PARAM")
         return _error("INVALID_PARAM", str(exc))
     classes = [classify(r.target) for r in requests]
     decisions = [decide(role, c) for c in classes]
+    if is_plan:
+        return _plan(command, params, requests, classes, decisions, write)
 
     def refuse(code: str, message: str) -> dict[str, Any]:
         for request, c in zip(requests, classes, strict=True):
@@ -310,13 +387,21 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
         denied = consume_approval_marker(command, "", params)
         if denied is not None:
             return refuse(denied["error"], denied["message"])
+        spent = True
     else:
         params.pop(APPROVAL_PARAM, None)  # an approval nobody needed is never forwarded
 
     # Fail closed: every request is on record as an attempt before the first one runs.
     for request, c in zip(requests, classes, strict=True):
         if not write(request, c, "attempt", None):
-            return _error("AUDIT_UNAVAILABLE", "audit log is not writable; no request was sent")
+            respend = (
+                "; the approval is spent, so re-plan and get a new approval to retry"
+                if spent
+                else ""
+            )
+            return _error(
+                "AUDIT_UNAVAILABLE", f"audit log is not writable; no request was sent{respend}"
+            )
 
     results: list[dict[str, Any]] = []
     budget = _RESULT_BUDGET_BYTES
@@ -346,11 +431,16 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
             if budget >= 0
             else {"ok": True, "kind": c.kind, "result_omitted": "response cap reached; it ran"}
         )
+    outcome = (
+        "the request WAS performed in Home Assistant"
+        if failure is None
+        else f"the request failed first ({failure['error']}: {failure['message']})"
+    )
     lost = (
         {
             "error": "AUDIT_FAILED_AFTER_ACTION",
-            "message": "the request WAS performed in Home Assistant, but its audit record could "
-            "not be written; later requests in a job were not run. This is not a refusal",
+            "message": f"{outcome}, but its audit record could not be written; later requests "
+            "in a job were not run. This is not a refusal",
         }
         if audit_lost
         else {}
