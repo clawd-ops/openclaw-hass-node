@@ -171,7 +171,7 @@ request. Unknown means admin.
 | diagnose | `get_states`, `*/list`, `GET /api/states/...`, `GET /api/error_log`, logbook, history |
 | fix | `homeassistant.restart`, `hassio.addon_restart`, `*.reload`, reload one config entry |
 | configure | registry updates, `lovelace/config/save`, `POST /api/config/automation/config/...` |
-| admin | deletes (`*/remove`, `DELETE`), `execute_script`, anything not in the table |
+| admin | deletes (`*/remove`, `DELETE`), `execute_script`, anything that runs a configured action sequence (`script.*`, `button.press`, `automation.trigger`), anything not in the table |
 
 **Hard-deny.** Always admin, always needs the owner's explicit approval of the
 job, and no role allowance covers it: host reboot or shutdown, updates
@@ -198,7 +198,12 @@ power, plus the approval route, because the owner's approval is the identity pro
 A request whose decision is "needs approval" is refused with `APPROVAL_REQUIRED`
 unless it is submitted as a job. The plugin hook prompts the owner once for a
 job and mints a marker bound to the exact request list, so one approval covers
-the whole job and cannot be replayed for a different list. The node verifies and
+the whole job and cannot be replayed for a different list. The prompt is built
+from that same list and names every request: its WS type or method and path, the
+`domain.service` of a service call, and any `entity_id`, `device_id` or `area_id`
+it targets. Identical requests are shown once with a count; nothing else is
+merged or shortened. A job whose prompt would exceed the gateway's 512-character
+approval text is blocked before anything runs, with a request to split it. The node verifies and
 consumes the marker only after every request has passed policy; a job with any
 refused request runs nothing. Errors: `PERMISSION_DENIED` (role), `PROPOSAL_REQUIRED`
 (no marker), `APPROVAL_INVALID` (expired, used, or bound to a different job).
@@ -209,9 +214,14 @@ Every call appends one JSON line per request to `ha-audit.jsonl` in the node's
 data directory, rotated at 5 MiB with three backups. Fields: `ts`, `command`,
 `actor`, `role`, `job` (digest of the request list), `target` (WS type, or
 method and path, or `domain.service`), `kind`, `hard`, `approval` (marker id),
-`result` (`ok`, `refused`, `error`, `skipped`) and `reason`. Tokens, headers,
+`result` (`attempt`, `ok`, `refused`, `error`, `skipped`) and `reason`. Tokens, headers,
 payloads, queries and response bodies are never recorded. If the log cannot be
-written the call is refused (`AUDIT_UNAVAILABLE`) before any request.
+written the call is refused (`AUDIT_UNAVAILABLE`) before any request. Every
+request is written as an `attempt` line before the first one runs, so a failing
+log stops the whole job. If a result line cannot be written after a request ran,
+the remaining requests of the job are not run and the error is
+`AUDIT_FAILED_AFTER_ACTION`: the action **was performed**, it is not a refusal.
+The failure is also written to stderr.
 
 ### Results
 

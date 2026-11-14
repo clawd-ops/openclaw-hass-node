@@ -13,7 +13,11 @@ before any request reaches Home Assistant:
   whole job. The marker is the existing one (``config_mutation``); it is
   verified and consumed only after every policy check has passed.
 - *audit* appends one JSON line per request (who, role, kind, target, approval,
-  result). It never records tokens, headers, payloads, or response bodies.
+  result). It never records tokens, headers, payloads, or response bodies. It
+  fails closed: an ``attempt`` line for every request is written before the
+  first one runs, and if that write fails nothing runs (``AUDIT_UNAVAILABLE``).
+  If a result line cannot be written afterwards, the remaining requests are not
+  run and the error (``AUDIT_FAILED_AFTER_ACTION``) says the action was performed.
 
 ``ha.ws`` takes ``{type, payload?}``; ``ha.rest`` takes ``{method, path, query?,
 body?}``. A job of either command takes ``{requests: [<that shape>, ...]}``.
@@ -24,6 +28,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -137,7 +142,7 @@ def _rest_query(raw: Any) -> dict[str, str | int | float]:
         _bad(f"query takes at most {_MAX_QUERY_PAIRS} pairs")
     for name, value in raw.items():
         scalar = isinstance(value, str | int | float) and not isinstance(value, bool)
-        if not _QUERY_NAME.fullmatch(name) or not scalar:
+        if not isinstance(name, str) or not _QUERY_NAME.fullmatch(name) or not scalar:
             _bad("query names must be simple and values must be strings or numbers")
         if isinstance(value, str) and (len(value) > 1024 or not value.isprintable()):
             _bad("query values must be short printable strings")
@@ -187,13 +192,29 @@ def _parse(command: str, params: dict[str, Any]) -> tuple[list[Request], bool]:
     return out, True
 
 
+class _StrictAuditHandler(RotatingFileHandler):
+    """A rotating file handler whose write or rotation errors reach the caller.
+
+    The stock handler reports them to stderr and carries on, which would let a
+    request run with no audit record.
+    """
+
+    def handleError(self, record: logging.LogRecord) -> None:
+        del record
+        raise  # called from the stdlib's except block: re-raises its error
+
+
+def _stderr(message: str) -> None:
+    print(f"ha audit: {message}", file=sys.stderr, flush=True)
+
+
 def _audit_logger() -> logging.Logger:
     """The append-only audit log in the node's data dir; raises ``OSError`` if unusable."""
     path = load_config().data_dir / _AUDIT_FILE
     logger = logging.getLogger("openclaw_node.ha_audit")
     if not any(getattr(h, "baseFilename", None) == str(path) for h in logger.handlers):
         path.parent.mkdir(parents=True, exist_ok=True)
-        handler = RotatingFileHandler(
+        handler = _StrictAuditHandler(
             path, maxBytes=_AUDIT_MAX_BYTES, backupCount=_AUDIT_BACKUPS, encoding="utf-8"
         )
         handler.setFormatter(logging.Formatter("%(message)s"))
@@ -204,6 +225,14 @@ def _audit_logger() -> logging.Logger:
         logger.propagate = False
         logger.setLevel(logging.INFO)
     return logger
+
+
+def _job_id(command: str, params: dict[str, Any]) -> str | None:
+    """Short digest naming the call in the audit log; None if the params cannot be digested."""
+    try:
+        return approval_bind(command, "", params)[:16]
+    except (AttributeError, TypeError):  # a non-string key; normalization refuses it
+        return None
 
 
 def _marker_id(params: dict[str, Any]) -> str | None:
@@ -219,7 +248,7 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
         "command": command,
         "actor": caller.actor_id if caller else "<none>",
         "role": role,
-        "job": approval_bind(command, "", params)[:16],
+        "job": _job_id(command, params),
     }
     try:
         audit_log = _audit_logger()
@@ -229,7 +258,8 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
 
     def write(
         request: Request | None, c: Classification | None, result: str, reason: str | None
-    ) -> None:
+    ) -> bool:
+        """Append one audit line; False (and a line on stderr) if it could not be written."""
         entry = {
             **base,
             "ts": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -240,7 +270,12 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
             "result": result,
             "reason": reason,
         }
-        audit_log.info(json.dumps(entry, sort_keys=True))
+        try:
+            audit_log.info(json.dumps(entry, sort_keys=True))
+        except (OSError, ValueError) as exc:
+            _stderr(f"write failed ({type(exc).__name__}): {result} {entry['target']}")
+            return False
+        return True
 
     approval_id: str | None = None
     try:
@@ -278,13 +313,21 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
     else:
         params.pop(APPROVAL_PARAM, None)  # an approval nobody needed is never forwarded
 
+    # Fail closed: every request is on record as an attempt before the first one runs.
+    for request, c in zip(requests, classes, strict=True):
+        if not write(request, c, "attempt", None):
+            return _error("AUDIT_UNAVAILABLE", "audit log is not writable; no request was sent")
+
     results: list[dict[str, Any]] = []
     budget = _RESULT_BUDGET_BYTES
     failure: dict[str, Any] | None = None
+    audit_lost = False
     for request, c in zip(requests, classes, strict=True):
-        if failure is not None:
-            write(request, c, "skipped", "PRIOR_REQUEST_FAILED")
-            results.append(_error("SKIPPED", "not run: an earlier request in the job failed"))
+        if failure is not None or audit_lost:
+            if not audit_lost:
+                audit_lost = not write(request, c, "skipped", "PRIOR_REQUEST_FAILED")
+            reason = "an earlier request in the job failed" if failure else "the audit log failed"
+            results.append(_error("SKIPPED", f"not run: {reason}"))
             continue
         try:
             data = await request.run()
@@ -293,22 +336,35 @@ async def _handle(command: str, params: dict[str, Any]) -> dict[str, Any]:
         except (TypeError, ValueError):
             failure = _error("HA_BAD_RESPONSE", "Home Assistant returned an unreadable response")
         if failure is not None:
-            write(request, c, "error", failure["error"])
+            audit_lost = not write(request, c, "error", failure["error"])
             results.append(failure)
             continue
         budget -= len(json.dumps(data))
-        write(request, c, "ok", None)
+        audit_lost = not write(request, c, "ok", None)
         results.append(
             {"ok": True, "kind": c.kind, "result": data}
             if budget >= 0
             else {"ok": True, "kind": c.kind, "result_omitted": "response cap reached; it ran"}
         )
+    lost = (
+        {
+            "error": "AUDIT_FAILED_AFTER_ACTION",
+            "message": "the request WAS performed in Home Assistant, but its audit record could "
+            "not be written; later requests in a job were not run. This is not a refusal",
+        }
+        if audit_lost
+        else {}
+    )
     if not is_job:
-        return results[0]
-    job: dict[str, Any] = {"ok": failure is None, "job": base["job"], "results": results}
+        return {**results[0], **lost, "ok": results[0]["ok"] and not lost}
+    job: dict[str, Any] = {
+        "ok": failure is None and not lost,
+        "job": base["job"],
+        "results": results,
+    }
     if failure is not None:
         job.update(error="JOB_FAILED", message=f"{failure['error']}: {failure['message']}")
-    return job
+    return {**job, **lost} if lost else job
 
 
 async def handle_ha_ws(params: dict[str, Any]) -> dict[str, Any]:

@@ -39,6 +39,17 @@ Kind = Literal["control", "diagnose", "fix", "configure", "admin"]
 Decision = Literal["allow", "approval", "refuse"]
 PolicyRole = Literal["owner", "household", "operator", "guest"]
 
+# Services that run an arbitrary configured action sequence (scripts, buttons wired to
+# one, automation triggers). Always admin; scenes only set states, so they stay control.
+INDIRECT_EXECUTORS: Final[tuple[str, ...]] = (
+    "svc script.*",
+    "svc button.press",
+    "svc automation.trigger",
+)
+_EXECUTOR_DOMAINS: Final[frozenset[str]] = frozenset(
+    pattern.split(" ")[1].split(".")[0] for pattern in INDIRECT_EXECUTORS
+)
+
 # (pattern, kind, hard). Order matters: hard-deny first, then specific rules,
 # then the broad read rules. Anything not matched is ``admin``.
 RULES: Final[tuple[tuple[str, Kind, bool], ...]] = (
@@ -63,6 +74,10 @@ RULES: Final[tuple[tuple[str, Kind, bool], ...]] = (
     ("svc hassio.app_restart", "fix", False),
     ("svc *.reload", "fix", False),
     ("POST /api/config/config_entries/entry/*/reload", "fix", False),
+    # Admin: services that run a user-defined action sequence. What a script or
+    # automation does is not visible here, so it could reach any privileged
+    # service. They are listed before Control so no wildcard or table can claim them.
+    *((pattern, "admin", False) for pattern in INDIRECT_EXECUTORS),
     # Diagnose: reads.
     ("svc homeassistant.check_config", "diagnose", False),
     ("POST /api/config/core/check_config", "diagnose", False),
@@ -112,6 +127,7 @@ RULES: Final[tuple[tuple[str, Kind, bool], ...]] = (
         (f"svc {domain}.{service}", "control", False)
         for domain, services in HOUSEHOLD_ALLOWED_SERVICES.items()
         for service in sorted(services)
+        if domain not in _EXECUTOR_DOMAINS
     ),
 )
 

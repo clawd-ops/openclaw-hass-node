@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { JOB_FORM_COMMANDS } from "./approval-policy.js";
 import {
   ADMIN_TOOL_COMMANDS,
+  APPROVAL_DESCRIPTION_MAX,
   APPROVAL_GATED,
   APPROVAL_PARAM,
   approvalBind,
@@ -303,11 +304,67 @@ describe("job-form approval for ha.ws and ha.rest", () => {
     expect(result.requireApproval.onResolution).toBeUndefined();
   });
 
-  it("lists at most eight requests and says how many more", () => {
+  it("lists a hard-deny request that comes after the eighth", () => {
+    const reads = ["get_states", "get_config", "get_services", "get_panels", "ping", "get_themes", "get_notifications", "get_user"];
+    const requests = [
+      ...reads.map((type) => ({ type })),
+      { type: "config/entity_registry/list" },
+      { type: "supervisor/api", payload: { endpoint: "/addons/x/uninstall", method: "post" } },
+      { type: "call_service", payload: { domain: "hassio", service: "host_reboot" } },
+    ];
+    const job = { requests };
+    const result = beforeToolCall(call(job, {}, "ha.ws"), () => NOW)!;
+    const description = result.requireApproval.description as string;
+    expect(description).toContain("11 request(s)");
+    expect(description).toContain("supervisor/api");
+    expect(description).toContain("call_service hassio.host_reboot");
+    expect(description).not.toContain("more)");
+    expect((innerOf(result)[APPROVAL_PARAM] as { bind: string }).bind).toBe(approvalBind("ha.ws", "", job));
+  });
+
+  it("shows service targets from the payload, its target and service_data, and the REST body", () => {
+    const job = {
+      requests: [
+        { type: "call_service", payload: { domain: "light", service: "turn_off", target: { entity_id: ["light.a", "light.b"], area_id: "kitchen" } } },
+        { type: "call_service", payload: { domain: "light", service: "turn_on", service_data: { entity_id: "light.c" } } },
+        { type: "config/entity_registry/remove", payload: { entity_id: "sensor.old" } },
+        { method: "POST", path: "/api/services/light/toggle", body: { device_id: "abc123" } },
+      ],
+    };
+    const description = beforeToolCall(call(job, {}, "ha.ws"))!.requireApproval.description as string;
+    expect(description).toContain("call_service light.turn_off [entity_id=light.a,light.b area_id=kitchen]");
+    expect(description).toContain("call_service light.turn_on [entity_id=light.c]");
+    expect(description).toContain("config/entity_registry/remove [entity_id=sensor.old]");
+    expect(description).toContain("POST /api/services/light/toggle [device_id=abc123]");
+  });
+
+  it("quotes a target that could pass for another request, and lists identical requests once with a count", () => {
+    const sneaky = 'light.a]; ws supervisor/api';
+    const job = { requests: [{ type: "get_states" }, { type: "get_states" }, { type: "get_states" }, { type: "call_service", payload: { domain: "light", service: "toggle", target: { entity_id: sneaky } } }] };
+    const description = beforeToolCall(call(job, {}, "ha.ws"))!.requireApproval.description as string;
+    expect(description).toContain("4 request(s): get_states x3;");
+    expect(description).toContain(JSON.stringify(sneaky));
+  });
+
+  it("refuses a job too large to show in full instead of cutting it", () => {
     const many = { requests: Array.from({ length: 21 }, (_, i) => ({ type: "config/entity_registry/remove", payload: { entity_id: `light.n${i}` } })) };
-    const description = beforeToolCall(call(many, {}, "ha.ws"))!.requireApproval.description as string;
-    expect(description).toContain("21 request(s)");
-    expect(description).toContain("(+13 more)");
+    const result = beforeToolCall(call(many, {}, "ha.ws"), () => NOW)!;
+    expect(result.requireApproval).toBeUndefined();
+    expect(result.block).toBe(true);
+    expect(result.blockReason).toContain("too large to show in full");
+    expect(result.blockReason).toContain("Split it into smaller jobs");
+    expect(result.params).toBeUndefined();
+  });
+
+  it("accepts a job whose description is exactly at the limit and refuses one character more", () => {
+    const fits = (n: number) => {
+      const job = { requests: [{ type: "call_service", payload: { domain: "light", service: "toggle", target: { entity_id: `light.${"a".repeat(n)}` } } }] };
+      return beforeToolCall(call(job, {}, "ha.ws"));
+    };
+    const n = Array.from({ length: 600 }, (_, i) => i + 1).find((len) => fits(len)!.requireApproval === undefined);
+    expect(n).toBeDefined();
+    expect(fits(n! - 1)!.requireApproval.description.length).toBe(APPROVAL_DESCRIPTION_MAX);
+    expect(fits(n!)!.block).toBe(true);
   });
 
   it("copes with malformed entries without throwing", () => {

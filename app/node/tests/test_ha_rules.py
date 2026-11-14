@@ -90,7 +90,31 @@ def test_every_everyday_control_service_stays_control() -> None:
     """No earlier rule may shadow the one control table in authz."""
     for domain, services in HOUSEHOLD_ALLOWED_SERVICES.items():
         for service in services:
-            assert classify(f"svc {domain}.{service}").kind == "control", (domain, service)
+            expected = "admin" if domain in {"script", "button"} else "control"
+            assert classify(f"svc {domain}.{service}").kind == expected, (domain, service)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "svc script.turn_on",
+        "svc script.toggle",
+        "svc script.turn_off",
+        "svc script.bedtime",
+        "svc button.press",
+        "svc automation.trigger",
+        "ws execute_script",
+        "ws fire_event",
+        "POST /api/events/some_event",
+    ],
+)
+def test_indirect_executors_are_admin(target: str) -> None:
+    result = classify(target)
+    assert (result.kind, result.hard) == ("admin", False)
+
+
+def test_scene_turn_on_stays_control() -> None:
+    assert classify("svc scene.turn_on").kind == "control"
 
 
 def test_matcher_segments() -> None:

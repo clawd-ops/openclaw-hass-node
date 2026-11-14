@@ -48,10 +48,12 @@ class Env:
         self.ws.assert_not_called()
         self.rest.assert_not_called()
 
-    def lines(self) -> list[dict[str, Any]]:
+    def lines(self, *, attempts: bool = False) -> list[dict[str, Any]]:
+        """Audit lines; the pre-execution ``attempt`` lines only when asked for."""
         if not self.audit.exists():
             return []
-        return [json.loads(line) for line in self.audit.read_text().splitlines()]
+        entries = [json.loads(line) for line in self.audit.read_text().splitlines()]
+        return [e for e in entries if attempts or e["result"] != "attempt"]
 
 
 @pytest.fixture
@@ -162,6 +164,19 @@ REFUSED_FOR_HOUSEHOLD: list[tuple[str, dict[str, Any], str]] = [
     ("ha.ws", {"type": "lovelace/config/save", "payload": {"config": {}}}, "configure"),
     ("ha.ws", remove("light.old"), "admin"),
     ("ha.ws", {"type": "execute_script", "payload": {"sequence": []}}, "admin"),
+    ("ha.ws", svc("script", "turn_on", entity_id="script.bedtime"), "admin"),
+    ("ha.ws", svc("script", "toggle", entity_id="script.bedtime"), "admin"),
+    ("ha.ws", svc("script", "bedtime"), "admin"),
+    ("ha.ws", svc("button", "press", entity_id="button.restart_host"), "admin"),
+    ("ha.ws", svc("automation", "trigger", entity_id="automation.nightly"), "admin"),
+    ("ha.rest", {"method": "POST", "path": "/api/services/script/turn_on", "body": {}}, "admin"),
+    ("ha.rest", {"method": "POST", "path": "/api/services/script/bedtime", "body": {}}, "admin"),
+    ("ha.rest", {"method": "POST", "path": "/api/services/button/press", "body": {}}, "admin"),
+    (
+        "ha.rest",
+        {"method": "POST", "path": "/api/services/automation/trigger", "body": {}},
+        "admin",
+    ),
     ("ha.ws", svc("update", "install", entity_id="update.core"), "admin"),
     ("ha.ws", svc("hassio", "host_reboot"), "admin"),
     ("ha.ws", svc("hassio", "addon_update", addon="x"), "admin"),
@@ -195,6 +210,13 @@ async def test_household_is_refused_above_fix(
         kind,
         "PERMISSION_DENIED",
     )
+
+
+async def test_household_scene_turn_on_still_runs(env: Env) -> None:
+    result = await call("ha.ws", svc("scene", "turn_on", entity_id="scene.movie"), HOUSEHOLD)
+
+    assert result["ok"] is True
+    assert env.ws.await_count == 1
 
 
 async def test_misspoken_household_request_is_refused_and_never_executed(env: Env) -> None:
@@ -444,6 +466,13 @@ async def test_rest_path_attacks_are_refused_before_any_request(
     env.assert_no_requests()
 
 
+async def test_non_string_query_key_is_invalid_param_not_a_crash(env: Env) -> None:
+    result = await call("ha.rest", {"method": "GET", "path": "/api/states", "query": {1: "x"}})
+
+    assert result["error"] == "INVALID_PARAM"
+    env.assert_no_requests()
+
+
 @pytest.mark.parametrize(
     "params",
     [
@@ -568,6 +597,110 @@ async def test_unwritable_audit_log_refuses_before_any_request(
     env.assert_no_requests()
 
 
+class _FailingStream:
+    """A log stream that accepts ``ok_writes`` writes, then fails like a full disk."""
+
+    def __init__(self, ok_writes: int) -> None:
+        self.ok_writes = ok_writes
+
+    def tell(self) -> int:
+        return 0
+
+    def write(self, text: str) -> None:
+        if self.ok_writes <= 0:
+            raise OSError(28, "No space left on device")
+        self.ok_writes -= 1
+
+    def flush(self) -> None:
+        pass
+
+
+def break_audit_after(ok_writes: int) -> None:
+    """Make the live audit handler fail after ``ok_writes`` more successful writes."""
+    handler = logging.getLogger("openclaw_node.ha_audit").handlers[0]
+    assert isinstance(handler, logging.FileHandler)
+    handler.stream = _FailingStream(ok_writes)  # type: ignore[assignment]
+
+
+async def test_audit_write_failure_at_attempt_refuses_with_zero_requests(
+    env: Env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    await call("ha.ws", {"type": "get_states"})  # creates the audit handler
+    env.ws.reset_mock()
+    break_audit_after(0)
+
+    result = await call("ha.ws", svc("light", "turn_on"), HOUSEHOLD)
+
+    assert result["ok"] is False
+    assert result["error"] == "AUDIT_UNAVAILABLE"
+    assert "no request was sent" in result["message"]
+    env.assert_no_requests()
+    assert "write failed" in capsys.readouterr().err
+
+
+async def test_audit_write_failure_part_way_through_attempts_refuses_whole_job(
+    env: Env,
+) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    env.ws.reset_mock()
+    break_audit_after(1)  # first attempt line written, second fails
+
+    result = await call("ha.ws", {"requests": [svc("light", "turn_on"), svc("light", "turn_off")]})
+
+    assert result["error"] == "AUDIT_UNAVAILABLE"
+    env.assert_no_requests()
+
+
+async def test_audit_write_failure_at_result_says_the_action_ran(
+    env: Env, capsys: pytest.CaptureFixture[str]
+) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    env.ws.reset_mock()
+    break_audit_after(1)  # the attempt line is written, the result line fails
+
+    result = await call("ha.ws", svc("light", "turn_on"), HOUSEHOLD)
+
+    assert env.ws.await_count == 1
+    assert result["ok"] is False
+    assert result["error"] == "AUDIT_FAILED_AFTER_ACTION"
+    assert "WAS performed" in result["message"]
+    assert "not a refusal" in result["message"]
+    assert result["result"] == [{"ok": True}]
+    assert "write failed" in capsys.readouterr().err
+
+
+async def test_audit_write_failure_at_result_stops_the_rest_of_a_job(env: Env) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    env.ws.reset_mock()
+    break_audit_after(2)  # both attempt lines are written; the first result line fails
+
+    result = await call("ha.ws", {"requests": [svc("light", "turn_on"), svc("light", "turn_off")]})
+
+    assert env.ws.await_count == 1
+    assert result["ok"] is False
+    assert result["error"] == "AUDIT_FAILED_AFTER_ACTION"
+    assert [r["ok"] for r in result["results"]] == [True, False]
+    assert result["results"][1]["error"] == "SKIPPED"
+
+
+async def test_audit_write_failure_after_a_ha_error_is_reported_as_lost_audit(env: Env) -> None:
+    await call("ha.ws", {"type": "get_states"})
+    env.ws.reset_mock()
+    env.ws.side_effect = HAClientError("HA_AUTH", "rejected")
+    break_audit_after(1)
+
+    result = await call("ha.ws", {"type": "get_states"})
+
+    assert result["error"] == "AUDIT_FAILED_AFTER_ACTION"
+    assert result["ok"] is False
+
+
+async def test_audit_lines_record_attempt_before_result(env: Env) -> None:
+    await call("ha.ws", svc("light", "turn_on"))
+
+    assert [e["result"] for e in env.lines(attempts=True)] == ["attempt", "ok"]
+
+
 # --- results ---------------------------------------------------------------
 
 
@@ -614,4 +747,4 @@ async def test_audit_log_follows_a_changed_data_dir(
     await call("ha.ws", {"type": "get_states"})
 
     assert len(env.lines()) == 1
-    assert len((other / "ha-audit.jsonl").read_text().splitlines()) == 1
+    assert len((other / "ha-audit.jsonl").read_text().splitlines()) == 2  # attempt + result
