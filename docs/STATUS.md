@@ -205,6 +205,18 @@ and [#289](https://github.com/clawd-ops/openclaw-hass-node/issues/289); closes n
 - `system.run` output is still captured in full and truncated after the command
   finishes. Streaming capture with a kill at the cap is not implemented.
 
+**Generic pass-through (`ha.ws`, `ha.rest`; unreleased, no live evidence):** two
+commands send any Home Assistant Core WebSocket or REST request. Each request is
+classified (control, diagnose, fix, configure, admin) by one pattern table, unknown
+means admin, and the caller's role decides: a household adult may control, diagnose
+and fix (including a Core restart) but not configure or administer; the owner may
+configure, and admin and hard-deny items (updates, host power, backup deletion,
+users and auth, Supervisor tunnels) need one approval per job. Every call is
+audited. `ha_ws_call` no longer lets a payload override `id` or `type`, and REST
+paths are Core-relative only. The granular `ha.*` commands remain; the Assist
+plugin tools and the skill do not use the pass-through yet. See the
+[command surface](reference/COMMAND-SURFACE.md#haws-and-harest-generic-core-pass-through-unreleased).
+
 **Dependencies and docs:** the locked `urllib3` is 2.8.0 (PYSEC-2026-4175,
 -4176, -4177), and the command ledger includes the 2026-09-13 mutation-surface evidence.
 

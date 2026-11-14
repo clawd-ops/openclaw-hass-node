@@ -93,6 +93,12 @@ Item numbers are stable identifiers (PR descriptions reference them); they are n
   default: same agent plus a soft prompt-level block, separate agent
   configurable per user); the full OpenClaw tool surface is not covered. Native approval consumption, operation
   binding, replay protection, and the protected write path do not exist.
+- Merged on `main`, unreleased: `ha.ws` / `ha.rest` pass-through with role-based
+  authorization and one native approval per job (the job marker binds to the
+  exact request list). A call with no verified person is treated as an
+  unattributed operator: household power plus the approval route. Still open:
+  the Assist plugin tools and the skill do not use the pass-through, and the
+  granular commands and per-command tables are not retired.
 - Accepted limitation for now: the session-key caller hint is unauthenticated, so a
   direct operator-level `node.invoke` caller could supply a guessed key. This does
   not widen access beyond operator callers. A hint matching more than one active

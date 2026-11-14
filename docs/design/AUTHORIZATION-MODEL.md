@@ -535,6 +535,27 @@ this is exactly what it trusts:
 - It does not change who may call the node: Assist callers still go through the
   role-aware table above, and the known gap above is unchanged.
 
+## Roles for the generic pass-through
+
+`ha.ws` and `ha.rest` (see the [command surface](../reference/COMMAND-SURFACE.md))
+decide by role and kind of request, not by command name. The role comes from the
+same node-owned caller as everything above; it is never read from params.
+
+| Path | How the caller reaches the node | Role |
+| --- | --- | --- |
+| Assist turn, verified actor, HA super admin | signed actor, resolved from the node's own turn registry | owner |
+| Assist turn, verified actor, any other HA user | same | household adult |
+| Assist turn with no verified actor, or no caller at all | registry has no actor, or the dispatch default | guest: control and diagnose only |
+| Agent session (main, Discord, cron, subagent), local HTTP API | the gateway-forwarded invoke carries no session or actor, so the node builds an operator caller | unattributed: household power plus the approval route |
+
+The invoke envelope still does not say which person is behind an agent session,
+and a prompt-injected session is indistinguishable from a real one. The
+unattributed path therefore gets no more than household power on its own, and
+configure, admin and hard-deny requests need the owner's approval of the job,
+which is given on an operator surface the requester does not control. The
+approval marker is not a secret (the known gap above applies unchanged), so this
+guards against mistakes and prompt injection, not against a hostile operator.
+
 ## Open validation
 
 The gateway approval APIs are confirmed to exist and to be in live production

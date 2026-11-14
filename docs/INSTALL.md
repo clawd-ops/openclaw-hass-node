@@ -39,7 +39,7 @@ then the **HACS integration**.
 ## 1. OpenClaw gateway: allowlist the node commands
 
 The gateway refuses to surface (or invoke) any node command that isn't on
-its allowlist. The HA node advertises 57 commands across `ha.*`, `fs.*`,
+its allowlist. The HA node advertises 59 commands across `ha.*`, `fs.*`,
 `system.*`, and `ping`. Add them to your `openclaw.json` under
 `gateway.nodes.commands.allow`:
 
@@ -70,7 +70,8 @@ its allowlist. The HA node advertises 57 commands across `ha.*`, `fs.*`,
           "ha.config.lovelace", "ha.config.automation",
           "ha.config.script", "ha.config.scene", "ha.config.helpers",
           "ha.config.area_registry", "ha.config.device_registry",
-          "ha.config.entity_registry", "ha.config.config_entries"
+          "ha.config.entity_registry", "ha.config.config_entries",
+          "ha.ws", "ha.rest"
         ]
       }
     }
@@ -252,7 +253,7 @@ commands you want the gateway to forward.
 openclaw nodes describe --node <your-node-id>
 # Expect: Status: paired · connected
 #         Caps:   …
-#         Commands: list of 57
+#         Commands: list of 59
 ```
 
 Or round-trip a command directly from the gateway side:

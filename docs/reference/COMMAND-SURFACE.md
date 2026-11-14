@@ -8,9 +8,9 @@
 > Registration is not proof that a command is advertised, reachable, or working.
 
 Commands intended for the `node.invoke` surface. Group prefixes match OpenClaw
-conventions where they exist. The dispatcher registers 56 commands
-(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 39) and the node advertises
-the same 56. The four exec-approval methods (`system.run`,
+conventions where they exist. The dispatcher registers 59 commands
+(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 42) and the node advertises
+the same 59. The four exec-approval methods (`system.run`,
 `system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`)
 are advertised, and `_INTENTIONALLY_UNADVERTISED` in `gateway_ws.py` is
 empty; the `test_advertised_matches_registry` drift gate keeps advertisement
@@ -126,7 +126,7 @@ it is not a claim that every Gateway entry point may reach it. Reachability
 per command is the row above and the [Authorization
 model](../design/AUTHORIZATION-MODEL.md).
 
-## `ha.*` — Home Assistant control (40 commands)
+## `ha.*` — Home Assistant control (42 commands)
 
 Counted by group, each group being disjoint:
 
@@ -136,7 +136,88 @@ Counted by group, each group being disjoint:
 | Tier B addon lifecycle (`ha.addon_start`, `ha.addon_stop`, `ha.addon_restart`, `ha.addon_update`) | 4 |
 | Tier B admin `ha.update_install` | 1 |
 | `ha.config.*` domain-config editors | 9 |
-| **Total** | **40** |
+| Generic pass-through (`ha.ws`, `ha.rest`) | 2 |
+| **Total** | **42** |
+
+## `ha.ws` and `ha.rest` — generic Core pass-through (unreleased)
+
+One generic pair replaces the long tail of granular `ha.*` commands. The node
+sets the request `id` and the authentication; the caller names only the request.
+The granular commands stay until a later release retires them.
+
+| Command | Args | Notes |
+|---|---|---|
+| `ha.ws` | `type`, `payload?` | One WebSocket request. `type` is a lowercase message type such as `config/entity_registry/list`; `call_service` needs `domain` and `service` in `payload`. `payload` must not set `id` or `type`. |
+| `ha.rest` | `method`, `path`, `query?`, `body?` | One REST request. `method` is `GET`, `POST` or `DELETE`. `path` is a Core-relative `/api/...` path using only letters, digits and `_ . : + / -`. `query` is an object of simple names and string or number values. `body` is for `POST` only. |
+| either | `requests: [...]` | A **job**: a list of 1 to 100 requests of that command's shape, run in order, stopping at the first failure. See [Approvals](#approvals-per-job). |
+
+Every call runs the same pipeline, and every refusal happens before any request
+reaches Home Assistant: normalize, classify, authorize, execute, audit.
+
+**Refused at normalization (`INVALID_PARAM`).** An unknown or null key (this
+includes `headers`: arbitrary headers are never accepted), a `payload` that sets
+`id` or `type`, and any REST path that is not a plain Core-relative API path:
+a scheme or host, `//`, a query or fragment inside the path, a backslash, a
+percent-escape (so encoded dots and double encoding), an empty or dot segment,
+and any Supervisor route (`hassio`, `supervisor`) or proxy. A query given as a list
+of pairs is refused because duplicate names are never allowed.
+
+**Kinds.** A small versioned pattern table (`ha_rules.py`) classifies each
+request. Unknown means admin.
+
+| Kind | Examples |
+|---|---|
+| control | `light.turn_on`, `scene.turn_on`, media, climate (the everyday-control table) |
+| diagnose | `get_states`, `*/list`, `GET /api/states/...`, `GET /api/error_log`, logbook, history |
+| fix | `homeassistant.restart`, `hassio.addon_restart`, `*.reload`, reload one config entry |
+| configure | registry updates, `lovelace/config/save`, `POST /api/config/automation/config/...` |
+| admin | deletes (`*/remove`, `DELETE`), `execute_script`, anything not in the table |
+
+**Hard-deny.** Always admin, always needs the owner's explicit approval of the
+job, and no role allowance covers it: host reboot or shutdown, updates
+(`update.install`, `hassio.*_update`), backup deletion, users and auth, and
+Supervisor tunnels (WS `supervisor/*`, `hassio/*`).
+
+**Roles.** The caller is resolved by the node, never taken from params.
+
+| Kind | Owner | Household adult | Unattributed agent or local API |
+|---|---|---|---|
+| control, diagnose, fix | yes | yes | yes |
+| configure | yes | refused: pass it to the owner | needs job approval |
+| admin | needs job approval | refused | needs job approval |
+| hard-deny | needs job approval | refused | needs job approval |
+
+An Assist turn with no verified actor gets control and diagnose only. The owner
+is the HA super admin (`identity.super_admins`) in a verified Assist turn; any
+other verified HA user is a household adult. A call that arrives with no verified
+person (an agent session, the local API) is treated as unattributed: household
+power, plus the approval route, because the owner's approval is the identity proof.
+
+### Approvals per job
+
+A request whose decision is "needs approval" is refused with `APPROVAL_REQUIRED`
+unless it is submitted as a job. The plugin hook prompts the owner once for a
+job and mints a marker bound to the exact request list, so one approval covers
+the whole job and cannot be replayed for a different list. The node verifies and
+consumes the marker only after every request has passed policy; a job with any
+refused request runs nothing. Errors: `PERMISSION_DENIED` (role), `PROPOSAL_REQUIRED`
+(no marker), `APPROVAL_INVALID` (expired, used, or bound to a different job).
+
+### Audit log
+
+Every call appends one JSON line per request to `ha-audit.jsonl` in the node's
+data directory, rotated at 5 MiB with three backups. Fields: `ts`, `command`,
+`actor`, `role`, `job` (digest of the request list), `target` (WS type, or
+method and path, or `domain.service`), `kind`, `hard`, `approval` (marker id),
+`result` (`ok`, `refused`, `error`, `skipped`) and `reason`. Tokens, headers,
+payloads, queries and response bodies are never recorded. If the log cannot be
+written the call is refused (`AUDIT_UNAVAILABLE`) before any request.
+
+### Results
+
+A result is returned as `{ok, kind, result}`; a job returns `{ok, job, results}`.
+Total returned result bytes are capped at 16 MiB (the HA WebSocket frame ceiling);
+past it a request still runs and its entry reports `result_omitted` instead of data.
 
 Sections for each `ha.config.*` command follow the base surface below.
 
