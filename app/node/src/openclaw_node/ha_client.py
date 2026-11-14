@@ -43,6 +43,13 @@ _SUPERVISOR_JSON_MAX_BYTES: Final[int] = 1_048_576
 # the evidence that justifies building one. 16 MiB is roughly twice the largest
 # frame observed in production.
 _WS_MAX_MSG_BYTES: Final[int] = 16 * 1024 * 1024
+# Ceiling for one pass-through response (REST body or total returned results).
+MAX_RESPONSE_BYTES: Final[int] = _WS_MAX_MSG_BYTES
+
+# Keys the node owns on every WS request. A caller payload may never set them:
+# ``id`` correlates the reply and ``type`` selects the handler, so an override
+# would retarget the call after the policy decided on the original.
+RESERVED_WS_KEYS: Final[frozenset[str]] = frozenset({"id", "type"})
 
 
 class HAClientError(Exception):
@@ -233,15 +240,23 @@ async def ha_ws_call(
 
     Args:
         msg_type: The WS message type, e.g. ``"config/area_registry/list"``.
-        payload: Optional extra fields merged into the request (after id/type).
+        payload: Optional extra fields merged into the request. It must not
+            contain ``id`` or ``type``.
         timeout_s: Per-call total timeout.
 
     Returns:
         The ``result`` field from the WS success response.
 
     Raises:
-        HAClientError: On network error, auth rejection, or WS-level error.
+        HAClientError: ``INVALID_PARAM`` (before any request) when *payload*
+            sets a reserved key; otherwise network error, auth rejection, or
+            WS-level error.
     """
+    clash = RESERVED_WS_KEYS & set(payload or {})
+    if clash:
+        raise HAClientError(
+            "INVALID_PARAM", f"payload must not set reserved key(s): {', '.join(sorted(clash))}"
+        )
     base = _ha_url().rstrip("/")
     ws_url = base.replace("https://", "wss://").replace("http://", "ws://") + "/api/websocket"
     token = _ha_token()
@@ -261,10 +276,7 @@ async def ha_ws_call(
             auth_resp = await ws.receive_json()
             if auth_resp.get("type") != "auth_ok":
                 raise HAClientError("HA_AUTH", "WS authentication rejected")
-            request: dict[str, Any] = {"id": 1, "type": msg_type}
-            if payload:
-                request.update(payload)
-            await ws.send_json(request)
+            await ws.send_json({**(payload or {}), "id": 1, "type": msg_type})
             resp = await ws.receive_json()
             if not resp.get("success", False):
                 err = resp.get("error", {})
@@ -275,6 +287,64 @@ async def ha_ws_call(
     except aiohttp.ClientError as exc:
         _LOG.error("ha_ws_call network error %s: %s", msg_type, exc)
         raise HAClientError("HA_NETWORK", f"WS network error: {exc}") from exc
+
+
+async def ha_rest(
+    method: str,
+    path: str,
+    query: dict[str, str | int | float] | None = None,
+    body: dict[str, Any] | list[Any] | None = None,
+    *,
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+    max_bytes: int = MAX_RESPONSE_BYTES,
+) -> Any:
+    """Make one bounded request to the HA Core REST API (the pass-through path).
+
+    The caller has already validated *path* as a Core-relative ``/api/`` path
+    (see ``commands.ha_passthrough``). The URL is always the configured HA base
+    plus that path, redirects are not followed (a redirect would carry the
+    bearer token elsewhere), and the body is read incrementally so a runaway
+    response cannot exhaust memory.
+
+    Returns:
+        The decoded JSON body, or the text body when the response is not JSON.
+
+    Raises:
+        HAClientError: On network, HTTP non-2xx, auth failure, an over-size
+            body (``HA_RESPONSE_TOO_LARGE``) or invalid JSON (``HA_BAD_RESPONSE``).
+    """
+    base = _ha_url().rstrip("/")
+    headers = _headers()
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    url = f"{base}{path}"
+    try:
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.request(
+                method, url, headers=headers, params=query, json=body, allow_redirects=False
+            ) as resp,
+        ):
+            if 300 <= resp.status < 400:
+                raise HAClientError("HA_HTTP_ERROR", f"HA returned an unexpected {resp.status}")
+            if resp.status >= 400:
+                await _decode(resp)  # always raises the matching HAClientError
+            buf = bytearray()
+            async for chunk in resp.content.iter_chunked(65_536):
+                buf.extend(chunk)
+                if len(buf) > max_bytes:
+                    raise HAClientError(
+                        "HA_RESPONSE_TOO_LARGE", f"HA response exceeded {max_bytes} bytes"
+                    )
+            text = buf.decode("utf-8", errors="replace")
+            if not (resp.content_type and "json" in resp.content_type):
+                return text
+            try:
+                return json.loads(text)
+            except ValueError as exc:
+                raise HAClientError("HA_BAD_RESPONSE", "HA returned invalid JSON") from exc
+    except aiohttp.ClientError as exc:
+        _LOG.error("ha_rest network error %s %s: %s", method, path, exc)
+        raise HAClientError("HA_NETWORK", f"Network error contacting HA: {exc}") from exc
 
 
 async def supervisor_get_text(

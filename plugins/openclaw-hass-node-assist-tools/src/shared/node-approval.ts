@@ -12,9 +12,10 @@
 // docs/design/AUTHORIZATION-MODEL.md, "Native approvals for node mutations".
 
 import { createHash, randomUUID } from "node:crypto";
-import { assistSkipsPrompt } from "./approval-policy.js";
+import { assistSkipsPrompt, JOB_FORM_COMMANDS } from "./approval-policy.js";
 import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.js";
 import { grantable, grantSessionKey, sessionGrants, type GrantStore } from "./approval-grants.js";
+import { jobRefusal, jobSummary } from "./ha-job.js";
 import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
 
 /** Reserved node.invoke param carrying the approval marker. */
@@ -195,7 +196,11 @@ function describeTarget(inner: Record<string, unknown>, command = ""): string {
   return `${parts.join(" ") || "unknown target"}${alias}`;
 }
 
+/** Longest approval description the gateway accepts (its PLUGIN_APPROVAL_DESCRIPTION_MAX_LENGTH). */
+export const APPROVAL_DESCRIPTION_MAX = 512;
+
 function titleOf(command: string, action: string): string {
+  if (JOB_FORM_COMMANDS.includes(command)) return "Run HA job";
   const admin = ADMIN_TITLES[command];
   if (admin !== undefined) return admin;
   const verb = FS_VERBS[command] ?? `${action.charAt(0).toUpperCase()}${action.slice(1).replaceAll("_", " ")}`;
@@ -311,12 +316,16 @@ export function beforeToolCall(
   });
   const command = normalized(params.invokeCommand);
   const action = typeof clean.action === "string" ? clean.action.trim() : "";
-  const needsApproval = Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true;
+  // A plan only describes a job: the node sends no HA request and needs no approval for it.
+  const planning = JOB_FORM_COMMANDS.includes(command) && clean.plan !== undefined;
+  const job = JOB_FORM_COMMANDS.includes(command) && !planning && Array.isArray(clean.requests) ? clean.requests : undefined;
+  const needsApproval =
+    job !== undefined || (Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true);
   if (!needsApproval) {
     return supplied === undefined && suppliedHint === undefined ? undefined : { params: rewrite(clean) };
   }
 
-  const refused = gatedCallRefusal(command, action, clean);
+  const refused = job !== undefined ? jobRefusal(command, job) : gatedCallRefusal(command, action, clean);
   if (refused !== undefined) return { block: true, blockReason: refused };
   if (hasUnsafeInteger(params.invokeParamsJson as string)) {
     return {
@@ -330,12 +339,21 @@ export function beforeToolCall(
   const scope = grantScope(grants, sessionKey, command, action, nowMs);
   const approved = rewrite({ ...hinted, [APPROVAL_PARAM]: newMarker(command, action, clean, nowMs) });
   if (scope?.grants.has(scope.sessionKey, command, action, nowMs()) === true) return { params: approved };
-  return {
-    params: approved,
-    requireApproval: approvalRequest(
-      titleOf(command, action),
-      `${titleOf(command, action)}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
-      scope,
-    ),
-  };
+  const title = titleOf(command, action);
+  let description: string;
+  if (job === undefined) {
+    description = `${title}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`;
+  } else {
+    const wrap = (summary: string) => `${title}: ${summary} via ${command}.`;
+    const summary = jobSummary(command, job, approvalBind(command, action, clean), (text) => wrap(text).length <= APPROVAL_DESCRIPTION_MAX);
+    if (summary === undefined) {
+      return {
+        block: true,
+        blockReason: `The hard-deny requests in this job (${job.length} requests in all) are too long to show in an approval prompt (the limit is ${APPROVAL_DESCRIPTION_MAX} characters). Nothing was run. Split the hard-deny items into smaller jobs.`,
+      };
+    }
+    description = wrap(summary);
+  }
+  const requireApproval = approvalRequest(title, description, scope);
+  return { params: approved, requireApproval };
 }

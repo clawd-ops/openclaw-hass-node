@@ -147,6 +147,8 @@ _NODE_COMMANDS: Final[list[str]] = [
     "ha.config.device_registry",
     "ha.config.entity_registry",
     "ha.config.config_entries",
+    "ha.ws",
+    "ha.rest",
 ]
 # Dispatcher-registered commands that are intentionally excluded from the
 # node connect-frame advertisement. Each key must map to a non-empty

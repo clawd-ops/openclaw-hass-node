@@ -1,0 +1,897 @@
+{
+ "comment": "Mirror of RULES in app/node/src/openclaw_node/ha_rules.py, read by the plugin to summarize a job in the approval prompt (display only; the node classifies and enforces). A node test asserts this file equals the table and the cases. Regenerate after changing RULES: uv run python -c from the node test's failure message.",
+ "rules": [
+  [
+   "ws auth/**",
+   "admin",
+   true
+  ],
+  [
+   "ws config/auth*/**",
+   "admin",
+   true
+  ],
+  [
+   "ws backup/remove",
+   "admin",
+   true
+  ],
+  [
+   "ws backup/delete*",
+   "admin",
+   true
+  ],
+  [
+   "svc update.install",
+   "admin",
+   true
+  ],
+  [
+   "svc hassio.*_update",
+   "admin",
+   true
+  ],
+  [
+   "svc hassio.host_reboot",
+   "admin",
+   true
+  ],
+  [
+   "svc hassio.host_shutdown",
+   "admin",
+   true
+  ],
+  [
+   "svc homeassistant.restart",
+   "fix",
+   false
+  ],
+  [
+   "svc homeassistant.reload_*",
+   "fix",
+   false
+  ],
+  [
+   "svc homeassistant.update_entity",
+   "fix",
+   false
+  ],
+  [
+   "svc hassio.addon_start",
+   "fix",
+   false
+  ],
+  [
+   "svc hassio.addon_restart",
+   "fix",
+   false
+  ],
+  [
+   "svc hassio.app_start",
+   "fix",
+   false
+  ],
+  [
+   "svc hassio.app_restart",
+   "fix",
+   false
+  ],
+  [
+   "svc *.reload",
+   "fix",
+   false
+  ],
+  [
+   "POST /api/config/config_entries/entry/*/reload",
+   "fix",
+   false
+  ],
+  [
+   "svc script.*",
+   "admin",
+   false
+  ],
+  [
+   "svc button.press",
+   "admin",
+   false
+  ],
+  [
+   "svc automation.trigger",
+   "admin",
+   false
+  ],
+  [
+   "svc homeassistant.check_config",
+   "diagnose",
+   false
+  ],
+  [
+   "POST /api/config/core/check_config",
+   "diagnose",
+   false
+  ],
+  [
+   "POST /api/template",
+   "diagnose",
+   false
+  ],
+  [
+   "GET /api/**",
+   "diagnose",
+   false
+  ],
+  [
+   "ws get_*",
+   "diagnose",
+   false
+  ],
+  [
+   "ws ping",
+   "diagnose",
+   false
+  ],
+  [
+   "ws render_template",
+   "diagnose",
+   false
+  ],
+  [
+   "ws */list",
+   "diagnose",
+   false
+  ],
+  [
+   "ws */*/list",
+   "diagnose",
+   false
+  ],
+  [
+   "ws */get",
+   "diagnose",
+   false
+  ],
+  [
+   "ws */info",
+   "diagnose",
+   false
+  ],
+  [
+   "ws config/*/get*",
+   "diagnose",
+   false
+  ],
+  [
+   "ws config/config_entries/entry",
+   "diagnose",
+   false
+  ],
+  [
+   "ws logbook/get_events",
+   "diagnose",
+   false
+  ],
+  [
+   "ws history/*",
+   "diagnose",
+   false
+  ],
+  [
+   "ws recorder/statistics_during_period",
+   "diagnose",
+   false
+  ],
+  [
+   "ws recorder/list_statistic_ids",
+   "diagnose",
+   false
+  ],
+  [
+   "ws recorder/get_statistics_metadata",
+   "diagnose",
+   false
+  ],
+  [
+   "ws lovelace/config",
+   "diagnose",
+   false
+  ],
+  [
+   "ws lovelace/resources",
+   "diagnose",
+   false
+  ],
+  [
+   "ws repairs/list_issues",
+   "diagnose",
+   false
+  ],
+  [
+   "ws trace/*",
+   "diagnose",
+   false
+  ],
+  [
+   "ws search/related",
+   "diagnose",
+   false
+  ],
+  [
+   "ws entity/source",
+   "diagnose",
+   false
+  ],
+  [
+   "ws zwave_js/get_*",
+   "diagnose",
+   false
+  ],
+  [
+   "ws energy/get_prefs",
+   "diagnose",
+   false
+  ],
+  [
+   "ws energy/validate",
+   "diagnose",
+   false
+  ],
+  [
+   "svc hassio.addon_stop",
+   "configure",
+   false
+  ],
+  [
+   "svc hassio.app_stop",
+   "configure",
+   false
+  ],
+  [
+   "svc hassio.backup_*",
+   "configure",
+   false
+  ],
+  [
+   "POST /api/config/*/config/*",
+   "configure",
+   false
+  ],
+  [
+   "ws config/*/create",
+   "configure",
+   false
+  ],
+  [
+   "ws config/*/update",
+   "configure",
+   false
+  ],
+  [
+   "ws */create",
+   "configure",
+   false
+  ],
+  [
+   "ws */update",
+   "configure",
+   false
+  ],
+  [
+   "ws lovelace/config/save",
+   "configure",
+   false
+  ],
+  [
+   "ws lovelace/resources/create",
+   "configure",
+   false
+  ],
+  [
+   "ws lovelace/resources/update",
+   "configure",
+   false
+  ],
+  [
+   "ws lovelace/dashboards/create",
+   "configure",
+   false
+  ],
+  [
+   "ws lovelace/dashboards/update",
+   "configure",
+   false
+  ],
+  [
+   "ws zwave_js/set_config_parameter",
+   "configure",
+   false
+  ],
+  [
+   "ws energy/save_prefs",
+   "configure",
+   false
+  ],
+  [
+   "svc input_boolean.turn_on",
+   "configure",
+   false
+  ],
+  [
+   "svc input_boolean.turn_off",
+   "configure",
+   false
+  ],
+  [
+   "svc input_boolean.toggle",
+   "configure",
+   false
+  ],
+  [
+   "svc input_button.press",
+   "configure",
+   false
+  ],
+  [
+   "svc light.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc light.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc light.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc switch.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc switch.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc switch.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.media_next_track",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.media_pause",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.media_play",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.media_play_pause",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.media_previous_track",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.media_stop",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.select_sound_mode",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.select_source",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.volume_down",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.volume_mute",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.volume_set",
+   "control",
+   false
+  ],
+  [
+   "svc media_player.volume_up",
+   "control",
+   false
+  ],
+  [
+   "svc cover.close_cover",
+   "control",
+   false
+  ],
+  [
+   "svc cover.close_cover_tilt",
+   "control",
+   false
+  ],
+  [
+   "svc cover.open_cover",
+   "control",
+   false
+  ],
+  [
+   "svc cover.open_cover_tilt",
+   "control",
+   false
+  ],
+  [
+   "svc cover.set_cover_position",
+   "control",
+   false
+  ],
+  [
+   "svc cover.set_cover_tilt_position",
+   "control",
+   false
+  ],
+  [
+   "svc cover.stop_cover",
+   "control",
+   false
+  ],
+  [
+   "svc cover.stop_cover_tilt",
+   "control",
+   false
+  ],
+  [
+   "svc cover.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc cover.toggle_cover_tilt",
+   "control",
+   false
+  ],
+  [
+   "svc climate.set_fan_mode",
+   "control",
+   false
+  ],
+  [
+   "svc climate.set_humidity",
+   "control",
+   false
+  ],
+  [
+   "svc climate.set_hvac_mode",
+   "control",
+   false
+  ],
+  [
+   "svc climate.set_preset_mode",
+   "control",
+   false
+  ],
+  [
+   "svc climate.set_temperature",
+   "control",
+   false
+  ],
+  [
+   "svc climate.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc climate.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc fan.oscillate",
+   "control",
+   false
+  ],
+  [
+   "svc fan.set_direction",
+   "control",
+   false
+  ],
+  [
+   "svc fan.set_percentage",
+   "control",
+   false
+  ],
+  [
+   "svc fan.set_preset_mode",
+   "control",
+   false
+  ],
+  [
+   "svc fan.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc fan.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc fan.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc input_select.select_first",
+   "control",
+   false
+  ],
+  [
+   "svc input_select.select_last",
+   "control",
+   false
+  ],
+  [
+   "svc input_select.select_next",
+   "control",
+   false
+  ],
+  [
+   "svc input_select.select_option",
+   "control",
+   false
+  ],
+  [
+   "svc input_select.select_previous",
+   "control",
+   false
+  ],
+  [
+   "svc input_number.decrement",
+   "control",
+   false
+  ],
+  [
+   "svc input_number.increment",
+   "control",
+   false
+  ],
+  [
+   "svc input_number.set_value",
+   "control",
+   false
+  ],
+  [
+   "svc vacuum.clean_spot",
+   "control",
+   false
+  ],
+  [
+   "svc vacuum.locate",
+   "control",
+   false
+  ],
+  [
+   "svc vacuum.pause",
+   "control",
+   false
+  ],
+  [
+   "svc vacuum.return_to_base",
+   "control",
+   false
+  ],
+  [
+   "svc vacuum.start",
+   "control",
+   false
+  ],
+  [
+   "svc vacuum.stop",
+   "control",
+   false
+  ],
+  [
+   "svc humidifier.set_humidity",
+   "control",
+   false
+  ],
+  [
+   "svc humidifier.set_mode",
+   "control",
+   false
+  ],
+  [
+   "svc humidifier.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc humidifier.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc humidifier.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc water_heater.set_operation_mode",
+   "control",
+   false
+  ],
+  [
+   "svc water_heater.set_temperature",
+   "control",
+   false
+  ],
+  [
+   "svc water_heater.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc water_heater.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc remote.send_command",
+   "control",
+   false
+  ],
+  [
+   "svc remote.toggle",
+   "control",
+   false
+  ],
+  [
+   "svc remote.turn_off",
+   "control",
+   false
+  ],
+  [
+   "svc remote.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc scene.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc lock.lock",
+   "control",
+   false
+  ],
+  [
+   "svc lock.open",
+   "control",
+   false
+  ],
+  [
+   "svc lock.unlock",
+   "control",
+   false
+  ],
+  [
+   "svc alarm_control_panel.alarm_arm_away",
+   "control",
+   false
+  ],
+  [
+   "svc alarm_control_panel.alarm_arm_custom_bypass",
+   "control",
+   false
+  ],
+  [
+   "svc alarm_control_panel.alarm_arm_home",
+   "control",
+   false
+  ],
+  [
+   "svc alarm_control_panel.alarm_arm_night",
+   "control",
+   false
+  ],
+  [
+   "svc alarm_control_panel.alarm_arm_vacation",
+   "control",
+   false
+  ],
+  [
+   "svc alarm_control_panel.alarm_disarm",
+   "control",
+   false
+  ]
+ ],
+ "cases": [
+  [
+   "ws get_states",
+   "diagnose",
+   false
+  ],
+  [
+   "ws config/entity_registry/list",
+   "diagnose",
+   false
+  ],
+  [
+   "ws config/entity_registry/remove",
+   "admin",
+   false
+  ],
+  [
+   "ws config/config_entries/remove",
+   "admin",
+   false
+  ],
+  [
+   "ws backup/remove",
+   "admin",
+   true
+  ],
+  [
+   "ws backup/delete_all",
+   "admin",
+   true
+  ],
+  [
+   "ws auth/sign_path",
+   "admin",
+   true
+  ],
+  [
+   "ws config/auth_provider/homeassistant/create",
+   "admin",
+   true
+  ],
+  [
+   "ws lovelace/config/save",
+   "configure",
+   false
+  ],
+  [
+   "ws a/brand/new/thing",
+   "admin",
+   false
+  ],
+  [
+   "svc light.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc scene.turn_on",
+   "control",
+   false
+  ],
+  [
+   "svc homeassistant.restart",
+   "fix",
+   false
+  ],
+  [
+   "svc homeassistant.reload_all",
+   "fix",
+   false
+  ],
+  [
+   "svc automation.reload",
+   "fix",
+   false
+  ],
+  [
+   "svc script.turn_on",
+   "admin",
+   false
+  ],
+  [
+   "svc script.bedtime",
+   "admin",
+   false
+  ],
+  [
+   "svc button.press",
+   "admin",
+   false
+  ],
+  [
+   "svc input_boolean.toggle",
+   "configure",
+   false
+  ],
+  [
+   "svc input_button.press",
+   "configure",
+   false
+  ],
+  [
+   "svc input_number.set_value",
+   "control",
+   false
+  ],
+  [
+   "svc update.install",
+   "admin",
+   true
+  ],
+  [
+   "svc hassio.addon_update",
+   "admin",
+   true
+  ],
+  [
+   "svc hassio.host_reboot",
+   "admin",
+   true
+  ],
+  [
+   "svc hassio.addon_restart",
+   "fix",
+   false
+  ],
+  [
+   "GET /api/states/light.kitchen",
+   "diagnose",
+   false
+  ],
+  [
+   "POST /api/template",
+   "diagnose",
+   false
+  ],
+  [
+   "POST /api/config/automation/config/12",
+   "configure",
+   false
+  ],
+  [
+   "DELETE /api/config/automation/config/12",
+   "admin",
+   false
+  ],
+  [
+   "POST /api/config/config_entries/entry/abc/reload",
+   "fix",
+   false
+  ]
+ ]
+}

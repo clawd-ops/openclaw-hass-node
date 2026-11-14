@@ -236,6 +236,35 @@
         }
       },
       "bind": "a557da7907fdac49ad814e3a5648f04aac295682e228273f5b87eaea1db25002"
+    },
+    {
+      "command": "ha.ws",
+      "action": "",
+      "params": {
+        "requests": [
+          {
+            "type": "config/entity_registry/remove",
+            "payload": {
+              "entity_id": "light.old_1"
+            }
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/config/automation/config/12"
+          },
+          {
+            "type": "call_service",
+            "payload": {
+              "domain": "update",
+              "service": "install",
+              "target": {
+                "entity_id": "update.x"
+              }
+            }
+          }
+        ]
+      },
+      "bind": "f376ad0e61d50bda5ec46627c9322a4cad1c839c508e85d03279680e1cdffec6"
     }
   ]
 }

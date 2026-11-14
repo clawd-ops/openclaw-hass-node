@@ -297,6 +297,9 @@ USER_ALLOWED_COMMANDS: Final[frozenset[str]] = frozenset(
         "ha.addon_changelog",
         "ha.addon_documentation",
         "ha.supervisor_info",
+        # The pass-through applies its own role policy (``ha_rules``) before any request.
+        "ha.ws",
+        "ha.rest",
     }
 )
 USER_FORBIDDEN_COMMANDS: Final[frozenset[str]] = frozenset(

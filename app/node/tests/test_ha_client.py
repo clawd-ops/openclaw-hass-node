@@ -13,6 +13,7 @@ from openclaw_node.ha_client import (
     HAClientError,
     ha_get,
     ha_post,
+    ha_rest,
     ha_ws_call,
     supervisor_get_json,
     supervisor_get_text,
@@ -693,3 +694,116 @@ async def test_ws_call_raises_message_size_ceiling(monkeypatch: pytest.MonkeyPat
     max_msg_size = fake.return_value.ws_connect.call_args.kwargs["max_msg_size"]
     assert max_msg_size > 4 * 1024 * 1024, "must exceed aiohttp's default ceiling"
     assert max_msg_size > 7_579_915, "must admit the frame size observed in production"
+
+
+# ---------------------------------------------------------------------------
+# ha_ws_call reserved keys (pass-through must-fix) and ha_rest
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("payload", [{"id": 9}, {"type": "supervisor/api"}, {"id": 2, "type": "x"}])
+async def test_ws_call_rejects_reserved_payload_keys_before_any_request(
+    monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]
+) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    with patch("aiohttp.ClientSession") as session, pytest.raises(HAClientError) as ei:
+        await ha_ws_call("config/area_registry/list", payload)
+    assert ei.value.code == "INVALID_PARAM"
+    session.assert_not_called()
+
+
+async def test_ws_call_payload_is_merged_without_touching_id_and_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    messages = [_AUTH_REQUIRED, _AUTH_OK, _ws_success([])]
+    with _patch_ws_session(messages) as fake:
+        await ha_ws_call("config/area_registry/create", {"name": "Den"})
+    ws = fake.return_value.ws_connect.return_value.__aenter__.return_value
+    assert ws.send_json.call_args_list[1][0][0] == {
+        "name": "Den",
+        "id": 1,
+        "type": "config/area_registry/create",
+    }
+
+
+def _patch_request_session(resp: _FakeResp | Exception) -> Any:
+    session = MagicMock()
+    if isinstance(resp, Exception):
+        session.request = MagicMock(side_effect=resp)
+    else:
+        session.request = MagicMock(return_value=resp)
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=False)
+    return patch("aiohttp.ClientSession", return_value=session)
+
+
+async def test_ha_rest_sends_one_request_without_following_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    with _patch_request_session(_FakeResp(body={"state": "on"})) as fake:
+        result = await ha_rest("POST", "/api/states/x", {"a": "1"}, {"state": "on"})
+    assert result == {"state": "on"}
+    call = fake.return_value.request.call_args
+    assert call.args == ("POST", "http://ha.local/api/states/x")
+    assert call.kwargs["allow_redirects"] is False
+    assert call.kwargs["params"] == {"a": "1"}
+    assert call.kwargs["json"] == {"state": "on"}
+
+
+async def test_ha_rest_returns_text_for_non_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    resp = _FakeResp(content_type="text/plain", text_body="log line")
+    with _patch_request_session(resp):
+        assert await ha_rest("GET", "/api/error_log") == "log line"
+
+
+@pytest.mark.parametrize(
+    ("status", "code"),
+    [(301, "HA_HTTP_ERROR"), (401, "HA_AUTH"), (404, "HA_NOT_FOUND"), (500, "HA_HTTP_ERROR")],
+)
+async def test_ha_rest_maps_error_statuses(
+    monkeypatch: pytest.MonkeyPatch, status: int, code: str
+) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    with (
+        _patch_request_session(_FakeResp(status=status, text_body="x")),
+        pytest.raises(HAClientError) as ei,
+    ):
+        await ha_rest("GET", "/api/states")
+    assert ei.value.code == code
+
+
+async def test_ha_rest_bounds_the_body_and_rejects_bad_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    with _patch_request_session(_FakeResp(text_body="x" * 100)), pytest.raises(HAClientError) as ei:
+        await ha_rest("GET", "/api/states", max_bytes=10)
+    assert ei.value.code == "HA_RESPONSE_TOO_LARGE"
+    with (
+        _patch_request_session(_FakeResp(text_body="{not json")),
+        pytest.raises(HAClientError) as ei,
+    ):
+        await ha_rest("GET", "/api/states")
+    assert ei.value.code == "HA_BAD_RESPONSE"
+
+
+async def test_ha_rest_network_error_wrapped(monkeypatch: pytest.MonkeyPatch) -> None:
+    import aiohttp
+
+    monkeypatch.setenv("HASS_URL", "http://ha.local")
+    monkeypatch.setenv("HASS_TOKEN", "tok")
+    with (
+        _patch_request_session(aiohttp.ClientError("dns fail")),
+        pytest.raises(HAClientError) as ei,
+    ):
+        await ha_rest("GET", "/api/states")
+    assert ei.value.code == "HA_NETWORK"

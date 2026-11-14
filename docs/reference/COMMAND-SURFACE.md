@@ -8,9 +8,9 @@
 > Registration is not proof that a command is advertised, reachable, or working.
 
 Commands intended for the `node.invoke` surface. Group prefixes match OpenClaw
-conventions where they exist. The dispatcher registers 56 commands
-(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 39) and the node advertises
-the same 56. The four exec-approval methods (`system.run`,
+conventions where they exist. The dispatcher registers 59 commands
+(`ping` + `fs.*` × 11 + `system.*` × 5 + `ha.*` × 42) and the node advertises
+the same 59. The four exec-approval methods (`system.run`,
 `system.run.prepare`, `system.execApprovals.get`, `system.execApprovals.set`)
 are advertised, and `_INTENTIONALLY_UNADVERTISED` in `gateway_ws.py` is
 empty; the `test_advertised_matches_registry` drift gate keeps advertisement
@@ -126,7 +126,7 @@ it is not a claim that every Gateway entry point may reach it. Reachability
 per command is the row above and the [Authorization
 model](../design/AUTHORIZATION-MODEL.md).
 
-## `ha.*` — Home Assistant control (40 commands)
+## `ha.*` — Home Assistant control (42 commands)
 
 Counted by group, each group being disjoint:
 
@@ -136,7 +136,122 @@ Counted by group, each group being disjoint:
 | Tier B addon lifecycle (`ha.addon_start`, `ha.addon_stop`, `ha.addon_restart`, `ha.addon_update`) | 4 |
 | Tier B admin `ha.update_install` | 1 |
 | `ha.config.*` domain-config editors | 9 |
-| **Total** | **40** |
+| Generic pass-through (`ha.ws`, `ha.rest`) | 2 |
+| **Total** | **42** |
+
+## `ha.ws` and `ha.rest` — generic Core pass-through (unreleased)
+
+One generic pair replaces the long tail of granular `ha.*` commands. The node
+sets the request `id` and the authentication; the caller names only the request.
+The granular commands stay until a later release retires them.
+
+| Command | Args | Notes |
+|---|---|---|
+| `ha.ws` | `type`, `payload?` | One WebSocket request. `type` is a lowercase message type such as `config/entity_registry/list`; `call_service` needs `domain` and `service` in `payload`. `payload` must not set `id` or `type`. |
+| `ha.rest` | `method`, `path`, `query?`, `body?` | One REST request. `method` is `GET`, `POST` or `DELETE`. `path` is a Core-relative `/api/...` path using only letters, digits and `_ . : + / -`. `query` is an object of simple names and string or number values. `body` is for `POST` only. |
+| either | `requests: [...]` | A **job**: a list of 1 to 100 requests, run in order, stopping at the first failure. An item is `{"ws": {type, payload?}}` or `{"rest": {method, path, query?, body?}}`, so one job can mix WebSocket and REST requests under one approval; an untagged item takes the command's own shape. See [Approvals](#approvals-per-job). |
+| either | `requests: [...]`, `plan: true` | A **plan**: normalizes and classifies the job and returns the full list, per-kind counts and the job digest. It sends no Home Assistant request and needs no approval. See [Plan](#plan-read-only). |
+
+Every call runs the same pipeline, and every refusal happens before any request
+reaches Home Assistant: normalize, classify, authorize, execute, audit.
+
+**Refused at normalization (`INVALID_PARAM`).** An unknown or null key (this
+includes `headers`: arbitrary headers are never accepted), a `payload` that sets
+`id` or `type`, and any REST path that is not a plain Core-relative API path:
+a scheme or host, `//`, a query or fragment inside the path, a backslash, a
+percent-escape (so encoded dots and double encoding), an empty or dot segment,
+and any Supervisor route (`hassio`, `supervisor`) or proxy. WS Supervisor tunnels
+(`supervisor/*`, `hassio/*`) are refused the same way, for every caller, even with an
+approval; add-on and host actions go through the `hassio.*` services instead. A query
+given as a list of pairs is refused because duplicate names are never allowed.
+
+**Kinds.** A small versioned pattern table (`ha_rules.py`) classifies each
+request. Unknown means admin.
+
+| Kind | Examples |
+|---|---|
+| control | `light.turn_on`, `scene.turn_on`, media, climate (the everyday-control table) |
+| diagnose | `get_states`, `*/list`, `GET /api/states/...`, `GET /api/error_log`, logbook, history |
+| fix | `homeassistant.restart`, `hassio.addon_restart`, `*.reload`, reload one config entry |
+| configure | registry updates, `lovelace/config/save`, `POST /api/config/automation/config/...`, `input_boolean.turn_on/turn_off/toggle` and `input_button.press` (they can set off an automation) |
+| admin | deletes (`*/remove`, `DELETE`), `execute_script`, anything that runs a configured action sequence (`script.*`, `button.press`, `automation.trigger`), anything not in the table |
+
+**Hard-deny.** Always admin, always needs the owner's explicit approval of the
+job, and no role allowance covers it: host reboot or shutdown, updates
+(`update.install`, `hassio.*_update`), backup deletion, and users and auth.
+
+**Roles.** The caller is resolved by the node, never taken from params.
+
+| Kind | Owner | Household adult | Unattributed agent or local API |
+|---|---|---|---|
+| control, diagnose, fix | yes | yes | yes |
+| configure | yes | refused: pass it to the owner | needs job approval |
+| admin | needs job approval | refused | needs job approval |
+| hard-deny | needs job approval | refused | needs job approval |
+
+An Assist turn with no verified actor gets control and diagnose only. The owner
+is the HA super admin (`identity.super_admins`) in a verified Assist turn; any
+other verified HA user is a household adult. A call that arrives with no verified
+person (an agent session, the local API) is treated as unattributed: household
+power, plus the approval route, because the owner's approval is the identity proof.
+An owner acting through an agent session with no verified human stays unattributed,
+so the approval is needed. Scripts and buttons stay admin; there is no allowlist yet.
+
+### Plan (read-only)
+
+`{"requests": [...], "plan": true}` normalizes and classifies a job and returns, for
+each request, its `kind`, `hard`, the `decision` for this caller, and the full
+normalized request (`ws` type and payload, or `rest` method, path, query and body, with
+no field left out and lock codes masked), plus `digest`, `count`, `counts` per kind,
+`highest_kind` and the job's overall `decision`. It sends no Home Assistant request,
+needs no approval, and writes one `planned` audit line with the same list. If that line
+cannot be written the plan is refused (`AUDIT_UNAVAILABLE`). The `digest` is the one an
+approval binds, because the executed job is exactly `{"requests": [...]}`: the agent
+shows the human the full list in chat, then submits the same list to run.
+
+### Approvals per job
+
+A request whose decision is "needs approval" is refused with `APPROVAL_REQUIRED`
+unless it is submitted as a job. The job's required approval follows its highest kind.
+The plugin hook prompts the owner once for a job and mints a marker bound to the exact
+request list (the digest above), so one approval covers the whole job and cannot be
+replayed for a different list. The gateway caps approval text at 512 characters, so the
+prompt is a **summary**: the request count, counts per kind and per service or type,
+every hard-deny request listed individually with its full payload, a 12-character digest
+prefix that matches the plan, and "Full list: shown in chat and in the node audit log".
+The per-type counts are dropped first if the prompt is too long; if the hard-deny
+requests alone exceed the cap the job is blocked with a request to split them into
+smaller jobs. A job with a WS Supervisor tunnel is blocked before prompting, because the
+node refuses it for every caller. Execution recomputes the digest and refuses a different
+list. The node verifies and consumes the marker only after every request has passed
+policy; a job with any refused request runs nothing. A consumed marker is never reused:
+if the audit attempt write then fails, nothing ran and the error says to re-plan and get
+a new approval. Errors: `PERMISSION_DENIED` (role), `PROPOSAL_REQUIRED` (no marker),
+`APPROVAL_INVALID` (expired, used, or bound to a different job).
+
+### Audit log
+
+Every call appends one JSON line per request to `ha-audit.jsonl` in the node's
+data directory, rotated at 5 MiB with three backups. Fields: `ts`, `command`,
+`actor`, `role`, `job` (digest of the request list), `target` (WS type, or
+method and path, or `domain.service`), `kind`, `hard`, `approval` (marker id),
+`result` (`planned`, `attempt`, `ok`, `refused`, `error`, `skipped`) and `reason`. A
+`planned` line also carries `digest`, `counts` and the full normalized `requests`. Tokens,
+headers, response bodies and lock codes are never recorded, and execution lines never
+carry payloads or queries. If the log cannot be
+written the call is refused (`AUDIT_UNAVAILABLE`) before any request. Every
+request is written as an `attempt` line before the first one runs, so a failing
+log stops the whole job. If a result line cannot be written after a request ran,
+the remaining requests of the job are not run and the error is
+`AUDIT_FAILED_AFTER_ACTION`; its message says what happened to the request (it ran, or
+it failed first and carries the Home Assistant error). It is not a refusal.
+The failure is also written to stderr.
+
+### Results
+
+A result is returned as `{ok, kind, result}`; a job returns `{ok, job, results}`; a plan returns the plan above.
+Total returned result bytes are capped at 16 MiB (the HA WebSocket frame ceiling);
+past it a request still runs and its entry reports `result_omitted` instead of data.
 
 Sections for each `ha.config.*` command follow the base surface below.
 

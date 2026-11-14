@@ -127,8 +127,8 @@ doorbell notification. See
 
 ## Status
 
-- **Node command surface**: 57 commands both registered by the
-  dispatcher and advertised in the node's connect-frame — `ha.*` × 40,
+- **Node command surface**: 59 commands both registered by the
+  dispatcher and advertised in the node's connect-frame — `ha.*` × 42,
   `fs.*` × 11, `system.*` × 5, and `ping`. Advertised parity is
   enforced by the `test_advertised_matches_registry` gate: any
   intentional gap between registered and advertised must be listed in

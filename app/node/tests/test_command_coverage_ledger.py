@@ -299,11 +299,11 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
     rows = ledger["rows"]
     assert ledger["summary"] == {
         "action_variants": 31,
-        "advertised_commands": 57,
+        "advertised_commands": 59,
         "advertised_not_registered": [],
         "assist_wrapped_commands": 31,
-        "ledger_rows": 88,
-        "registered_commands": 57,
+        "ledger_rows": 90,
+        "registered_commands": 59,
         "registered_not_advertised": [],
         "registered_without_assist_wrapper": [
             "fs.delete",
@@ -326,6 +326,8 @@ def test_generated_ledger_has_complete_unique_rows() -> None:
             "ha.config.lovelace",
             "ha.config.scene",
             "ha.config.script",
+            "ha.rest",
+            "ha.ws",
             "ping",
             "system.execApprovals.get",
             "system.execApprovals.set",
