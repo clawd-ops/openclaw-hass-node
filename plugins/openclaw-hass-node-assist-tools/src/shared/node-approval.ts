@@ -12,7 +12,7 @@
 // docs/design/AUTHORIZATION-MODEL.md, "Native approvals for node mutations".
 
 import { createHash, randomUUID } from "node:crypto";
-import { assistSkipsPrompt } from "./approval-policy.js";
+import { assistSkipsPrompt, JOB_FORM_COMMANDS } from "./approval-policy.js";
 import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.js";
 import { grantable, grantSessionKey, sessionGrants, type GrantStore } from "./approval-grants.js";
 import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
@@ -195,7 +195,25 @@ function describeTarget(inner: Record<string, unknown>, command = ""): string {
   return `${parts.join(" ") || "unknown target"}${alias}`;
 }
 
+/** One request of a job, named by type or method and path; never its payload or body. */
+function describeRequest(request: unknown): string {
+  const r = (request !== null && typeof request === "object" ? request : {}) as Record<string, unknown>;
+  const text = (value: unknown) => (typeof value === "string" ? value.slice(0, 80) : "?");
+  if (typeof r.method === "string") return `${text(r.method)} ${text(r.path)}`;
+  const payload = (r.payload ?? {}) as Record<string, unknown>;
+  const service = r.type === "call_service" ? ` ${text(payload.domain)}.${text(payload.service)}` : "";
+  return `${text(r.type)}${service}`;
+}
+
+const JOB_SHOWN = 8;
+
+function describeJob(requests: unknown[]): string {
+  const more = requests.length > JOB_SHOWN ? ` (+${requests.length - JOB_SHOWN} more)` : "";
+  return `${requests.length} request(s): ${requests.slice(0, JOB_SHOWN).map(describeRequest).join("; ")}${more}`;
+}
+
 function titleOf(command: string, action: string): string {
+  if (JOB_FORM_COMMANDS.includes(command)) return "Run HA job";
   const admin = ADMIN_TITLES[command];
   if (admin !== undefined) return admin;
   const verb = FS_VERBS[command] ?? `${action.charAt(0).toUpperCase()}${action.slice(1).replaceAll("_", " ")}`;
@@ -311,7 +329,9 @@ export function beforeToolCall(
   });
   const command = normalized(params.invokeCommand);
   const action = typeof clean.action === "string" ? clean.action.trim() : "";
-  const needsApproval = Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true;
+  const job = JOB_FORM_COMMANDS.includes(command) && Array.isArray(clean.requests) ? clean.requests : undefined;
+  const needsApproval =
+    job !== undefined || (Object.hasOwn(APPROVAL_GATED, command) && APPROVAL_GATED[command]?.includes(action) === true);
   if (!needsApproval) {
     return supplied === undefined && suppliedHint === undefined ? undefined : { params: rewrite(clean) };
   }
@@ -334,7 +354,7 @@ export function beforeToolCall(
     params: approved,
     requireApproval: approvalRequest(
       titleOf(command, action),
-      `${titleOf(command, action)}: ${describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
+      `${titleOf(command, action)}: ${job !== undefined ? describeJob(job) : describeTarget(clean, command)} via ${command}${action ? ` action=${action}` : ""}.`,
       scope,
     ),
   };

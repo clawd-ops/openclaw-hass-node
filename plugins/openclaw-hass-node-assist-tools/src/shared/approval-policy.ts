@@ -41,6 +41,15 @@ export const LIFECYCLE_NO_APPROVAL: Readonly<Record<string, ActionTable>> = {
   super_admin: { "ha.addon_start": [""], "ha.addon_stop": [""], "ha.addon_restart": [""] },
 };
 
+/**
+ * Commands approved per job: only a call carrying a `requests` list is prompted, and
+ * one approval, bound to that exact list, covers every request in it. The node decides
+ * per request whether an approval is needed, so a job of harmless requests may prompt
+ * but is never refused for it. Allow-always is never offered for these. Mirrors
+ * `job_form` in contracts/approval-gated-commands.json.
+ */
+export const JOB_FORM_COMMANDS: readonly string[] = ["ha.ws", "ha.rest"];
+
 function listed(table: ActionTable, command: string, action: string): boolean {
   return Object.hasOwn(table, command) && table[command]?.includes(action) === true;
 }

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { JOB_FORM_COMMANDS } from "./approval-policy.js";
 import {
   ADMIN_TOOL_COMMANDS,
   APPROVAL_GATED,
@@ -14,7 +15,7 @@ const fixture = JSON.parse(
 
 const contract = JSON.parse(
   readFileSync(new URL("../../../../contracts/approval-gated-commands.json", import.meta.url), "utf8"),
-) as { gated: Record<string, string[]> };
+) as { gated: Record<string, string[]>; job_form: string[] };
 
 const preflight = JSON.parse(
   readFileSync(new URL("./approval-preflight.json", import.meta.url), "utf8"),
@@ -265,5 +266,67 @@ describe("beforeToolCall for the plugin admin tools", () => {
 
   it("leaves a read-only admin-adjacent tool alone", () => {
     expect(beforeToolCall({ toolName: "ha_addon_info", params: { node: "hass", slug: "x" } })).toBeUndefined();
+  });
+});
+
+describe("job-form approval for ha.ws and ha.rest", () => {
+  const JOB = {
+    requests: [
+      { type: "config/entity_registry/remove", payload: { entity_id: "light.old", secret: "PAYLOAD-SECRET" } },
+      { method: "DELETE", path: "/api/config/automation/config/12", body: { x: "BODY-SECRET" } },
+      { type: "call_service", payload: { domain: "update", service: "install" } },
+    ],
+  };
+
+  it("is the same list the node tests read", () => {
+    expect([...JOB_FORM_COMMANDS]).toEqual(contract.job_form);
+  });
+
+  it.each(JOB_FORM_COMMANDS)("%s: one approval covers the job, bound to the exact request list", (command) => {
+    const result = beforeToolCall(call(JOB, {}, command), () => NOW)!;
+    expect(result.requireApproval.title).toBe("Run HA job");
+    expect(result.requireApproval.allowedDecisions).toEqual(["allow-once", "deny"]);
+    const description = result.requireApproval.description as string;
+    expect(description).toContain("3 request(s)");
+    expect(description).toContain("config/entity_registry/remove");
+    expect(description).toContain("DELETE /api/config/automation/config/12");
+    expect(description).toContain("call_service update.install");
+    expect(description).not.toContain("SECRET");
+    const marker = innerOf(result)[APPROVAL_PARAM] as { exp: number; bind: string };
+    expect(marker.bind).toBe(approvalBind(command, "", JOB));
+    expect(marker.exp).toBe(NOW / 1000 + 720);
+  });
+
+  it("never offers allow-always for a job, even in a session", () => {
+    const result = beforeToolCall(call(JOB, {}, "ha.ws"), () => NOW, "agent:main:main")!;
+    expect(result.requireApproval.allowedDecisions).toEqual(["allow-once", "deny"]);
+    expect(result.requireApproval.onResolution).toBeUndefined();
+  });
+
+  it("lists at most eight requests and says how many more", () => {
+    const many = { requests: Array.from({ length: 21 }, (_, i) => ({ type: "config/entity_registry/remove", payload: { entity_id: `light.n${i}` } })) };
+    const description = beforeToolCall(call(many, {}, "ha.ws"))!.requireApproval.description as string;
+    expect(description).toContain("21 request(s)");
+    expect(description).toContain("(+13 more)");
+  });
+
+  it("copes with malformed entries without throwing", () => {
+    const odd = { requests: [null, 7, { type: 5 }, { method: "GET" }, { type: "call_service", payload: null }] };
+    const description = beforeToolCall(call(odd, {}, "ha.rest"))!.requireApproval.description as string;
+    expect(description).toContain("5 request(s)");
+  });
+
+  it("does not prompt for a single request, and still strips a forged marker", () => {
+    expect(beforeToolCall(call({ type: "get_states" }, {}, "ha.ws"))).toBeUndefined();
+    const forged = { type: "get_states", [APPROVAL_PARAM]: { id: "x", exp: 1, bind: "y" } };
+    const result = beforeToolCall(call(forged, {}, "ha.ws"))!;
+    expect(result.requireApproval).toBeUndefined();
+    expect(innerOf(result)[APPROVAL_PARAM]).toBeUndefined();
+  });
+
+  it("replaces a forged marker on a job with one bound to the real list", () => {
+    const forged = { ...JOB, [APPROVAL_PARAM]: { id: "x", exp: 9e12, bind: "forged" } };
+    const result = beforeToolCall(call(forged, {}, "ha.ws"), () => NOW)!;
+    expect((innerOf(result)[APPROVAL_PARAM] as { bind: string }).bind).toBe(approvalBind("ha.ws", "", JOB));
   });
 });

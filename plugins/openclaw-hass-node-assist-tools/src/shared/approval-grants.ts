@@ -8,7 +8,7 @@
 // for a destructive pair. Grants live in memory only: a plugin or gateway restart
 // clears them. They expire after one hour or when their session ends.
 
-import { DESTRUCTIVE } from "./approval-policy.js";
+import { DESTRUCTIVE, JOB_FORM_COMMANDS } from "./approval-policy.js";
 
 /** Lifetime of one grant. */
 export const GRANT_TTL_MS = 3_600_000;
@@ -50,8 +50,9 @@ export function createGrantStore(): GrantStore {
 /** The process-wide store used by the registered hook; a restart starts empty. */
 export const sessionGrants: GrantStore = createGrantStore();
 
-/** True when allow-always may be offered: the pair is not in the destructive set. */
+/** True when allow-always may be offered: not a job approval, and not a destructive pair. */
 export function grantable(command: string, action: string): boolean {
+  if (JOB_FORM_COMMANDS.includes(command)) return false;
   return !(Object.hasOwn(DESTRUCTIVE, command) && DESTRUCTIVE[command]?.includes(action) === true);
 }
 
