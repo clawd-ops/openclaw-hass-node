@@ -12,8 +12,11 @@ issue occurs, and where the fix is tracked.
 
 **Symptoms:**
 
-- `openclaw plugins install <path>` fails — the gateway expects compiled JS
-  but the plugin ships only TypeScript source (`dist/` does not exist).
+- On OpenClaw 2026.11.6, loading the plugin fails with `Plugin preparation
+  callback timed out` (~15s) when plugin source uses `.js`-for-`.ts` or
+  extensionless relative imports. The gateway loads the TypeScript source
+  directly (no `dist/` is needed); the plugin now uses explicit `.ts`
+  specifiers, see the 2026.11.6 requirement below.
 - `openclaw plugins install --link <repo>/plugins/openclaw-hass-node-assist-tools`
   fails the gateway's safety scan — pnpm workspace hoisting creates symlinks
   in `node_modules` that resolve outside the plugin root.

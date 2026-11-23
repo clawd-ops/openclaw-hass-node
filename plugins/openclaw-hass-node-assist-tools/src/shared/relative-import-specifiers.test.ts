@@ -40,9 +40,39 @@ function isRelative(spec: string): boolean {
   return spec.startsWith("./") || spec.startsWith("../");
 }
 
+/** Strip parentheses and type-only wrappers (`as`, `satisfies`, `!`, `<T>x`) so matching is structural. */
+function unwrap(node: ts.Node | undefined): ts.Node | undefined {
+  let n = node;
+  while (
+    n &&
+    (ts.isParenthesizedExpression(n) ||
+      ts.isAsExpression(n) ||
+      ts.isSatisfiesExpression(n) ||
+      ts.isNonNullExpression(n) ||
+      ts.isTypeAssertionExpression(n))
+  ) {
+    n = n.expression;
+  }
+  return n;
+}
+
 function literalText(node: ts.Node | undefined): string | undefined {
-  if (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) return node.text;
+  const n = unwrap(node);
+  if (n && (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n))) return n.text;
   return undefined;
+}
+
+/** True for `import.meta.url` (any wrapping), matched on the AST, not on text. */
+function isImportMetaUrl(node: ts.Node | undefined): boolean {
+  const n = unwrap(node);
+  if (!n || !ts.isPropertyAccessExpression(n) || n.name.text !== "url") return false;
+  const base = unwrap(n.expression);
+  return !!base && ts.isMetaProperty(base) && base.keywordToken === ts.SyntaxKind.ImportKeyword && base.name.text === "meta";
+}
+
+function isIdent(node: ts.Node | undefined, name: string): boolean {
+  const n = unwrap(node);
+  return !!n && ts.isIdentifier(n) && n.text === name;
 }
 
 export function findViolations(
@@ -76,34 +106,38 @@ export function findViolations(
       const s = literalText(node.argument.literal);
       if (s !== undefined) checkSpec(s, "import");
     } else if (ts.isCallExpression(node)) {
-      const callee = node.expression;
+      const callee = unwrap(node.expression);
       const arg = node.arguments[0];
-      if (callee.kind === ts.SyntaxKind.ImportKeyword) {
-        if (arg && ts.isTemplateExpression(arg)) {
-          const key = `${relFile}|${arg.getText(sf)}`;
+      const argU = unwrap(arg);
+      if (callee?.kind === ts.SyntaxKind.ImportKeyword) {
+        if (argU && ts.isTemplateExpression(argU)) {
+          const key = `${relFile}|${argU.getText(sf)}`;
           if (!ALLOWED_TEMPLATE_IMPORTS.has(key)) {
-            out.push({ file: relFile, specifier: arg.getText(sf), reason: "import() template with substitutions cannot be verified" });
+            out.push({ file: relFile, specifier: argU.getText(sf), reason: "import() template with substitutions cannot be verified" });
           }
         } else {
           const s = literalText(arg);
           if (s !== undefined) checkSpec(s, "import");
         }
       } else if (
-        (ts.isIdentifier(callee) && callee.text === "require") ||
-        (ts.isPropertyAccessExpression(callee) &&
-          ts.isIdentifier(callee.expression) &&
-          callee.expression.text === "vi" &&
-          VI_METHODS.has(callee.name.text))
+        isIdent(callee, "require") ||
+        (callee &&
+          ts.isPropertyAccessExpression(callee) &&
+          isIdent(callee.expression, "vi") &&
+          VI_METHODS.has(callee.name.text)) ||
+        (callee &&
+          ts.isElementAccessExpression(callee) &&
+          isIdent(callee.expression, "vi") &&
+          VI_METHODS.has(literalText(callee.argumentExpression) ?? ""))
       ) {
         const s = literalText(arg);
         if (s !== undefined) checkSpec(s, "import");
       }
     } else if (
       ts.isNewExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "URL" &&
+      isIdent(node.expression, "URL") &&
       node.arguments?.length === 2 &&
-      node.arguments[1]!.getText(sf) === "import.meta.url"
+      isImportMetaUrl(node.arguments[1])
     ) {
       const s = literalText(node.arguments[0]);
       if (s !== undefined) checkSpec(s, "url");
@@ -193,6 +227,36 @@ describe("guard self-test (fixtures, not real source)", () => {
     const v = run("const n = 'x'; await import(`./${n}.ts`);");
     expect(v).toHaveLength(1);
     expect(v[0]!.reason).toMatch(/substitutions/);
+  });
+
+  it("matches wrappers and callees structurally, not by text", () => {
+    // URL base: parenthesized, double-parenthesized, and type-wrapped import.meta.url
+    expect(run(`new URL("./x.js", (import.meta.url));`)).toHaveLength(1);
+    expect(run(`new URL("./x.js", ((import.meta.url)));`)).toHaveLength(1);
+    expect(run(`new URL("./x.js", import.meta.url as string);`)).toHaveLength(1);
+    expect(run(`new URL("./x.js", (import.meta.url)!);`)).toHaveLength(1);
+    expect(run(`new URL("./x.js", import . meta . url);`)).toHaveLength(1);
+    expect(run(`new URL("./missing.json", ( import.meta.url ));`)).toHaveLength(1);
+    expect(run(`new URL(("./x.js"), import.meta.url);`)).toHaveLength(1);
+    expect(run(`new URL("./data.json", (import.meta.url));`)).toEqual([]);
+    // a different base is not a module-relative URL and is ignored
+    expect(run(`new URL("./x.js", "http://example.test/");`)).toEqual([]);
+    // import(): parenthesized argument and callee-free forms
+    expect(run(`await import(("./x.js"));`)).toHaveLength(1);
+    expect(run(`await import((("./x")));`)).toHaveLength(1);
+    expect(run(`await import(("./missing.ts") as string);`)).toHaveLength(1);
+    expect(run("await import((`./${n}.ts`));")).toHaveLength(1);
+    expect(run(`await import(("./x.ts"));`)).toEqual([]);
+    // require / vi.mock: parenthesized callee and argument, element access
+    expect(run(`(require)("./x.js");`)).toHaveLength(1);
+    expect(run(`require(("./x.js"));`)).toHaveLength(1);
+    expect(run(`(vi.mock)(("./x.js"), () => ({}));`)).toHaveLength(1);
+    expect(run(`(vi).mock("./x.js", () => ({}));`)).toHaveLength(1);
+    expect(run(`vi["mock"]("./x.js", () => ({}));`)).toHaveLength(1);
+    expect(run(`vi.doMock(("./missing.ts"), () => ({}));`)).toHaveLength(1);
+    expect(run(`vi.mock(("./x.ts"), () => ({}));`)).toEqual([]);
+    // unrelated calls are ignored
+    expect(run(`foo.mock("./x.js"); other("./x.js");`)).toEqual([]);
   });
 
   it("fails on a .js URL target, a missing URL target, and an unlisted directory URL", () => {
