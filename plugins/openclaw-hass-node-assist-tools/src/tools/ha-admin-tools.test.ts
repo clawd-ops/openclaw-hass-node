@@ -1,12 +1,12 @@
 // Tests for the Tier B tools (add-on lifecycle, reload_config, update_install).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adminCommandParams, approvalBind, beforeToolCall } from "../shared/node-approval.js";
+import { adminCommandParams, approvalBind, beforeToolCall } from "../shared/node-approval.ts";
 
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 async function load(name: string) {
-  const mod = await import("./ha-admin-tools.js");
+  const mod = await import("./ha-admin-tools.ts");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (mod as any)[name]();
 }

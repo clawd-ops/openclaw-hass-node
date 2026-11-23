@@ -5,7 +5,7 @@
 // verifies it. Add-on slugs are also checked against the node's lifecycle policy.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { adminCommandParams, APPROVAL_PARAM } from "../shared/node-approval.js";
+import { adminCommandParams, APPROVAL_PARAM } from "../shared/node-approval.ts";
 import {
   HA_ADDON_RESTART_TOOL_DESCRIPTOR,
   HA_ADDON_START_TOOL_DESCRIPTOR,
@@ -13,13 +13,13 @@ import {
   HA_ADDON_UPDATE_TOOL_DESCRIPTOR,
   HA_RELOAD_CONFIG_TOOL_DESCRIPTOR,
   HA_UPDATE_INSTALL_TOOL_DESCRIPTOR,
-} from "./descriptors.js";
+} from "./descriptors.ts";
 import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 const ADMIN_ADDON_SLUG_DENYLIST: ReadonlyArray<string> = [
   "homeassistant",

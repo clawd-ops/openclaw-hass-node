@@ -2,13 +2,13 @@
 // hass node. Parameter validation only; access control is at the node layer.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { HA_CALL_SERVICE_TOOL_DESCRIPTOR } from "./descriptors.js";
+import { HA_CALL_SERVICE_TOOL_DESCRIPTOR } from "./descriptors.ts";
 import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 type HaCallServiceArgs = {
   node: string;

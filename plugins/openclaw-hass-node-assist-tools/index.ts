@@ -9,15 +9,15 @@ import {
   definePluginEntry,
   type AnyAgentTool,
 } from "openclaw/plugin-sdk/plugin-entry";
-import { normalizeAssistSessionKey, runWithCallerContext } from "./src/shared/caller-context.js";
-import { grantSessionKey, sessionGrants } from "./src/shared/approval-grants.js";
-import { ADMIN_TOOL_COMMANDS, beforeToolCall } from "./src/shared/node-approval.js";
-import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.js";
-import { registerDescribeImage, type DescribeImageApi, type GatewayRegistrar } from "./src/vision/describe-image.js";
+import { normalizeAssistSessionKey, runWithCallerContext } from "./src/shared/caller-context.ts";
+import { grantSessionKey, sessionGrants } from "./src/shared/approval-grants.ts";
+import { ADMIN_TOOL_COMMANDS, beforeToolCall } from "./src/shared/node-approval.ts";
+import { createLazyAssistToolsNodeInvokePolicy } from "./src/shared/lazy-node-invoke-policy.ts";
+import { registerDescribeImage, type DescribeImageApi, type GatewayRegistrar } from "./src/vision/describe-image.ts";
 import {
   resolvedAssistCommandRegistrations,
   type AssistToolDescriptor,
-} from "./src/tools/assist-command-registration.js";
+} from "./src/tools/assist-command-registration.ts";
 
 // The bundled SDK stub in types/ predates per-run factory registration; the
 // real host accepts `registerTool(factory, { name })` and passes the run's

@@ -3,12 +3,12 @@
 // gateway.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HA_CALL_SERVICE_TOOL_DESCRIPTOR, HaCallServiceToolSchema } from "./descriptors.js";
+import { HA_CALL_SERVICE_TOOL_DESCRIPTOR, HaCallServiceToolSchema } from "./descriptors.ts";
 
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -20,7 +20,7 @@ vi.mock("./node-tool-invoke.js", () => ({
 }));
 
 async function loadTool() {
-  const mod = await import("./ha-call-service-tool.js");
+  const mod = await import("./ha-call-service-tool.ts");
   return mod.createHaCallServiceTool();
 }
 

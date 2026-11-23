@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createGrantStore, grantable, GRANT_TTL_MS } from "./approval-grants.js";
-import { APPROVAL_PARAM, approvalBind, beforeToolCall } from "./node-approval.js";
+import { createGrantStore, grantable, GRANT_TTL_MS } from "./approval-grants.ts";
+import { APPROVAL_PARAM, approvalBind, beforeToolCall } from "./node-approval.ts";
 
 const NOW = 1_800_000_000_000;
 const SESSION = "agent:main:main";

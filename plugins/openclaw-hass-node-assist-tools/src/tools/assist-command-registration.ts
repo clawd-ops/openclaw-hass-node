@@ -4,7 +4,7 @@ import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import assistCommandContract from "./assist-command-contract.json" with {
   type: "json",
 };
-import * as descriptors from "./descriptors.js";
+import * as descriptors from "./descriptors.ts";
 
 export type AssistToolDescriptor = Pick<
   AnyAgentTool,
@@ -43,67 +43,67 @@ export type ResolvedAssistCommandRegistration = {
 
 const FACTORY_LOADERS: Record<string, () => Promise<AnyAgentTool>> = {
   createHaCallServiceTool: async () =>
-    (await import("./ha-call-service-tool.js")).createHaCallServiceTool(),
+    (await import("./ha-call-service-tool.ts")).createHaCallServiceTool(),
   createHaGetStateTool: async () =>
-    (await import("./ha-get-state-tool.js")).createHaGetStateTool(),
+    (await import("./ha-get-state-tool.ts")).createHaGetStateTool(),
   createHaListStatesTool: async () =>
-    (await import("./ha-list-states-tool.js")).createHaListStatesTool(),
+    (await import("./ha-list-states-tool.ts")).createHaListStatesTool(),
   createHaCalendarGetEventsTool: async () =>
-    (await import("./ha-calendar-get-events-tool.js")).createHaCalendarGetEventsTool(),
+    (await import("./ha-calendar-get-events-tool.ts")).createHaCalendarGetEventsTool(),
   createHaListAreasTool: async () =>
-    (await import("./ha-list-areas-tool.js")).createHaListAreasTool(),
+    (await import("./ha-list-areas-tool.ts")).createHaListAreasTool(),
   createHaListDevicesTool: async () =>
-    (await import("./ha-list-devices-tool.js")).createHaListDevicesTool(),
+    (await import("./ha-list-devices-tool.ts")).createHaListDevicesTool(),
   createHaListEntityRegistryTool: async () =>
-    (await import("./ha-list-entity-registry-tool.js")).createHaListEntityRegistryTool(),
+    (await import("./ha-list-entity-registry-tool.ts")).createHaListEntityRegistryTool(),
   createHaListServicesTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaListServicesTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaListServicesTool(),
   createHaGetConfigTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaGetConfigTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaGetConfigTool(),
   createHaListEventsTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaListEventsTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaListEventsTool(),
   createHaListConfigEntriesTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaListConfigEntriesTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaListConfigEntriesTool(),
   createHaListAutomationsTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaListAutomationsTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaListAutomationsTool(),
   createHaCheckConfigTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaCheckConfigTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaCheckConfigTool(),
   createHaCoreLogsTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaCoreLogsTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaCoreLogsTool(),
   createHaAddonLogsTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaAddonLogsTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaAddonLogsTool(),
   createHaListAddonsTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaListAddonsTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaListAddonsTool(),
   createHaAddonInfoTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaAddonInfoTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaAddonInfoTool(),
   createHaAddonStatsTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaAddonStatsTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaAddonStatsTool(),
   createHaAddonChangelogTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaAddonChangelogTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaAddonChangelogTool(),
   createHaAddonDocumentationTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaAddonDocumentationTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaAddonDocumentationTool(),
   createHaSupervisorInfoTool: async () =>
-    (await import("./ha-simple-read-tools.js")).createHaSupervisorInfoTool(),
+    (await import("./ha-simple-read-tools.ts")).createHaSupervisorInfoTool(),
   createHaLogbookTool: async () =>
-    (await import("./ha-entity-scoped-read-tools.js")).createHaLogbookTool(),
+    (await import("./ha-entity-scoped-read-tools.ts")).createHaLogbookTool(),
   createHaHistoryTool: async () =>
-    (await import("./ha-entity-scoped-read-tools.js")).createHaHistoryTool(),
+    (await import("./ha-entity-scoped-read-tools.ts")).createHaHistoryTool(),
   createHaLightTurnOnTool: async () =>
-    (await import("./ha-light-tools.js")).createHaLightTurnOnTool(),
+    (await import("./ha-light-tools.ts")).createHaLightTurnOnTool(),
   createHaLightTurnOffTool: async () =>
-    (await import("./ha-light-tools.js")).createHaLightTurnOffTool(),
+    (await import("./ha-light-tools.ts")).createHaLightTurnOffTool(),
   createHaReloadConfigTool: async () =>
-    (await import("./ha-admin-tools.js")).createHaReloadConfigTool(),
+    (await import("./ha-admin-tools.ts")).createHaReloadConfigTool(),
   createHaAddonStartTool: async () =>
-    (await import("./ha-admin-tools.js")).createHaAddonStartTool(),
+    (await import("./ha-admin-tools.ts")).createHaAddonStartTool(),
   createHaAddonStopTool: async () =>
-    (await import("./ha-admin-tools.js")).createHaAddonStopTool(),
+    (await import("./ha-admin-tools.ts")).createHaAddonStopTool(),
   createHaAddonRestartTool: async () =>
-    (await import("./ha-admin-tools.js")).createHaAddonRestartTool(),
+    (await import("./ha-admin-tools.ts")).createHaAddonRestartTool(),
   createHaAddonUpdateTool: async () =>
-    (await import("./ha-admin-tools.js")).createHaAddonUpdateTool(),
+    (await import("./ha-admin-tools.ts")).createHaAddonUpdateTool(),
   createHaUpdateInstallTool: async () =>
-    (await import("./ha-admin-tools.js")).createHaUpdateInstallTool(),
+    (await import("./ha-admin-tools.ts")).createHaUpdateInstallTool(),
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

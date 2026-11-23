@@ -8,7 +8,7 @@
 // for a destructive pair. Grants live in memory only: a plugin or gateway restart
 // clears them. They expire after one hour or when their session ends.
 
-import { DESTRUCTIVE } from "./approval-policy.js";
+import { DESTRUCTIVE } from "./approval-policy.ts";
 
 /** Lifetime of one grant. */
 export const GRANT_TTL_MS = 3_600_000;

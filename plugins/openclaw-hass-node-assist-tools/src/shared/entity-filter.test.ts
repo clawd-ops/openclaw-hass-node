@@ -1,7 +1,7 @@
 // Tests for matchesAnyGlob helper used by ha_list_states entity_filter.
 
 import { describe, expect, it } from "vitest";
-import { matchesAnyGlob } from "./entity-filter.js";
+import { matchesAnyGlob } from "./entity-filter.ts";
 
 describe("matchesAnyGlob", () => {
   it("returns false when patterns are undefined or empty", () => {

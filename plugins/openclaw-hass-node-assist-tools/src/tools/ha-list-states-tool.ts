@@ -3,14 +3,14 @@
 // Access control (which entities are visible) is at the node layer.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { matchesAnyGlob } from "../shared/entity-filter.js";
-import { HA_LIST_STATES_TOOL_DESCRIPTOR } from "./descriptors.js";
+import { matchesAnyGlob } from "../shared/entity-filter.ts";
+import { HA_LIST_STATES_TOOL_DESCRIPTOR } from "./descriptors.ts";
 import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 type HaState = {
   entity_id?: unknown;

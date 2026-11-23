@@ -2,8 +2,8 @@
 // the bound hass node.
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { HA_LIST_ENTITY_REGISTRY_TOOL_DESCRIPTOR } from "./descriptors.js";
-import { createHaMetadataReadTool } from "./ha-metadata-read-tool.js";
+import { HA_LIST_ENTITY_REGISTRY_TOOL_DESCRIPTOR } from "./descriptors.ts";
+import { createHaMetadataReadTool } from "./ha-metadata-read-tool.ts";
 
 export function createHaListEntityRegistryTool(): AnyAgentTool {
   return createHaMetadataReadTool({

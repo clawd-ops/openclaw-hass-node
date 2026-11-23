@@ -6,7 +6,7 @@
 // stored as raw JSON text so `-0` and exact number spellings survive.
 // Regenerate: UPDATE_APPROVAL_FIXTURE=1 pnpm --filter @openclaw-hass-node/assist-tools test
 
-import { canonicalJson, approvalBind } from "./node-approval.js";
+import { canonicalJson, approvalBind } from "./node-approval.ts";
 
 export const CASE_COUNT = 300;
 const SEED = 0x5eed_0b1d;

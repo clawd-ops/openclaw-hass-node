@@ -5,13 +5,13 @@ import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import {
   HA_LIGHT_TURN_OFF_TOOL_DESCRIPTOR,
   HA_LIGHT_TURN_ON_TOOL_DESCRIPTOR,
-} from "./descriptors.js";
+} from "./descriptors.ts";
 import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 function pickTarget(params: Record<string, unknown>): Record<string, unknown> {
   const target: Record<string, unknown> = {};

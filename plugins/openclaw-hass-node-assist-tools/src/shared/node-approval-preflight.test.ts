@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beforeToolCall } from "./node-approval.js";
+import { beforeToolCall } from "./node-approval.ts";
 
 function nodesCall(command: string, inner: Record<string, unknown>) {
   return {
