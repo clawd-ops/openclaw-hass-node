@@ -1007,7 +1007,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "bandit", specifier = ">=1.8" },
-    { name = "msgpack", specifier = ">=1.2.1" },
+    { name = "msgpack", specifier = ">=1.2.3" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pip-audit", specifier = ">=2.10.0" },
     { name = "pydoclint", specifier = ">=0.5" },
