@@ -13,7 +13,7 @@ import type {
   OpenClawPluginNodeInvokePolicyContext,
   OpenClawPluginNodeInvokePolicyResult,
 } from "openclaw/plugin-sdk/plugin-entry";
-import { ASSIST_TOOLS_NODE_INVOKE_COMMANDS } from "./lazy-node-invoke-policy.js";
+import { ASSIST_TOOLS_NODE_INVOKE_COMMANDS } from "./lazy-node-invoke-policy.ts";
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const { createAssistToolsNodeInvokePolicy } =
-  await import("./node-invoke-policy.js");
+  await import("./node-invoke-policy.ts");
 
 type InvokeNodeResult =
   | { ok: true; payload?: unknown; details?: unknown }

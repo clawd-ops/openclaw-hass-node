@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DESTRUCTIVE, LIFECYCLE_NO_APPROVAL, USER_DIRECTED, assistSkipsPrompt } from "./approval-policy.js";
+import { DESTRUCTIVE, LIFECYCLE_NO_APPROVAL, USER_DIRECTED, assistSkipsPrompt } from "./approval-policy.ts";
 import preflight from "./approval-preflight.json" with { type: "json" };
-import { ADMIN_TOOL_COMMANDS, APPROVAL_GATED, APPROVAL_PARAM, beforeToolCall } from "./node-approval.js";
+import { ADMIN_TOOL_COMMANDS, APPROVAL_GATED, APPROVAL_PARAM, beforeToolCall } from "./node-approval.ts";
 
 type Table = Record<string, string[]>;
 const contract = JSON.parse(

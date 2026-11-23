@@ -5,12 +5,12 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Value } from "typebox/value";
-import { HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR } from "./descriptors.js";
+import { HA_LIST_AUTOMATIONS_TOOL_DESCRIPTOR } from "./descriptors.ts";
 
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -29,7 +29,7 @@ afterEach(() => {
 type Case = {
   name: string;
   command: string;
-  factory: keyof typeof import("./ha-simple-read-tools.js");
+  factory: keyof typeof import("./ha-simple-read-tools.ts");
   args: Record<string, unknown>;
   expectedParams: Record<string, unknown>;
 };
@@ -52,7 +52,7 @@ const CASES: Case[] = [
 ];
 
 async function load(factory: string) {
-  const mod = await import("./ha-simple-read-tools.js");
+  const mod = await import("./ha-simple-read-tools.ts");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (mod as any)[factory]();
 }

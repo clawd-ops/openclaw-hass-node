@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CALLER_PARAM, readAssistSessionKey, runWithCallerContext } from "./caller-context.js";
+import { CALLER_PARAM, readAssistSessionKey, runWithCallerContext } from "./caller-context.ts";
 
 describe("caller context", () => {
   it("uses the reserved param name", () => {

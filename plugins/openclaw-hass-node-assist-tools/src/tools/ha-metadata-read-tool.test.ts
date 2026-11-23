@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -27,14 +27,14 @@ const TOOL_LOADERS = [
     name: "ha_list_areas",
     command: "ha.list_areas",
     load: async () =>
-      (await import("./ha-list-areas-tool.js")).createHaListAreasTool(),
+      (await import("./ha-list-areas-tool.ts")).createHaListAreasTool(),
     sample: [{ area_id: "kitchen", name: "Kitchen" }],
   },
   {
     name: "ha_list_devices",
     command: "ha.list_devices",
     load: async () =>
-      (await import("./ha-list-devices-tool.js")).createHaListDevicesTool(),
+      (await import("./ha-list-devices-tool.ts")).createHaListDevicesTool(),
     sample: [{ id: "dev1", name: "Hue Bulb" }],
   },
   {
@@ -42,7 +42,7 @@ const TOOL_LOADERS = [
     command: "ha.list_entity_registry",
     load: async () =>
       (
-        await import("./ha-list-entity-registry-tool.js")
+        await import("./ha-list-entity-registry-tool.ts")
       ).createHaListEntityRegistryTool(),
     sample: [{ entity_id: "light.kitchen", platform: "hue" }],
   },

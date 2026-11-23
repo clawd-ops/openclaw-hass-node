@@ -17,8 +17,8 @@ const ASSIST_KEY = "agent:main:ha-assist:conv-1";
 
 // Existing behaviour tests run inside a valid Assist caller context.
 async function loadModule() {
-  const mod = await import("./node-tool-invoke.js");
-  const { runWithCallerContext } = await import("../shared/caller-context.js");
+  const mod = await import("./node-tool-invoke.ts");
+  const { runWithCallerContext } = await import("../shared/caller-context.ts");
   return {
     ...mod,
     invokeHaCommand: ((input) =>
@@ -224,8 +224,8 @@ describe("invokeHaCommand caller hint", () => {
     ["non-Assist key", "agent:main:main", true],
     ["empty Assist id", "ha-assist:", true],
   ] as const)("refuses with zero node invokes: %s", async (_name, key, scoped) => {
-    const mod = await import("./node-tool-invoke.js");
-    const { runWithCallerContext } = await import("../shared/caller-context.js");
+    const mod = await import("./node-tool-invoke.ts");
+    const { runWithCallerContext } = await import("../shared/caller-context.ts");
     const run = () => mod.invokeHaCommand({ nodeId: "n", command: "ha.get_state", commandParams: {}, gatewayOpts: {} });
     await expect(scoped ? runWithCallerContext(key, run) : run()).rejects.toMatchObject({
       code: "MISSING_ASSIST_CONTEXT",

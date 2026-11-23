@@ -6,7 +6,7 @@ import {
   APPROVAL_PARAM,
   approvalBind,
   beforeToolCall,
-} from "./node-approval.js";
+} from "./node-approval.ts";
 
 const fixture = JSON.parse(
   readFileSync(new URL("../../../../contracts/approval-bind-fixture.json", import.meta.url), "utf8"),

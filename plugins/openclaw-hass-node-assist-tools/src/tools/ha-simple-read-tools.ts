@@ -18,8 +18,8 @@ import {
   HA_LIST_CONFIG_ENTRIES_TOOL_DESCRIPTOR,
   HA_LIST_EVENTS_TOOL_DESCRIPTOR,
   HA_LIST_SERVICES_TOOL_DESCRIPTOR,
-} from "./descriptors.js";
-import { createHaMetadataReadTool } from "./ha-metadata-read-tool.js";
+} from "./descriptors.ts";
+import { createHaMetadataReadTool } from "./ha-metadata-read-tool.ts";
 
 function readNumber(
   params: Record<string, unknown>,

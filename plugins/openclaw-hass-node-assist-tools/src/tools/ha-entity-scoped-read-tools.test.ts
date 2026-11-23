@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -27,7 +27,7 @@ const TOOLS = [
     command: "ha.logbook",
     load: async () =>
       (
-        await import("./ha-entity-scoped-read-tools.js")
+        await import("./ha-entity-scoped-read-tools.ts")
       ).createHaLogbookTool(),
   },
   {
@@ -35,7 +35,7 @@ const TOOLS = [
     command: "ha.history",
     load: async () =>
       (
-        await import("./ha-entity-scoped-read-tools.js")
+        await import("./ha-entity-scoped-read-tools.ts")
       ).createHaHistoryTool(),
   },
 ];

@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { CASE_COUNT, generateCases, renderFixture } from "./approval-bind-fixture-gen.js";
+import { CASE_COUNT, generateCases, renderFixture } from "./approval-bind-fixture-gen.ts";
 
 const PATH = new URL("../../../../contracts/approval-bind-generated.json", import.meta.url);
 

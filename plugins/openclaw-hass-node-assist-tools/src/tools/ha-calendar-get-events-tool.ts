@@ -3,13 +3,13 @@
 // the node layer (hass node tier/allowCommands + HA auth).
 
 import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
-import { HA_CALENDAR_GET_EVENTS_TOOL_DESCRIPTOR } from "./descriptors.js";
+import { HA_CALENDAR_GET_EVENTS_TOOL_DESCRIPTOR } from "./descriptors.ts";
 import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 export function createHaCalendarGetEventsTool(): AnyAgentTool {
   return {

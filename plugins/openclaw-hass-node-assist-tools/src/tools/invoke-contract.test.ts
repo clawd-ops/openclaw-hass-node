@@ -11,9 +11,9 @@ vi.mock("openclaw/plugin-sdk/agent-harness-runtime", () => ({
   resolveNodeIdFromList: () => "test-node",
 }));
 
-import { createHaCallServiceTool } from "./ha-call-service-tool.js";
-import { invokeHaCommand as invokeRaw } from "./node-tool-invoke.js";
-import { runWithCallerContext } from "../shared/caller-context.js";
+import { createHaCallServiceTool } from "./ha-call-service-tool.ts";
+import { invokeHaCommand as invokeRaw } from "./node-tool-invoke.ts";
+import { runWithCallerContext } from "../shared/caller-context.ts";
 
 const root = fileURLToPath(new URL("../../../../", import.meta.url));
 type Exchange = { response: { ok: boolean; payload?: unknown; error?: unknown }; ha_calls: unknown[][] };

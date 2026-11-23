@@ -3,14 +3,14 @@ import {
   parseAssistCommandRegistration,
   resolvedAssistCommandRegistrations,
   type AssistCommandRegistration,
-} from "./assist-command-registration.js";
+} from "./assist-command-registration.ts";
 import assistCommandContract from "./assist-command-contract.json" with { type: "json" };
 import pluginManifest from "../../openclaw.plugin.json" with { type: "json" };
 
 const invokeHaCommandMock = vi.fn();
 const resolveNodeMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeHaCommandMock(...args),
   readGatewayCallOptions: () => ({}),

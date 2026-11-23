@@ -7,9 +7,9 @@ vi.mock("openclaw/plugin-sdk/plugin-entry", () => ({
   definePluginEntry: (entry: unknown) => entry,
 }));
 
-import entry from "./index.js";
-import { readAssistSessionKey } from "./src/shared/caller-context.js";
-import * as assistRegistration from "./src/tools/assist-command-registration.js";
+import entry from "./index.ts";
+import { readAssistSessionKey } from "./src/shared/caller-context.ts";
+import * as assistRegistration from "./src/tools/assist-command-registration.ts";
 
 describe("plugin entrypoint registration", () => {
   it("registers every executable Assist contract row and its invoke policy", () => {
@@ -116,7 +116,7 @@ describe("plugin entrypoint registration", () => {
   });
 
   it("drops a session's allow-always grants on session_end", async () => {
-    const { beforeToolCall } = await import("./src/shared/node-approval.js");
+    const { beforeToolCall } = await import("./src/shared/node-approval.ts");
     const on = vi.fn();
     (entry as unknown as { register(api: unknown): void }).register({
       registerTool: vi.fn(),

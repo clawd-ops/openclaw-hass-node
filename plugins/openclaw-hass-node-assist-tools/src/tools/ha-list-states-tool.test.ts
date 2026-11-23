@@ -1,12 +1,12 @@
 // Tests for ha_list_states.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { HA_LIST_STATES_TOOL_DESCRIPTOR } from "./descriptors.js";
+import { HA_LIST_STATES_TOOL_DESCRIPTOR } from "./descriptors.ts";
 
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -18,7 +18,7 @@ vi.mock("./node-tool-invoke.js", () => ({
 }));
 
 async function loadTool() {
-  const mod = await import("./ha-list-states-tool.js");
+  const mod = await import("./ha-list-states-tool.ts");
   return mod.createHaListStatesTool();
 }
 

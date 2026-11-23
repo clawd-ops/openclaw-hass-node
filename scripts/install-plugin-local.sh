@@ -2,7 +2,8 @@
 # Install openclaw-hass-node-assist-tools locally as a workaround for two
 # packaging limitations that block the standard `openclaw plugins install` path:
 #
-#   A) The plugin ships TypeScript source; the gateway expects compiled JS.
+#   A) The plugin ships TypeScript source and the gateway loads it directly
+#      (no compile step); relative imports must use explicit .ts specifiers.
 #   B) pnpm's workspace node_modules hoisting creates symlinks that escape
 #      the plugin root, triggering the gateway's link-install safety scan.
 #

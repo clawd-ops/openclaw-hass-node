@@ -12,10 +12,10 @@
 // docs/design/AUTHORIZATION-MODEL.md, "Native approvals for node mutations".
 
 import { createHash, randomUUID } from "node:crypto";
-import { assistSkipsPrompt } from "./approval-policy.js";
-import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.js";
-import { grantable, grantSessionKey, sessionGrants, type GrantStore } from "./approval-grants.js";
-import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.js";
+import { assistSkipsPrompt } from "./approval-policy.ts";
+import { CALLER_PARAM, normalizeAssistSessionKey } from "./caller-context.ts";
+import { grantable, grantSessionKey, sessionGrants, type GrantStore } from "./approval-grants.ts";
+import { addonSlugRefusal, gatedCallRefusal } from "./node-approval-preflight.ts";
 
 /** Reserved node.invoke param carrying the approval marker. */
 export const APPROVAL_PARAM = "_openclaw_approval";

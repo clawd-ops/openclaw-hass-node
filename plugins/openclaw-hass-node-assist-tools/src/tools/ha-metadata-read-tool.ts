@@ -12,7 +12,7 @@ import {
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 type Descriptor = Pick<
   AnyAgentTool,

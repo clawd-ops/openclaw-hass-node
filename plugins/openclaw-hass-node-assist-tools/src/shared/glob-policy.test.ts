@@ -3,7 +3,7 @@
 // See entity-filter.test.ts for the canonical tests.
 
 import { describe, expect, it } from "vitest";
-import { matchesAnyGlob } from "./entity-filter.js";
+import { matchesAnyGlob } from "./entity-filter.ts";
 
 describe("matchesAnyGlob (via glob-policy re-export)", () => {
   it("returns false when patterns are undefined or empty", () => {

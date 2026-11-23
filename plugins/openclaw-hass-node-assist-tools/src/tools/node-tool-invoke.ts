@@ -9,7 +9,7 @@ import {
   resolveNodeIdFromList,
   type NodeListNode,
 } from "openclaw/plugin-sdk/agent-harness-runtime";
-import { CALLER_PARAM, readAssistSessionKey } from "../shared/caller-context.js";
+import { CALLER_PARAM, readAssistSessionKey } from "../shared/caller-context.ts";
 
 export const PLUGIN_ID = "openclaw-hass-node-assist-tools";
 

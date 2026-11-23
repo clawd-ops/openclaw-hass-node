@@ -5,13 +5,13 @@ import type { AnyAgentTool } from "openclaw/plugin-sdk/plugin-entry";
 import {
   HA_HISTORY_TOOL_DESCRIPTOR,
   HA_LOGBOOK_TOOL_DESCRIPTOR,
-} from "./descriptors.js";
+} from "./descriptors.ts";
 import {
   invokeHaCommand,
   readGatewayCallOptions,
   readTrimmedString,
   resolveNode,
-} from "./node-tool-invoke.js";
+} from "./node-tool-invoke.ts";
 
 function createEntityScopedReadTool(input: {
   descriptor: Pick<AnyAgentTool, "label" | "name" | "description" | "parameters">;

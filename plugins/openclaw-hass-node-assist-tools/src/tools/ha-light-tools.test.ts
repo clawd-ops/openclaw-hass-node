@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const invokeMock = vi.fn();
 const resolveMock = vi.fn();
 
-vi.mock("./node-tool-invoke.js", () => ({
+vi.mock("./node-tool-invoke.ts", () => ({
   PLUGIN_ID: "openclaw-hass-node-assist-tools",
   invokeHaCommand: (...args: unknown[]) => invokeMock(...args),
   resolveNode: (...args: unknown[]) => resolveMock(...args),
@@ -27,14 +27,14 @@ const T = [
     service: "light.turn_on",
     command: "ha.light_turn_on",
     load: async () =>
-      (await import("./ha-light-tools.js")).createHaLightTurnOnTool(),
+      (await import("./ha-light-tools.ts")).createHaLightTurnOnTool(),
   },
   {
     name: "ha_light_turn_off",
     service: "light.turn_off",
     command: "ha.light_turn_off",
     load: async () =>
-      (await import("./ha-light-tools.js")).createHaLightTurnOffTool(),
+      (await import("./ha-light-tools.ts")).createHaLightTurnOffTool(),
   },
 ];
 

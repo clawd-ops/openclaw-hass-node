@@ -17,7 +17,7 @@
 // Not mirrored (the node alone knows): the add-on lifecycle denylist (node
 // environment config) and parameter value shapes.
 
-import { CALLER_PARAM } from "./caller-context.js";
+import { CALLER_PARAM } from "./caller-context.ts";
 import preflightContract from "./approval-preflight.json" with { type: "json" };
 
 type Preflight = {

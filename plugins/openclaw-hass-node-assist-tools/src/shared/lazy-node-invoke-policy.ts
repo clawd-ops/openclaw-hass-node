@@ -20,7 +20,7 @@ type LoadAssistToolsNodeInvokePolicy = () => Promise<OpenClawPluginNodeInvokePol
 
 const loadAssistToolsNodeInvokePolicy: LoadAssistToolsNodeInvokePolicy = async () => {
   const { createAssistToolsNodeInvokePolicy } = await import(
-    "./node-invoke-policy.js"
+    "./node-invoke-policy.ts"
   );
   return createAssistToolsNodeInvokePolicy();
 };
