@@ -55,9 +55,19 @@ Then configure the plugin (see
 for a minimal routing-only example — only `nodeId: "hass"` is required;
 no entity/service allowlists needed).
 
-**Fix path:** add `"build": "tsc --outDir dist"` to the plugin's `package.json`
-and compile in CI / the release workflow. Long-term, publish to npm so
-`openclaw plugins install <package-name>` works from any fresh clone.
+**Fix path:** publish to npm so `openclaw plugins install <package-name>`
+works from any fresh clone. Compiling to `dist/` with `tsc --outDir` is no
+longer the proposal: the gateway loads the TypeScript source directly
+(`openclaw.extensions` points at `./index.ts`).
+
+**OpenClaw 2026.11.6 requirement:** every relative import in plugin source must
+use an explicit `.ts` (or `.json`) specifier that names a file that exists, not
+`./x.js` or `./x`. The 11.6 plugin preparation worker asks the host to map each
+relative import and the host never answers for specifiers needing TypeScript
+resolution, so the plugin fails to load with `Plugin preparation callback timed
+out`. This is a workaround for a core regression; the guard test
+`src/shared/relative-import-specifiers.test.ts` enforces it. Revisit once core
+is fixed.
 
 ---
 
